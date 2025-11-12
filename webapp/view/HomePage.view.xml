@@ -1,0 +1,158 @@
+<mvc:View controllerName="com.incresolZ_INC_PLMS.controller.HomePage" xmlns:mvc="sap.ui.core.mvc" xmlns="sap.m" xmlns:core="sap.ui.core"
+	xmlns:layout="sap.ui.layout" xmlns:semantic="sap.f.semantic" displayBlock="true">
+	<semantic:SemanticPage id="TripSemanticPage" toggleHeaderOnTitleClick="true" preserveHeaderStateOnScroll="true" showFooter="false">
+		<!-- ==================== TITLE AREA ==================== -->
+		<semantic:titleHeading>
+			<Title text="Trip Status" level="H5"/>
+		</semantic:titleHeading>
+		<!-- ==================== TITLE ACTIONS ==================== -->
+		<semantic:titleCustomTextActions>
+			<Button text="Report Vehicle" icon="sap-icon://add" press=".onReportVehicle" tooltip="Report an unassigned vehicle"/>
+		</semantic:titleCustomTextActions>
+		<semantic:titleCustomTextActions>
+			<Button icon="sap-icon://refresh" type="Transparent" press=".onRefresh" tooltip=""/>
+		</semantic:titleCustomTextActions>
+		<!-- ==================== HEADER CONTENT (FILTERS) ==================== -->
+		<semantic:headerContent>
+			<layout:VerticalLayout>
+				<layout:Grid defaultSpan="L3 M6 S12" class="sapUiSizeCompact">
+					<!-- 1. Trip Number -->
+					<layout:content>
+						<VBox>
+							<Label text="Trip Number:"/>
+							<Input width="70%" showValueHelp="true" showSuggestion="true" suggest=".onSuggest" suggestThreshold="1" filterSuggests="false"
+								valueHelpRequest=".onValueHelpRequest">
+								<customData>
+									<core:CustomData key="field" value="tripNo"/>
+								</customData>
+							</Input>
+						</VBox>
+					</layout:content>
+					<!-- 2. Vehicle Number -->
+					<layout:content>
+						<VBox>
+							<Label text="Vehicle Number:"/>
+							<Input width="70%" showValueHelp="true" showSuggestion="true" suggest=".onSuggest" suggestThreshold="1" filterSuggests="false"
+								valueHelpRequest=".onValueHelpRequest">
+								<customData>
+									<core:CustomData key="field" value="vehicleNumber"/>
+								</customData>
+							</Input>
+						</VBox>
+					</layout:content>
+					<!-- 3. Vehicle Type -->
+					<layout:content>
+						<VBox>
+							<Label text="Vehicle Type:"/>
+							<Input width="70%" showValueHelp="true" showSuggestion="true" suggest=".onSuggest" suggestThreshold="1" filterSuggests="false"
+								valueHelpRequest=".onValueHelpRequest">
+								<customData>
+									<core:CustomData key="field" value="vehicleType"/>
+								</customData>
+							</Input>
+						</VBox>
+					</layout:content>
+					<!-- 4. Transporter Name -->
+					<layout:content>
+						<VBox>
+							<Label text="Transporter Name:"/>
+							<Input width="70%" showValueHelp="true" showSuggestion="true" suggest=".onSuggest" suggestThreshold="1" filterSuggests="false"
+								valueHelpRequest=".onValueHelpRequest">
+								<customData>
+									<core:CustomData key="field" value="transporterName"/>
+								</customData>
+							</Input>
+						</VBox>
+					</layout:content>
+					<!-- 5. LR Number -->
+					<layout:content>
+						<VBox>
+							<Label text="LR Number:"/>
+							<Input width="70%" showValueHelp="true" showSuggestion="true" suggest=".onSuggest" suggestThreshold="1" filterSuggests="false"
+								valueHelpRequest=".onValueHelpRequest">
+								<customData>
+									<core:CustomData key="field" value="lrNumber"/>
+								</customData>
+							</Input>
+						</VBox>
+					</layout:content>
+					<!-- 6. Report Date Time -->
+					<layout:content>
+						<VBox>
+							<Label text="Report Date Time:"/>
+							<DatePicker width="70%" valueFormat="yyyy-MM-dd" displayFormat="medium"/>
+						</VBox>
+					</layout:content>
+					<!-- 7. Plant -->
+					<layout:content>
+						<VBox>
+							<Label text="Plant:"/>
+							<Input width="70%" showValueHelp="true" showSuggestion="true" suggest=".onSuggest" suggestThreshold="1" filterSuggests="false"
+								valueHelpRequest=".onValueHelpRequest">
+								<customData>
+									<core:CustomData key="field" value="plant"/>
+								</customData>
+							</Input>
+						</VBox>
+					</layout:content>
+					<!-- 8. Company Code -->
+					<layout:content>
+						<VBox>
+							<Label text="Company Code:"/>
+							<Input width="70%" showValueHelp="true" showSuggestion="true" suggest=".onSuggest" suggestThreshold="1" filterSuggests="false"
+								valueHelpRequest=".onValueHelpRequest">
+								<customData>
+									<core:CustomData key="field" value="companyCode"/>
+								</customData>
+							</Input>
+						</VBox>
+					</layout:content>
+					<!-- 9. LR Date -->
+					<layout:content>
+						<VBox>
+							<Label text="LR Date:"/>
+							<DatePicker width="70%" valueFormat="yyyy-MM-dd" displayFormat="medium"/>
+						</VBox>
+					</layout:content>
+				</layout:Grid>
+			</layout:VerticalLayout>
+		</semantic:headerContent>
+		<!-- ==================== CONTENT AREA ==================== -->
+		<semantic:content>
+			<Table id="tripTable" inset="false" mode="SingleSelectMaster" items="{ path: '/TripDetails' }" headerText="Trip Details"
+				class="sapUiSizeCompact" growing="true" growingScrollToLoad="true" growingThreshold="25" sticky="ColumnHeaders" width="100%"
+				selectionChange="onTripPress">
+				<columns>
+					<Column><Text text="Trip Number"/></Column>
+					<Column><Text text="Vehicle Number"/></Column>
+					<Column><Text text="Vehicle Type"/></Column>
+					<Column><Text text="Vehicle Size"/></Column>
+					<Column><Text text="Transporter Name"/></Column>
+					<Column><Text text="LR Number"/></Column>
+					<Column><Text text="LR Date"/></Column>
+					<Column><Text text="Driver Name"/></Column>
+					<Column><Text text="Driver Mobile"/></Column>
+					<Column><Text text="Company Code"/></Column>
+					<Column><Text text="Plant"/></Column>
+				</columns>
+				<items>
+					<ColumnListItem>
+						<cells>
+							<Text text="{TripNumber}"/>
+							<Text text="{VehicleNumber}"/>
+							<Text text="{VehicleType}"/>
+							<Text text="{VehicleSize}"/>
+							<Text text="{TransporterName}"/>
+							<Text text="{LR_Number}"/>
+							<Text text="{path: 'LR_Date', type: 'sap.ui.model.type.Date', formatOptions: { pattern: 'dd-MM-yyyy' }}"/>
+							<Text text="{DriverName}"/>
+							<Text text="{DriverMobile}"/>
+							<Text text="{CompanyCode}"/>
+							<Text text="{Plant}"/>
+						</cells>
+					</ColumnListItem>
+				</items>
+			</Table>
+		</semantic:content>
+	</semantic:SemanticPage>
+</mvc:View>

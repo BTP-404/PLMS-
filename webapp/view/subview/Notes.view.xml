@@ -1,0 +1,20 @@
+<mvc:View controllerName="com.incresolZ_INC_PLMS.controller.Stage" xmlns:mvc="sap.ui.core.mvc" xmlns="sap.m" xmlns:layout="sap.ui.layout">
+	<VBox class="sapUiSmallMargin sapUiSizeCompact">
+		<!-- Add Note Section -->
+		<VBox class="sapUiSmallMargin">
+			<Text text="Write your note below:" class="sapUiTinyMarginBottom"/>
+			<TextArea id="idNoteInput" rows="2" width="100%" placeholder="Type your note here..."/>
+			<HBox justifyContent="End" class="sapUiTinyMarginTop">
+				<Button text="Save Note" type="Accept" icon="sap-icon://save" press=".onSaveNote"/>
+			</HBox>
+		</VBox>
+		<!-- Divider Title -->
+		<Text text="Saved Notes" class="sapUiTinyMargin"/>
+		<!-- Saved Notes Section -->
+		<VBox class="sapUiSmallMargin noteVboxBG">
+			<FlexBox id="idNotesContainer" class="notesContainer sapUiTinyMarginTop" wrap="Wrap" alignItems="Start" justifyContent="Start">
+				<Text text="No notes added yet." id="idNoNotesText" visible="true" class="sapUiTinyMargin"/>
+			</FlexBox>
+		</VBox>
+	</VBox>
+</mvc:View>
