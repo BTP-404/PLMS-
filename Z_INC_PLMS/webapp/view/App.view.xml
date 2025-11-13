@@ -1,7 +1,0 @@
-<mvc:View
-    controllerName="com.incresolZ_INC_PLMS.controller.App"
-    xmlns:mvc="sap.ui.core.mvc"
-    xmlns="sap.m"
-    displayBlock="true">
-    <App id="app" />
-</mvc:View>
