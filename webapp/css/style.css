@@ -1,0 +1,12 @@
+.stickyNoteLightBlue {
+    background-color: #e3f2fd;        /* light blue */
+    border: 1px solid #90caf9;        /* slightly darker border */
+    border-radius: 10px;              /* curved corners */
+    box-shadow: 3px 3px 6px rgba(0,0,0,0.2); /* soft 3D shadow */
+    padding: 1rem;
+    margin: 0.5rem 0;
+    width: 100%;
+}
+.noteVboxBG{
+	background-color:white;
+}

@@ -1,0 +1,50 @@
+<mvc:View controllerName="com.incresolZ_INC_PLMS.controller.Stage" xmlns:mvc="sap.ui.core.mvc" xmlns="sap.m" xmlns:core="sap.ui.core"
+	xmlns:form="sap.ui.layout.form" xmlns:unified="sap.ui.unified" xmlns:html="http://www.w3.org/1999/xhtml" displayBlock="true">
+	<App>
+		<pages>
+			<Page title="{i18n>title}">
+				<content>
+					<VBox class="sapUiSmallMargin">
+						<!-- Selected Scenario Info -->
+						<Text id="selectedScenarioText" text="" class="sapUiSmallMarginBegin sapUiSmallMarginEnd sapUiTinyMarginBottom cutstomCssSCenarioText"
+							visible="false"/>
+						<!-- IconTabBar -->
+						<IconTabBar id="iconTabBar" expandable="true" expanded="true" enableTabReordering="true" select="onIconTabSelect">
+							<items>
+								<IconTabFilter text="Reporting" key="vehicleReporting" icon="sap-icon://bus-public-transport">
+									<mvc:XMLView viewName="com.incresolZ_INC_PLMS.view.subview.VehicleReportingTab"/>
+								</IconTabFilter>
+								<IconTabFilter key="gateIn" text="Gate In" icon="sap-icon://visits" enabled="true">
+									<mvc:XMLView viewName="com.incresolZ_INC_PLMS.view.subview.GateIn"/>
+								</IconTabFilter>
+								<IconTabFilter id="idLoadingMaterial" text="Loading" icon="sap-icon://shipping-status">
+									<mvc:XMLView id="idLoadingMaterialView" viewName="com.incresolZ_INC_PLMS.view.subView.Loading"/>
+								</IconTabFilter>
+								<IconTabFilter id="tabGateOut" text="Gate Out" key="gateout" icon="sap-icon://outbox" iconColor="Default">
+									<mvc:XMLView viewName="com.incresolZ_INC_PLMS.view.subview.GateOut"/>
+								</IconTabFilter>
+								<IconTabFilter id="refDoc" text="Ref. Docs/Mat. Details" key="refDocs" icon="sap-icon://documents" iconColor="Positive">
+									<mvc:XMLView viewName="com.incresolZ_INC_PLMS.view.subview.ReferenceDocuments"/>
+								</IconTabFilter>
+								<IconTabFilter id="idNotesTab" text="Notes" icon="sap-icon://notes" key="Notes" iconColor="Positive">
+									<mvc:XMLView viewName="com.incresolZ_INC_PLMS.view.subview.Notes"/>
+								</IconTabFilter>
+								<IconTabFilter id="idAttachmentTab" text="Attachments" icon="sap-icon://attachment" key="Attachments" iconColor="Positive">
+									<mvc:XMLView viewName="com.incresolZ_INC_PLMS.view.subview.AttachmentsTab"/>
+								</IconTabFilter>
+							</items>
+						</IconTabBar>
+					</VBox>
+				</content>
+				<!-- Footer Section -->
+				<footer>
+					<Bar design="Footer">
+						<contentMiddle>
+							<Button id="btnCancelTrip" text="Cancel Trip" type="Reject" icon="sap-icon://cancel" press=".onCancelTrip"/>
+						</contentMiddle>
+					</Bar>
+				</footer>
+			</Page>
+		</pages>
+	</App>
+</mvc:View>

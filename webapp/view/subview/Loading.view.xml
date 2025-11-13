@@ -1,0 +1,113 @@
+<mvc:View controllerName="com.incresolZ_INC_PLMS.controller.Stage" xmlns:form="sap.ui.layout.form" xmlns:mvc="sap.ui.core.mvc" xmlns="sap.m" xmlns:core="sap.ui.core"
+	xmlns:layout="sap.ui.layout">
+	<VBox class="sapUiSmallMargin sapUiSizeCompact">
+		<!-- Material Details Section -->
+		<layout:Grid defaultSpan="L6 M6 S12" width="100%">
+			<layout:content>
+				<HBox alignItems="Center">
+					<Label text="Weighment Required?" labelFor="idWeighmentRequired" width="15rem"/>
+					<RadioButtonGroup id="idWeighmentRequired" columns="2">
+						<buttons>
+							<RadioButton text="Yes" key="Y"/>
+							<RadioButton text="No" key="N"/>
+						</buttons>
+					</RadioButtonGroup>
+				</HBox>
+				<!--<HBox alignItems="Center">-->
+				<!--    <Label text="Is Combined Weight?" labelFor="idIsCombinedWeight" width="15rem"/>-->
+				<!--    <RadioButtonGroup id="idIsCombinedWeight" columns="2">-->
+				<!--        <buttons>-->
+				<!--            <RadioButton text="Yes" key="Y"/>-->
+				<!--            <RadioButton text="No" key="N"/>-->
+				<!--        </buttons>-->
+				<!--    </RadioButtonGroup>-->
+				<!--</HBox>-->
+			</layout:content>
+		</layout:Grid>
+		<!-- Scrollable & Wrapping Table -->
+		<ScrollContainer horizontal="true" vertical="false" width="100%" height="auto"
+			class="sapUiNoContentPadding sapUiSmallMarginTop sapUiSizeCompact">
+			<HBox wrap="Wrap" width="auto">
+				<Table id="idLoadingMaterialTable" inset="false" mode="None" sticky="ColumnHeaders" width="150rem" class="sapUiSizeCompact">
+					<columns>
+						<Column><Text text="Ref Doc Number"/></Column>
+						<Column><Text text="Ref Doc Item Number"/></Column>
+						<Column><Text text="Material Code"/></Column>
+						<Column><Text text="Material Description"/></Column>
+						<Column><Text text="Qty"/></Column>
+						<Column><Text text="UoM"/></Column>
+						<Column><Text text="Loaded Qty / Net Wt"/></Column>
+						<Column><Text text="Gross Wt"/></Column>
+						<Column><Text text="Tare Wt"/></Column>
+						<Column><Text text="Created By"/></Column>
+						<Column><Text text="Created On Date"/></Column>
+						<Column><Text text="Created On Time"/></Column>
+						<Column><Text text="Changed By"/></Column>
+						<Column><Text text="Changed On Date"/></Column>
+						<Column><Text text="Changed On Time"/></Column>
+						<Column hAlign="Center" width="6rem"><Text text="Action"/></Column>
+					</columns>
+					<!-- Default One Row -->
+					<items>
+						<ColumnListItem>
+							<cells>
+								<Select width="10rem"/>
+								<Select width="10rem"/>
+								<Input width="10rem"/>
+								<Input width="12rem"/>
+								<Input width="8rem" type="Number"/>
+								<Select width="6rem"/>
+								<Input width="10rem"/>
+								<Input width="8rem"/>
+								<Input width="8rem"/>
+								<Select width="10rem"/>
+								<DatePicker width="10rem" displayFormat="short"/>
+								<TimePicker width="10rem"/>
+								<Select width="10rem"/>
+								<DatePicker width="10rem" displayFormat="short"/>
+								<TimePicker width="10rem"/>
+								<Button icon="sap-icon://delete" type="Reject" press=".onDeleteLoadingRow" tooltip="Delete Row"/>
+							</cells>
+						</ColumnListItem>
+					</items>
+				</Table>
+			</HBox>
+		</ScrollContainer>
+		<!-- Add Row Button -->
+		<HBox justifyContent="End" class="sapUiTinyMarginTop">
+			<Button id="btnAddRowLoading" text="Add Row" icon="sap-icon://add" type="Emphasized" press="onAddLoadingRow"/>
+		</HBox>
+		<!-- Action Buttons -->
+		<HBox justifyContent="End" class="sapUiTinyMarginTop sapUiTinyMarginEnd">
+			<Button id="btnEditLoading" text="Edit" type="Emphasized" press="onEditLoading"/>
+			<Button id="btnSaveLoading" text="Save" type="Accept" class="sapUiTinyMarginBegin" press="onSaveLoading"/>
+		</HBox>
+		<!-- Change History Panel -->
+		<Panel id="loadingChangeHistoryPanel" headerText="Change History" expandable="true" expanded="false" class="sapUiSmallMargin">
+			<form:SimpleForm id="loadingChangeHistoryForm" editable="false" layout="ResponsiveGridLayout" labelSpanL="3" labelSpanM="3" emptySpanL="1"
+				emptySpanM="1" columnsL="2" columnsM="2" columnsS="1">
+				<Label text="Created By" required="true"/>
+				<Select id="idloadingCreatedBy" required="true" enabled="false"/>
+				<Label text="Created On Date" required="true"/>
+				<DatePicker id="idloadingCreatedOnDate" required="true" enabled="false"/>
+				<Label text="Created On Time" required="true"/>
+				<TimePicker id="idloadingCreatedOnTime" required="true" enabled="false"/>
+				<!--<Label text="Changed By"/>-->
+				<!--<Select id="idloadingChangedBy"/>-->
+				<!--<Label text="Changed On Date"/>-->
+				<!--<DatePicker id="idloadingChangedOnDate"/>-->
+				<!--<Label text="Changed On Time"/>-->
+				<!--<TimePicker id="idloadingChangedOnTime"/>-->
+				<!--<Label text="Completed On Date"/>-->
+				<!--<DatePicker id="idloadingCompletedOnDate"/>-->
+				<!--<Label text="Completed On Time"/>-->
+				<!--<TimePicker id="idloadingCompletedOnTime"/>-->
+			</form:SimpleForm>
+			<!-- Action Buttons (Edit + Save) -->
+			<!--<HBox id="loadingHistoryButtons" justifyContent="End" class="sapUiSmallMarginTop sapUiTinyMarginEnd">-->
+			<!--	<Button id="btnEditloadingHistory" text="Edit" type="Emphasized" press="onEditloadingHistory"/>-->
+			<!--	<Button id="btnSaveloadingHistory" text="Save" type="Accept" press="onSaveloadingHistory" class="sapUiTinyMarginBegin"/>-->
+			<!--</HBox>-->
+		</Panel>
+	</VBox>
+</mvc:View>

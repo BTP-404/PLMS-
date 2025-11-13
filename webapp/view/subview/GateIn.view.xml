@@ -1,0 +1,48 @@
+<mvc:View xmlns:mvc="sap.ui.core.mvc" xmlns="sap.m" xmlns:form="sap.ui.layout.form" controllerName="com.incresolZ_INC_PLMS.controller.Stage">
+	<VBox class="sapUiSmallMargin">
+		<!-- Gate In Info Panel -->
+		<Panel id="gateInInfoPanel" headerText="Gate In Info" expandable="true" expanded="true" class="sapUiSmallMargin">
+			<form:SimpleForm id="gateInInfoForm" editable="true" layout="ResponsiveGridLayout" labelSpanL="3" labelSpanM="3" emptySpanL="1"
+				emptySpanM="1" columnsL="2" columnsM="2" columnsS="1">
+				<Label text="Entry Gate Number" required="true"/>
+				<Select id="idEntryGateNumber" required="true"/>
+				<Label text="Delay Reasons"/>
+				<Select id="idDelayReasons"/>
+				<Label text="Remarks"/>
+				<TextArea id="idGateInRemarks" rows="3" placeholder="Enter any remarks"/>
+			</form:SimpleForm>
+			<!-- Action Buttons (Edit + Save) -->
+			<HBox id="gateInInfoButtons" justifyContent="End" class="sapUiSmallMarginTop sapUiTinyMarginEnd">
+				<Button id="btnEditGateInInfo" text="Edit" type="Emphasized" press="onEditGateInInfo"/>
+				<Button id="btnSaveGateInInfo" text="Save" type="Accept" press="onSaveGateInInfo" class="sapUiTinyMarginBegin"/>
+			</HBox>
+		</Panel>
+		<!-- Change History Panel -->
+		<Panel id="gateInChangeHistoryPanel" headerText="Change History" expandable="true" expanded="false" class="sapUiSmallMargin">
+			<form:SimpleForm id="gateInChangeHistoryForm" editable="false" layout="ResponsiveGridLayout" labelSpanL="3" labelSpanM="3" emptySpanL="1"
+				emptySpanM="1" columnsL="2" columnsM="2" columnsS="1">
+				<Label text="Created By" required="true"/>
+				<Select id="idGateInCreatedBy" required="true" enabled="false"/>
+				<Label text="Created On Date" required="true"/>
+				<DatePicker id="idGateInCreatedOnDate" required="true" enabled="false"/>
+				<Label text="Created On Time" required="true"/>
+				<TimePicker id="idGateInCreatedOnTime" required="true" enabled="false"/>
+				<!--<Label text="Changed By"/>-->
+				<!--<Select id="idGateInChangedBy"/>-->
+				<!--<Label text="Changed On Date"/>-->
+				<!--<DatePicker id="idGateInChangedOnDate"/>-->
+				<!--<Label text="Changed On Time"/>-->
+				<!--<TimePicker id="idGateInChangedOnTime"/>-->
+				<!--<Label text="Completed On Date"/>-->
+				<!--<DatePicker id="idGateInCompletedOnDate"/>-->
+				<!--<Label text="Completed On Time"/>-->
+				<!--<TimePicker id="idGateInCompletedOnTime"/>-->
+			</form:SimpleForm>
+			<!-- Action Buttons (Edit + Save) -->
+			<!--<HBox id="gateInHistoryButtons" justifyContent="End" class="sapUiSmallMarginTop sapUiTinyMarginEnd">-->
+			<!--	<Button id="btnEditGateInHistory" text="Edit" type="Emphasized" press="onEditGateInHistory"/>-->
+			<!--	<Button id="btnSaveGateInHistory" text="Save" type="Accept" press="onSaveGateInHistory" class="sapUiTinyMarginBegin"/>-->
+			<!--</HBox>-->
+		</Panel>
+	</VBox>
+</mvc:View>

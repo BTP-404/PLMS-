@@ -2,10 +2,10 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Start Z_INC_PLMS",
+            "name": "Start Z_INC_PLMS (3)",
             "type": "node",
             "request": "launch",
-            "cwd": "${workspaceFolder}/Z_INC_PLMS",
+            "cwd": "${workspaceFolder}",
             "runtimeExecutable": "npx",
             "windows": {
                 "runtimeExecutable": "npx.cmd"
@@ -23,14 +23,14 @@
             "outputCapture": "std",
             "env": {
                 "DEBUG": "--inspect",
-                "FIORI_TOOLS_URL_PARAMS": "sap-client=100&sap-ui-xx-viewCache=false"
+                "FIORI_TOOLS_URL_PARAMS": "sap-ui-xx-viewCache=false"
             }
         },
         {
-            "name": "Start Z_INC_PLMS Mock",
+            "name": "Start Z_INC_PLMS (3) Mock",
             "type": "node",
             "request": "launch",
-            "cwd": "${workspaceFolder}/Z_INC_PLMS",
+            "cwd": "${workspaceFolder}",
             "runtimeExecutable": "npx",
             "windows": {
                 "runtimeExecutable": "npx.cmd"
@@ -47,14 +47,14 @@
             "internalConsoleOptions": "openOnSessionStart",
             "outputCapture": "std",
             "env": {
-                "FIORI_TOOLS_URL_PARAMS": "sap-client=100&sap-ui-xx-viewCache=false"
+                "FIORI_TOOLS_URL_PARAMS": "sap-ui-xx-viewCache=false"
             }
         },
         {
-            "name": "Start Z_INC_PLMS Local",
+            "name": "Start Z_INC_PLMS (3) Local",
             "type": "node",
             "request": "launch",
-            "cwd": "${workspaceFolder}/Z_INC_PLMS",
+            "cwd": "${workspaceFolder}",
             "runtimeExecutable": "npx",
             "windows": {
                 "runtimeExecutable": "npx.cmd"
@@ -73,7 +73,7 @@
             "internalConsoleOptions": "openOnSessionStart",
             "outputCapture": "std",
             "env": {
-                "FIORI_TOOLS_URL_PARAMS": "sap-client=100&sap-ui-xx-viewCache=false"
+                "FIORI_TOOLS_URL_PARAMS": "sap-ui-xx-viewCache=false"
             }
         }
     ]
