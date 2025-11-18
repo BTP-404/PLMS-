@@ -14,16 +14,13 @@ sap.ui.define([
 
 		onInit: function () {
 			var serviceUrl = "/sap/opu/odata/sap/YIGP_PLMS_SRV/";
-			var oModel = new ODataModel(serviceUrl, {
-				useBatch: false,
-				defaultBindingMode: "TwoWay"
-			});
+			var oModel = new ODataModel(serviceUrl, { 				useBatch: false, 				defaultBindingMode: "TwoWay" 			});
 			this.getView().setModel(oModel);
 		},
 
-		// --------------------------------------------------------------------
-		// Navigation
-		// --------------------------------------------------------------------
+		// --------------------------------------------
+		// NAVIGATION
+		// --------------------------------------------
 		onReportVehicle: function () {
 			var oRouter = this.getOwnerComponent().getRouter();
 			if (oRouter) {
@@ -34,21 +31,16 @@ sap.ui.define([
 		},
 
 		onTripPress: function (oEvent) {
-			var oSelectedItem = oEvent.getParameter("listItem");
-			var oContext = oSelectedItem.getBindingContext();
-			var sTripNo = oContext.getProperty("TripNumber");
-			console.log(sTripNo)
-			var oRouter = sap.ui.core.UIComponent.getRouterFor(this);
-			oRouter.navTo("StagewithParam", {
-				tripNo: sTripNo || "" // optional parameter
-			});
+			var sTripNo = oEvent.getParameter("listItem").getBindingContext().getProperty("TripNumber");
+			
+			this.getView().byId("tripTable").removeSelections(true); 
+sap.ui.core.UIComponent.getRouterFor(this).navTo("StagewithParam", { 				tripNo: sTripNo || "" 			});
+
 		},
 
 		onRefresh: function () {
-			var oView = this.getView();
-			var oTable = oView.byId("tripTable");
-			var oModel = oView.getModel();
-
+			var oTable = this.getView().byId("tripTable");
+			var oModel = this.getView().getModel();
 			if (oModel) {
 				oTable.setBusy(true);
 				oModel.refresh(true);
@@ -56,57 +48,43 @@ sap.ui.define([
 					oTable.setBusy(false);
 					MessageToast.show("Trip details refreshed");
 				});
-			} else {
-				MessageToast.show("Model not found. Please check initialization.");
-			}
+						}
 		},
 
-		// --------------------------------------------------------------------
+		// --------------------------------------------
 		// VALUE HELP
-		// --------------------------------------------------------------------
+		// --------------------------------------------
 		onValueHelpRequest: function (oEvent) {
 			var oInput = oEvent.getSource();
 			var sField = oInput.data("field");
-			var oModel = this.getView().getModel();
-			var oFieldConfig = this._getFieldConfiguration(sField);
-
-			if (!oFieldConfig) {
-				MessageToast.show("No value help configured for " + sField);
-				return;
-			}
-
-			var {
-				sKeyField,
-				sDescField,
-				sTitle
-			} = oFieldConfig;
+						var oFieldConfig = this._getFieldConfiguration(sField);
+			if (!oFieldConfig) return 				MessageToast.show("No value help for " + sField);
+				
+			var { 				sKeyField, 				sDescField, 				sTitle 			} = oFieldConfig;
+var oModel = this.getView().getModel();
 
 			var oSelectDialog = new SelectDialog({
 				title: sTitle,
 				liveChange: function (oEvt) {
 					var sValue = oEvt.getParameter("value");
-					var aFilters = [];
-					if (sValue) {
-						aFilters.push(new Filter([
+					var aFilters = sValue ? [
+new Filter([
 							new Filter(sKeyField, FilterOperator.Contains, sValue),
 							new Filter(sDescField, FilterOperator.Contains, sValue)
-						], false));
-					}
+						], false)
+					] : [];
 					oEvt.getSource().getBinding("items").filter(aFilters);
 				},
 				confirm: function (oEvt) {
 					var oSelectedItem = oEvt.getParameter("selectedItem");
 					if (oSelectedItem) {
 						oInput.setValue(oSelectedItem.getTitle());
+this._applyTableFilter(); // Dynamic filtering
 					}
-				},
-				cancel: function () {
-					MessageToast.show("Selection cancelled");
-				}
+				}.bind(this)
 			});
 
-			// Bind TripDetails entity set
-			oSelectDialog.setModel(oModel);
+						oSelectDialog.setModel(oModel);
 			oSelectDialog.bindAggregation("items", {
 				path: "/TripDetails",
 				template: new StandardListItem({
@@ -118,101 +96,89 @@ sap.ui.define([
 			oSelectDialog.open();
 		},
 
-		// --------------------------------------------------------------------
+		// --------------------------------------------
 		// LIVE SUGGESTIONS
-		// --------------------------------------------------------------------
+		// --------------------------------------------
 		onSuggest: function (oEvent) {
 			var oInput = oEvent.getSource();
 			var sField = oInput.data("field");
 			var sValue = oEvent.getParameter("suggestValue");
-			var oModel = this.getView().getModel();
-			var oFieldConfig = this._getFieldConfiguration(sField);
-
+						var oFieldConfig = this._getFieldConfiguration(sField);
 			if (!oFieldConfig) return;
-			var {
-				sKeyField,
-				sDescField
-			} = oFieldConfig;
-
-			var aFilters = [];
-			if (sValue) {
-				aFilters.push(new Filter([
+			
+var { sKeyField, sDescField } = oFieldConfig;
+			var aFilters = sValue ? [new Filter([
 					new Filter(sKeyField, FilterOperator.Contains, sValue),
 					new Filter(sDescField, FilterOperator.Contains, sValue)
-				], false));
-			}
+				], false)] : [];
 
-			oModel.read("/TripDetails", {
+			this.getView().getModel().read("/TripDetails", {
 				filters: aFilters,
 				success: function (oData) {
-					var aResults = oData.results || [];
-					oInput.destroySuggestionItems();
-
-					aResults.forEach(function (item) {
+										oInput.destroySuggestionItems();
+(oData.results || []).forEach(function (item) {
 						oInput.addSuggestionItem(new SuggestionItem({
 							key: item[sKeyField],
 							text: item[sKeyField],
 							description: item[sDescField]
 						}));
 					});
-				},
-				error: function () {
-					console.error("Failed to load suggestions for " + sField);
-				}
+				this._applyTableFilter(); // Auto filter while typing
+				}.bind(this)
 			});
 		},
 
-		// --------------------------------------------------------------------
-		// FIELD CONFIGURATION MAP (Single Table)
-		// --------------------------------------------------------------------
+onSuggestionItemSelected: function (oEvent) {
+			var oInput = oEvent.getSource();
+			oInput.setValue(oEvent.getParameter("selectedItem").getText());
+			this._applyTableFilter();
+		},
+
+		onInputLiveChange: function () {
+			this._applyTableFilter();
+		},
+
+		// --------------------------------------------
+		// TABLE FILTERING LOGIC
+		// --------------------------------------------
+		_applyTableFilter: function () {
+			var oTable = this.getView().byId("tripTable");
+			var oBinding = oTable.getBinding("items");
+			if (!oBinding) return;
+
+			var aInputs = this.getView().findAggregatedObjects(true, function (oCtrl) {
+				return oCtrl.isA("sap.m.Input") || oCtrl.isA("sap.m.DatePicker");
+			});
+
+			var aFilters = [];
+			aInputs.forEach(function (oInput) {
+				var sField = oInput.data("field");
+				var sValue = oInput.getValue ? oInput.getValue() : "";
+				if (sField && sValue) {
+					var oFieldConfig = this._getFieldConfiguration(sField);
+					if (oFieldConfig) {
+						aFilters.push(new Filter(oFieldConfig.sKeyField, FilterOperator.Contains, sValue));
+					}
+				}
+			}.bind(this));
+
+			oBinding.filter(aFilters.length ? new Filter(aFilters, true) : []);
+		},
+
+		// --------------------------------------------
+		// FIELD CONFIGURATION
+		// --------------------------------------------
 		_getFieldConfiguration: function (sField) {
 			switch (sField) {
-				case "tripNo":
-					return {
-						sKeyField: "TripNumber",
-						sDescField: "VehicleNumber",
-						sTitle: "Select Trip Number"
-					};
-				case "vehicleNumber":
-					return {
-						sKeyField: "VehicleNumber",
-						sDescField: "VehicleType",
-						sTitle: "Select Vehicle Number"
-					};
-				case "vehicleType":
-					return {
-						sKeyField: "VehicleType",
-						sDescField: "VehicleSize",
-						sTitle: "Select Vehicle Type"
-					};
-				case "transporterName":
-					return {
-						sKeyField: "TransporterName",
-						sDescField: "DriverName",
-						sTitle: "Select Transporter"
-					};
-				case "lrNumber":
-					return {
-						sKeyField: "LR_Number",
-						sDescField: "TripNumber",
-						sTitle: "Select LR Number"
-					};
-				case "plant":
-					return {
-						sKeyField: "Plant",
-						sDescField: "CompanyCode",
-						sTitle: "Select Plant"
-					};
-				case "companyCode":
-					return {
-						sKeyField: "CompanyCode",
-						sDescField: "Plant",
-						sTitle: "Select Company Code"
-					};
-				default:
-					return null;
+				case "tripNo": 					return { 						sKeyField: "TripNumber", 						sDescField: "VehicleNumber", 						sTitle: "Select Trip Number" 					};
+				case "vehicleNumber": 					return { 						sKeyField: "VehicleNumber", 						sDescField: "VehicleType", 						sTitle: "Select Vehicle Number" 					};
+				case "vehicleType": 					return { 						sKeyField: "VehicleType", 						sDescField: "VehicleSize", 						sTitle: "Select Vehicle Type" 					};
+				case "transporterName": 					return { 						sKeyField: "TransporterName", 						sDescField: "DriverName", 						sTitle: "Select Transporter" 					};
+				case "lrNumber": 					return { 						sKeyField: "LR_Number", 						sDescField: "TripNumber", 						sTitle: "Select LR Number" 					};
+				case "plant": 					return { 						sKeyField: "Plant", 						sDescField: "CompanyCode", 						sTitle: "Select Plant" 					};
+				case "companyCode": 					return { 						sKeyField: "CompanyCode", 						sDescField: "Plant", 						sTitle: "Select Company Code" 					};
+				default: 					return null;
 			}
 		}
-
 	});
 });

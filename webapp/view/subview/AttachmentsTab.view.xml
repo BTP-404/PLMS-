@@ -4,62 +4,108 @@
     xmlns="sap.m"
     xmlns:core="sap.ui.core"
     xmlns:layout="sap.ui.layout"
-    xmlns:unified="sap.ui.unified">
+    xmlns:unified="sap.ui.unified"
+>
 
     <VBox class="sapUiSmallMargin sapUiSizeCompact">
 
-        <!-- Upload Panel -->
+        <!-- ========================================================= -->
+        <!-- Upload Section -->
+        <!-- ========================================================= -->
         <Panel
             headerText="Upload Document"
-            class="sapUiNoContentPadding"
             expandable="true"
-            expanded="true">
+            expanded="true"
+            class="sapUiNoContentPadding"
+        >
+            <VBox class="sapUiMediumMargin">
 
-            <HBox justifyContent="SpaceBetween" alignItems="Center" class="sapUiSmallMargin">
+                <Title
+                    text="Upload Document"
+                    level="H5"
+                    class="sapUiTinyMarginBottom"
+                />
 
-                <!-- Dropdown for Stage -->
-                <VBox width="40%">
-                    <Text text="Select Stage:" class="sapUiTinyMarginBottom"/>
-                    <Select id="idStageSelect" width="100%" selectedItem="">
-                    		 <core:Item key="" text="Select Stage..."/>
-                    	 <core:Item key="Reporting" text="Reporting"/>
-                        <core:Item key="GateIn" text="Gate In"/>
-                        <core:Item key="Loading" text="Loading"/>
-                        <core:Item key="Unloading" text="Unloading"/>
-                        <core:Item key="GateOut" text="Gate Out"/>
-                    </Select>
-                </VBox>
+                <HBox
+                    justifyContent="SpaceBetween"
+                    alignItems="Center"
+                    class="sapUiSmallMarginTop"
+                >
 
-                <!-- Unified File Uploader -->
-                <VBox width="45%">
-                    <Text text="Upload File:" class="sapUiTinyMarginBottom"/>
-                    <unified:FileUploader
-                        id="idUnifiedUploader"
-                        name="uploadFile"
-                        placeholder="Choose file (PDF or image)"
-                        fileType="pdf,jpg,jpeg,png"
-                        icon="sap-icon://upload"
-                        width="100%"
-                        change=".onFileChange"/>
-                </VBox>
+                    <!-- Stage Selection -->
+                    <VBox width="40%">
+                        <Text text="Select Stage" class="sapUiTinyMarginBottom" />
 
-            </HBox>
+                        <Select
+                            id="idStageSelect"
+                            width="100%"
+                            selectedItem=""
+                        >
+                            <core:Item key="" text="Select Stage..." />
+                            <core:Item key="Reporting" text="Reporting" />
+                            <core:Item key="GateIn" text="Gate In" />
+                            <core:Item key="Loading" text="Loading" />
+                            <core:Item key="Unloading" text="Unloading" />
+                            <core:Item key="GateOut" text="Gate Out" />
+                        </Select>
+                    </VBox>
 
-            <HBox justifyContent="End" class="sapUiTinyMarginTop">
-                <Button text="Upload"
+                    <!-- File Uploader -->
+                    <VBox width="45%">
+                        <Text text="Upload File" class="sapUiTinyMarginBottom" />
+
+                        <unified:FileUploader
+                            id="idUnifiedUploader"
+                            name="uploadFile"
+                            placeholder="Choose file (PDF or image)"
+                            fileType="pdf,jpg,jpeg,png"
+                            icon="sap-icon://upload"
+                            width="100%"
+                            change=".onFileChange"
+                        />
+                    </VBox>
+
+                </HBox>
+
+                <!-- Upload Button -->
+                <HBox justifyContent="End" class="sapUiTinyMarginTop">
+                    <Button
+                        text="Upload"
                         type="Accept"
                         icon="sap-icon://upload-to-cloud"
-                        press=".onUploadDocument"/>
-            </HBox>
+                        press=".onUploadDocument"
+                    />
+                </HBox>
+
+            </VBox>
         </Panel>
 
+        <!-- ========================================================= -->
         <!-- Uploaded Files List -->
-        <Panel headerText="Uploaded Files" class="sapUiNoContentPadding sapUiSmallMarginTop" expandable="true">
-            <List id="idUploadedFilesList"
-                  noDataText="No files uploaded yet."
-                  mode="Delete"
-                  delete=".onDeleteFile"/>
+        <!-- ========================================================= -->
+        <Panel
+            headerText="Uploaded Files"
+            expandable="true"
+            expanded="true"
+            class="sapUiNoContentPadding sapUiSmallMarginTop"
+        >
+            <VBox class="sapUiMediumMargin">
+
+                <Title
+                    text="Uploaded Files"
+                    level="H5"
+                    class="sapUiTinyMarginBottom"
+                />
+
+                <List
+                    id="idUploadedFilesList"
+                    mode="Delete"
+                    noDataText="No files uploaded yet."
+                    delete=".onDeleteFile"
+                />
+            </VBox>
         </Panel>
 
     </VBox>
+
 </mvc:View>
