@@ -406,15 +406,10 @@ sap.ui.define(
         /* ===========================================================
          * NO CHANGE: onValueHelpPlant (keeps your fragment logic)
          * =========================================================== */
-        onValueHelpPlant: function () {
+    onValueHelpPlant: function () {
           var oView = this.getView();
 
-          if (
-            !this.com.incresolZ_INC_PLMS.controller.subview
-              .VehicleReportingTabcom.incresolZ_INC_PLMS.controller.subview
-              .VehicleReportingTab_mValueHelps
-          )
-            this._mValueHelps = {};
+          if (!this._mValueHelps) this._mValueHelps = {};
 
           if (!this._mValueHelps.VHPlant) {
             Fragment.load({
