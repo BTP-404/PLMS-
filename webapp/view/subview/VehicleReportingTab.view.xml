@@ -68,7 +68,29 @@
                                 design="Bold"
                                 required="true"
                             />
-                           
+                          <Input
+    width="100%"
+    showValueHelp="true"
+    showSuggestion="true"
+    suggestionItems="{VHModel>/}"
+    suggest=".onSuggest"
+    filterSuggests="false"
+    suggestThreshold="1"
+    valueHelpRequest=".onValueHelpVehicleNumber"
+    suggestionItemSelected=".onSuggestionItemSelected">
+
+    <suggestionItems>
+        <core:Item 
+            text="{VHModel>VehicleNumber}"
+            additionalText="{VHModel>TransporterName}"
+        />
+    </suggestionItems>
+
+    <customData>
+        <core:CustomData key="field" value="vehicleNumber" />
+    </customData>
+</Input>
+
                         </VBox>
                     </layout:content>
                     <layout:content>
