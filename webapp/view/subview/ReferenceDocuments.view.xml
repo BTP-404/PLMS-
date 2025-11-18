@@ -7,111 +7,149 @@
 
     <VBox class="sapUiSmallMargin sapUiSizeCompact">
 
-        <!-- ============ Reference Documents Table ============ -->
-        <Title text="Reference Documents" level="H5" class="sapUiSmallMarginBottom"/>
+        <!-- ========================================================= -->
+        <!-- =============== Reference Documents Panel =============== -->
+        <!-- ========================================================= -->
+        <Panel expandable="true" expanded="true" class="sapUiNoContentPadding">
 
-        <ScrollContainer horizontal="true" vertical="false" width="100%" height="auto"
-            class="sapUiNoContentPadding sapUiSizeCompact sapUiTinyMarginBottom">
-            <HBox wrap="Wrap" width="auto">
-                <Table id="idReferenceDocsTable" inset="false" mode="None" 
-                    width="150rem" class="sapUiSizeCompact">
-                    <columns>
-                        <Column><Text text="Doc Type"/></Column>
-                        <Column><Text text="Document Number"/></Column>
-                        <Column><Text text="Document Date"/></Column>
-                        <Column><Text text="Sending/Receiving Party Code"/></Column>
-                        <Column><Text text="Sending/Receiving Party Name"/></Column>
-                        <Column><Text text="Created By"/></Column>
-                        <Column><Text text="Created On Date"/></Column>
-                        <Column><Text text="Created On Time"/></Column>
-                        <Column><Text text="Changed By"/></Column>
-                        <Column><Text text="Changed On Date"/></Column>
-                        <Column><Text text="Changed On Time"/></Column>
-                        <Column hAlign="Center" width="6rem"><Text text="Action"/></Column>
-                    </columns>
-                    <items>
-                        <ColumnListItem>
-                            <cells>
-                                <Select width="10rem"/>
-                                <Input width="12rem"/>
-                                <DatePicker width="10rem" displayFormat="short"/>
-                                <Input width="12rem"/>
-                                <Input width="12rem"/>
-                                <Select width="10rem"/>
-                                <DatePicker width="10rem" displayFormat="short"/>
-                                <TimePicker width="10rem"/>
-                                <Select width="10rem"/>
-                                <DatePicker width="10rem" displayFormat="short"/>
-                                <TimePicker width="10rem"/>
-                                <Button icon="sap-icon://delete" type="Reject"
-                                    press=".onDeleteRefDocRow" tooltip="Delete Row"/>
-                            </cells>
-                        </ColumnListItem>
-                    </items>
-                </Table>
-            </HBox>
-        </ScrollContainer>
+            <headerToolbar>
+                <OverflowToolbar>
+                    <Title text="Reference Documents" />
+                    <ToolbarSpacer />
+                    <Button text="Edit" type="Emphasized" press="onEditReferenceDocs" />
+                    <Button text="Save" type="Accept" class="sapUiTinyMarginBegin" press="onSaveReferenceDocs" />
+                </OverflowToolbar>
+            </headerToolbar>
 
-        <HBox justifyContent="End" class="sapUiTinyMarginTop">
-            <Button text="Add Row" icon="sap-icon://add" type="Emphasized" press="onAddRefDocRow"/>
-        </HBox>
+            <!-- ======== Reference Documents Table ======== -->
+            <VBox class="sapUiSizeCompact sapUiSmallMargin">
 
-        <!-- ============ Material Details Table ============ -->
-        <Title text="Material Details" level="H5" class="sapUiSmallMarginTop sapUiSmallMarginBottom"/>
+                <ScrollContainer horizontal="true" vertical="false" width="100%" height="auto"
+                    class="sapUiNoContentPadding sapUiTinyMarginBottom">
+                    <HBox wrap="Wrap" width="auto">
 
-        <ScrollContainer horizontal="true" vertical="false" width="100%" height="auto"
-            class="sapUiNoContentPadding sapUiSizeCompact sapUiTinyMarginBottom">
-            <HBox wrap="Wrap" width="auto">
-                <Table id="idMaterialDetailsTable" inset="false" mode="None" 
-                    width="150rem" class="sapUiSizeCompact">
-                    <columns>
-                        <Column><Text text="Ref Doc No"/></Column>
-                        <Column><Text text="Ref Doc Item No"/></Column>
-                        <Column><Text text="Material Code"/></Column>
-                        <Column><Text text="Material Description"/></Column>
-                        <Column><Text text="Qty"/></Column>
-                        <Column><Text text="UoM"/></Column>
-                        <Column><Text text="Created By"/></Column>
-                        <Column><Text text="Created On Date"/></Column>
-                        <Column><Text text="Created On Time"/></Column>
-                        <Column><Text text="Changed By"/></Column>
-                        <Column><Text text="Changed On Date"/></Column>
-                        <Column><Text text="Changed On Time"/></Column>
-                        <Column hAlign="Center" width="6rem"><Text text="Action"/></Column>
-                    </columns>
-                    <items>
-                        <ColumnListItem>
-                            <cells>
-                                <Select width="10rem"/>
-                                <Select width="10rem"/>
-                                <Select width="10rem"/>
-                                <Input width="12rem"/>
-                                <Input width="8rem" type="Number"/>
-                                <Select width="8rem"/>
-                                <Select width="10rem"/>
-                                <DatePicker width="10rem" displayFormat="short"/>
-                                <TimePicker width="10rem"/>
-                                <Select width="10rem"/>
-                                <DatePicker width="10rem" displayFormat="short"/>
-                                <TimePicker width="10rem"/>
-                                <Button icon="sap-icon://delete" type="Reject"
-                                    press=".onDeleteMaterialRow" tooltip="Delete Row"/>
-                            </cells>
-                        </ColumnListItem>
-                    </items>
-                </Table>
-            </HBox>
-        </ScrollContainer>
+                        <Table id="idReferenceDocsTable"
+                            inset="false"
+                            mode="None"
+                            width="150rem"
+                            class="sapUiSizeCompact">
 
-        <HBox justifyContent="End" class="sapUiTinyMarginTop">
-            <Button text="Add Row" icon="sap-icon://add" type="Emphasized" press="onAddMaterialRow"/>
-        </HBox>
+                            <columns>
+                                <Column><Text text="Doc Type" /></Column>
+                                <Column><Text text="Document Number" /></Column>
+                                <Column><Text text="Document Date" /></Column>
+                                <Column><Text text="Sending/Receiving Party Code" /></Column>
+                                <Column><Text text="Sending/Receiving Party Name" /></Column>
+                                <Column><Text text="Created By" /></Column>
+                                <Column><Text text="Created On Date" /></Column>
+                                <Column><Text text="Created On Time" /></Column>
+                                <Column><Text text="Changed By" /></Column>
+                                <Column><Text text="Changed On Date" /></Column>
+                                <Column><Text text="Changed On Time" /></Column>
+                                <Column hAlign="Center" width="6rem"><Text text="Action" /></Column>
+                            </columns>
 
-        <!-- Action Buttons -->
-        <HBox justifyContent="End" class="sapUiTinyMarginTop sapUiTinyMarginEnd">
-            <Button text="Edit" type="Emphasized" press="onEditReferenceDocs"/>
-            <Button text="Save" type="Accept" class="sapUiTinyMarginBegin" press="onSaveReferenceDocs"/>
-        </HBox>
+                            <items>
+                                <ColumnListItem>
+                                    <cells>
+                                        <Select width="10rem" />
+                                        <Input width="12rem" />
+                                        <DatePicker width="10rem" displayFormat="short" />
+                                        <Input width="12rem" />
+                                        <Input width="12rem" />
+                                        <Select width="10rem" />
+                                        <DatePicker width="10rem" displayFormat="short" />
+                                        <TimePicker width="10rem" />
+                                        <Select width="10rem" />
+                                        <DatePicker width="10rem" displayFormat="short" />
+                                        <TimePicker width="10rem" />
+                                        <Button icon="sap-icon://delete" type="Reject"
+                                            press=".onDeleteRefDocRow" tooltip="Delete Row" />
+                                    </cells>
+                                </ColumnListItem>
+                            </items>
+
+                        </Table>
+                    </HBox>
+                </ScrollContainer>
+
+                <HBox justifyContent="End" class="sapUiTinyMarginTop">
+                    <Button text="Add Row" icon="sap-icon://add" type="Emphasized" press="onAddRefDocRow" />
+                </HBox>
+
+            </VBox>
+        </Panel>
+
+        <!-- ========================================================= -->
+        <!-- =============== Material Details Panel ================== -->
+        <!-- ========================================================= -->
+        <Panel expandable="true" expanded="true" class="sapUiNoContentPadding sapUiSmallMarginTop">
+
+            <headerToolbar>
+                <OverflowToolbar>
+                    <Title text="Material Details" />
+                </OverflowToolbar>
+            </headerToolbar>
+
+            <VBox class="sapUiSizeCompact sapUiSmallMargin">
+
+                <ScrollContainer horizontal="true" vertical="false" width="100%" height="auto"
+                    class="sapUiNoContentPadding sapUiTinyMarginBottom">
+                    <HBox wrap="Wrap" width="auto">
+
+                        <Table id="idMaterialDetailsTable"
+                            inset="false"
+                            mode="None"
+                            width="150rem"
+                            class="sapUiSizeCompact">
+
+                            <columns>
+                                <Column><Text text="Ref Doc No" /></Column>
+                                <Column><Text text="Ref Doc Item No" /></Column>
+                                <Column><Text text="Material Code" /></Column>
+                                <Column><Text text="Material Description" /></Column>
+                                <Column><Text text="Qty" /></Column>
+                                <Column><Text text="UoM" /></Column>
+                                <Column><Text text="Created By" /></Column>
+                                <Column><Text text="Created On Date" /></Column>
+                                <Column><Text text="Created On Time" /></Column>
+                                <Column><Text text="Changed By" /></Column>
+                                <Column><Text text="Changed On Date" /></Column>
+                                <Column><Text text="Changed On Time" /></Column>
+                                <Column hAlign="Center" width="6rem"><Text text="Action" /></Column>
+                            </columns>
+
+                            <items>
+                                <ColumnListItem>
+                                    <cells>
+                                        <Select width="10rem" />
+                                        <Select width="10rem" />
+                                        <Select width="10rem" />
+                                        <Input width="12rem" />
+                                        <Input width="8rem" type="Number" />
+                                        <Select width="8rem" />
+                                        <Select width="10rem" />
+                                        <DatePicker width="10rem" displayFormat="short" />
+                                        <TimePicker width="10rem" />
+                                        <Select width="10rem" />
+                                        <DatePicker width="10rem" displayFormat="short" />
+                                        <TimePicker width="10rem" />
+                                        <Button icon="sap-icon://delete" type="Reject"
+                                            press=".onDeleteMaterialRow" tooltip="Delete Row" />
+                                    </cells>
+                                </ColumnListItem>
+                            </items>
+
+                        </Table>
+                    </HBox>
+                </ScrollContainer>
+
+                <HBox justifyContent="End" class="sapUiTinyMarginTop">
+                    <Button text="Add Row" icon="sap-icon://add" type="Emphasized" press="onAddMaterialRow" />
+                </HBox>
+
+            </VBox>
+        </Panel>
 
     </VBox>
 </mvc:View>

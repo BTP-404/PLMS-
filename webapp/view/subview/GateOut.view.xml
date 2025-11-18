@@ -1,57 +1,171 @@
-<mvc:View controllerName="com.incresolZ_INC_PLMS.controller.Stage" xmlns:mvc="sap.ui.core.mvc" xmlns="sap.m" xmlns:core="sap.ui.core"
-	xmlns:unified="sap.ui.unified" xmlns:form="sap.ui.layout.form">
-	<VBox class="sapUiSmallMargin sapUiSizeCompact">
-		<!-- Gate Out Details Section -->
-		<Panel headerText="Gate Out Details" expandable="true" expanded="true" class="sapUiSmallMarginBottom">
-			<form:SimpleForm id="gateOutDetailsForm" editable="true" layout="ResponsiveGridLayout" labelSpanL="3" labelSpanM="3" emptySpanL="1"
-				emptySpanM="1" columnsL="2" columnsM="2" columnsS="1">
-				<!-- Exit Gate Number -->
-				<Label text="Exit Gate Number" required="true"/>
-				<Select id="idExitGateNumber" required="true"/>
-				<!-- Verified the Documents -->
-				<Label text="Verified the Documents?" required="true"/>
-				<RadioButtonGroup id="idVerifiedDocs" columns="2">
-					<buttons>
-						<RadioButton text="Yes" key="Y"/>
-						<RadioButton text="No" key="N"/>
-					</buttons>
-				</RadioButtonGroup>
-				<!-- Remarks -->
-				<Label text="Remarks"/>
-				<TextArea id="idGateOutRemarks" rows="3" placeholder="Enter remarks (optional)"/>
-				<!-- Upload Attachments -->
-				<Label text="Upload Attachments"/>
-				<unified:FileUploader id="idGateOutAttachments" multiple="true" buttonText="Upload" fileType="jpg,png,pdf,docx"
-					placeholder="Attach related documents" uploadUrl="/upload" change="onGateOutAttachmentChange"/>
-			</form:SimpleForm>
-			<!-- Action Buttons -->
-			<HBox justifyContent="End" class="sapUiTinyMarginTop sapUiTinyMarginEnd">
-				<Button id="btnEditGateOut" text="Edit" type="Emphasized" press="onEditGateOut"/>
-				<Button id="btnSaveGateOut" text="Save" type="Accept" press="onSaveGateOut" class="sapUiTinyMarginBegin"/>
-			</HBox>
-		</Panel>
-		<!-- Change History Section -->
-		<Panel headerText="Change History" expandable="true" expanded="false" class="sapUiSmallMarginBottom">
-			<form:SimpleForm id="gateOutHistoryForm" editable="false" layout="ResponsiveGridLayout" labelSpanL="3" labelSpanM="3" emptySpanL="1"
-				emptySpanM="1" columnsL="2" columnsM="2" columnsS="1">
-				<Label text="Created By" required="true"/>
-				<Select id="idGateOutCreatedBy" required="true" enabled="false"/>
-				<Label text="Created On Date" required="true"/>
-				<DatePicker id="idGateOutCreatedOnDate" required="true" enabled="false"/>
-				<Label text="Created On Time" required="true"/>
-				<TimePicker id="idGateOutCreatedOnTime" required="true" enabled="false"/>
-				<!--<Label text="Changed By"/>-->
-				<!--<Select id="idGateOutChangedBy"/>-->
-				<!--<Label text="Changed On Date"/>-->
-				<!--<DatePicker id="idGateOutChangedOnDate"/>-->
-				<!--<Label text="Changed On Time"/>-->
-				<!--<TimePicker id="idGateOutChangedOnTime"/>-->
-			</form:SimpleForm>
-			<!-- Action Buttons -->
-			<!--<HBox justifyContent="End" class="sapUiTinyMarginTop sapUiTinyMarginEnd">-->
-			<!--	<Button id="btnEditGateOutHistory" text="Edit" type="Emphasized" press="onEditGateOutHistory"/>-->
-			<!--	<Button id="btnSaveGateOutHistory" text="Save" type="Accept" press="onSaveGateOutHistory" class="sapUiTinyMarginBegin"/>-->
-			<!--</HBox>-->
-		</Panel>
-	</VBox>
+<mvc:View
+    controllerName="com.incresolZ_INC_PLMS.controller.Stage"
+    xmlns:mvc="sap.ui.core.mvc"
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+    xmlns:unified="sap.ui.unified"
+    xmlns:form="sap.ui.layout.form"
+    displayBlock="true"
+>
+
+    <VBox class="sapUiSmallMargin sapUiSizeCompact">
+
+        <!-- ========================================================= -->
+        <!-- ==================== Gate Out Details ==================== -->
+        <!-- ========================================================= -->
+        <Panel
+            id="gateOutPanel"
+            expandable="true"
+            expanded="true"
+            class="sapUiNoContentPadding"
+            stickyHeader="true"
+        >
+
+            <!-- Header Toolbar -->
+            <headerToolbar>
+                <OverflowToolbar style="Clear">
+                    <Title text="Gate Out Details" />
+                    <ToolbarSpacer />
+                    <Button
+                        id="btnEditGateOut"
+                        text="Edit"
+                        type="Emphasized"
+                        icon="sap-icon://edit"
+                        press="onEditGateOut"
+                    />
+                    <Button
+                        id="btnSaveGateOut"
+                        text="Save"
+                        type="Accept"
+                        icon="sap-icon://save"
+                        press="onSaveGateOut"
+                        class="sapUiTinyMarginBegin"
+                    />
+                </OverflowToolbar>
+            </headerToolbar>
+
+            <!-- Body -->
+            <VBox class="sapUiSizeCompact">
+                <HBox justifyContent="SpaceAround" alignItems="Start" width="100%">
+
+                    <!-- ==================== Column 1 ==================== -->
+                    <VBox class="sapUiNoContentPadding" width="33%">
+                        <form:SimpleForm
+                            layout="ResponsiveGridLayout"
+                            labelSpanL="4"
+                            labelSpanM="4"
+                            columnsL="1"
+                            columnsM="1"
+                            class="sapUiNoContentPadding"
+                            binding="{TripData>/}"
+                        >
+
+                            <Label text="Exit Gate Number" required="true" design="Bold" />
+                            <Select id="idExitGateNumber" selectedKey="{TripData>/ExitGateNumber}" />
+
+                            <Label text="Verified the Documents?" required="true" design="Bold" />
+                            <RadioButtonGroup id="idVerifiedDocs" columns="2" selectedIndex="{TripData>/VerifiedDocs}">
+                                <buttons>
+                                    <RadioButton text="Yes" key="Y" />
+                                    <RadioButton text="No" key="N" />
+                                </buttons>
+                            </RadioButtonGroup>
+
+                        </form:SimpleForm>
+                    </VBox>
+
+                    <!-- ==================== Column 2 ==================== -->
+                    <VBox class="sapUiNoContentPadding" width="33%">
+                        <form:SimpleForm
+                            layout="ResponsiveGridLayout"
+                            labelSpanL="4"
+                            labelSpanM="4"
+                            columnsL="1"
+                            columnsM="1"
+                            class="sapUiNoContentPadding"
+                            binding="{TripData>/}"
+                        >
+
+                            <Label text="Remarks" design="Bold" />
+                            <TextArea
+                                id="idGateOutRemarks"
+                                value="{TripData>/GateOutRemarks}"
+                                rows="3"
+                                width="100%"
+                            />
+
+                            <Label text="Upload Attachments" design="Bold" />
+                            <unified:FileUploader
+                                id="idGateOutAttachments"
+                                multiple="true"
+                                buttonText="Upload"
+                                fileType="jpg,png,pdf,docx"
+                                placeholder="Attach related documents"
+                                uploadUrl="/upload"
+                                change="onGateOutAttachmentChange"
+                            />
+
+                        </form:SimpleForm>
+                    </VBox>
+
+                    <!-- ==================== Column 3 ==================== -->
+                    <VBox width="33%" class="sapUiNoContentPadding">
+                        <form:SimpleForm
+                            layout="ResponsiveGridLayout"
+                            labelSpanL="4"
+                            labelSpanM="4"
+                            columnsL="1"
+                            columnsM="1"
+                            class="sapUiNoContentPadding"
+                            binding="{TripData>/}"
+                        >
+
+                            <Label text="Additional Info" design="Bold" />
+                            <TextArea
+                                id="idGateOutAdditionalInfo"
+                                value="{TripData>/GateOutAdditionalInfo}"
+                                growing="true"
+                            />
+
+                        </form:SimpleForm>
+                    </VBox>
+                </HBox>
+            </VBox>
+
+        </Panel>
+
+        <!-- ========================================================= -->
+        <!-- ==================== Change History ===================== -->
+        <!-- ========================================================= -->
+        <Panel id="gateOutHistoryPanel" expandable="true" expanded="false" class="sapUiNoContentPadding">
+            
+            <headerToolbar>
+                <OverflowToolbar style="Clear">
+                    <Title text="Change History" />
+                </OverflowToolbar>
+            </headerToolbar>
+
+            <VBox class="sapUiSmallMargin sapUiMediumPadding sapUiSizeCompact" binding="{TripData>/}">
+                <Title text="Change History" level="H5" class="sapUiSmallMarginBottom sapUiTinyMarginTop" />
+
+                <HBox fitContainer="true" justifyContent="SpaceBetween" class="sapUiSmallMarginBottom">
+                    <VBox width="48%" class="sapUiTinyMarginEnd">
+                        <Label text="Created By" design="Bold" />
+                        <Input id="idGateOutCreatedBy" value="{TripData>/GateOutCreatedBy}" enabled="false" />
+                    </VBox>
+
+                    <VBox width="48%">
+                        <Label text="Created On Date" design="Bold" />
+                        <DatePicker id="idGateOutCreatedOnDate" value="{TripData>/GateOutCreatedOnDate}" enabled="false" />
+                    </VBox>
+                </HBox>
+
+                <VBox width="48%">
+                    <Label text="Created On Time" design="Bold" />
+                    <TimePicker id="idGateOutCreatedOnTime" value="{TripData>/GateOutCreatedOnTime}" enabled="false" />
+                </VBox>
+
+            </VBox>
+        </Panel>
+    </VBox>
 </mvc:View>

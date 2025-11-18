@@ -1,77 +1,359 @@
-<mvc:View xmlns:mvc="sap.ui.core.mvc" xmlns="sap.m" xmlns:core="sap.ui.core" xmlns:form="sap.ui.layout.form" xmlns:unified="sap.ui.unified" controllerName="com.incresolZ_INC_PLMS.controller.Stage"
+<mvc:View
+    controllerName="com.incresolZ_INC_PLMS.controller.subview.VehicleReportingTab"
+    xmlns:mvc="sap.ui.core.mvc"
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+    xmlns:layout="sap.ui.layout"
+    xmlns:unified="sap.ui.unified"
+    displayBlock="true"
 >
-	<VBox class="sapUiSmallMargin">
-		<!-- Reporting Details Panel -->
-		<Panel id="reportingDetailsPanel" headerText="Reporting Details" expandable="true" expanded="true" class="sapUiSmallMargin">
-			<form:SimpleForm id="reportingDetailsForm" editable="true" layout="ResponsiveGridLayout" labelSpanL="3" labelSpanM="3" emptySpanL="1"
-				emptySpanM="1" columnsL="2" columnsM="2" columnsS="1">
-				<!-- Mandatory fields -->
-				<Label text="Movement Scenario" required="true"/>
-				<Select id="idMovementScenario" required="true"/>
-				<Label text="Movement Type" required="true"/>
-				<Select id="idMovementType" required="true"/>
-				<Label text="Vehicle Number" required="true"/>
-				<Input id="idVehicleNumber" required="true"/>
-				<Label text="Vehicle Type" required="true"/>
-				<Select id="idVehicleType" required="true"/>
-				<Label text="Vehicle Size" required="true"/>
-				<Select id="idVehicleSize" required="true"/>
-				<Label text="Transporter Name" required="true"/>
-				<Input id="idTransporterName" required="true"/>
-				<!-- Non-mandatory fields -->
-				<Label text="LR Number"/>
-				<Input id="idLRNumber"/>
-				<Label text="LR Date"/>
-				<DatePicker id="idLRDate"/>
-				<Label text="Driver Name" required="true"/>
-				<Input id="idDriverName" required="true"/>
-				<Label text="Driver Contact" required="true"/>
-				<Input id="idDriverContact" required="true"/>
-				<Label text="Driver License" required="true"/>
-				<Input id="idDriverLicense" required="true"/>
-				<Label text="Driver Photo"/>
-				<unified:FileUploader id="idDriverPhoto" uploadUrl="/upload" buttonText="Browse" fileType="jpg,png" placeholder="Upload Driver Photo"  change="onDriverPhotoChange"/>
-				<Label text="Additional Info"/>
-				<TextArea id="idAdditionalInfo"/>
-				<Label text="Company Code" required="true"/>
-				<Select id="idCompanyCode" required="true"/>
-				<Label text="Plant" required="true"/>
-				<Select id="idPlant" required="true"/>
-				<Label text="Related Trip Number"/>
-				<Input id="idRelatedTripNumber"/>
-			</form:SimpleForm>
-			<!-- Action Buttons (Edit + Save) -->
-			<HBox id="reportingButtonsBox" justifyContent="End" class="sapUiSmallMarginTop sapUiTinyMarginEnd">
-				<Button id="btnEditReporting" text="Edit" type="Emphasized" press="onEditReporting"/>
-				<Button id="btnSaveReporting" text="Save" type="Accept" press="onSaveReporting" class="sapUiTinyMarginBegin"/>
-			</HBox>
-		</Panel>
-		<!-- Change History Panel -->
-		<Panel id="changeHistoryPanel" headerText="Change History" expandable="true" expanded="false" class="sapUiSmallMargin">
-			<form:SimpleForm id="changeHistoryForm" editable="false" layout="ResponsiveGridLayout" labelSpanL="3" labelSpanM="3" emptySpanL="1"
-				emptySpanM="1" columnsL="2" columnsM="2" columnsS="1">
-				<Label text="Created By" required="true"/>
-				<Select id="idCreatedBy" required="true" enabled="false"/>
-				<Label text="Created On Date" required="true"/>
-				<DatePicker id="idCreatedOnDate" required="true" enabled="false"/>
-				<Label text="Created On Time" required="true"/>
-				<TimePicker id="idCreatedOnTime" required="true" enabled="false"/>
-				<!--<Label text="Changed By"/>-->
-				<!--<Select id="idChangedBy"/>-->
-				<!--<Label text="Changed On Date"/>-->
-				<!--<DatePicker id="idChangedOnDate"/>-->
-				<!--<Label text="Changed On Time"/>-->
-				<!--<TimePicker id="idChangedOnTime"/>-->
-				<!--<Label text="Completed On Date"/>-->
-				<!--<DatePicker id="idCompletedOnDate"/>-->
-				<!--<Label text="Completed On Time"/>-->
-				<!--<TimePicker id="idCompletedOnTime"/>-->
-			</form:SimpleForm>
-			<!-- Action Buttons (Edit + Save) -->
-			<!--<HBox id="changeHistoryButtonsBox" justifyContent="End" class="sapUiSmallMarginTop sapUiTinyMarginEnd">-->
-			<!--	<Button id="btnEditHistory" text="Edit" type="Emphasized" press="onEditHistory"/>-->
-			<!--	<Button id="btnSaveHistory" text="Save" type="Accept" press="onSaveHistory" class="sapUiTinyMarginBegin"/>-->
-			<!--</HBox>-->
-		</Panel>
-	</VBox>
+    <VBox class="sapUiSizeCompact sapUiSmallMargin">
+        <Panel
+            id="reportingDetailsPanel"
+            expandable="true"
+            expanded="true"
+            class="sapUiNoContentPadding"
+        >
+            <headerToolbar>
+                <OverflowToolbar>
+                    <Title text="Reporting Details" />
+                </OverflowToolbar>
+            </headerToolbar>
+            <VBox class="sapUiSizeCompact sapUiMediumPadding">
+                <layout:Grid
+                    defaultSpan="L4 M6 S12"
+                    hSpacing="2"
+                    vSpacing="2"
+                    width="100%"
+                    class="sapUiTinyMarginTop"
+                >
+                    <!-- ================== COLUMN 1 ================== -->
+                    <layout:content>
+                        <VBox>
+                            <Label
+                                text="Movement Scenario"
+                                design="Bold"
+                                required="true"
+                            />
+                            <Input
+                                id="idMovementScenario"
+                                width="100%"
+                                showValueHelp="true"
+                                valueHelpRequest="onValueHelpMovementScenario"
+                                value="{TripData>/MovementScenario}"
+                            />
+                        </VBox>
+                    </layout:content>
+                    <layout:content>
+                        <VBox>
+                            <Label
+                                text="Movement Type"
+                                design="Bold"
+                                required="true"
+                            />
+                            <Input
+                                id="idMovementType"
+                                width="100%"
+                                showValueHelp="true"
+                                valueHelpRequest="onValueHelpMovementType"
+                                enabled="false"
+                                value="{TripData>/MovementType}"
+                            />
+                        </VBox>
+                    </layout:content>
+                    <layout:content>
+                        <VBox>
+                            <Label
+                                text="Vehicle Number"
+                                design="Bold"
+                                required="true"
+                            />
+                           
+                        </VBox>
+                    </layout:content>
+                    <layout:content>
+                        <VBox>
+                            <Label
+                                text="Vehicle Type"
+                                design="Bold"
+                                required="true"
+                            />
+                            <Input
+                                id="idVehicleType"
+                                width="100%"
+                                showValueHelp="true"
+                                valueHelpRequest="onValueHelpVehicleType"
+                                value="{TripData>/VehicleType}"
+                            />
+                        </VBox>
+                    </layout:content>
+                    <layout:content>
+                        <VBox>
+                            <Label
+                                text="Vehicle Size"
+                                design="Bold"
+                                required="true"
+                            />
+                            <Input
+                                id="idVehicleSize"
+                                width="100%"
+                                showValueHelp="true"
+                                valueHelpRequest="onValueHelpVehicleSize"
+                                value="{TripData>/VehicleSize}"
+                            />
+                        </VBox>
+                    </layout:content>
+                    <layout:content>
+                        <VBox>
+                            <Label
+                                text="Transporter Name"
+                                design="Bold"
+                                required="true"
+                            />
+                            <Input
+                                id="idTransporterName"
+                                width="100%"
+                                value="{TripData>/TransporterName}"
+                            />
+                        </VBox>
+                    </layout:content>
+                    <!-- ================== COLUMN 2 ================== -->
+                    <layout:content>
+                        <VBox>
+                            <Label
+                                text="LR Number"
+                                design="Bold"
+                            />
+                            <Input
+                                id="idLRNumber"
+                                width="100%"
+                                value="{TripData>/LR_Number}"
+                            />
+                        </VBox>
+                    </layout:content>
+                    <layout:content>
+                        <VBox>
+                            <Label
+                                text="LR Date"
+                                design="Bold"
+                            />
+                            <DatePicker
+                                id="idLRDate"
+                                width="100%"
+                                value="{TripData>/LR_Date}"
+                                displayFormat="long"
+                            />
+                        </VBox>
+                    </layout:content>
+                    <layout:content>
+                        <VBox>
+                            <Label
+                                text="Driver Name"
+                                design="Bold"
+                                required="true"
+                            />
+                            <Input
+                                id="idDriverName"
+                                width="100%"
+                                value="{TripData>/DriverName}"
+                            />
+                        </VBox>
+                    </layout:content>
+                    <layout:content>
+                        <VBox>
+                            <Label
+                                text="Driver Contact"
+                                design="Bold"
+                                required="true"
+                            />
+                            <Input
+                                id="idDriverContact"
+                                width="100%"
+                                value="{TripData>/DriverMobile}"
+                            />
+                        </VBox>
+                    </layout:content>
+                    <layout:content>
+                        <VBox>
+                            <Label
+                                text="Driver License"
+                                design="Bold"
+                                required="true"
+                            />
+                            <Input
+                                id="idDriverLicense"
+                                width="100%"
+                                value="{TripData>/DriverLicence}"
+                            />
+                        </VBox>
+                    </layout:content>
+                    <layout:content>
+                        <VBox>
+                            <Label
+                                text="Driver Photo"
+                                design="Bold"
+                            />
+                            <unified:FileUploader
+                                id="idDriverPhoto"
+                                width="100%"
+                                uploadUrl="/upload"
+                                buttonText="Browse"
+                                fileType="jpg,png"
+                                placeholder="Upload Driver Photo"
+                                change="onDriverPhotoChange"
+                            />
+                        </VBox>
+                    </layout:content>
+                    <!-- ================== COLUMN 3 ================== -->
+                    <layout:content>
+                        <VBox>
+                            <Label
+                                text="Plant"
+                                design="Bold"
+                                required="true"
+                            />
+                            <Input
+                                id="idPlant"
+                                width="100%"
+                                showValueHelp="true"
+                                valueHelpRequest="onValueHelpPlant"
+                                value="{TripData>/Plant}"
+                            />
+                        </VBox>
+                    </layout:content>
+                    <layout:content>
+                        <VBox>
+                            <Label
+                                text="Company Code"
+                                design="Bold"
+                                required="true"
+                            />
+                            <Input
+                                id="idCompanyCode"
+                                width="100%"
+                                showValueHelp="true"
+                                valueHelpRequest="onValueHelpCompanyCode"
+                                value="{TripData>/CompanyCode}"
+                                enabled="false"
+                            />
+                        </VBox>
+                    </layout:content>
+                    <layout:content>
+                        <VBox>
+                            <Label
+                                text="Related Trip Number"
+                                design="Bold"
+                            />
+                            <Input
+                                id="idRelatedTripNumber"
+                                width="100%"
+                                value="{TripData>/TripNumber}"
+                                enabled="false"
+                            />
+                        </VBox>
+                    </layout:content>
+                    <layout:content>
+                        <VBox>
+                            <Label
+                                text="Additional Info"
+                                design="Bold"
+                            />
+                            <TextArea
+                                id="idAdditionalInfo"
+                                width="100%"
+                                growing="true"
+                                value="{TripData>/AdditionalInfo}"
+                            />
+                        </VBox>
+                    </layout:content>
+                </layout:Grid>
+            </VBox>
+        </Panel>
+        <layout:Grid>
+         <ToolbarSpacer ></ToolbarSpacer>
+            <layout:content>
+             <ToolbarSpacer ></ToolbarSpacer>
+            <ToolbarSpacer ></ToolbarSpacer>
+                <HBox
+                    justifyContent="End"
+                    class="sapUiSmallMarginTop sapUiSmallMarginEnd"
+                >
+                    <Button
+                        id="btnEditReporting"
+                        text="Edit"
+                        type="Emphasized"
+                        press="onEditReporting"
+                        icon="sap-icon://edit"
+                    />
+                    <Button
+                        id="btnSaveReporting"
+                        text="Save"
+                        type="Accept"
+                        press="onSaveReporting"
+                        icon="sap-icon://save"
+                        class="sapUiTinyMarginBegin"
+                    />
+                </HBox>
+            </layout:content>
+        </layout:Grid>
+        <!-- ===================== CHANGE HISTORY ===================== -->
+        <Panel
+            id="changeHistoryPanel"
+            expandable="true"
+            expanded="false"
+            class="sapUiNoContentPadding"
+            visible="false"
+        >
+            <headerToolbar>
+                <OverflowToolbar>
+                    <Title text="Change History" />
+                </OverflowToolbar>
+            </headerToolbar>
+            <VBox
+                class="sapUiSmallMargin sapUiMediumPadding sapUiSizeCompact"
+                binding="{TripData>/}"
+                
+            >
+              
+                <HBox justifyContent="SpaceBetween">
+                    <VBox width="48%">
+                        <Label
+                            text="Created By"
+                            design="Bold"
+                        />
+                        <Input
+                            id="idCreatedBy"
+                            width="100%"
+                            value="{TripData>/CreatedBy}"
+                            enabled="false"
+                        />
+                    </VBox>
+                    <VBox width="48%">
+                        <Label
+                            text="Created On Date"
+                            design="Bold"
+                        />
+                        <Input
+                            id="idCreatedOnDate"
+                            width="100%"
+                            value="{TripData>/CreatedOn}"
+                            enabled="false"
+                        />
+                    </VBox>
+                </HBox>
+                <VBox width="48%">
+                    <Label
+                        text="Created On Time"
+                        design="Bold"
+                    />
+                    <Input
+                        id="idCreatedOnTime"
+                        width="100%"
+                        value="{TripData>/CreatedTime}"
+                        enabled="false"
+                    />
+                </VBox>
+            </VBox>
+        </Panel>
+    </VBox>
 </mvc:View>

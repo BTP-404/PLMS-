@@ -1,0 +1,20 @@
+<core:FragmentDefinition
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+>
+    <SelectDialog
+        id="VHVehicleNumber"
+        title="Select Vehicle"
+        search="onSearchVHVehicleNumber"
+        confirm="onConfirmVHVehicleNumber"
+        cancel="onCancelVHVehicleNumber"
+        noDataText="No Vehicles Found"
+        items="{VHModel>/}"
+    >
+        <StandardListItem
+            title="{VHModel>VehicleNumber}"
+            description="{VHModel>TransporterName}"
+            info="{VHModel>VehicleType} / {VHModel>VehicleSize}"
+        />
+    </SelectDialog>
+</core:FragmentDefinition>
