@@ -68,29 +68,32 @@
                                 design="Bold"
                                 required="true"
                             />
-                          <Input
-    width="100%"
-    showValueHelp="true"
-    showSuggestion="true"
-    suggestionItems="{VHModel>/}"
-    suggest=".onSuggest"
-    filterSuggests="false"
-    suggestThreshold="1"
-    valueHelpRequest=".onValueHelpVehicleNumber"
-    suggestionItemSelected=".onSuggestionItemSelected">
-
-    <suggestionItems>
-        <core:Item 
-            text="{VHModel>VehicleNumber}"
-            additionalText="{VHModel>TransporterName}"
-        />
-    </suggestionItems>
-
-    <customData>
-        <core:CustomData key="field" value="vehicleNumber" />
-    </customData>
-</Input>
-
+                            <Input
+                                id="idVehicleNumber"
+                                width="100%"
+                                showValueHelp="true"
+                                showSuggestion="true"
+                                suggestionItems="{VHModel>/}"
+                                suggest=".onSuggest"
+                                filterSuggests="false"
+                                value="{TripData>/VehicleNumber}"
+                                suggestThreshold="1"
+                                valueHelpRequest=".onValueHelpVehicleNumber"
+                                suggestionItemSelected=".onSuggestionItemSelected"
+                            >
+                                <suggestionItems>
+                                    <core:Item
+                                        text="{VHModel>VehicleNumber}"
+                                        additionalText="{VHModel>TransporterName}"
+                                    />
+                                </suggestionItems>
+                                <customData>
+                                    <core:CustomData
+                                        key="field"
+                                        value="vehicleNumber"
+                                    />
+                                </customData>
+                            </Input>
                         </VBox>
                     </layout:content>
                     <layout:content>
@@ -292,10 +295,10 @@
             </VBox>
         </Panel>
         <layout:Grid>
-         <ToolbarSpacer ></ToolbarSpacer>
+            <ToolbarSpacer/>
             <layout:content>
-             <ToolbarSpacer ></ToolbarSpacer>
-            <ToolbarSpacer ></ToolbarSpacer>
+                <ToolbarSpacer/>
+                <ToolbarSpacer/>
                 <HBox
                     justifyContent="End"
                     class="sapUiSmallMarginTop sapUiSmallMarginEnd"
@@ -334,9 +337,7 @@
             <VBox
                 class="sapUiSmallMargin sapUiMediumPadding sapUiSizeCompact"
                 binding="{TripData>/}"
-                
             >
-              
                 <HBox justifyContent="SpaceBetween">
                     <VBox width="48%">
                         <Label

@@ -1,13 +1,15 @@
 <mvc:View
     xmlns:mvc="sap.ui.core.mvc"
     xmlns="sap.m"
+    xmlns:layout="sap.ui.layout"
     xmlns:form="sap.ui.layout.form"
-    controllerName="com.incresolZ_INC_PLMS.controller.Stage"
+    controllerName="com.incresolZ_INC_PLMS.controller.subview.GateIn"
     displayBlock="true"
 >
-
-    <VBox class="sapUiSizeCompact sapUiSmallMargin">
-
+    <VBox
+        class="sapUiSizeCompact sapUiSmallMargin"
+        width="100%"
+    >
         <!-- ========================================================= -->
         <!-- =================== Gate In Info Panel ================== -->
         <!-- ========================================================= -->
@@ -16,14 +18,95 @@
             expandable="true"
             expanded="true"
             class="sapUiNoContentPadding"
-            stickyHeader="true"
         >
-
-            <!-- ======= HEADER TOOLBAR (Title + Edit + Save) ========= -->
             <headerToolbar>
                 <OverflowToolbar>
-                    <Title text="Gate In Info" />
-                    <ToolbarSpacer />
+                    <Title text="Gate-In " />
+                </OverflowToolbar>
+            </headerToolbar>
+
+            <VBox
+                class="sapUiSizeCompact "
+                width="100%"
+            >
+                <!-- ========================= ROW 1 ========================= -->
+                <!-- Entry Gate + Delay Reason -->
+                <layout:Grid
+                    defaultSpan="L6 M6 S12"
+                    hSpacing="2"
+                    vSpacing="2"
+                    
+                >
+                    <!-- Entry Gate Number -->
+                    <layout:content>
+                        <VBox width="100%">
+                            <Label
+                                text="Entry Gate Number"
+                                required="true"
+                                design="Bold"
+                            />
+                            <Input
+                                id="idEntryGateNumber"
+                                showValueHelp="true"
+                                placeholder="Select Entry Gate"
+                                valueHelpRequest="onEntryGateValueHelp"
+                                width="50%"
+                               value="{LocalTripData>/EntryGateNum}"
+
+                            />
+                        </VBox>
+                    </layout:content>
+
+                    <!-- Delay Reason -->
+                    <layout:content>
+                        <VBox width="50%">
+                            <Label
+                                text="Delay Reasons"
+                                design="Bold"
+                            />
+                            <Input
+                                id="idDelayReasons"
+                                showValueHelp="true"
+                                placeholder="Select Delay Reason"
+                                valueHelpRequest="onDelayReasonValueHelp"
+                                width="100%"
+                            />
+                        </VBox>
+                    </layout:content>
+                </layout:Grid>
+
+                <!-- ========================= ROW 2 ========================= -->
+                <!-- Remarks full-width responsive -->
+                <layout:Grid
+                    defaultSpan="L6 M6 S12"
+                    hSpacing="2"
+                    vSpacing="2"
+                    width="100%"
+                    
+                >
+                    <layout:content>
+                        <VBox width="50%">
+                            <Label
+                                text="Remarks"
+                                design="Bold"
+                            />
+                            <TextArea
+                                id="idGateInRemarks"
+                                rows="4"
+                                placeholder="Enter any remarks"
+                                width="100%"
+                            />
+                        </VBox>
+                    </layout:content>
+                </layout:Grid>
+
+                <!-- ==================== BUTTON ROW ======================= -->
+                <!-- Right aligned bottom buttons -->
+                <HBox
+                    justifyContent="End"
+                    class="sapUiSmallMarginEnd"
+                    width="100%"
+                >
                     <Button
                         id="btnEditGateInInfo"
                         text="Edit"
@@ -39,60 +122,6 @@
                         press="onSaveGateInInfo"
                         class="sapUiTinyMarginBegin"
                     />
-                </OverflowToolbar>
-            </headerToolbar>
-
-            <!-- ================= FORM BODY =================== -->
-            <VBox class="sapUiSizeCompact">
-                <HBox justifyContent="SpaceAround" alignItems="Start" width="100%">
-
-                    <!-- ================== Column 1 ================== -->
-                    <VBox width="33%" class="sapUiNoContentPadding">
-                        <form:SimpleForm
-                            layout="ResponsiveGridLayout"
-                            labelSpanL="4"
-                            labelSpanM="4"
-                            columnsL="1"
-                            columnsM="1"
-                            class="sapUiNoContentPadding"
-                        >
-                            <Label text="Entry Gate Number" required="true" design="Bold" />
-                            <Select id="idEntryGateNumber" required="true" />
-
-                            <Label text="Delay Reasons" design="Bold" />
-                            <Select id="idDelayReasons" />
-                        </form:SimpleForm>
-                    </VBox>
-
-                    <!-- ================== Column 2 ================== -->
-                    <VBox width="33%" class="sapUiNoContentPadding">
-                        <form:SimpleForm
-                            layout="ResponsiveGridLayout"
-                            labelSpanL="4"
-                            labelSpanM="4"
-                            columnsL="1"
-                            columnsM="1"
-                            class="sapUiNoContentPadding"
-                        >
-                            <Label text="Remarks" design="Bold" />
-                            <TextArea id="idGateInRemarks" rows="4" placeholder="Enter any remarks" />
-                        </form:SimpleForm>
-                    </VBox>
-
-                    <!-- ================== Column 3 (EMPTY / FUTURE FIELDS) ================== -->
-                    <VBox width="33%" class="sapUiNoContentPadding">
-                        <form:SimpleForm
-                            layout="ResponsiveGridLayout"
-                            labelSpanL="4"
-                            labelSpanM="4"
-                            columnsL="1"
-                            columnsM="1"
-                            class="sapUiNoContentPadding"
-                        >
-                            <!-- Keep empty for now or add future inputs -->
-                        </form:SimpleForm>
-                    </VBox>
-
                 </HBox>
             </VBox>
         </Panel>
@@ -105,7 +134,6 @@
             expandable="true"
             expanded="false"
             class="sapUiNoContentPadding"
-            stickyHeader="true"
         >
             <headerToolbar>
                 <OverflowToolbar>
@@ -113,27 +141,63 @@
                 </OverflowToolbar>
             </headerToolbar>
 
-            <VBox class="sapUiSmallMargin sapUiMediumPadding sapUiSizeCompact">
-                <Title text="Change History" level="H5" class="sapUiSmallMarginBottom" />
+            <VBox
+                class="sapUiSmallMargin sapUiMediumPadding sapUiSizeCompact"
+                width="100%"
+            >
+                <Title
+                    text="Change History"
+                    level="H5"
+                    class="sapUiSmallMarginBottom"
+                />
 
-                <HBox justifyContent="SpaceBetween" class="sapUiSmallMarginBottom">
-                    <VBox width="48%">
-                        <Label text="Created By" design="Bold" />
-                        <Select id="idGateInCreatedBy" enabled="false" width="100%" />
-                    </VBox>
+                <layout:Grid
+                    defaultSpan="L6 M6 S12"
+                    width="100%"
+                    hSpacing="2"
+                    vSpacing="2"
+                >
+                    <layout:content>
+                        <VBox width="100%">
+                            <Label
+                                text="Created By"
+                                design="Bold"
+                            />
+                            <Select
+                                id="idGateInCreatedBy"
+                                enabled="false"
+                                width="100%"
+                            />
+                        </VBox>
+                    </layout:content>
 
-                    <VBox width="48%">
-                        <Label text="Created On Date" design="Bold" />
-                        <DatePicker id="idGateInCreatedOnDate" enabled="false" width="100%" />
-                    </VBox>
-                </HBox>
+                    <layout:content>
+                        <VBox width="100%">
+                            <Label
+                                text="Created On Date"
+                                design="Bold"
+                            />
+                            <DatePicker
+                                id="idGateInCreatedOnDate"
+                                enabled="false"
+                                width="100%"
+                            />
+                        </VBox>
+                    </layout:content>
+                </layout:Grid>
 
                 <VBox width="48%">
-                    <Label text="Created On Time" design="Bold" />
-                    <TimePicker id="idGateInCreatedOnTime" enabled="false" width="100%" />
+                    <Label
+                        text="Created On Time"
+                        design="Bold"
+                    />
+                    <TimePicker
+                        id="idGateInCreatedOnTime"
+                        enabled="false"
+                        width="100%"
+                    />
                 </VBox>
             </VBox>
         </Panel>
-
     </VBox>
 </mvc:View>

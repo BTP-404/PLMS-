@@ -1,5 +1,5 @@
 <mvc:View
-    controllerName="com.incresolZ_INC_PLMS.controller.Stage"
+    controllerName="com.incresolZ_INC_PLMS.controller.subview.Notes"
     xmlns:mvc="sap.ui.core.mvc"
     xmlns="sap.m"
     xmlns:layout="sap.ui.layout"

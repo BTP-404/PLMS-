@@ -1,0 +1,16 @@
+<core:FragmentDefinition xmlns="sap.m" xmlns:core="sap.ui.core">
+    <SelectDialog
+        id="exitGateDialog"
+        title="Select Exit Gate"
+        items="{
+            path: 'ExitGatehelpModel>/'
+        }"
+        confirm="onExitGateValueHelpConfirm"
+        search="onExitGateValueHelpSearch"
+    >
+        <StandardListItem
+            title="{ExitGatehelpModel>ConfigID}"
+            description="{ExitGatehelpModel>Description}"
+        />
+    </SelectDialog>
+</core:FragmentDefinition>

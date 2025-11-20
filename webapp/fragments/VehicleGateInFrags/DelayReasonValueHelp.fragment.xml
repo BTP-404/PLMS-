@@ -1,0 +1,15 @@
+<core:FragmentDefinition xmlns="sap.m" xmlns:core="sap.ui.core">
+    <SelectDialog
+        title="Select Delay Reason"
+        confirm="onDelayReasonValueHelpConfirm"
+        search="onDelayReasonValueHelpSearch"
+        items="{
+            path: 'delayData>/'
+        }"
+    >
+        <StandardListItem
+            title="{delayData>Description}"
+            
+        />
+    </SelectDialog>
+</core:FragmentDefinition>

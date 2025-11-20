@@ -1,0 +1,60 @@
+<core:FragmentDefinition
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+    xmlns:layout="sap.ui.layout"
+    xmlns:form="sap.ui.layout.form">
+
+    <Dialog
+        id="idAddRowDialog"
+        title="Add Material Row"
+        contentWidth="40rem">
+
+        <form:SimpleForm
+            id="idAddRowSimpleForm"
+            editable="true"
+            layout="ResponsiveGridLayout"
+            labelSpanL="4"
+            columnsL="2">
+
+            <Label design="Bold" text="Ref Doc Number"/>
+            <Input  id="idDialogRefDocNo" placeholder="Enter Ref Doc Number" />
+
+            <Label design="Bold" text="Ref Doc Item Number"/>
+            <Input  id="idDialogRefDocItem" placeholder="Enter Ref Doc Item Number"/>
+
+            <Label design="Bold" text="Material Code"/>
+            <Input  id="idDialogMaterialCode" placeholder="Enter Material Code"/>
+
+            <Label design="Bold" text="Material Description"/>
+            <Input  id="idDialogMaterialDesc" placeholder="Enter Material Description"/>
+
+            <Label design="Bold" text="Qty"/>
+            <Input  id="idDialogQty" placeholder="Enter Quantity" type="Number"/>
+
+            <Label design="Bold" text="UoM"/>
+            <Select id="idDialogUoM" >
+                <core:Item key="KG" design="Bold" text="KG"/>
+                <core:Item key="TON" design="Bold" text="TON"/>
+            </Select>
+
+            <Label design="Bold" text="Loaded Qty / Net Wt"/>
+            <Input  id="idDialogLoadedQty" placeholder="Enter Loaded Qty / Net Wt"/>
+
+            <Label design="Bold" text="Gross Wt"/>
+            <Input  id="idDialogGrossWt" placeholder="Enter Gross Weight"/>
+
+            <Label design="Bold" text="Tare Wt"/>
+            <Input  id="idDialogTareWt" placeholder="Enter Tare Weight"/>
+
+        </form:SimpleForm>
+
+        <beginButton>
+            <Button design="Bold" text="Save" type="Accept" press=".onAddRow"/>
+        </beginButton>
+
+        <endButton>
+            <Button design="Bold" text="Cancel" type="Reject" press=".onCancelAddRow"/>
+        </endButton>
+
+    </Dialog>
+</core:FragmentDefinition>

@@ -91,8 +91,14 @@ sap.ui.define(
 
           oModel.read("/TripDetails('" + sTripNumber + "')", {
             success: function (oData) {
-              const oLocalModel = new JSONModel(oData);
-              that.getView().setModel(oLocalModel, "TripData");
+              // Create JSON model for trip data
+            const oTripDataModel = new sap.ui.model.json.JSONModel(oData);
+
+            //  Set as global model available across ALL views
+            sap.ui.getCore().setModel(oTripDataModel, "TripData");
+
+            // Also bind to this view (optional)
+            that.getView().setModel(oTripDataModel, "TripData");
 
               // UPDATED: call inputs helper to properly disable inputs
               that._setInputsEnabled(false); // UPDATED (was _setFormEditable(false))
@@ -165,12 +171,16 @@ sap.ui.define(
          * =========================================================== */
         _createTrip: function (oModel) {
           const oData = this._collectFormData();
-          console.log(oData);
+
           oData.MovementScenario = movementScenario;
           oData.MovementType = Mtype;
           //   oData.LR_Number = LRNumber;
           var oDate = this.byId("idLRDate").getDateValue(); // JS Date object
-          oData.LR_Date = oDate.toISOString().split(".")[0];
+          if (oDate) {
+            oData.LR_Date = oDate.toISOString().split(".")[0];
+          } else {
+            oData.LR_Date = oDate ? oDate : new Date();
+          }
           oData.Plant = PlantCode;
           oData.CompanyCode = CompanyCod;
           const that = this;
@@ -182,12 +192,26 @@ sap.ui.define(
             headers: {
               "X-Requested-With": "X",
             },
-            success: function () {
+            success: function (oResponse) {
+              // Check if global model already exists
+              var oGlobalModel = sap.ui.getCore().getModel("globalData");
+
+              if (!oGlobalModel) {
+                oGlobalModel = new sap.ui.model.json.JSONModel({
+                  TripNumber: "",
+                });
+                sap.ui.getCore().setModel(oGlobalModel, "globalData");
+              }
+
+              // Store the trip number globally
+              oGlobalModel.setProperty("/TripNumber", oResponse.TripNumber);
+
               that.getView().setBusy(false);
               MessageToast.show("Trip created successfully!");
               that._setFormEditable(false);
               that._setInputsEnabled(false);
             },
+
             error: function (oError) {
               that.getView().setBusy(false);
 
@@ -227,6 +251,9 @@ sap.ui.define(
           this.getView().setBusy(true);
 
           oModel.update("/TripDetails('" + sTripNumber + "')", oData, {
+            headers: {
+              "X-Requested-With": "X",
+            },
             success: function () {
               that.getView().setBusy(false); // ADDED
               MessageToast.show("Trip updated successfully!");
@@ -406,7 +433,7 @@ sap.ui.define(
         /* ===========================================================
          * NO CHANGE: onValueHelpPlant (keeps your fragment logic)
          * =========================================================== */
-    onValueHelpPlant: function () {
+        onValueHelpPlant: function () {
           var oView = this.getView();
 
           if (!this._mValueHelps) this._mValueHelps = {};
@@ -764,7 +791,6 @@ sap.ui.define(
             this._mValueHelps = {};
           }
 
-          // If fragment not loaded yet
           if (!this._mValueHelps.VehNo) {
             Fragment.load({
               id: oView.getId(),
@@ -775,45 +801,56 @@ sap.ui.define(
                 this._mValueHelps.VehNo = oDialog;
                 oView.addDependent(oDialog);
 
-                // Load data THEN open dialog
-                this.loadVehicleDetails().then(() => {
-                  oDialog.open();
-                });
+                this.loadVehicleDetails().then(() => oDialog.open());
               }.bind(this)
             );
           } else {
-            // If already loaded → reload data THEN open dialog
             this.loadVehicleDetails().then(() => {
               this._mValueHelps.VehNo.open();
             });
           }
         },
+
         loadVehicleDetails: function () {
           const oModel = this.getView().getModel();
 
           return new Promise((resolve) => {
             oModel.read("/VehicleDetails", {
               success: (oData) => {
-                if (this._mValueHelps && this._mValueHelps.VehNo) {
-                  const oJSON = new sap.ui.model.json.JSONModel(oData.results);
+                const oJSON = new sap.ui.model.json.JSONModel(oData.results);
+
+                if (this._mValueHelps?.VehNo) {
                   this._mValueHelps.VehNo.setModel(oJSON, "VHModel");
                 }
-                console.log("Vehicle details:", oData.results);
                 resolve();
               },
-              error: (oError) => {
-                console.error("Failed to load vehicle details:", oError);
-                sap.m.MessageBox.error("Failed to load vehicle details.");
+              error: () => {
+                sap.m.MessageBox.error("Failed to load vehicle details");
                 resolve();
               },
             });
           });
         },
+
+        // =====================================================
+        // SUGGEST
+        // =====================================================
+        _loadVehicleSuggestions: function () {
+          const oModel = this.getView().getModel();
+
+          oModel.read("/VehicleDetails", {
+            success: (oData) => {
+              const oJSON = new sap.ui.model.json.JSONModel(oData.results);
+              this.getView().setModel(oJSON, "VHModel");
+            },
+          });
+        },
+
         onSuggest: function (oEvent) {
           const sValue = oEvent.getParameter("suggestValue");
-          const oInput = oEvent.getSource();
+          const oBinding = oEvent.getSource().getBinding("suggestionItems");
 
-          const aFilters = [
+          oBinding.filter([
             new sap.ui.model.Filter({
               filters: [
                 new sap.ui.model.Filter(
@@ -829,34 +866,65 @@ sap.ui.define(
               ],
               and: false,
             }),
-          ];
-
-          const oBinding = oInput.getBinding("suggestionItems");
-          oBinding.filter(aFilters);
+          ]);
         },
+
+        // =====================================================
+        // WHEN USER SELECTS VEHICLE NUMBER → AUTO FILL FIELDS
+        // =====================================================
         onSuggestionItemSelected: function (oEvent) {
           const oItem = oEvent.getParameter("selectedItem");
+          if (!oItem) return;
 
-          if (oItem) {
-            const sVehicleNumber = oItem.getText(); // VehicleNumber
+          // Selected vehicle number
+          const sVehNo = oItem.getText();
 
-            oEvent.getSource().setValue(sVehicleNumber);
+          // Set in input
+          const oInput = oEvent.getSource();
+          oInput.setValue(sVehNo);
+
+          // Find full vehicle object in VHModel
+          const aVehicles = this.getView().getModel("VHModel").getData();
+          const oVehicle = aVehicles.find((v) => v.VehicleNumber === sVehNo);
+
+          if (oVehicle) {
+            this._setVehicleAutoFields(oVehicle);
           }
         },
-        _loadVehicleSuggestions: function () {
-          const oModel = this.getView().getModel();
 
-          oModel.read("/VehicleDetails", {
-            success: (oData) => {
-              const oJSON = new sap.ui.model.json.JSONModel(oData.results);
-              this.getView().setModel(oJSON, "VHModel");
+        // =====================================================
+        // SET THE 3 AUTO FIELDS
+        // =====================================================
+        _setVehicleAutoFields: function (oVehicle) {
+          this.byId("idVehicleType").setValue(oVehicle.VehicleType);
+          this.byId("idVehicleSize").setValue(oVehicle.VehicleSize);
+          this.byId("idTransporterName").setValue(oVehicle.TransporterName);
+        },
+        onConfirmVHVehicleNumber: function (oEvent) {
+          const oItem = oEvent.getParameter("selectedItem");
+          if (!oItem) return;
 
-              console.log("Suggestion vehicle details loaded:", oData.results);
-            },
-            error: (err) => {
-              console.error("Failed to load suggestion vehicle details:", err);
-            },
-          });
+          // Vehicle Number (title in your fragment)
+          const sVehicleNumber = oItem.getTitle();
+
+          // Put the number on the VehicleNumber input field
+          this.byId("idVehicleNumber").setValue(sVehicleNumber);
+
+          // Get VHModel data
+          const aVehicles = this.getView().getModel("VHModel").getData();
+
+          // Find selected vehicle object
+          const oVehicle = aVehicles.find(
+            (v) => v.VehicleNumber === sVehicleNumber
+          );
+
+          if (oVehicle) {
+            this.byId("idVehicleType").setValue(oVehicle.VehicleType);
+            this.byId("idVehicleSize").setValue(oVehicle.VehicleSize);
+            this.byId("idTransporterName").setValue(oVehicle.TransporterName);
+          } else {
+            console.error("Vehicle not found in VHModel");
+          }
         },
       }
     );

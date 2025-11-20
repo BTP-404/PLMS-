@@ -1,0 +1,16 @@
+<core:FragmentDefinition xmlns="sap.m" xmlns:core="sap.ui.core">
+    <SelectDialog
+        id="entryGateDialog"
+        title="Select Entry Gate"
+        items="{
+            path: 'helpModel>/'
+        }"
+        confirm="onEntryGateValueHelpConfirm"
+        search="onEntryGateValueHelpSearch"
+    >
+        <StandardListItem
+            title="{helpModel>ConfigID}"
+            description="{helpModel>Description}"
+        />
+    </SelectDialog>
+</core:FragmentDefinition>

@@ -257,7 +257,7 @@
                                     wrapping="true"
                                 />
                                 <Text
-                                    text="{Status}"
+                                    text="{TripStatus}"
                                     wrapping="true"
                                 />
                                 <Text
