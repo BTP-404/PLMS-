@@ -15,9 +15,6 @@
             <headerToolbar>
                 <OverflowToolbar>
                     <Title text="Reference Documents" />
-                    <ToolbarSpacer />
-                    <Button text="Edit" type="Emphasized" press="onEditReferenceDocs" />
-                    <Button text="Save" type="Accept" class="sapUiTinyMarginBegin" press="onSaveReferenceDocs" />
                 </OverflowToolbar>
             </headerToolbar>
 
@@ -28,53 +25,186 @@
                     class="sapUiNoContentPadding sapUiTinyMarginBottom">
                     <HBox wrap="Wrap" width="auto">
 
-                        <Table id="idReferenceDocsTable"
+                        <Table
+                            id="idReferenceDocsTable"
                             inset="false"
                             mode="None"
-                            width="150rem"
-                            class="sapUiSizeCompact">
+                            width="100%"
+                            class="sapUiSizeCompact"
+                            fixedLayout="false"
+                            autoPopin="true"
+                            sticky="ColumnHeaders"
+                            growing="true"
+                            growingScrollToLoad="true"
+                            growingThreshold="20"
+                            items="{
+                                path: 'refDocModel>/referenceDocs'
+                            }"
+                            noDataText="No reference documents added yet">
+                            <headerToolbar>
+                                <Toolbar>
+                                    <Title text="Reference Documents" level="H6" />
+                                    <ToolbarSpacer />
+                                    <Button
+                                        text="Document"
+                                        icon="sap-icon://add"
+                                        type="Emphasized"
+                                        press="onAddRefDocRow"
+                                    />
+                                </Toolbar>
+                            </headerToolbar>
 
                             <columns>
-                                <Column><Text text="Doc Type" /></Column>
-                                <Column><Text text="Document Number" /></Column>
-                                <Column><Text text="Document Date" /></Column>
-                                <Column><Text text="Sending/Receiving Party Code" /></Column>
-                                <Column><Text text="Sending/Receiving Party Name" /></Column>
-                                <Column><Text text="Created By" /></Column>
-                                <Column><Text text="Created On Date" /></Column>
-                                <Column><Text text="Created On Time" /></Column>
-                                <Column><Text text="Changed By" /></Column>
-                                <Column><Text text="Changed On Date" /></Column>
-                                <Column><Text text="Changed On Time" /></Column>
-                                <Column hAlign="Center" width="6rem"><Text text="Action" /></Column>
+                                <Column
+                                    demandPopin="true"
+                                    minScreenWidth="Tablet"
+                                    popinDisplay="Inline"
+                                >
+                                    <Text text="Doc Type" />
+                                </Column>
+                                <Column
+                                    demandPopin="true"
+                                    minScreenWidth="Tablet"
+                                    popinDisplay="Inline"
+                                >
+                                    <Text text="Document Number" />
+                                </Column>
+                                <Column
+                                    demandPopin="true"
+                                    minScreenWidth="Tablet"
+                                >
+                                    <Text text="Document Date" />
+                                </Column>
+                                <Column
+                                    demandPopin="true"
+                                    minScreenWidth="Desktop"
+                                    popinDisplay="Inline"
+                                >
+                                    <Text text="Sending/Receiving Party Code" />
+                                </Column>
+                                <Column
+                                    demandPopin="true"
+                                    minScreenWidth="Desktop"
+                                    popinDisplay="Inline"
+                                >
+                                    <Text text="Sending/Receiving Party Name" />
+                                </Column>
+                                <Column
+                                    demandPopin="true"
+                                    minScreenWidth="Desktop"
+                                >
+                                    <Text text="Created By" />
+                                </Column>
+                                <Column
+                                    demandPopin="true"
+                                    minScreenWidth="XLarge"
+                                    popinDisplay="Inline"
+                                >
+                                    <Text text="Created On Date" />
+                                </Column>
+                                <Column
+                                    demandPopin="true"
+                                    minScreenWidth="XLarge"
+                                    popinDisplay="Inline"
+                                >
+                                    <Text text="Created On Time" />
+                                </Column>
+                                <Column
+                                    demandPopin="true"
+                                    minScreenWidth="XLarge"
+                                >
+                                    <Text text="Changed By" />
+                                </Column>
+                                <Column
+                                    demandPopin="true"
+                                    minScreenWidth="XLarge"
+                                    popinDisplay="Inline"
+                                >
+                                    <Text text="Changed On Date" />
+                                </Column>
+                                <Column
+                                    demandPopin="true"
+                                    minScreenWidth="XLarge"
+                                    popinDisplay="Inline"
+                                >
+                                    <Text text="Changed On Time" />
+                                </Column>
+                                <Column
+                                    hAlign="Center"
+                                    width="6rem"
+                                >
+                                    <Text text="Action" />
+                                </Column>
                             </columns>
 
                             <items>
                                 <ColumnListItem>
                                     <cells>
-                                        <Select width="10rem" />
-                                        <Input width="12rem" />
-                                        <DatePicker width="10rem" displayFormat="short" />
-                                        <Input width="12rem" />
-                                        <Input width="12rem" />
-                                        <Select width="10rem" />
-                                        <DatePicker width="10rem" displayFormat="short" />
-                                        <TimePicker width="10rem" />
-                                        <Select width="10rem" />
-                                        <DatePicker width="10rem" displayFormat="short" />
-                                        <TimePicker width="10rem" />
-                                        <Button icon="sap-icon://delete" type="Reject"
-                                            press=".onDeleteRefDocRow" tooltip="Delete Row" />
-                                    </cells>
-                                </ColumnListItem>
-                            </items>
+                                        <Input width="10rem" value="{refDocModel>docType}" />
+                                        <Input width="12rem" value="{refDocModel>documentNumber}" />
+                                        <DatePicker
+                                            width="10rem"
+                                            displayFormat="short"
+                                            valueFormat="yyyy-MM-dd"
+                                            value="{refDocModel>documentDate}"
+                                        />
+                                        <Input width="12rem" value="{refDocModel>partyCode}" />
+                                        <Input width="12rem" value="{refDocModel>partyName}" />
+                                        <Input width="10rem" value="{refDocModel>createdBy}" />
+                                        <DatePicker
+                                            width="10rem"
+                        displayFormat="short"
+                        valueFormat="yyyy-MM-dd"
+                        value="{refDocModel>createdOnDate}"
+                    />
+                    <TimePicker
+                        width="10rem"
+                        displayFormat="HH:mm"
+                        valueFormat="HH:mm:ss"
+                        value="{refDocModel>createdOnTime}"
+                    />
+                    <Input width="10rem" value="{refDocModel>changedBy}" />
+                    <DatePicker
+                        width="10rem"
+                        displayFormat="short"
+                        valueFormat="yyyy-MM-dd"
+                        value="{refDocModel>changedOnDate}"
+                    />
+                    <TimePicker
+                        width="10rem"
+                        displayFormat="HH:mm"
+                        valueFormat="HH:mm:ss"
+                        value="{refDocModel>changedOnTime}"
+                    />
+                    <Button
+                        icon="sap-icon://delete"
+                        type="Reject"
+                        press=".onDeleteRefDocRow"
+                        tooltip="Delete Row"
+                    />
+                </cells>
+            </ColumnListItem>
+        </items>
 
                         </Table>
                     </HBox>
                 </ScrollContainer>
 
-                <HBox justifyContent="End" class="sapUiTinyMarginTop">
-                    <Button text="Add Row" icon="sap-icon://add" type="Emphasized" press="onAddRefDocRow" />
+                <HBox
+                    justifyContent="End"
+                    class="sapUiSmallMarginTop"
+                >
+                    <Button
+                        text="Edit"
+                        type="Emphasized"
+                        press="onEditReferenceDocs"
+                    />
+                    <Button
+                        text="Save"
+                        type="Accept"
+                        class="sapUiTinyMarginBegin"
+                        press="onSaveReferenceDocs"
+                    />
                 </HBox>
 
             </VBox>
@@ -97,45 +227,164 @@
                     class="sapUiNoContentPadding sapUiTinyMarginBottom">
                     <HBox wrap="Wrap" width="auto">
 
-                        <Table id="idMaterialDetailsTable"
+                        <Table
+                            id="idMaterialDetailsTable"
                             inset="false"
                             mode="None"
-                            width="150rem"
-                            class="sapUiSizeCompact">
+                            width="100%"
+                            class="sapUiSizeCompact"
+                            fixedLayout="false"
+                            autoPopin="true"
+                            sticky="ColumnHeaders"
+                            growing="true"
+                            growingScrollToLoad="true"
+                            growingThreshold="20"
+                            items="{
+                                path: 'refDocModel>/materialDetails'
+                            }"
+                            noDataText="No material rows added yet">
+                            <headerToolbar>
+                                <Toolbar>
+                                    <Title text="Material Details" level="H6" />
+                                    <ToolbarSpacer />
+                                    <Button
+                                        text="Material"
+                                        icon="sap-icon://add"
+                                        type="Emphasized"
+                                        press="onAddMaterialRow"
+                                    />
+                                </Toolbar>
+                            </headerToolbar>
 
                             <columns>
-                                <Column><Text text="Ref Doc No" /></Column>
-                                <Column><Text text="Ref Doc Item No" /></Column>
-                                <Column><Text text="Material Code" /></Column>
-                                <Column><Text text="Material Description" /></Column>
-                                <Column><Text text="Qty" /></Column>
-                                <Column><Text text="UoM" /></Column>
-                                <Column><Text text="Created By" /></Column>
-                                <Column><Text text="Created On Date" /></Column>
-                                <Column><Text text="Created On Time" /></Column>
-                                <Column><Text text="Changed By" /></Column>
-                                <Column><Text text="Changed On Date" /></Column>
-                                <Column><Text text="Changed On Time" /></Column>
-                                <Column hAlign="Center" width="6rem"><Text text="Action" /></Column>
+                                <Column
+                                    demandPopin="true"
+                                    minScreenWidth="Tablet"
+                                    popinDisplay="Inline"
+                                >
+                                    <Text text="Ref Doc No" />
+                                </Column>
+                                <Column
+                                    demandPopin="true"
+                                    minScreenWidth="Tablet"
+                                    popinDisplay="Inline"
+                                >
+                                    <Text text="Ref Doc Item No" />
+                                </Column>
+                                <Column
+                                    demandPopin="true"
+                                    minScreenWidth="Tablet"
+                                >
+                                    <Text text="Material Code" />
+                                </Column>
+                                <Column
+                                    demandPopin="true"
+                                    minScreenWidth="Desktop"
+                                    popinDisplay="Inline"
+                                >
+                                    <Text text="Material Description" />
+                                </Column>
+                                <Column
+                                    demandPopin="true"
+                                    minScreenWidth="Desktop"
+                                >
+                                    <Text text="Qty" />
+                                </Column>
+                                <Column
+                                    demandPopin="true"
+                                    minScreenWidth="Desktop"
+                                >
+                                    <Text text="UoM" />
+                                </Column>
+                                <Column
+                                    demandPopin="true"
+                                    minScreenWidth="Desktop"
+                                >
+                                    <Text text="Created By" />
+                                </Column>
+                                <Column
+                                    demandPopin="true"
+                                    minScreenWidth="XLarge"
+                                    popinDisplay="Inline"
+                                >
+                                    <Text text="Created On Date" />
+                                </Column>
+                                <Column
+                                    demandPopin="true"
+                                    minScreenWidth="XLarge"
+                                    popinDisplay="Inline"
+                                >
+                                    <Text text="Created On Time" />
+                                </Column>
+                                <Column
+                                    demandPopin="true"
+                                    minScreenWidth="XLarge"
+                                >
+                                    <Text text="Changed By" />
+                                </Column>
+                                <Column
+                                    demandPopin="true"
+                                    minScreenWidth="XLarge"
+                                    popinDisplay="Inline"
+                                >
+                                    <Text text="Changed On Date" />
+                                </Column>
+                                <Column
+                                    demandPopin="true"
+                                    minScreenWidth="XLarge"
+                                    popinDisplay="Inline"
+                                >
+                                    <Text text="Changed On Time" />
+                                </Column>
+                                <Column
+                                    hAlign="Center"
+                                    width="6rem"
+                                >
+                                    <Text text="Action" />
+                                </Column>
                             </columns>
 
                             <items>
                                 <ColumnListItem>
                                     <cells>
-                                        <Select width="10rem" />
-                                        <Select width="10rem" />
-                                        <Select width="10rem" />
-                                        <Input width="12rem" />
-                                        <Input width="8rem" type="Number" />
-                                        <Select width="8rem" />
-                                        <Select width="10rem" />
-                                        <DatePicker width="10rem" displayFormat="short" />
-                                        <TimePicker width="10rem" />
-                                        <Select width="10rem" />
-                                        <DatePicker width="10rem" displayFormat="short" />
-                                        <TimePicker width="10rem" />
-                                        <Button icon="sap-icon://delete" type="Reject"
-                                            press=".onDeleteMaterialRow" tooltip="Delete Row" />
+                                        <Input width="10rem" value="{refDocModel>refDocNo}" />
+                                        <Input width="10rem" value="{refDocModel>refDocItemNo}" />
+                                        <Input width="10rem" value="{refDocModel>materialCode}" />
+                                        <Input width="12rem" value="{refDocModel>materialDescription}" />
+                                        <Input width="8rem" type="Number" value="{refDocModel>qty}" />
+                                        <Input width="8rem" value="{refDocModel>uom}" />
+                                        <Input width="10rem" value="{refDocModel>createdBy}" />
+                                        <DatePicker
+                                            width="10rem"
+                                            displayFormat="short"
+                                            valueFormat="yyyy-MM-dd"
+                                            value="{refDocModel>createdOnDate}"
+                                        />
+                                        <TimePicker
+                                            width="10rem"
+                                            displayFormat="HH:mm"
+                                            valueFormat="HH:mm:ss"
+                                            value="{refDocModel>createdOnTime}"
+                                        />
+                                        <Input width="10rem" value="{refDocModel>changedBy}" />
+                                        <DatePicker
+                                            width="10rem"
+                                            displayFormat="short"
+                                            valueFormat="yyyy-MM-dd"
+                                            value="{refDocModel>changedOnDate}"
+                                        />
+                                        <TimePicker
+                                            width="10rem"
+                                            displayFormat="HH:mm"
+                                            valueFormat="HH:mm:ss"
+                                            value="{refDocModel>changedOnTime}"
+                                        />
+                                        <Button
+                                            icon="sap-icon://delete"
+                                            type="Reject"
+                                            press=".onDeleteMaterialRow"
+                                            tooltip="Delete Row"
+                                        />
                                     </cells>
                                 </ColumnListItem>
                             </items>
@@ -143,10 +392,6 @@
                         </Table>
                     </HBox>
                 </ScrollContainer>
-
-                <HBox justifyContent="End" class="sapUiTinyMarginTop">
-                    <Button text="Add Row" icon="sap-icon://add" type="Emphasized" press="onAddMaterialRow" />
-                </HBox>
 
             </VBox>
         </Panel>

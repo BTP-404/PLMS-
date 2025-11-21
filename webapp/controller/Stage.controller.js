@@ -1,282 +1,328 @@
-sap.ui.define(
-  ["sap/ui/core/mvc/Controller", "sap/ui/core/Core", "sap/m/StandardListItem","sap/m/MessageToast","sap/m/MessageBox"],
-  function (Controller, Core, StandardListItem,MessageToast,MessageBox) {
-    "use strict";
-    return Controller.extend("com.incresolZ_INC_PLMS.controller.Stage", {
-      onInit: function () {
-        var oRouter = this.getOwnerComponent().getRouter();
-        oRouter
-          .getRoute("Stage")
-          .attachPatternMatched(this._onRouteMatched, this);
-        oRouter
-          .getRoute("StagewithParam")
-          .attachPatternMatched(this._onRouteMatched, this);
-      },
-      onAfterRendering: function () {},
+sap.ui.define([
+	"sap/ui/core/mvc/Controller",
+	"sap/ui/model/json/JSONModel",
+	"sap/ui/core/Fragment",
+	"sap/m/MessageToast",
+	"sap/ui/model/odata/v2/ODataModel"
+], function(Controller, JSONModel, Fragment, MessageToast, ODataModel) {
+	"use strict";
+	return Controller.extend("com.incresolZ_INC_PLMS.controller.Stage", {
+		onInit: function() {
+			var oRouter = this.getOwnerComponent().getRouter();
+			oRouter.getRoute("Stage").attachPatternMatched(this._onRouteMatched, this);//new Vehicle Reporting Case
+			oRouter.getRoute("StagewithParam").attachPatternMatched(this._onRouteMatched, this); // existing vehicle
 
-      _onRouteMatched: function (oEvent) {
-        var sTripNumber = oEvent.getParameter("arguments").tripNo;
-        console.log("Navigated with Trip:", sTripNumber);
+			// Ensure global trip model exists upfront
+			if (!sap.ui.getCore().getModel("globalData")) {
+				sap.ui.getCore().setModel(new JSONModel({ TripNumber: "" }), "globalData");
+			}
+			this._initializeReferenceModels();
+			this._initPageTitleModel();
 
-        // You can now filter data for this trip or bind it to the view
-      },
-      onDriverPhotoChange: function (oEvent) {
-        const oUploader = oEvent.getSource();
-        const aFiles = oEvent.getParameter("files");
-        if (aFiles && aFiles.length > 0) {
-          sap.m.MessageToast.show("Selected file: " + aFiles[0].name);
-        }
-      },
-      onDriverPhotoUploadComplete: function (oEvent) {
-        const sResponse = oEvent.getParameter("response");
-        sap.m.MessageToast.show("Upload completed: " + sResponse);
-      },
-      onSaveReporting: function (oEvent) {
-        alert("Save clicked");
-      },
-      onAddLoadingRow: function () {
-        var oTable = this.byId("idLoadingMaterialTable");
-        var oTemplate = oTable.getItems()[0].clone();
+			this._oEventBus = sap.ui.getCore().getEventBus();
+			this._oEventBus.subscribe("TripData", "Updated", this._refreshPageTitleModel, this);
+		},
+		onAfterRendering: function() {},
 
-        // Reset inputs in new row
-        oTemplate.getCells().forEach(function (cell) {
-          if (cell instanceof sap.m.Input) {
-            cell.setValue("");
-          } else if (cell instanceof sap.m.Select) {
-            cell.setSelectedKey("");
-          } else if (cell instanceof sap.m.DatePicker) {
-            cell.setDateValue(null);
-          } else if (cell instanceof sap.m.TimePicker) {
-            cell.setValue("");
-          }
-        });
+		onExit: function () {
+			this._oEventBus?.unsubscribe("TripData", "Updated", this._refreshPageTitleModel, this);
+		},
 
-        oTable.addItem(oTemplate);
-        sap.m.MessageToast.show("New row added");
-      },
+		_onRouteMatched: function(oEvent) {
+			var oArgs = oEvent.getParameter("arguments") || {};
+			var sTripNumber = oArgs.tripNo || "";
+			this._syncTripNumberFromRoute(sTripNumber);
+			console.log("Navigated with Trip:", this._sCurrentTripNumber || sTripNumber);
 
-      onEditLoading: function () {
-        console.log("Edit button clicked for Loading section");
-        sap.m.MessageToast.show("Edit mode triggered");
-      },
+			// You can now filter data for this trip or bind it to the view
+		},
 
-      onSaveLoading: function () {
-        var oTable = this.byId("idLoadingMaterialTable");
-        var aData = [];
+		_syncTripNumberFromRoute: function (sTripNumber) {
+			var oGlobalModel = sap.ui.getCore().getModel("globalData");
+			if (!oGlobalModel) {
+				oGlobalModel = new JSONModel({ TripNumber: "" });
+				sap.ui.getCore().setModel(oGlobalModel, "globalData");
+			}
 
-        oTable.getItems().forEach(function (oItem) {
-          var aCells = oItem.getCells();
-          var oRowData = {
-            RefDocNumber: aCells[0].getSelectedKey
-              ? aCells[0].getSelectedKey()
-              : "",
-            RefDocItemNumber: aCells[1].getSelectedKey
-              ? aCells[1].getSelectedKey()
-              : "",
-            MaterialCode: aCells[2].getValue ? aCells[2].getValue() : "",
-            MaterialDescription: aCells[3].getValue ? aCells[3].getValue() : "",
-            Qty: aCells[4].getValue ? aCells[4].getValue() : "",
-            UoM: aCells[5].getSelectedKey ? aCells[5].getSelectedKey() : "",
-            LoadedQtyNetWt: aCells[6].getValue ? aCells[6].getValue() : "",
-            GrossWt: aCells[7].getValue ? aCells[7].getValue() : "",
-            TareWt: aCells[8].getValue ? aCells[8].getValue() : "",
-            CreatedBy: aCells[9].getSelectedKey
-              ? aCells[9].getSelectedKey()
-              : "",
-            CreatedOnDate: aCells[10].getDateValue
-              ? aCells[10].getDateValue()
-              : "",
-            CreatedOnTime: aCells[11].getValue ? aCells[11].getValue() : "",
-            ChangedBy: aCells[12].getSelectedKey
-              ? aCells[12].getSelectedKey()
-              : "",
-            ChangedOnDate: aCells[13].getDateValue
-              ? aCells[13].getDateValue()
-              : "",
-            ChangedOnTime: aCells[14].getValue ? aCells[14].getValue() : "",
-          };
-          aData.push(oRowData);
-        });
+			if (sTripNumber) {
+				oGlobalModel.setProperty("/TripNumber", sTripNumber);
+				this._sCurrentTripNumber = sTripNumber;
+			} else {
+				this._sCurrentTripNumber = oGlobalModel.getProperty("/TripNumber") || "";
+			}
 
-        console.log("Saved Loading Table Data:", aData);
-        sap.m.MessageToast.show("Data logged to console");
-      },
-      onDeleteLoadingRow: function (oEvent) {
-        var oTable = this.byId("idLoadingMaterialTable");
-        var aItems = oTable.getItems();
+			this._refreshPageTitleModel();
+		},
 
-        // Prevent deleting if only one row left
-        if (aItems.length <= 1) {
-          sap.m.MessageToast.show("At least one row must remain.");
-          return;
-        }
+		_initPageTitleModel: function () {
+			this._oPageTitleModel = new JSONModel({
+				tripNumber: "",
+				vehicleNumber: "",
+				tripStatus: ""
+			});
+			this.getView().setModel(this._oPageTitleModel, "pageTitleModel");
+			this._refreshPageTitleModel();
+		},
 
-        // Identify and remove the specific row
-        var oItem = oEvent.getSource().getParent(); // the ColumnListItem
-        oTable.removeItem(oItem);
+		_refreshPageTitleModel: function () {
+			if (!this._oPageTitleModel) {
+				return;
+			}
 
-        sap.m.MessageToast.show("Row deleted successfully.");
-      },
-      onAddRefDocRow: function () {
-        var oTable = this.byId("idReferenceDocsTable");
-        var oNewItem = oTable.getItems()[0].clone();
-        oTable.addItem(oNewItem);
-      },
+			var oGlobal = sap.ui.getCore().getModel("globalData");
+			var sTripNo = this._sCurrentTripNumber || (oGlobal ? oGlobal.getProperty("/TripNumber") : "") || "";
+			this._oPageTitleModel.setProperty("/tripNumber", sTripNo || "");
 
-      onDeleteRefDocRow: function (oEvent) {
-        var oTable = this.byId("idReferenceDocsTable");
-        var aItems = oTable.getItems();
-        if (aItems.length > 1) {
-          oTable.removeItem(oEvent.getSource().getParent());
-        } else {
-          sap.m.MessageToast.show("At least one row must remain.");
-        }
-      },
+			var oTripDataModel = sap.ui.getCore().getModel("TripData");
+			if (oTripDataModel) {
+				var sVehicle = oTripDataModel.getProperty("/VehicleNumber") || "";
+				var sStatus = oTripDataModel.getProperty("/TripStatus") || "";
+				this._oPageTitleModel.setProperty("/vehicleNumber", sVehicle);
+				this._oPageTitleModel.setProperty("/tripStatus", sStatus);
+			} else {
+				this._oPageTitleModel.setProperty("/vehicleNumber", "");
+				this._oPageTitleModel.setProperty("/tripStatus", "");
+				if (sTripNo) {
+					this._loadTripHeaderDetails(sTripNo);
+				}
+			}
+		},
 
-      onAddMaterialRow: function () {
-        var oTable = this.byId("idMaterialDetailsTable");
-        var oNewItem = oTable.getItems()[0].clone();
-        oTable.addItem(oNewItem);
-      },
+		_loadTripHeaderDetails: function (sTripNumber) {
+			if (!sTripNumber) {
+				return;
+			}
 
-      onDeleteMaterialRow: function (oEvent) {
-        var oTable = this.byId("idMaterialDetailsTable");
-        var aItems = oTable.getItems();
-        if (aItems.length > 1) {
-          oTable.removeItem(oEvent.getSource().getParent());
-        } else {
-          sap.m.MessageToast.show("At least one row must remain.");
-        }
-      },
+			if (!this._oTripService) {
+				this._oTripService = new ODataModel("/sap/opu/odata/sap/YIGP_PLMS_SRV/", {
+					useBatch: false,
+					defaultBindingMode: "TwoWay"
+				});
+			}
 
-      onEditReferenceDocs: function () {
-        console.log("Edit clicked for Reference Documents & Materials tab");
-      },
+			this._oTripService.read("/TripDetails('" + sTripNumber + "')", {
+				success: function (oData) {
+					this._oPageTitleModel.setProperty("/tripNumber", oData.TripNumber || sTripNumber);
+					this._oPageTitleModel.setProperty("/vehicleNumber", oData.VehicleNumber || "");
+					this._oPageTitleModel.setProperty("/tripStatus", oData.TripStatus || "");
+				}.bind(this),
+				error: function () {
+					this._oPageTitleModel.setProperty("/tripNumber", sTripNumber);
+				}.bind(this)
+			});
+		},
 
-      onSaveReferenceDocs: function () {
-        var refRows = this.byId("idReferenceDocsTable").getItems();
-        var matRows = this.byId("idMaterialDetailsTable").getItems();
-        console.log("Reference Documents Rows:", refRows.length);
-        console.log("Material Details Rows:", matRows.length);
-      },
+		_initializeReferenceModels: function () {
+			var oModel = new JSONModel({
+				referenceDocs: [],
+				materialDetails: []
+			});
+			this.getView().setModel(oModel, "refDocModel");
+		},
 
-      onSaveNote: function () {
-        const oTextArea = this.byId("idNoteInput");
-        const sText = oTextArea.getValue().trim();
-        const oContainer = this.byId("idNotesContainer");
-        const oNoNotesText = this.byId("idNoNotesText");
+		// ============================================================
+		// Reference Documents Dialog Handlers
+		// ============================================================
+		onAddRefDocRow: function () {
+			this._openAddRefDocDialog();
+		},
 
-        if (!sText) {
-          sap.m.MessageToast.show("Please enter a note before saving.");
-          return;
-        }
+		_openAddRefDocDialog: function () {
+			if (!this._oAddRefDocDialog) {
+				Fragment.load({
+					id: this.getView().getId(),
+					name: "com.incresolZ_INC_PLMS.fragments.ReferenceDocumentsFrags.AddRefDocDialog",
+					controller: this
+				}).then(function (oDialog) {
+					this._oAddRefDocDialog = oDialog;
+					this.getView().addDependent(oDialog);
+					oDialog.open();
+				}.bind(this));
+			} else {
+				this._oAddRefDocDialog.open();
+			}
+		},
 
-        oNoNotesText.setVisible(false);
+		onSaveRefDocDialog: function () {
+			var oModel = this.getView().getModel("refDocModel");
+			var aRefDocs = oModel.getProperty("/referenceDocs") || [];
 
-        // Create light blue sticky note
-        const oNoteBox = new sap.m.VBox({
-          items: [
-            new sap.m.Text({
-              text: sText,
-              wrapping: true,
-            }),
-          ],
-        }).addStyleClass("stickyNoteLightBlue");
+			var oNewEntry = {
+				docType: this.byId("idRefDocType")?.getValue() || "",
+				documentNumber: this.byId("idRefDocNumber")?.getValue() || "",
+				documentDate: this.byId("idRefDocDate")?.getValue() || "",
+				partyCode: this.byId("idRefDocPartyCode")?.getValue() || "",
+				partyName: this.byId("idRefDocPartyName")?.getValue() || "",
+				createdBy: this.byId("idRefDocCreatedBy")?.getValue() || "",
+				createdOnDate: this.byId("idRefDocCreatedOnDate")?.getValue() || "",
+				createdOnTime: this.byId("idRefDocCreatedOnTime")?.getValue() || "",
+				changedBy: this.byId("idRefDocChangedBy")?.getValue() || "",
+				changedOnDate: this.byId("idRefDocChangedOnDate")?.getValue() || "",
+				changedOnTime: this.byId("idRefDocChangedOnTime")?.getValue() || ""
+			};
 
-        oContainer.addItem(oNoteBox);
+			aRefDocs.push(oNewEntry);
+			oModel.setProperty("/referenceDocs", aRefDocs);
 
-        oTextArea.setValue("");
-      },
-      onFileChange: function (oEvent) {
-        const aFiles = oEvent.getParameter("files");
-        if (aFiles && aFiles.length > 0) {
-          console.log("Selected file:", aFiles[0].name);
-        }
-      },
+			MessageToast.show("Reference document added");
+			this._closeRefDocDialog();
+			this._resetRefDocDialog();
+		},
 
-      onUploadDocument: function () {
-        const oStageSelect = this.byId("idStageSelect");
-        const sStage = oStageSelect.getSelectedKey();
-        const oUploader = this.byId("idUnifiedUploader");
-        const aFiles = oUploader.oFileUpload.files;
+		onCancelRefDocDialog: function () {
+			this._closeRefDocDialog();
+			this._resetRefDocDialog();
+		},
 
-        if (!sStage) {
-          MessageToast.show("Please select a stage.");
-          return;
-        }
+		_closeRefDocDialog: function () {
+			this._oAddRefDocDialog?.close();
+		},
 
-        if (aFiles.length === 0) {
-          MessageToast.show("Please choose a file to upload.");
-          return;
-        }
+		_resetRefDocDialog: function () {
+			[
+				"idRefDocType",
+				"idRefDocNumber",
+				"idRefDocPartyCode",
+				"idRefDocPartyName",
+				"idRefDocCreatedBy",
+				"idRefDocChangedBy"
+			].forEach(function (sId) {
+				this.byId(sId)?.setValue("");
+			}.bind(this));
 
-        const oList = this.byId("idUploadedFilesList");
-        const oFile = aFiles[0];
+			[
+				"idRefDocDate",
+				"idRefDocCreatedOnDate",
+				"idRefDocChangedOnDate"
+			].forEach(function (sId) {
+				var oControl = this.byId(sId);
+				if (oControl && oControl.setValue) {
+					oControl.setValue("");
+				}
+			}.bind(this));
 
-        const oItem = new StandardListItem({
-          title: oFile.name,
-          description: `Stage: ${sStage}`,
-          icon: "sap-icon://attachment",
-          type: "Inactive",
-        });
+			[
+				"idRefDocCreatedOnTime",
+				"idRefDocChangedOnTime"
+			].forEach(function (sId) {
+				var oControl = this.byId(sId);
+				if (oControl && oControl.setValue) {
+					oControl.setValue("");
+				}
+			}.bind(this));
+		},
 
-        oList.addItem(oItem);
-        MessageToast.show("File uploaded successfully (simulated).");
-        oUploader.clear();
-      },
+		onDeleteRefDocRow: function (oEvent) {
+			var oTable = this.byId("idReferenceDocsTable");
+			var oModel = this.getView().getModel("refDocModel");
+			var aRefDocs = oModel.getProperty("/referenceDocs") || [];
+			var iIndex = oTable.indexOfItem(oEvent.getSource().getParent());
+			if (iIndex > -1) {
+				aRefDocs.splice(iIndex, 1);
+				oModel.setProperty("/referenceDocs", aRefDocs);
+				MessageToast.show("Reference document removed");
+			}
+		},
 
-      onDeleteFile: function (oEvent) {
-        const oItem = oEvent.getParameter("listItem");
-        this.byId("idUploadedFilesList").removeItem(oItem);
-        MessageToast.show("File removed.");
-      }, // Handler for the Cancel Trip button
-      onCancelTrip: function () {
-        // Display confirmation dialog with an icon and styled buttons
-        MessageBox.warning(
-          "Are you sure you want to cancel the trip? This action cannot be undone.", // Message with HTML formatting
-          {
-            title: "Cancel Trip", // Title of the dialog
-            icon: MessageBox.Icon.Warning, // Icon for the message box (warning icon)
-            actions: [MessageBox.Action.YES, MessageBox.Action.NO], // Custom buttons: Yes and No
-            styleClass: "sapUiSizeCompact", // Compact style for the dialog (optional)
-            onClose: function (sAction) {
-              if (sAction === MessageBox.Action.YES) {
-                // Handle the "Yes" action (e.g., cancel the trip)
-                this._cancelTrip();
-              } else {
-                // Handle the "No" action (e.g., do nothing)
-                MessageToast.show("Trip cancellation aborted.");
-              }
-            }.bind(this), // Bind the controller context
-          }
-        );
-      },
+		// ============================================================
+		// Material Details Dialog Handlers
+		// ============================================================
+		onAddMaterialRow: function () {
+			this._openAddMaterialDialog();
+		},
 
-      // Function to perform trip cancellation logic
-     _cancelTrip: function () {
-    var oModel = this.getView().getModel();
+		_openAddMaterialDialog: function () {
+			if (!this._oAddMaterialDialog) {
+				Fragment.load({
+					id: this.getView().getId(),
+					name: "com.incresolZ_INC_PLMS.fragments.ReferenceDocumentsFrags.AddMaterialRowDialog",
+					controller: this
+				}).then(function (oDialog) {
+					this._oAddMaterialDialog = oDialog;
+					this.getView().addDependent(oDialog);
+					oDialog.open();
+				}.bind(this));
+			} else {
+				this._oAddMaterialDialog.open();
+			}
+		},
 
-    var sTripNumber = sap.ui
-        .getCore()
-        .getModel("globalData")
-        .getProperty("/TripNumber");
+		onSaveMaterialDialog: function () {
+			var oModel = this.getView().getModel("refDocModel");
+			var aMaterials = oModel.getProperty("/materialDetails") || [];
 
-    // Build correct entity path
-    var sPath = "/TripDetails('" + sTripNumber + "')";
+			var oNewMaterial = {
+				refDocNo: this.byId("idMaterialRefDocNo")?.getValue() || "",
+				refDocItemNo: this.byId("idMaterialRefDocItem")?.getValue() || "",
+				materialCode: this.byId("idMaterialCode")?.getValue() || "",
+				materialDescription: this.byId("idMaterialDesc")?.getValue() || "",
+				qty: this.byId("idMaterialQty")?.getValue() || "",
+				uom: this.byId("idMaterialUoM")?.getValue() || "",
+				createdBy: this.byId("idMaterialCreatedBy")?.getValue() || "",
+				createdOnDate: this.byId("idMaterialCreatedOnDate")?.getValue() || "",
+				createdOnTime: this.byId("idMaterialCreatedOnTime")?.getValue() || "",
+				changedBy: this.byId("idMaterialChangedBy")?.getValue() || "",
+				changedOnDate: this.byId("idMaterialChangedOnDate")?.getValue() || "",
+				changedOnTime: this.byId("idMaterialChangedOnTime")?.getValue() || ""
+			};
 
-    oModel.remove(sPath, {
-        method: "DELETE",
+			aMaterials.push(oNewMaterial);
+			oModel.setProperty("/materialDetails", aMaterials);
 
-        success: function () {
-            sap.m.MessageToast.show("Trip Canceled.");
-        },
+			MessageToast.show("Material row added");
+			this._closeMaterialDialog();
+			this._resetMaterialDialog();
+		},
 
-        error: function () {
-            sap.m.MessageBox.error("Please try again.");
-        }
-    });
-}
+		onCancelMaterialDialog: function () {
+			this._closeMaterialDialog();
+			this._resetMaterialDialog();
+		},
 
-    });
-  }
-);
+		_closeMaterialDialog: function () {
+			this._oAddMaterialDialog?.close();
+		},
+
+		_resetMaterialDialog: function () {
+			[
+				"idMaterialRefDocNo",
+				"idMaterialRefDocItem",
+				"idMaterialCode",
+				"idMaterialDesc",
+				"idMaterialQty",
+				"idMaterialUoM",
+				"idMaterialCreatedBy",
+				"idMaterialChangedBy"
+			].forEach(function (sId) {
+				this.byId(sId)?.setValue("");
+			}.bind(this));
+
+			[
+				"idMaterialCreatedOnDate",
+				"idMaterialChangedOnDate"
+			].forEach(function (sId) {
+				this.byId(sId)?.setValue("");
+			}.bind(this));
+
+			[
+				"idMaterialCreatedOnTime",
+				"idMaterialChangedOnTime"
+			].forEach(function (sId) {
+				this.byId(sId)?.setValue("");
+			}.bind(this));
+		},
+
+		onDeleteMaterialRow: function (oEvent) {
+			var oTable = this.byId("idMaterialDetailsTable");
+			var oModel = this.getView().getModel("refDocModel");
+			var aMaterials = oModel.getProperty("/materialDetails") || [];
+			var iIndex = oTable.indexOfItem(oEvent.getSource().getParent());
+			if (iIndex > -1) {
+				aMaterials.splice(iIndex, 1);
+				oModel.setProperty("/materialDetails", aMaterials);
+				MessageToast.show("Material row removed");
+			}
+		}
+	
+	});
+});

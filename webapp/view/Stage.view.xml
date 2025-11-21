@@ -2,7 +2,20 @@
 	xmlns:form="sap.ui.layout.form" xmlns:unified="sap.ui.unified" xmlns:html="http://www.w3.org/1999/xhtml" displayBlock="true">
 	<App>
 		<pages>
-			<Page title="{i18n>title}">
+			<Page>
+				<customHeader>
+					<Bar>
+						<contentLeft>
+							<Text text="Trip No: {pageTitleModel>/tripNumber}" class="sapUiSmallMarginBegin"/>
+						</contentLeft>
+						<contentMiddle>
+							<Text text="Vehicle No:- {pageTitleModel>/vehicleNumber}"/>
+						</contentMiddle>
+						<contentRight>
+							<Text text="Trip status :- {pageTitleModel>/tripStatus}" class="sapUiSmallMarginEnd"/>
+						</contentRight>
+					</Bar>
+				</customHeader>
 				<content>
 					<VBox >
 						<!-- Selected Scenario Info -->
@@ -14,6 +27,9 @@
 								<IconTabFilter text="Reporting" key="vehicleReporting" icon="sap-icon://order-status">
 									<mvc:XMLView viewName="com.incresolZ_INC_PLMS.view.subview.VehicleReportingTab"/>
 								</IconTabFilter>
+								<IconTabFilter id="refDoc" text="Ref. Docs/Mat. Details" key="refDocs" icon="sap-icon://documents" iconColor="Positive">
+									<mvc:XMLView viewName="com.incresolZ_INC_PLMS.view.subview.ReferenceDocuments"/>
+								</IconTabFilter>
 								<IconTabFilter key="gateIn" text="Gate In" icon="sap-icon://visits" enabled="true">
 									<mvc:XMLView viewName="com.incresolZ_INC_PLMS.view.subview.GateIn"/>
 								</IconTabFilter>
@@ -23,9 +39,7 @@
 								<IconTabFilter id="tabGateOut" text="Gate Out" key="gateout" icon="sap-icon://outbox" iconColor="Default">
 									<mvc:XMLView viewName="com.incresolZ_INC_PLMS.view.subview.GateOut"/>
 								</IconTabFilter>
-								<IconTabFilter id="refDoc" text="Ref. Docs/Mat. Details" key="refDocs" icon="sap-icon://documents" iconColor="Positive">
-									<mvc:XMLView viewName="com.incresolZ_INC_PLMS.view.subview.ReferenceDocuments"/>
-								</IconTabFilter>
+								
 								<IconTabFilter id="idNotesTab" text="Notes" icon="sap-icon://notes" key="Notes" iconColor="Positive">
 									<mvc:XMLView viewName="com.incresolZ_INC_PLMS.view.subview.Notes"/>
 								</IconTabFilter>
@@ -40,7 +54,14 @@
 				<footer>
 					<Bar design="Footer">
 						<contentLeft>
-							<Button id="btnCancelTrip" text="Cancel Trip" type="Reject" icon="sap-icon://cancel" press=".onCancelTrip"/>
+							<Button
+								id="btnCancelTrip"
+								text="Cancel Trip"
+								type="Reject"
+								icon="sap-icon://cancel"
+								press=".onCancelTrip"
+								class="darkCancelButton"
+							/>
 						</contentLeft>
 					</Bar>
 				</footer>

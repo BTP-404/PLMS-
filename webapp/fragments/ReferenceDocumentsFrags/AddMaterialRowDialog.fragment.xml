@@ -1,0 +1,91 @@
+<core:FragmentDefinition
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+    xmlns:form="sap.ui.layout.form"
+>
+    <Dialog
+        id="idAddMaterialDialog"
+        title="Add Material Row"
+        class="sapUiResponsivePadding--content"
+        contentWidth="32rem"
+    >
+        <form:SimpleForm
+            layout="ResponsiveGridLayout"
+            editable="true"
+            labelSpanL="4"
+            labelSpanM="4"
+            adjustLabelSpan="false"
+            emptySpanL="0"
+            emptySpanM="0"
+            columnsL="1"
+            columnsM="1"
+        >
+            <Label text="Ref Doc Number" />
+            <Input id="idMaterialRefDocNo" valueLiveUpdate="true" />
+
+            <Label text="Ref Doc Item Number" />
+            <Input id="idMaterialRefDocItem" valueLiveUpdate="true" />
+
+            <Label text="Material Code" />
+            <Input id="idMaterialCode" valueLiveUpdate="true" />
+
+            <Label text="Material Description" />
+            <Input id="idMaterialDesc" valueLiveUpdate="true" />
+
+            <Label text="Quantity" />
+            <Input id="idMaterialQty" type="Number" valueLiveUpdate="true" />
+
+            <Label text="UoM" />
+            <Input id="idMaterialUoM" valueLiveUpdate="true" />
+
+            <Label text="Created By" />
+            <Input id="idMaterialCreatedBy" valueLiveUpdate="true" />
+
+            <Label text="Created On Date" />
+            <DatePicker
+                id="idMaterialCreatedOnDate"
+                valueFormat="yyyy-MM-dd"
+                displayFormat="long"
+            />
+
+            <Label text="Created On Time" />
+            <TimePicker
+                id="idMaterialCreatedOnTime"
+                valueFormat="HH:mm:ss"
+                displayFormat="HH:mm"
+            />
+
+            <Label text="Changed By" />
+            <Input id="idMaterialChangedBy" valueLiveUpdate="true" />
+
+            <Label text="Changed On Date" />
+            <DatePicker
+                id="idMaterialChangedOnDate"
+                valueFormat="yyyy-MM-dd"
+                displayFormat="long"
+            />
+
+            <Label text="Changed On Time" />
+            <TimePicker
+                id="idMaterialChangedOnTime"
+                valueFormat="HH:mm:ss"
+                displayFormat="HH:mm"
+            />
+        </form:SimpleForm>
+
+        <beginButton>
+            <Button
+                text="Add"
+                type="Emphasized"
+                press=".onSaveMaterialDialog"
+            />
+        </beginButton>
+        <endButton>
+            <Button
+                text="Cancel"
+                press=".onCancelMaterialDialog"
+            />
+        </endButton>
+    </Dialog>
+</core:FragmentDefinition>
+

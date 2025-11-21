@@ -96,6 +96,7 @@ sap.ui.define(
 
             //  Set as global model available across ALL views
             sap.ui.getCore().setModel(oTripDataModel, "TripData");
+            sap.ui.getCore().getEventBus().publish("TripData", "Updated");
 
             // Also bind to this view (optional)
             that.getView().setModel(oTripDataModel, "TripData");

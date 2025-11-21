@@ -28,3 +28,24 @@
     padding-top: 4px;
     margin-top: 10px;
 }
+
+/* Dark red cancel button styling */
+.darkCancelButton .sapMBtnInner {
+    background-color: #a10000 !important;
+    border-color: #a10000 !important;
+    color: #fff !important;
+    background-image: none !important;
+    box-shadow: none !important;
+}
+
+.darkCancelButton .sapMBtnInner:hover,
+.darkCancelButton .sapMBtnInner:focus {
+    background-color: #c00000 !important;
+    border-color: #c00000 !important;
+    color: #fff !important;
+    background-image: none !important;
+}
+
+.darkCancelButton .sapMBtnIcon {
+    color: #fff !important;
+}

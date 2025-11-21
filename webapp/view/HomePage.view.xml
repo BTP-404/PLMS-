@@ -112,7 +112,14 @@
                             valueFormat="yyyy-MM-dd"
                             displayFormat="medium"
                             change=".onInputLiveChange"
-                        />
+                        >
+                            <customData>
+                                <core:CustomData
+                                    key="field"
+                                    value="reportDateFrom"
+                                />
+                            </customData>
+                        </DatePicker>
                     </VBox>
                 </layout:content>
                 <!-- Report Date To -->
@@ -128,7 +135,14 @@
                             valueFormat="yyyy-MM-dd"
                             displayFormat="medium"
                             change=".onInputLiveChange"
-                        />
+                        >
+                            <customData>
+                                <core:CustomData
+                                    key="field"
+                                    value="reportDateTo"
+                                />
+                            </customData>
+                        </DatePicker>
                     </VBox>
                 </layout:content>
             </layout:Grid>

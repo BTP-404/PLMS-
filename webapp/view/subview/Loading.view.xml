@@ -17,19 +17,7 @@
         >
             <headerToolbar>
                 <OverflowToolbar>
-                   <Title text="Loading"/>
-
-                    <ToolbarSpacer />
-
-                    <!-- Add Row Button -->
-                    <Button 
-                        id="btnAddRowLoading" 
-                        text="Add Row" 
-                        icon="sap-icon://add" 
-                        type="Emphasized" 
-                        press="onOpenAddRowDialog"
-                        enabled="false" 
-                    />
+                    <Title text="Loading" />
                 </OverflowToolbar>
             </headerToolbar>
 
@@ -43,26 +31,118 @@
                             id="idLoadingMaterialTable"
                             inset="false"
                             mode="None"
-                            sticky="ColumnHeaders"
                             width="100%"
                             class="sapUiSizeCompact"
+                            fixedLayout="false"
+                            autoPopin="true"
+                            sticky="ColumnHeaders,HeaderToolbar"
+                            growing="true"
+                            growingScrollToLoad="true"
+                            growingThreshold="20"
                             items="{/materials}"
                             enabled="false"
                         >
+                            <headerToolbar>
+                                <Toolbar>
+                                    <Title text="Material Details" level="H6" />
+                                    <ToolbarSpacer />
+                                    <Button
+                                        id="btnAddRowLoading"
+                                        text="Add Row"
+                                        icon="sap-icon://add"
+                                        type="Emphasized"
+                                        press="onOpenAddRowDialog"
+                                        enabled="false"
+                                    />
+                                </Toolbar>
+                            </headerToolbar>
                             <columns>
-                                <Column><Text text="Ref Doc Number"/></Column>
-                                <Column><Text text="Ref Doc Item Number"/></Column>
-                                <Column><Text text="Material Code"/></Column>
-                                <Column><Text text="Material Description"/></Column>
-                                <Column><Text text="Qty"/></Column>
-                                <Column><Text text="UoM"/></Column>
-                                <Column><Text text="Loaded Qty / Net Wt"/></Column>
-                                <Column><Text text="Gross Wt"/></Column>
-                                <Column><Text text="Tare Wt"/></Column>
-                                <Column><Text text="Created By"/></Column>
-                                <Column><Text text="Created On Date"/></Column>
-                                <Column><Text text="Created On Time"/></Column>
-                                <Column hAlign="Center" width="6rem"><Text text="Action"/></Column>
+                                <Column
+                                    demandPopin="true"
+                                    minScreenWidth="Tablet"
+                                    popinDisplay="Inline"
+                                >
+                                    <Text text="Ref Doc Number" />
+                                </Column>
+                                <Column
+                                    demandPopin="true"
+                                    minScreenWidth="Tablet"
+                                    popinDisplay="Inline"
+                                >
+                                    <Text text="Ref Doc Item Number" />
+                                </Column>
+                                <Column
+                                    demandPopin="true"
+                                    minScreenWidth="Tablet"
+                                >
+                                    <Text text="Material Code" />
+                                </Column>
+                                <Column
+                                    demandPopin="true"
+                                    minScreenWidth="Desktop"
+                                    popinDisplay="Inline"
+                                >
+                                    <Text text="Material Description" />
+                                </Column>
+                                <Column
+                                    demandPopin="true"
+                                    minScreenWidth="Desktop"
+                                >
+                                    <Text text="Qty" />
+                                </Column>
+                                <Column
+                                    demandPopin="true"
+                                    minScreenWidth="Desktop"
+                                >
+                                    <Text text="UoM" />
+                                </Column>
+                                <Column
+                                    demandPopin="true"
+                                    minScreenWidth="Desktop"
+                                    popinDisplay="Inline"
+                                >
+                                    <Text text="Loaded Qty / Net Wt" />
+                                </Column>
+                                <Column
+                                    demandPopin="true"
+                                    minScreenWidth="Desktop"
+                                    popinDisplay="Inline"
+                                >
+                                    <Text text="Gross Wt" />
+                                </Column>
+                                <Column
+                                    demandPopin="true"
+                                    minScreenWidth="Desktop"
+                                    popinDisplay="Inline"
+                                >
+                                    <Text text="Tare Wt" />
+                                </Column>
+                                <Column
+                                    demandPopin="true"
+                                    minScreenWidth="XLarge"
+                                >
+                                    <Text text="Created By" />
+                                </Column>
+                                <Column
+                                    demandPopin="true"
+                                    minScreenWidth="XLarge"
+                                    popinDisplay="Inline"
+                                >
+                                    <Text text="Created On Date" />
+                                </Column>
+                                <Column
+                                    demandPopin="true"
+                                    minScreenWidth="XLarge"
+                                    popinDisplay="Inline"
+                                >
+                                    <Text text="Created On Time" />
+                                </Column>
+                                <Column
+                                    hAlign="Center"
+                                    width="6rem"
+                                >
+                                    <Text text="Action" />
+                                </Column>
                             </columns>
 
                             <items>
