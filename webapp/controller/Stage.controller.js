@@ -28,17 +28,51 @@ sap.ui.define([
 			this._oEventBus?.unsubscribe("TripData", "Updated", this._refreshPageTitleModel, this);
 		},
 
-		_onRouteMatched: function(oEvent) {
+		_onRouteMatched: function (oEvent) {
+
 			var oArgs = oEvent.getParameter("arguments") || {};
 			var sTripNumber = oArgs.tripNo || "";
+		
+			// Get matched route object correctly
 			var oRoute = oEvent.getSource();
-			var sRouteName = oRoute && oRoute.getName ? oRoute.getName() : "";
-			var bReset = sRouteName === "Stage";
-			this._syncTripNumberFromRoute(sTripNumber, bReset);
-			console.log("Navigated with Trip:", this._sCurrentTripNumber || sTripNumber);
-
-			// You can now filter data for this trip or bind it to the view
-		},
+			var sRouteName = oRoute.getName();         // ← CORRECT WAY
+		
+			console.log("Matched route:", sRouteName);
+		
+			// ============================
+			//   CASE 1 — CREATE MODE
+			// ============================
+			if (sRouteName === "Stage") {
+		
+				this._bCreateMode = true;
+				this._sCurrentTripNumber = "";
+		
+				sap.ui.getCore().getModel("globalData")?.setProperty("/TripNumber", "");
+				sap.ui.getCore().setModel(null, "TripData");
+		
+				this.resetPageTitleModel();   // ← finally clears
+		
+				console.log("Stage (Create): pageTitleModel cleared");
+				return;
+			}
+		
+			// ============================
+			//   CASE 2 — UPDATE MODE
+			// ============================
+			if (sRouteName === "StagewithParam") {
+		
+				this._bCreateMode = false;
+				this._sCurrentTripNumber = sTripNumber;
+		
+				sap.ui.getCore().getModel("globalData")?.setProperty("/TripNumber", sTripNumber);
+		
+				this._refreshPageTitleModel();
+		
+				console.log("StagewithParam (Update): refreshed pageTitleModel");
+			}
+		}
+		
+		,
 
 		_syncTripNumberFromRoute: function (sTripNumber, bReset) {
 			var oGlobalModel = sap.ui.getCore().getModel("globalData");
@@ -49,29 +83,66 @@ sap.ui.define([
 
 			if (bReset) {
 				this._sCurrentTripNumber = "";
+				this._bCreateMode = true;
 				oGlobalModel.setProperty("/TripNumber", "");
+				sap.ui.getCore().setModel(null, "TripData");
 			} else if (sTripNumber) {
+				this._bCreateMode = false;
 				oGlobalModel.setProperty("/TripNumber", sTripNumber);
 				this._sCurrentTripNumber = sTripNumber;
 			} else {
+				this._bCreateMode = false;
 				this._sCurrentTripNumber = oGlobalModel.getProperty("/TripNumber") || "";
 			}
 
 			this._refreshPageTitleModel();
-		},
-
-		_initPageTitleModel: function () {
-			this._oPageTitleModel = new JSONModel({
+		},resetPageTitleModel: function () {
+			var oModel = this.getView().getModel("pageTitleModel");
+		
+			if (!oModel) {
+				oModel = new JSONModel({
+					tripNumber: "",
+					vehicleNumber: "",
+					tripStatus: ""
+				});
+				this.getView().setModel(oModel, "pageTitleModel");
+				return;
+			}
+		
+			oModel.setData({
 				tripNumber: "",
 				vehicleNumber: "",
 				tripStatus: ""
-			});
+			}, true);
+		
+			console.log("pageTitleModel reset complete");
+		}
+,		
+
+		_initPageTitleModel: function () {
+			var oCoreModel = sap.ui.getCore().getModel("pageTitleModel");
+			if (!oCoreModel) {
+				oCoreModel = new JSONModel({
+					tripNumber: "",
+					vehicleNumber: "",
+					tripStatus: ""
+				});
+				sap.ui.getCore().setModel(oCoreModel, "pageTitleModel");
+			}
+			this._oPageTitleModel = oCoreModel;
 			this.getView().setModel(this._oPageTitleModel, "pageTitleModel");
 			this._refreshPageTitleModel();
 		},
 
 		_refreshPageTitleModel: function () {
 			if (!this._oPageTitleModel) {
+				return;
+			}
+
+			if (this._bCreateMode) {
+				this._oPageTitleModel.setProperty("/tripNumber", "");
+				this._oPageTitleModel.setProperty("/vehicleNumber", "");
+				this._oPageTitleModel.setProperty("/tripStatus", "");
 				return;
 			}
 
@@ -92,6 +163,18 @@ sap.ui.define([
 					this._loadTripHeaderDetails(sTripNo);
 				}
 			}
+		},
+
+		_clearPageTitleModel: function () {
+			var oModel = this._oPageTitleModel || sap.ui.getCore().getModel("pageTitleModel");
+			if (!oModel) {
+				return;
+			}
+			this._oPageTitleModel = oModel;
+			this._bCreateMode = true;
+			oModel.setProperty("/tripNumber", "");
+			oModel.setProperty("/vehicleNumber", "");
+			oModel.setProperty("/tripStatus", "");
 		},
 
 		_loadTripHeaderDetails: function (sTripNumber) {
@@ -328,7 +411,6 @@ sap.ui.define([
 				oModel.setProperty("/materialDetails", aMaterials);
 				MessageToast.show("Material row removed");
 			}
-		}
-	
+		},
 	});
 });

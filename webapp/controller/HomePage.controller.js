@@ -34,12 +34,24 @@ sap.ui.define(
         });
         this.getView().setModel(oModel);
         this._initializeColumnVisibility();
+        
       },
 
       // --------------------------------------------
       // NAVIGATION
       // --------------------------------------------
       onReportVehicle: function () {
+        // clear global data
+    var oGlobalModel = sap.ui.getCore().getModel("globalData");
+    if (oGlobalModel) {
+        oGlobalModel.setProperty("/TripNumber", "");
+    }
+
+    sap.ui.getCore().setModel(null, "TripData");
+    sap.ui.getCore().getEventBus().publish("TripData", "Updated");
+
+    // Notify Stage view to clear title model
+    sap.ui.getCore().getEventBus().publish("Stage", "ResetPageTitle");
         var oRouter = this.getOwnerComponent().getRouter();
         if (oRouter) {
           oRouter.navTo("Stage");
