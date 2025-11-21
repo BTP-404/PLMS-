@@ -8,6 +8,8 @@ sap.ui.define(
     "sap/m/SelectDialog",
     "sap/m/StandardListItem",
     "sap/m/SuggestionItem",
+    "sap/ui/core/Fragment",
+    "sap/ui/model/json/JSONModel",
   ],
   function (
     Controller,
@@ -17,7 +19,9 @@ sap.ui.define(
     FilterOperator,
     SelectDialog,
     StandardListItem,
-    SuggestionItem
+    SuggestionItem,
+    Fragment,
+    JSONModel
   ) {
     "use strict";
 
@@ -29,6 +33,7 @@ sap.ui.define(
           defaultBindingMode: "TwoWay",
         });
         this.getView().setModel(oModel);
+        this._initializeColumnVisibility();
       },
 
       // --------------------------------------------
@@ -191,13 +196,47 @@ sap.ui.define(
         var aInputs = this.getView().findAggregatedObjects(
           true,
           function (oCtrl) {
-            return oCtrl.isA("sap.m.Input") || oCtrl.isA("sap.m.DatePicker");
+            return (
+              oCtrl.isA("sap.m.Input") ||
+              oCtrl.isA("sap.m.DatePicker")
+            );
           }
         );
 
         var aFilters = [];
+
+        // Handle date range first
+        var oDateFromPicker = this.byId("ReportDateFrom");
+        var oDateToPicker = this.byId("ReportDateTo");
+        var sDateFrom = oDateFromPicker ? oDateFromPicker.getValue() : "";
+        var sDateTo = oDateToPicker ? oDateToPicker.getValue() : "";
+
+        if (sDateFrom || sDateTo) {
+          var aDateFilters = [];
+          if (sDateFrom) {
+            var sDateFromFormatted = sDateFrom + "T00:00:00";
+            aDateFilters.push(
+              new Filter("LR_Date", FilterOperator.GE, sDateFromFormatted)
+            );
+          }
+          if (sDateTo) {
+            var sDateToFormatted = sDateTo + "T23:59:59";
+            aDateFilters.push(
+              new Filter("LR_Date", FilterOperator.LE, sDateToFormatted)
+            );
+          }
+          if (aDateFilters.length) {
+            aFilters.push(new Filter(aDateFilters, true));
+          }
+        }
+
+        // Handle text inputs
         aInputs.forEach(
           function (oInput) {
+            if (oInput.isA("sap.m.DatePicker")) {
+              // already handled
+              return;
+            }
             var sField = oInput.data("field");
             var sValue = oInput.getValue ? oInput.getValue() : "";
             if (sField && sValue) {
@@ -267,6 +306,107 @@ sap.ui.define(
             };
           default:
             return null;
+        }
+      },
+
+      // ============================================================
+      // COLUMN VISIBILITY
+      // ============================================================
+      _initializeColumnVisibility: function () {
+        var oTable = this.getView().byId("tripTable");
+        if (!oTable) {
+          return;
+        }
+
+        var aColumns = oTable.getColumns().map(function (oColumn) {
+          var oHeader = oColumn.getHeader();
+          var sLabel = oHeader && oHeader.getText ? oHeader.getText() : "";
+          return {
+            id: oColumn.getId(),
+            label: sLabel,
+            visible: oColumn.getVisible(),
+          };
+        });
+
+        this._oColumnSettingsModel = new JSONModel({ columns: aColumns });
+        this.getView().setModel(this._oColumnSettingsModel, "columnSettings");
+      },
+
+      _applyColumnVisibilityFromModel: function () {
+        if (!this._oColumnSettingsModel) {
+          return;
+        }
+        var oTable = this.getView().byId("tripTable");
+        if (!oTable) {
+          return;
+        }
+
+        var aColumns = this._oColumnSettingsModel.getProperty("/columns") || [];
+        aColumns.forEach(
+          function (oColumnInfo) {
+            var oColumn = sap.ui.getCore().byId(oColumnInfo.id);
+            if (oColumn) {
+              oColumn.setVisible(oColumnInfo.visible);
+            }
+          }.bind(this)
+        );
+      },
+
+      onOpenColumnVisibilityDialog: function () {
+        if (!this._oColumnSettingsModel) {
+          this._initializeColumnVisibility();
+        } else {
+          this._applyColumnVisibilityFromModel();
+        }
+
+        if (!this._oColumnVisibilityDialog) {
+          Fragment.load({
+            id: this.getView().getId(),
+            name: "com.incresolZ_INC_PLMS.fragments.ColumnVisibilityDialog",
+            controller: this,
+          }).then(
+            function (oDialog) {
+              this._oColumnVisibilityDialog = oDialog;
+              this.getView().addDependent(oDialog);
+              oDialog.open();
+            }.bind(this)
+          );
+        } else {
+          this._oColumnVisibilityDialog.open();
+        }
+      },
+
+      onColumnSwitchChanged: function (oEvent) {
+        var oSwitch = oEvent.getSource();
+        var bState = oSwitch.getState();
+        var oContext = oSwitch.getBindingContext("columnSettings");
+        if (!oContext) {
+          return;
+        }
+        var sColumnId = oContext.getProperty("id");
+        var oColumn = sap.ui.getCore().byId(sColumnId);
+        if (oColumn) {
+          oColumn.setVisible(bState);
+        }
+        oContext.getModel().setProperty(oContext.getPath() + "/visible", bState);
+      },
+
+      onResetColumnVisibility: function () {
+        if (!this._oColumnSettingsModel) {
+          return;
+        }
+        var aColumns =
+          this._oColumnSettingsModel.getProperty("/columns") || [];
+        aColumns.forEach(function (oCol) {
+          oCol.visible = true;
+        });
+        this._oColumnSettingsModel.refresh(true);
+        this._applyColumnVisibilityFromModel();
+      },
+
+      onCloseColumnVisibilityDialog: function () {
+        if (this._oColumnVisibilityDialog) {
+          this._oColumnVisibilityDialog.close();
         }
       },
     });

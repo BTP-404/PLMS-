@@ -167,12 +167,24 @@
                     growing="true"
                     growingScrollToLoad="true"
                     growingThreshold="25"
-                    sticky="ColumnHeaders"
+                    sticky="ColumnHeaders,HeaderToolbar"
                     width="auto"
                     autoPopin="true"
                     fixedLayout="false"
                     selectionChange="onTripPress"
                 >
+                    <headerToolbar>
+                    <Toolbar>
+                        <Title text="Trip Details" />
+                        <ToolbarSpacer />
+                        <Button
+                            icon="sap-icon://action-settings"
+                            type="Transparent"
+                            press=".onOpenColumnVisibilityDialog"
+                            tooltip="Column Settings"
+                        />
+                    </Toolbar>
+                </headerToolbar>
                     <columns>
                         <Column
                             demandPopin="true"
