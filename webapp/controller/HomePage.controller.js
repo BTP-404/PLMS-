@@ -318,13 +318,17 @@ sap.ui.define(
           return;
         }
 
+        var that = this;
         var aColumns = oTable.getColumns().map(function (oColumn) {
           var oHeader = oColumn.getHeader();
           var sLabel = oHeader && oHeader.getText ? oHeader.getText() : "";
+          var sKey = that._extractColumnKey(oColumn.getId());
+          var bDefault = that._getDefaultColumnVisibility(sKey);
+          oColumn.setVisible(bDefault);
           return {
-            id: oColumn.getId(),
+            id: sKey,
             label: sLabel,
-            visible: oColumn.getVisible(),
+            visible: bDefault,
           };
         });
 
@@ -342,14 +346,13 @@ sap.ui.define(
         }
 
         var aColumns = this._oColumnSettingsModel.getProperty("/columns") || [];
-        aColumns.forEach(
-          function (oColumnInfo) {
-            var oColumn = sap.ui.getCore().byId(oColumnInfo.id);
-            if (oColumn) {
-              oColumn.setVisible(oColumnInfo.visible);
-            }
-          }.bind(this)
-        );
+        var that = this;
+        aColumns.forEach(function (oColumnInfo) {
+          var oColumn = that.byId(oColumnInfo.id);
+          if (oColumn) {
+            oColumn.setVisible(oColumnInfo.visible);
+          }
+        });
       },
 
       onOpenColumnVisibilityDialog: function () {
@@ -384,7 +387,7 @@ sap.ui.define(
           return;
         }
         var sColumnId = oContext.getProperty("id");
-        var oColumn = sap.ui.getCore().byId(sColumnId);
+        var oColumn = this.byId(sColumnId);
         if (oColumn) {
           oColumn.setVisible(bState);
         }
@@ -397,11 +400,30 @@ sap.ui.define(
         }
         var aColumns =
           this._oColumnSettingsModel.getProperty("/columns") || [];
-        aColumns.forEach(function (oCol) {
-          oCol.visible = true;
-        });
+        aColumns.forEach(
+          function (oCol) {
+            oCol.visible = this._getDefaultColumnVisibility(oCol.id);
+          }.bind(this)
+        );
         this._oColumnSettingsModel.refresh(true);
         this._applyColumnVisibilityFromModel();
+      },
+
+      _extractColumnKey: function (sId) {
+        if (!sId) return "";
+        var aParts = sId.split("--");
+        return aParts[aParts.length - 1];
+      },
+
+      _getDefaultColumnVisibility: function (sKey) {
+        var aDefaultVisible = [
+          "colTripNumber",
+          "colVehicleNumber",
+          "colTripStatus",
+          "colCompanyCode",
+          "colPlant",
+        ];
+        return aDefaultVisible.indexOf(sKey) !== -1;
       },
 
       onCloseColumnVisibilityDialog: function () {

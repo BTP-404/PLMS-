@@ -49,3 +49,33 @@
 .darkCancelButton .sapMBtnIcon {
     color: #fff !important;
 }
+
+.homeTripTable {
+    min-width: 150rem;
+    border-radius: 6px;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.08);
+    overflow: hidden;
+}
+
+.homeTripTable .sapMColumnHeader {
+    background-color: #f5f8fc;
+    border-bottom: 1px solid #dfe7f2;
+}
+
+.homeTripTable .sapMColumnHeaderText {
+    font-weight: 600;
+    color: #1c4e80;
+}
+
+.homeTripTable .sapMListTblRow:nth-child(even) {
+    background-color: #fbfdff;
+}
+
+.homeTripTable .sapMListTblRow:hover {
+    background-color: #eef3ff;
+}
+
+.homeTripTable .sapMListTblCell {
+    padding-top: 0.65rem;
+    padding-bottom: 0.65rem;
+}

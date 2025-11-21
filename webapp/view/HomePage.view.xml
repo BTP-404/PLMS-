@@ -187,6 +187,7 @@
                 </headerToolbar>
                     <columns>
                         <Column
+                            id="colTripNumber"
                             demandPopin="true"
                             minScreenWidth="Desktop"
                             popinDisplay="Inline"
@@ -194,6 +195,7 @@
                             <Text text="Trip Number" />
                         </Column>
                         <Column
+                            id="colVehicleNumber"
                             demandPopin="true"
                             minScreenWidth="Desktop"
                             popinDisplay="Inline"
@@ -201,6 +203,7 @@
                             <Text text="Vehicle Number" />
                         </Column>
                         <Column
+                            id="colTripStatus"
                             demandPopin="true"
                             minScreenWidth="Desktop"
                             popinDisplay="Inline"
@@ -208,6 +211,7 @@
                             <Text text="Trip Status" />
                         </Column>
                         <Column
+                            id="colVehicleType"
                             demandPopin="true"
                             minScreenWidth="Desktop"
                             popinDisplay="Inline"
@@ -215,6 +219,7 @@
                             <Text text="Vehicle Type" />
                         </Column>
                         <Column
+                            id="colVehicleSize"
                             demandPopin="true"
                             minScreenWidth="Desktop"
                             popinDisplay="Inline"
@@ -222,6 +227,7 @@
                             <Text text="Vehicle Size" />
                         </Column>
                         <Column
+                            id="colTransporterName"
                             demandPopin="true"
                             minScreenWidth="Desktop"
                             popinDisplay="Inline"
@@ -229,6 +235,7 @@
                             <Text text="Transporter Name" />
                         </Column>
                         <Column
+                            id="colLRNumber"
                             demandPopin="true"
                             minScreenWidth="Desktop"
                             popinDisplay="Inline"
@@ -236,6 +243,7 @@
                             <Text text="LR Number" />
                         </Column>
                         <Column
+                            id="colLRDate"
                             demandPopin="true"
                             minScreenWidth="Desktop"
                             popinDisplay="Inline"
@@ -243,6 +251,7 @@
                             <Text text="LR Date" />
                         </Column>
                         <Column
+                            id="colDriverName"
                             demandPopin="true"
                             minScreenWidth="Desktop"
                             popinDisplay="Inline"
@@ -250,6 +259,7 @@
                             <Text text="Driver Name" />
                         </Column>
                         <Column
+                            id="colDriverMobile"
                             demandPopin="true"
                             minScreenWidth="Desktop"
                             popinDisplay="Inline"
@@ -257,6 +267,7 @@
                             <Text text="Driver Mobile" />
                         </Column>
                         <Column
+                            id="colCompanyCode"
                             demandPopin="true"
                             minScreenWidth="Desktop"
                             popinDisplay="Inline"
@@ -264,6 +275,7 @@
                             <Text text="Company Code" />
                         </Column>
                         <Column
+                            id="colPlant"
                             demandPopin="true"
                             minScreenWidth="Desktop"
                             popinDisplay="Inline"
