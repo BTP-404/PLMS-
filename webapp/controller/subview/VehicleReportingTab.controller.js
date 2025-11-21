@@ -62,7 +62,6 @@ sap.ui.define(
             // CREATE mode
             this._mode = "CREATE";
             this._clearForm();
-            this.getView().setModel(new JSONModel({}), "TripData");
 
             // ADDED: make sure inputs are enabled in CREATE
             this._setInputsEnabled(true); // ADDED
@@ -283,8 +282,8 @@ sap.ui.define(
             LR_Number: "",
             LR_Date: "",
             DriverName: "",
-            DriverContact: "",
-            DriverLicense: "",
+            DriverMobile: "",
+            DriverLicence: "",
             CompanyCode: "",
             Plant: "",
             TripNumber: "",
