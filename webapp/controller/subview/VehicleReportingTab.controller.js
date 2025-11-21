@@ -208,6 +208,7 @@ sap.ui.define(
 
               that.getView().setBusy(false);
               MessageToast.show("Trip created successfully!");
+              this._clearForm();
               that._setFormEditable(false);
               that._setInputsEnabled(false);
             },

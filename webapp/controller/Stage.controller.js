@@ -31,20 +31,26 @@ sap.ui.define([
 		_onRouteMatched: function(oEvent) {
 			var oArgs = oEvent.getParameter("arguments") || {};
 			var sTripNumber = oArgs.tripNo || "";
-			this._syncTripNumberFromRoute(sTripNumber);
+			var oRoute = oEvent.getSource();
+			var sRouteName = oRoute && oRoute.getName ? oRoute.getName() : "";
+			var bReset = sRouteName === "Stage";
+			this._syncTripNumberFromRoute(sTripNumber, bReset);
 			console.log("Navigated with Trip:", this._sCurrentTripNumber || sTripNumber);
 
 			// You can now filter data for this trip or bind it to the view
 		},
 
-		_syncTripNumberFromRoute: function (sTripNumber) {
+		_syncTripNumberFromRoute: function (sTripNumber, bReset) {
 			var oGlobalModel = sap.ui.getCore().getModel("globalData");
 			if (!oGlobalModel) {
 				oGlobalModel = new JSONModel({ TripNumber: "" });
 				sap.ui.getCore().setModel(oGlobalModel, "globalData");
 			}
 
-			if (sTripNumber) {
+			if (bReset) {
+				this._sCurrentTripNumber = "";
+				oGlobalModel.setProperty("/TripNumber", "");
+			} else if (sTripNumber) {
 				oGlobalModel.setProperty("/TripNumber", sTripNumber);
 				this._sCurrentTripNumber = sTripNumber;
 			} else {
