@@ -3,7 +3,6 @@
     xmlns:mvc="sap.ui.core.mvc"
     xmlns="sap.m"
     xmlns:core="sap.ui.core"
-    xmlns:layout="sap.ui.layout"
     displayBlock="true">
 
     <VBox class="sapUiSizeCompact sapUiSmallMargin">
@@ -19,40 +18,42 @@
             <headerToolbar>
                 <OverflowToolbar>
                     <Title text="Reference Documents"/>
-                    <ToolbarSpacer/>
-                    <Button
-                        text="Document"
-                        icon="sap-icon://add"
-                        type="Transparent"
-                        press="onAddRefDocRow"/>
                 </OverflowToolbar>
             </headerToolbar>
 
-            <!-- Main Content -->
-            <VBox class="sapUiSizeCompact sapUiMediumPadding">
-
-                <layout:Grid
-                    defaultSpan="L12 M12 S12"
-                    hSpacing="1"
-                    vSpacing="2"
+            <VBox class="sapUiSmallMargin sapUiSizeCompact">
+                <ScrollContainer
+                    horizontal="true"
+                    vertical="false"
                     width="100%"
-                    class="sapUiTinyMarginTop">
-
-                    <!-- ================= TABLE COLUMN ================= -->
-                    <layout:content>
+                    class="sapUiNoContentPadding sapUiSmallMarginTop sapUiSizeCompact">
+                    <HBox wrap="Wrap" width="auto">
                         <Table
                             id="idReferenceDocsTable"
                             inset="false"
                             mode="None"
                             width="100%"
+                            class="sapUiSizeCompact"
                             fixedLayout="false"
                             autoPopin="true"
-                            sticky="ColumnHeaders"
+                            sticky="ColumnHeaders,HeaderToolbar"
                             growing="true"
                             growingScrollToLoad="true"
                             growingThreshold="20"
                             items="{path: 'refDocModel>/referenceDocs'}"
                             noDataText="No reference documents added yet">
+
+                            <headerToolbar>
+                                <Toolbar>
+                                    <Title text="Reference Documents" level="H6"/>
+                                    <ToolbarSpacer/>
+                                    <Button
+                                        text="Add Document"
+                                        icon="sap-icon://add"
+                                        type="Emphasized"
+                                        press="onAddRefDocRow"/>
+                                </Toolbar>
+                            </headerToolbar>
 
                             <columns>
                                 <Column><Text text="Doc Type"/></Column>
@@ -74,17 +75,17 @@
                             <items>
                                 <ColumnListItem>
                                     <cells>
-                                        <Input width="10rem" value="{refDocModel>docType}"/>
-                                        <Input width="12rem" value="{refDocModel>documentNumber}"/>
-                                        <DatePicker width="10rem" value="{refDocModel>documentDate}"/>
-                                        <Input width="12rem" value="{refDocModel>partyCode}"/>
-                                        <Input width="12rem" value="{refDocModel>partyName}"/>
-                                        <Input width="10rem" value="{refDocModel>createdBy}"/>
-                                        <DatePicker width="10rem" value="{refDocModel>createdOnDate}"/>
-                                        <TimePicker width="10rem" value="{refDocModel>createdOnTime}"/>
-                                        <Input width="10rem" value="{refDocModel>changedBy}"/>
-                                        <DatePicker width="10rem" value="{refDocModel>changedOnDate}"/>
-                                        <TimePicker width="10rem" value="{refDocModel>changedOnTime}"/>
+                                        <Text text="{refDocModel>docType}"/>
+                                        <Text text="{refDocModel>documentNumber}"/>
+                                        <Text text="{refDocModel>documentDate}"/>
+                                        <Text text="{refDocModel>partyCode}"/>
+                                        <Text text="{refDocModel>partyName}"/>
+                                        <Text text="{refDocModel>createdBy}"/>
+                                        <Text text="{refDocModel>createdOnDate}"/>
+                                        <Text text="{refDocModel>createdOnTime}"/>
+                                        <Text text="{refDocModel>changedBy}"/>
+                                        <Text text="{refDocModel>changedOnDate}"/>
+                                        <Text text="{refDocModel>changedOnTime}"/>
                                         <Button
                                             icon="sap-icon://delete"
                                             type="Reject"
@@ -94,16 +95,8 @@
                             </items>
 
                         </Table>
-                    </layout:content>
-
-                </layout:Grid>
-
-                <!-- Buttons aligned right -->
-                <HBox justifyContent="End" class="sapUiSmallMarginTop sapUiSmallMarginEnd">
-                    <Button text="Edit" type="Emphasized" press="onEditReferenceDocs"/>
-                    <Button text="Save" type="Accept" class="sapUiTinyMarginBegin" press="onSaveReferenceDocs"/>
-                </HBox>
-
+                    </HBox>
+                </ScrollContainer>
             </VBox>
         </Panel>
 
@@ -120,36 +113,40 @@
             <headerToolbar>
                 <OverflowToolbar>
                     <Title text="Material Details"/>
-                    <ToolbarSpacer/>
-                    <Button
-                        text="Material"
-                        icon="sap-icon://add"
-                        type="Transparent"
-                        press="onAddMaterialRow"/>
                 </OverflowToolbar>
             </headerToolbar>
 
-            <VBox class="sapUiSizeCompact sapUiMediumPadding">
-
-                <layout:Grid
-                    defaultSpan="L12 M12 S12"
-                    hSpacing="1"
-                    vSpacing="2"
+            <VBox class="sapUiSmallMargin sapUiSizeCompact">
+                <ScrollContainer
+                    horizontal="true"
+                    vertical="false"
                     width="100%"
-                    class="sapUiTinyMarginTop">
-
-                    <layout:content>
+                    class="sapUiNoContentPadding sapUiSmallMarginTop sapUiSizeCompact">
+                    <HBox wrap="Wrap" width="auto">
                         <Table
                             id="idMaterialDetailsTable"
                             inset="false"
                             width="100%"
+                            class="sapUiSizeCompact"
                             fixedLayout="false"
                             autoPopin="true"
-                            sticky="ColumnHeaders"
+                            sticky="ColumnHeaders,HeaderToolbar"
                             growing="true"
                             growingScrollToLoad="true"
                             items="{path: 'refDocModel>/materialDetails'}"
                             noDataText="No material rows added yet">
+
+                            <headerToolbar>
+                                <Toolbar>
+                                    <Title text="Material Details" level="H6"/>
+                                    <ToolbarSpacer/>
+                                    <Button
+                                        text="Add Material"
+                                        icon="sap-icon://add"
+                                        type="Emphasized"
+                                        press="onAddMaterialRow"/>
+                                </Toolbar>
+                            </headerToolbar>
 
                             <columns>
                                 <Column><Text text="Ref Doc No"/></Column>
@@ -193,15 +190,8 @@
                             </items>
 
                         </Table>
-                    </layout:content>
-
-                </layout:Grid>
-
-                <HBox justifyContent="End" class="sapUiSmallMarginTop sapUiSmallMarginEnd">
-                    <Button text="Edit" type="Emphasized" press="onEditMaterialDetails"/>
-                    <Button text="Save" type="Accept" class="sapUiTinyMarginBegin" press="onSaveMaterialDetails"/>
-                </HBox>
-
+                    </HBox>
+                </ScrollContainer>
             </VBox>
         </Panel>
 

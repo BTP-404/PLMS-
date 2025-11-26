@@ -39,6 +39,10 @@
 								<IconTabFilter id="tabGateOut" text="Gate Out" key="gateout" icon="sap-icon://outbox" iconColor="Default">
 									<mvc:XMLView viewName="com.incresolZ_INC_PLMS.view.subview.GateOut"/>
 								</IconTabFilter>
+
+								<IconTabFilter id="idActivityTab" text="Activity" key="activity" icon="sap-icon://process">
+									<mvc:XMLView viewName="com.incresolZ_INC_PLMS.view.subview.Activity"/>
+								</IconTabFilter>
 								
 								<IconTabFilter id="idNotesTab" text="Notes" icon="sap-icon://notes" key="Notes" iconColor="Positive">
 									<mvc:XMLView viewName="com.incresolZ_INC_PLMS.view.subview.Notes"/>

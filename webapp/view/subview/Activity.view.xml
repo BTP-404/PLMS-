@@ -1,0 +1,107 @@
+<mvc:View
+    controllerName="com.incresolZ_INC_PLMS.controller.subview.Activity"
+    xmlns:mvc="sap.ui.core.mvc"
+    xmlns="sap.m"
+    xmlns:suite="sap.suite.ui.commons"
+    displayBlock="true">
+
+    <VBox class="sapUiSmallMargin sapUiSizeCompact">
+
+        <Panel class="sapUiNoContentPadding">
+            <headerToolbar>
+                <OverflowToolbar>
+                    <Title text="Activity Timeline"/>
+                </OverflowToolbar>
+            </headerToolbar>
+
+            <VBox class="sapUiSmallMargin sapUiSizeCompact" width="100%">
+
+                <HBox justifyContent="SpaceBetween" class="sapUiTinyMarginBottom sapUiTinyMarginTop">
+                    <ObjectStatus
+                        title="Total TAT"
+                        text="{activityModel>/tatText}"
+                        state="Information"/>
+                    <ObjectStatus
+                        title="Last Event"
+                        text="{activityModel>/lastUpdatedText}"
+                        state="None"/>
+                    <ObjectStatus
+                        title="Events"
+                        text="{activityModel>/eventsCount}"
+                        state="None"/>
+                </HBox>
+
+                <suite:ProcessFlow
+                    id="activityProcessFlow"
+                    wheelZoomable="false"
+                    foldedCorners="false"
+                    zoomLevel="Two"
+                    class="sapUiSmallMarginBottom"
+                    nodes="{activityModel>/nodes}"
+                    lanes="{activityModel>/lanes}">
+
+                    <suite:nodes>
+                        <suite:ProcessFlowNode
+                            nodeId="{activityModel>id}"
+                            laneId="{activityModel>laneId}"
+                            title="{activityModel>title}"
+                            state="{activityModel>state}"
+                            stateText="{activityModel>stateText}"
+                            text1="{activityModel>text1}"
+                            text2="{activityModel>text2}"
+                            children="{activityModel>children}"
+                            highlighted="{activityModel>highlighted}"
+                            focused="{activityModel>focused}"
+                            templateShareable="false"/>
+                    </suite:nodes>
+
+                    <suite:lanes>
+                        <suite:ProcessFlowLaneHeader
+                            laneId="{activityModel>id}"
+                            position="{activityModel>position}"
+                            icon="{activityModel>icon}"
+                            text="{activityModel>text}"
+                            templateShareable="false"/>
+                    </suite:lanes>
+
+                </suite:ProcessFlow>
+
+                <Table
+                    id="activityDetailsTable"
+                    width="100%"
+                    class="sapUiSizeCompact"
+                    inset="false"
+                    autoPopin="true"
+                    sticky="ColumnHeaders"
+                    items="{activityModel>/events}">
+
+                    <columns>
+                        <Column width="10rem"><Text text="Event"/></Column>
+                        <Column width="12rem"><Text text="Scenario"/></Column>
+                        <Column width="14rem"><Text text="Timestamp"/></Column>
+                        <Column width="8rem"><Text text="Created By"/></Column>
+                        <Column width="8rem"><Text text="Changed By"/></Column>
+                        <Column><Text text="Remarks"/></Column>
+                    </columns>
+
+                    <items>
+                        <ColumnListItem>
+                            <cells>
+                                <Text text="{activityModel>eventKey}"/>
+                                <Text text="{activityModel>movementScenario}"/>
+                                <Text text="{activityModel>displayTimestamp}"/>
+                                <Text text="{activityModel>createdBy}"/>
+                                <Text text="{activityModel>changedBy}"/>
+                                <Text text="{activityModel>remarks}"/>
+                            </cells>
+                        </ColumnListItem>
+                    </items>
+
+                </Table>
+
+            </VBox>
+        </Panel>
+
+    </VBox>
+</mvc:View>
+
