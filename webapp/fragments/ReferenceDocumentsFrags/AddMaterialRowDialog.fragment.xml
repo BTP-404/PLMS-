@@ -21,31 +21,160 @@
             columnsM="1"
         >
             <Label text="Ref Doc Number" />
-            <Input id="idMaterialRefDocNo" valueLiveUpdate="true" />
+            <Input
+                id="idMaterialRefDocNo"
+                valueLiveUpdate="true"
+                showValueHelp="true"
+                valueHelpRequest=".onMaterialValueHelp"
+                showSuggestion="true"
+                filterSuggests="true"
+                suggestionItemSelected=".onMaterialSuggestionSelected"
+                suggestionItems="{materialSuggestions>/items}"
+            >
+                <suggestionItems>
+                    <core:Item
+                        key="{materialSuggestions>RefDocNo}"
+                        text="{materialSuggestions>RefDocNo}"
+                        additionalText="{materialSuggestions>MaterialCode}"
+                        templateShareable="false"
+                    />
+                </suggestionItems>
+            </Input>
 
             <Label text="Ref Doc Item Number" />
-            <Input id="idMaterialRefDocItem" valueLiveUpdate="true" />
+            <Input
+                id="idMaterialRefDocItem"
+                valueLiveUpdate="true"
+                showValueHelp="true"
+                valueHelpRequest=".onMaterialValueHelp"
+                showSuggestion="true"
+                filterSuggests="true"
+                suggestionItemSelected=".onMaterialSuggestionSelected"
+                suggestionItems="{materialSuggestions>/items}"
+            >
+                <suggestionItems>
+                    <core:Item
+                        key="{materialSuggestions>RefDocItemNo}"
+                        text="{materialSuggestions>RefDocItemNo}"
+                        additionalText="{materialSuggestions>RefDocNo}"
+                        templateShareable="false"
+                    />
+                </suggestionItems>
+            </Input>
 
             <Label text="Material Code" />
-            <Input id="idMaterialCode" valueLiveUpdate="true" />
+            <Input
+                id="idMaterialCode"
+                valueLiveUpdate="true"
+                showValueHelp="true"
+                valueHelpRequest=".onMaterialValueHelp"
+                showSuggestion="true"
+                filterSuggests="true"
+                suggestionItemSelected=".onMaterialSuggestionSelected"
+                suggestionItems="{materialSuggestions>/items}"
+            >
+                <suggestionItems>
+                    <core:Item
+                        key="{materialSuggestions>MaterialCode}"
+                        text="{materialSuggestions>MaterialCode}"
+                        additionalText="{materialSuggestions>MaterialDescription}"
+                        templateShareable="false"
+                    />
+                </suggestionItems>
+            </Input>
 
             <Label text="Material Description" />
-            <Input id="idMaterialDesc" valueLiveUpdate="true" />
+            <Input
+                id="idMaterialDesc"
+                valueLiveUpdate="true"
+                showValueHelp="true"
+                valueHelpRequest=".onMaterialValueHelp"
+                showSuggestion="true"
+                filterSuggests="true"
+                suggestionItemSelected=".onMaterialSuggestionSelected"
+                suggestionItems="{materialSuggestions>/items}"
+            >
+                <suggestionItems>
+                    <core:Item
+                        key="{materialSuggestions>MaterialDescription}"
+                        text="{materialSuggestions>MaterialDescription}"
+                        additionalText="{materialSuggestions>MaterialCode}"
+                        templateShareable="false"
+                    />
+                </suggestionItems>
+            </Input>
 
             <Label text="Quantity" />
-            <Input id="idMaterialQty" type="Number" valueLiveUpdate="true" />
+            <Input
+                id="idMaterialQty"
+                type="Number"
+                valueLiveUpdate="true"
+                showValueHelp="true"
+                valueHelpRequest=".onMaterialValueHelp"
+                showSuggestion="true"
+                filterSuggests="true"
+                suggestionItemSelected=".onMaterialSuggestionSelected"
+                suggestionItems="{materialSuggestions>/items}"
+            >
+                <suggestionItems>
+                    <core:Item
+                        key="{materialSuggestions>Quantity}"
+                        text="{materialSuggestions>Quantity}"
+                        additionalText="{materialSuggestions>MaterialCode}"
+                        templateShareable="false"
+                    />
+                </suggestionItems>
+            </Input>
 
             <Label text="UoM" />
-            <Input id="idMaterialUoM" valueLiveUpdate="true" />
+            <Input
+                id="idMaterialUoM"
+                valueLiveUpdate="true"
+                showValueHelp="true"
+                valueHelpRequest=".onMaterialValueHelp"
+                showSuggestion="true"
+                filterSuggests="true"
+                suggestionItemSelected=".onMaterialSuggestionSelected"
+                suggestionItems="{materialSuggestions>/items}"
+            >
+                <suggestionItems>
+                    <core:Item
+                        key="{materialSuggestions>UoM}"
+                        text="{materialSuggestions>UoM}"
+                        additionalText="{materialSuggestions>MaterialCode}"
+                        templateShareable="false"
+                    />
+                </suggestionItems>
+            </Input>
 
             <Label text="Created By" />
-            <Input id="idMaterialCreatedBy" valueLiveUpdate="true" />
+            <Input
+                id="idMaterialCreatedBy"
+                valueLiveUpdate="true"
+                showValueHelp="true"
+                valueHelpRequest=".onMaterialValueHelp"
+                showSuggestion="true"
+                filterSuggests="true"
+                suggestionItemSelected=".onMaterialSuggestionSelected"
+                suggestionItems="{materialSuggestions>/items}"
+            >
+                <suggestionItems>
+                    <core:Item
+                        key="{materialSuggestions>CreatedBy}"
+                        text="{materialSuggestions>CreatedBy}"
+                        additionalText="{materialSuggestions>MaterialCode}"
+                        templateShareable="false"
+                    />
+                </suggestionItems>
+            </Input>
 
             <Label text="Created On Date" />
             <DatePicker
                 id="idMaterialCreatedOnDate"
                 valueFormat="yyyy-MM-dd"
                 displayFormat="long"
+                showValueHelp="true"
+                valueHelpRequest=".onMaterialValueHelp"
             />
 
             <Label text="Created On Time" />
@@ -53,16 +182,38 @@
                 id="idMaterialCreatedOnTime"
                 valueFormat="HH:mm:ss"
                 displayFormat="HH:mm"
+                showValueHelp="true"
+                valueHelpRequest=".onMaterialValueHelp"
             />
 
             <Label text="Changed By" />
-            <Input id="idMaterialChangedBy" valueLiveUpdate="true" />
+            <Input
+                id="idMaterialChangedBy"
+                valueLiveUpdate="true"
+                showValueHelp="true"
+                valueHelpRequest=".onMaterialValueHelp"
+                showSuggestion="true"
+                filterSuggests="true"
+                suggestionItemSelected=".onMaterialSuggestionSelected"
+                suggestionItems="{materialSuggestions>/items}"
+            >
+                <suggestionItems>
+                    <core:Item
+                        key="{materialSuggestions>ChangedBy}"
+                        text="{materialSuggestions>ChangedBy}"
+                        additionalText="{materialSuggestions>MaterialCode}"
+                        templateShareable="false"
+                    />
+                </suggestionItems>
+            </Input>
 
             <Label text="Changed On Date" />
             <DatePicker
                 id="idMaterialChangedOnDate"
                 valueFormat="yyyy-MM-dd"
                 displayFormat="long"
+                showValueHelp="true"
+                valueHelpRequest=".onMaterialValueHelp"
             />
 
             <Label text="Changed On Time" />
@@ -70,6 +221,8 @@
                 id="idMaterialChangedOnTime"
                 valueFormat="HH:mm:ss"
                 displayFormat="HH:mm"
+                showValueHelp="true"
+                valueHelpRequest=".onMaterialValueHelp"
             />
         </form:SimpleForm>
 

@@ -211,7 +211,9 @@ sap.ui.define(
               oGlobalModel.setProperty("/TripNumber", oResponse.TripNumber);
 
               that.getView().setBusy(false);
+              that.getView().byId("idRelatedTripNumber").setValue(oResponse.TripNumber);
               MessageToast.show(`Trip ( ${oResponse.TripNumber} ) Created !`);
+              
               this._clearForm();
               that._setFormEditable(false);
               that._setInputsEnabled(false);
