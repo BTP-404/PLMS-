@@ -6,6 +6,8 @@ sap.ui.define(
     "sap/m/MessageBox",
     "sap/ui/model/json/JSONModel",
     "sap/ui/core/Fragment",
+    "sap/ui/model/Filter",
+    "sap/ui/model/FilterOperator",
   ],
   function (
     Controller,
@@ -13,7 +15,9 @@ sap.ui.define(
     MessageToast,
     MessageBox,
     JSONModel,
-    Fragment
+    Fragment,
+    Filter,
+    FilterOperator
   ) {
     "use strict";
     var movementScenario;
@@ -91,14 +95,14 @@ sap.ui.define(
           oModel.read("/TripDetails('" + sTripNumber + "')", {
             success: function (oData) {
               // Create JSON model for trip data
-            const oTripDataModel = new sap.ui.model.json.JSONModel(oData);
+              const oTripDataModel = new sap.ui.model.json.JSONModel(oData);
 
-            //  Set as global model available across ALL views
-            sap.ui.getCore().setModel(oTripDataModel, "TripData");
-            sap.ui.getCore().getEventBus().publish("TripData", "Updated");
+              //  Set as global model available across ALL views
+              sap.ui.getCore().setModel(oTripDataModel, "TripData");
+              sap.ui.getCore().getEventBus().publish("TripData", "Updated");
 
-            // Also bind to this view (optional)
-            that.getView().setModel(oTripDataModel, "TripData");
+              // Also bind to this view (optional)
+              that.getView().setModel(oTripDataModel, "TripData");
 
               // UPDATED: call inputs helper to properly disable inputs
               that._setInputsEnabled(false); // UPDATED (was _setFormEditable(false))
@@ -207,7 +211,7 @@ sap.ui.define(
               oGlobalModel.setProperty("/TripNumber", oResponse.TripNumber);
 
               that.getView().setBusy(false);
-              MessageToast.show("Trip created successfully!");
+              MessageToast.show(`Trip ( ${oResponse.TripNumber} ) Created !`);
               this._clearForm();
               that._setFormEditable(false);
               that._setInputsEnabled(false);
@@ -926,6 +930,67 @@ sap.ui.define(
           } else {
             console.error("Vehicle not found in VHModel");
           }
+        }
+        /**
+         * SUGGEST: Live suggestions while typing Plant
+         */,
+        onPlantSuggest: function (oEvent) {
+          const sValue = oEvent.getParameter("suggestValue") || "";
+          const oInput = this.byId("idPlant");
+          const oModel = this.getView().getModel();
+
+          if (!sValue) {
+            oInput.destroySuggestionItems();
+            return;
+          }
+
+          // Read matching plants from ConfigValues
+          oModel.read("/ConfigValues", {
+            filters: [
+              new Filter("ConfigGroup", FilterOperator.EQ, "Plant"),
+              new Filter("ConfigID", FilterOperator.Contains, sValue),
+            ],
+            success: function (oData) {
+              oInput.destroySuggestionItems();
+              oData.results.forEach((plant) => {
+                oInput.addSuggestionItem(
+                  new sap.ui.core.Item({
+                    key: plant.ConfigID,
+                    text: plant.ConfigID + " - " + plant.Description,
+                    customData: [
+                      new sap.ui.core.CustomData({
+                        key: "CompanyCode",
+                        value: plant.ParentConfig,
+                      }),
+                    ],
+                  })
+                );
+              });
+            },
+            error: function () {
+              MessageBox.error("Failed to fetch plants for suggestion");
+            },
+          });
+        },
+
+        /**
+         * When user selects a Plant from suggestions
+         * - Set plant value
+         * - Fetch and set company code automatically
+         */
+        onPlantSuggestionSelected: function (oEvent) {
+          const oItem = oEvent.getParameter("selectedItem");
+          if (!oItem) return;
+
+          // Set Plant input
+          this.byId("idPlant").setValue(oItem.getText());
+
+          // Fetch Company Code from customData
+          const sCompanyCode =
+            oItem.data("CompanyCode") ||
+            oItem.getCustomData()[0]?.getValue() ||
+            "";
+          this.byId("idCompanyCode").setValue(sCompanyCode);
         },
       }
     );

@@ -17,7 +17,7 @@ sap.ui.define(
     ) {
         "use strict";
 
-        return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.GateIn", {
+        return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Notes", {
 
             onInit: function () {
                 this.oModel = new ODataModel("/sap/opu/odata/sap/YIGP_PLMS_SRV/", {
@@ -26,10 +26,20 @@ sap.ui.define(
                 });
 
                 this.getView().setModel(this.oModel);
- //TripNumber = sap.ui.getCore().getModel("TripData").getProperty('/TripNumber');
-        
+                var oTripDataModel = sap.ui.getCore().getModel("TripData");
+                var oGlobalDataModel = sap.ui.getCore().getModel("globalData");
+                var sTripNumber =
+                    oTripDataModel?.getProperty("/TripNumber") ||
+                    oGlobalDataModel?.getProperty("/TripNumber") ||
+                    "";
+
+                if (!sTripNumber) {
+                    MessageBox.warning("Trip number not available. Please select a trip first.");
+                    return;
+                }
+
                 // Trip number must be set
-                this.TripNumber = "0000000020";
+                this.TripNumber = sTripNumber;
 
                 // Load existing notes
                 this.loadNotes();

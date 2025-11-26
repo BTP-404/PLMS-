@@ -237,13 +237,26 @@
                                 design="Bold"
                                 required="true"
                             />
-                            <Input
-                                id="idPlant"
-                                width="100%"
-                                showValueHelp="true"
-                                valueHelpRequest="onValueHelpPlant"
-                                value="{TripData>/Plant}"
-                            />
+                           <Input
+    id="idPlant"
+    width="100%"
+    showValueHelp="true"
+    valueHelpRequest="onValueHelpPlant"
+    showSuggestion="true"
+    suggest="onPlantSuggest"
+    suggestionItems="{
+        path: 'VHModel>/'
+    }"
+    value="{TripData>/Plant}"
+    suggestionItemSelected="onPlantSuggestionSelected"
+>
+    <core:ListItem
+        key="{VHModel>ConfigID}"
+        text="{VHModel>ConfigID}"
+        additionalText="{VHModel>Description}"
+    />
+</Input>
+
                         </VBox>
                     </layout:content>
                     <layout:content>

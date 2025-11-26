@@ -39,7 +39,7 @@
                             growing="true"
                             growingScrollToLoad="true"
                             growingThreshold="20"
-                            items="{/materials}"
+                            items="{tableModel>/materials}"
                             enabled="false"
                         >
                             <headerToolbar>
