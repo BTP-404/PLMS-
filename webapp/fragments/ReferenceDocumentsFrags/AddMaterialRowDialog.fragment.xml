@@ -20,6 +20,27 @@
             columnsL="1"
             columnsM="1"
         >
+            <Label text="Doc Type" />
+            <Input
+                id="idMaterialDocType"
+                showValueHelp="true"
+                valueHelpRequest=".onMaterialDocTypeValueHelp"
+                showSuggestion="true"
+                filterSuggests="true"
+                change=".onMaterialDocTypeChange"
+                suggestionItemSelected=".onMaterialDocTypeSuggestionSelected"
+                suggestionItems="{docTypeModel>/items}"
+            >
+                <suggestionItems>
+                    <core:Item
+                        key="{docTypeModel>ConfigID}"
+                        text="{docTypeModel>ConfigID}"
+                        additionalText="{docTypeModel>Description}"
+                        templateShareable="false"
+                    />
+                </suggestionItems>
+            </Input>
+
             <Label text="Ref Doc Number" />
             <Input
                 id="idMaterialRefDocNo"

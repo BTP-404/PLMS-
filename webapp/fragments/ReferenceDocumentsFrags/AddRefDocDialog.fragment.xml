@@ -28,7 +28,6 @@
                 valueHelpRequest=".onDocTypeValueHelp"
                 showSuggestion="true"
                 filterSuggests="true"
-                change=".onDocTypeInputChange"
                 suggestionItemSelected=".onDocTypeSuggestionSelected"
                 suggestionItems="{docTypeModel>/items}"
             >
@@ -46,7 +45,7 @@
             <Input
                 id="idRefDocNumber"
                 valueLiveUpdate="true"
-                showValueHelp="false"
+                showValueHelp="true"
                 valueHelpRequest=".onRefDocValueHelp"
                 showSuggestion="true"
                 filterSuggests="true"

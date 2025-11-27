@@ -40,7 +40,7 @@
                                 width="100%"
                                 showValueHelp="true"
                                 valueHelpRequest="onValueHelpMovementScenario"
-                                value="{TripData>/MovementScenario}"
+                                value="{TripData>/MovementScenarioDesc}"
                             />
                         </VBox>
                     </layout:content>
@@ -57,7 +57,7 @@
                                 showValueHelp="true"
                                 valueHelpRequest="onValueHelpMovementType"
                                 enabled="false"
-                                value="{TripData>/MovementType}"
+                                value="{TripData>/MovementTypeDesc}"
                             />
                         </VBox>
                     </layout:content>
