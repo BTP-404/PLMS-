@@ -59,8 +59,8 @@
                                 <Column><Text text="Doc Type"/></Column>
                                 <Column><Text text="Document Number"/></Column>
                                 <Column><Text text="Document Date"/></Column>
-                                <Column><Text text="Party Code"/></Column>
-                                <Column><Text text="Party Name"/></Column>
+                                <Column><Text text="Sending / Receiving Party Code"/></Column>
+                                <Column><Text text="Sending / Receiving Party Name"/></Column>
                                 <Column><Text text="Created By"/></Column>
                                 <Column><Text text="Created On Date"/></Column>
                                 <Column><Text text="Created On Time"/></Column>

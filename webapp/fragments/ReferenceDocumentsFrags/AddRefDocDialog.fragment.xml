@@ -25,17 +25,18 @@
                 id="idRefDocType"
                 valueLiveUpdate="true"
                 showValueHelp="true"
-                valueHelpRequest=".onRefDocValueHelp"
+                valueHelpRequest=".onDocTypeValueHelp"
                 showSuggestion="true"
                 filterSuggests="true"
-                suggestionItemSelected=".onRefDocSuggestionSelected"
-                suggestionItems="{refDocSuggestions>/items}"
+                change=".onDocTypeInputChange"
+                suggestionItemSelected=".onDocTypeSuggestionSelected"
+                suggestionItems="{docTypeModel>/items}"
             >
                 <suggestionItems>
                     <core:Item
-                        key="{refDocSuggestions>DocType}"
-                        text="{refDocSuggestions>DocType}"
-                        additionalText="{refDocSuggestions>DocumentNumber}"
+                        key="{docTypeModel>ConfigID}"
+                        text="{docTypeModel>ConfigID}"
+                        additionalText="{docTypeModel>Description}"
                         templateShareable="false"
                     />
                 </suggestionItems>
@@ -45,7 +46,7 @@
             <Input
                 id="idRefDocNumber"
                 valueLiveUpdate="true"
-                showValueHelp="true"
+                showValueHelp="false"
                 valueHelpRequest=".onRefDocValueHelp"
                 showSuggestion="true"
                 filterSuggests="true"
@@ -71,7 +72,7 @@
                 valueHelpRequest=".onRefDocValueHelp"
             />
 
-            <Label text="Party Code" />
+            <Label text="Sending / Receiving Party Code" />
             <Input
                 id="idRefDocPartyCode"
                 valueLiveUpdate="true"
@@ -92,7 +93,7 @@
                 </suggestionItems>
             </Input>
 
-            <Label text="Party Name" />
+            <Label text="Sending / Receiving Party Name" />
             <Input
                 id="idRefDocPartyName"
                 valueLiveUpdate="true"
@@ -113,83 +114,6 @@
                 </suggestionItems>
             </Input>
 
-            <Label text="Created By" />
-            <Input
-                id="idRefDocCreatedBy"
-                valueLiveUpdate="true"
-                showValueHelp="true"
-                valueHelpRequest=".onRefDocValueHelp"
-                showSuggestion="true"
-                filterSuggests="true"
-                suggestionItemSelected=".onRefDocSuggestionSelected"
-                suggestionItems="{refDocSuggestions>/items}"
-            >
-                <suggestionItems>
-                    <core:Item
-                        key="{refDocSuggestions>CreatedBy}"
-                        text="{refDocSuggestions>CreatedBy}"
-                        additionalText="{refDocSuggestions>DocumentNumber}"
-                        templateShareable="false"
-                    />
-                </suggestionItems>
-            </Input>
-
-            <Label text="Created On Date" />
-            <DatePicker
-                id="idRefDocCreatedOnDate"
-                valueFormat="yyyy-MM-dd"
-                displayFormat="long"
-                showValueHelp="true"
-                valueHelpRequest=".onRefDocValueHelp"
-            />
-
-            <Label text="Created On Time" />
-            <TimePicker
-                id="idRefDocCreatedOnTime"
-                valueFormat="HH:mm:ss"
-                displayFormat="HH:mm"
-                showValueHelp="true"
-                valueHelpRequest=".onRefDocValueHelp"
-            />
-
-            <Label text="Changed By" />
-            <Input
-                id="idRefDocChangedBy"
-                valueLiveUpdate="true"
-                showValueHelp="true"
-                valueHelpRequest=".onRefDocValueHelp"
-                showSuggestion="true"
-                filterSuggests="true"
-                suggestionItemSelected=".onRefDocSuggestionSelected"
-                suggestionItems="{refDocSuggestions>/items}"
-            >
-                <suggestionItems>
-                    <core:Item
-                        key="{refDocSuggestions>ChangedBy}"
-                        text="{refDocSuggestions>ChangedBy}"
-                        additionalText="{refDocSuggestions>DocumentNumber}"
-                        templateShareable="false"
-                    />
-                </suggestionItems>
-            </Input>
-
-            <Label text="Changed On Date" />
-            <DatePicker
-                id="idRefDocChangedOnDate"
-                valueFormat="yyyy-MM-dd"
-                displayFormat="long"
-                showValueHelp="true"
-                valueHelpRequest=".onRefDocValueHelp"
-            />
-
-            <Label text="Changed On Time" />
-            <TimePicker
-                id="idRefDocChangedOnTime"
-                valueFormat="HH:mm:ss"
-                displayFormat="HH:mm"
-                showValueHelp="true"
-                valueHelpRequest=".onRefDocValueHelp"
-            />
         </form:SimpleForm>
 
         <beginButton>

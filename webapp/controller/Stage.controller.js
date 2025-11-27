@@ -1,8 +1,11 @@
 sap.ui.define([
 	"sap/ui/core/mvc/Controller",
 	"sap/ui/model/json/JSONModel",
-	"sap/ui/model/odata/v2/ODataModel"
-], function(Controller, JSONModel, ODataModel) {
+	"sap/ui/model/odata/v2/ODataModel",
+	"sap/m/MessageBox",
+	"sap/m/MessageToast",
+	"sap/m/ButtonType"
+], function(Controller, JSONModel, ODataModel, MessageBox, MessageToast, ButtonType) {
 	"use strict";
 	return Controller.extend("com.incresolZ_INC_PLMS.controller.Stage", {
 		onInit: function() {
@@ -48,6 +51,7 @@ sap.ui.define([
 				sap.ui.getCore().setModel(null, "TripData");
 		
 				this.resetPageTitleModel();   // ← finally clears
+				this._setIconTabSelection("vehicleReporting");
 		
 				console.log("Stage (Create): pageTitleModel cleared");
 				return;
@@ -69,6 +73,13 @@ sap.ui.define([
 			}
 		}
 		
+		,
+		_setIconTabSelection: function (sKey) {
+			var oIconTabBar = this.byId("iconTabBar");
+			if (oIconTabBar) {
+				oIconTabBar.setSelectedKey(sKey || "vehicleReporting");
+			}
+		}
 		,
 
 		_syncTripNumberFromRoute: function (sTripNumber, bReset) {
@@ -174,19 +185,69 @@ sap.ui.define([
 			oModel.setProperty("/tripStatus", "");
 		},
 
+		onCancelTrip: function () {
+			var sTripNumber = this._sCurrentTripNumber || sap.ui.getCore().getModel("globalData")?.getProperty("/TripNumber");
+			if (!sTripNumber) {
+				MessageToast.show("No trip selected to cancel");
+				return;
+			}
+
+			var oWarningDialog = MessageBox.warning("Do you want to cancel the trip?", {
+				actions: [MessageBox.Action.OK, MessageBox.Action.CANCEL],
+				onClose: function (oAction) {
+					if (oAction === MessageBox.Action.OK) {
+						this._deleteTrip(sTripNumber);
+					}
+				}.bind(this)
+			});
+
+			if (oWarningDialog) {
+				oWarningDialog.attachAfterOpen(function () {
+					var oOkButton = oWarningDialog.getButtons().find(function (oButton) {
+						return oButton.getText() === MessageBox.Action.OK;
+					});
+					oOkButton?.setType(ButtonType.Reject);
+				});
+			}
+		},
+
+		_deleteTrip: function (sTripNumber) {
+			var oService = this._getTripService();
+			var sPath = "/TripDetails('" + sTripNumber + "')";
+
+			oService.remove(sPath, {
+				headers: {
+					"X-Requested-With": "X"
+				},
+				success: function () {
+					MessageToast.show("Trip cancelled successfully");
+					this._handleTripCancelled();
+				}.bind(this),
+				error: function () {
+					MessageBox.error("Failed to cancel trip. Please try again.");
+				}
+			});
+		},
+
+		_handleTripCancelled: function () {
+			sap.ui.getCore().getEventBus().publish("HomePage", "RefreshTripTable");
+			sap.ui.getCore().getModel("globalData")?.setProperty("/TripNumber", "");
+			sap.ui.getCore().setModel(null, "TripData");
+			this._bCreateMode = true;
+			this._sCurrentTripNumber = "";
+			this.resetPageTitleModel();
+			this._setIconTabSelection("vehicleReporting");
+			this.getOwnerComponent().getRouter().navTo("HomePage");
+		},
+
 		_loadTripHeaderDetails: function (sTripNumber) {
 			if (!sTripNumber) {
 				return;
 			}
 
-			if (!this._oTripService) {
-				this._oTripService = new ODataModel("/sap/opu/odata/sap/YIGP_PLMS_SRV/", {
-					useBatch: false,
-					defaultBindingMode: "TwoWay"
-				});
-			}
+			var oService = this._getTripService();
 
-			this._oTripService.read("/TripDetails('" + sTripNumber + "')", {
+			oService.read("/TripDetails('" + sTripNumber + "')", {
 				success: function (oData) {
 					this._oPageTitleModel.setProperty("/tripNumber", oData.TripNumber || sTripNumber);
 					this._oPageTitleModel.setProperty("/vehicleNumber", oData.VehicleNumber || "");
@@ -197,6 +258,16 @@ sap.ui.define([
 				}.bind(this)
 			});
 		},
+
+		_getTripService: function () {
+			if (!this._oTripService) {
+				this._oTripService = new ODataModel("/sap/opu/odata/sap/YIGP_PLMS_SRV/", {
+					useBatch: false,
+					defaultBindingMode: "TwoWay"
+				});
+			}
+			return this._oTripService;
+		}
 
 	});
 });

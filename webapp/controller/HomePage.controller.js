@@ -34,7 +34,23 @@ sap.ui.define(
         });
         this.getView().setModel(oModel);
         this._initializeColumnVisibility();
-        
+
+        this._oEventBus = sap.ui.getCore().getEventBus();
+        this._oEventBus.subscribe(
+          "HomePage",
+          "RefreshTripTable",
+          this._onExternalRefresh,
+          this
+        );
+      },
+
+      onExit: function () {
+        this._oEventBus?.unsubscribe(
+          "HomePage",
+          "RefreshTripTable",
+          this._onExternalRefresh,
+          this
+        );
       },
 
       // --------------------------------------------
@@ -61,10 +77,9 @@ sap.ui.define(
       },
 
       onTripPress: function (oEvent) {
-        var sTripNo = oEvent
-          .getParameter("listItem")
-          .getBindingContext()
-          .getProperty("TripNumber");
+        var oCtx = oEvent.getParameter("listItem").getBindingContext();
+        var oRowData = oCtx.getObject();
+        var sTripNo = oRowData.TripNumber;
 		   var oGlobalModel = sap.ui.getCore().getModel("globalData");
 
     if (!oGlobalModel) {
@@ -73,6 +88,10 @@ sap.ui.define(
     }
 
     oGlobalModel.setProperty("/TripNumber", sTripNo);
+
+    var oTripDataModel = new JSONModel(oRowData);
+    sap.ui.getCore().setModel(oTripDataModel, "TripData");
+    sap.ui.getCore().getEventBus().publish("TripData", "Updated");
 
         this.getView().byId("tripTable").removeSelections(true);
         sap.ui.core.UIComponent.getRouterFor(this).navTo("StagewithParam", {
@@ -91,6 +110,10 @@ sap.ui.define(
             MessageToast.show("Trip details refreshed");
           });
         }
+      },
+
+      _onExternalRefresh: function () {
+        this.onRefresh();
       },
 
       // --------------------------------------------
@@ -220,21 +243,23 @@ sap.ui.define(
         // Handle date range first
         var oDateFromPicker = this.byId("ReportDateFrom");
         var oDateToPicker = this.byId("ReportDateTo");
-        var sDateFrom = oDateFromPicker ? oDateFromPicker.getValue() : "";
-        var sDateTo = oDateToPicker ? oDateToPicker.getValue() : "";
+        var oDateFrom = oDateFromPicker ? oDateFromPicker.getDateValue() : null;
+        var oDateTo = oDateToPicker ? oDateToPicker.getDateValue() : null;
 
-        if (sDateFrom || sDateTo) {
+        if (oDateFrom || oDateTo) {
           var aDateFilters = [];
-          if (sDateFrom) {
-            var sDateFromFormatted = sDateFrom + "T00:00:00";
+          if (oDateFrom) {
+            var oStartOfDay = new Date(oDateFrom);
+            oStartOfDay.setHours(0, 0, 0, 0);
             aDateFilters.push(
-              new Filter("LR_Date", FilterOperator.GE, sDateFromFormatted)
+              new Filter("LR_Date", FilterOperator.GE, oStartOfDay)
             );
           }
-          if (sDateTo) {
-            var sDateToFormatted = sDateTo + "T23:59:59";
+          if (oDateTo) {
+            var oEndOfDay = new Date(oDateTo);
+            oEndOfDay.setHours(23, 59, 59, 999);
             aDateFilters.push(
-              new Filter("LR_Date", FilterOperator.LE, sDateToFormatted)
+              new Filter("LR_Date", FilterOperator.LE, oEndOfDay)
             );
           }
           if (aDateFilters.length) {
