@@ -31,6 +31,21 @@
                         state="None"/>
                 </HBox>
 
+                <List
+                    headerText="Stage Summary"
+                    class="sapUiSmallMarginBottom"
+                    items="{activityModel>/milestones}">
+                    <StandardListItem
+                        icon="{activityModel>icon}"
+                        iconDensityAware="false"
+                        iconInset="false"
+                        title="{activityModel>title}"
+                        description="{activityModel>description}"
+                        info="{activityModel>tatText}"
+                        infoState="{activityModel>infoState}"
+                        type="Active"/>
+                </List>
+
                 <suite:ProcessFlow
                     id="activityProcessFlow"
                     wheelZoomable="false"
@@ -49,6 +64,8 @@
                             stateText="{activityModel>stateText}"
                             text1="{activityModel>text1}"
                             text2="{activityModel>text2}"
+                            icon="{activityModel>icon}"
+                            iconShape="{activityModel>iconShape}"
                             children="{activityModel>children}"
                             highlighted="{activityModel>highlighted}"
                             focused="{activityModel>focused}"

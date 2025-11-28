@@ -8,6 +8,28 @@ sap.ui.define([
 ], function (Controller, JSONModel, ODataModel, Filter, FilterOperator, MessageToast) {
 	"use strict";
 
+	var STAGE_CONFIG = [{
+		key: "vehicleReporting",
+		title: "Reporting",
+		icon: "sap-icon://order-status",
+		eventPrefixes: ["01"]
+	}, {
+		key: "gateIn",
+		title: "Gate In",
+		icon: "sap-icon://visits",
+		eventPrefixes: ["03"]
+	}, {
+		key: "loading",
+		title: "Loading",
+		icon: "sap-icon://shipping-status",
+		eventPrefixes: ["04"]
+	}, {
+		key: "gateOut",
+		title: "Gate Out",
+		icon: "sap-icon://outbox",
+		eventPrefixes: ["05"]
+	}];
+
 	return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Activity", {
 
 		onInit: function () {
@@ -15,6 +37,7 @@ sap.ui.define([
 				tatText: "—",
 				lastUpdatedText: "—",
 				eventsCount: 0,
+				milestones: [],
 				nodes: [],
 				lanes: [{
 					id: "lane1",
@@ -77,6 +100,8 @@ sap.ui.define([
 
 			var aEnriched = aSorted.map(function (oItem, index) {
 				var oDate = that._toDateObject(oItem);
+				var sStage = that._detectStage(oItem.EventID || "");
+				var sIcon = that._getStageIcon(sStage);
 				return {
 					_nodeId: "node" + index,
 					eventKey: (oItem.EventID || "") + " / " + (oItem.Seqno || ""),
@@ -86,30 +111,39 @@ sap.ui.define([
 					changedBy: oItem.ChangedBy || "",
 					remarks: oItem.Remarks || "",
 					raw: oItem,
-					_date: oDate
+					_date: oDate,
+					_stage: sStage,
+					_icon: sIcon
 				};
 			});
 
+			this._assignStageMetadata(aEnriched);
 			this._oActivityModel.setProperty("/events", aEnriched);
 			this._oActivityModel.setProperty("/eventsCount", aEnriched.length);
 			this._oActivityModel.setProperty("/nodes", this._buildProcessFlowNodes(aEnriched));
 			this._oActivityModel.setProperty("/tatText", this._calculateTat(aEnriched));
 			this._oActivityModel.setProperty("/lastUpdatedText", this._getLastUpdatedText(aEnriched));
+			this._oActivityModel.setProperty("/milestones", this._buildStageSummary(aEnriched));
 		},
 
 		_buildProcessFlowNodes: function (aEvents) {
 			if (!aEvents.length) {
 				return [];
 			}
+			var that = this;
 			return aEvents.map(function (oItem, index) {
+				var sStageTitle = that._getStageTitle(oItem._stage);
+				var sTitle = sStageTitle ? sStageTitle + " (" + oItem.eventKey + ")" : oItem.eventKey;
 				return {
 					id: oItem._nodeId,
 					laneId: "lane1",
-					title: oItem.eventKey,
+					title: sTitle,
 					text1: oItem.displayTimestamp,
-					text2: oItem.remarks,
+					text2: oItem.remarks || oItem.movementScenario || "",
 					state: "Positive",
 					stateText: oItem.movementScenario,
+					icon: oItem._icon || "sap-icon://activities",
+					iconShape: "Circle",
 					children: index < aEvents.length - 1 ? [aEvents[index + 1]._nodeId] : []
 				};
 			});
@@ -123,21 +157,7 @@ sap.ui.define([
 			if (isNaN(iDiff) || iDiff < 0) {
 				return "—";
 			}
-			var iHours = Math.floor(iDiff / 3600000);
-			var iMinutes = Math.floor((iDiff % 3600000) / 60000);
-			var iSeconds = Math.floor((iDiff % 60000) / 1000);
-
-			var aParts = [];
-			if (iHours) {
-				aParts.push(iHours + "h");
-			}
-			if (iMinutes) {
-				aParts.push(iMinutes + "m");
-			}
-			if (!aParts.length) {
-				aParts.push(iSeconds + "s");
-			}
-			return aParts.join(" ");
+			return this._formatDurationMs(iDiff);
 		},
 
 		_getLastUpdatedText: function (aEvents) {
@@ -207,6 +227,135 @@ sap.ui.define([
 				minute: "2-digit",
 				second: "2-digit"
 			});
+		},
+
+		_assignStageMetadata: function (aEvents) {
+			aEvents.forEach(function (oItem) {
+				oItem._stageKey = this._resolveStageKey(oItem.raw);
+			}, this);
+		},
+
+		_resolveStageKey: function (oRaw) {
+			var sEventId = (oRaw && oRaw.EventID) ? String(oRaw.EventID) : "";
+			sEventId = sEventId.replace(/[^\d]/g, "").substring(0, 2);
+			var oMatch = STAGE_CONFIG.find(function (oStage) {
+				return oStage.eventPrefixes.indexOf(sEventId) > -1;
+			});
+			return oMatch ? oMatch.key : null;
+		},
+
+		_buildStageSummary: function (aEvents) {
+			return STAGE_CONFIG.map(function (oStage, iIndex) {
+				var aStageEvents = aEvents.filter(function (oItem) {
+					return oItem._stageKey === oStage.key;
+				});
+				var oStart = aStageEvents[0];
+				var oLast = aStageEvents[aStageEvents.length - 1];
+				var oNextStart = this._findNextStageStart(aEvents, iIndex);
+
+				var bHasEvents = !!oStart;
+				var bCompleted = bHasEvents && (iIndex === STAGE_CONFIG.length - 1 ? !!oLast : !!oNextStart);
+
+				var iTatMs = null;
+				if (oStart) {
+					var oTatEnd = bCompleted ? (oNextStart || oLast || oStart) : (oLast || null);
+					if (oTatEnd && oTatEnd._date && oStart._date && oTatEnd._date > oStart._date) {
+						iTatMs = oTatEnd._date - oStart._date;
+					}
+				}
+
+				var sTatText = this._formatDurationMs(iTatMs);
+				var sStatus = "Pending";
+				var sTimelineText = "Not started";
+				var sInfoState = "None";
+
+				if (bHasEvents && bCompleted) {
+					sStatus = "Completed";
+					sTimelineText = "Completed " + this._formatDateTime((oLast || oStart)._date);
+					sInfoState = "Success";
+				} else if (bHasEvents) {
+					sStatus = "In Progress";
+					sTimelineText = "In progress since " + this._formatDateTime(oStart._date);
+					sInfoState = "Warning";
+				}
+
+				var sEventSummary = aStageEvents.length ?
+					(aStageEvents.length + " " + (aStageEvents.length === 1 ? "event" : "events")) :
+					"No events yet";
+
+				return {
+					key: oStage.key,
+					title: oStage.title,
+					icon: oStage.icon,
+					tatText: sTatText,
+					description: sStatus + " · " + sTimelineText + " · " + sEventSummary,
+					infoState: sInfoState
+				};
+			}, this);
+		},
+
+		_findNextStageStart: function (aEvents, iStageIndex) {
+			for (var i = iStageIndex + 1; i < STAGE_CONFIG.length; i++) {
+				var sKey = STAGE_CONFIG[i].key;
+				var oMatch = aEvents.find(function (oItem) {
+					return oItem._stageKey === sKey;
+				});
+				if (oMatch) {
+					return oMatch;
+				}
+			}
+			return null;
+		},
+
+		_formatDurationMs: function (iMs) {
+			if (typeof iMs !== "number" || isNaN(iMs) || iMs <= 0) {
+				return "—";
+			}
+			var iHours = Math.floor(iMs / 3600000);
+			var iMinutes = Math.floor((iMs % 3600000) / 60000);
+			var iSeconds = Math.floor((iMs % 60000) / 1000);
+			var aParts = [];
+			if (iHours) {
+				aParts.push(iHours + "h");
+			}
+			if (iMinutes) {
+				aParts.push(iMinutes + "m");
+			}
+			if (!aParts.length) {
+				aParts.push(iSeconds + "s");
+			}
+			return aParts.join(" ");
+		},
+
+		_detectStage: function (sEventID) {
+			if (!sEventID) {
+				return null;
+			}
+			var sPrefix = String(sEventID).replace(/[^\d]/g, "").substring(0, 2);
+			var oMatch = STAGE_CONFIG.find(function (oStage) {
+				return oStage.eventPrefixes.indexOf(sPrefix) > -1;
+			});
+			return oMatch ? oMatch.key : null;
+		},
+
+		_getStageIcon: function (sStageKey) {
+			if (!sStageKey) {
+				return "sap-icon://activities";
+			}
+			var oMatch = STAGE_CONFIG.find(function (oStage) {
+				return oStage.key === sStageKey;
+			});
+			return oMatch ? oMatch.icon : "sap-icon://activities";
+		},
+
+		_getStageTitle: function (sStageKey) {
+			if (!sStageKey) {
+				return null;
+			}
+			var oMatch = STAGE_CONFIG.find(function (oStage) {
+				return oStage.key === sStageKey;
+			});
+			return oMatch ? oMatch.title : null;
 		}
 	});
 });

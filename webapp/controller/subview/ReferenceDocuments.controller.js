@@ -3,37 +3,72 @@ sap.ui.define([
 	"sap/ui/model/json/JSONModel",
 	"sap/ui/core/Fragment",
 	"sap/m/MessageToast",
+	"sap/m/MessageBox",
 	"sap/m/SelectDialog",
 	"sap/m/StandardListItem",
 	"sap/ui/model/Filter",
 	"sap/ui/model/FilterOperator",
 	"sap/ui/model/odata/v2/ODataModel"
-], function (Controller, JSONModel, Fragment, MessageToast, SelectDialog, StandardListItem, Filter, FilterOperator, ODataModel) {
+], function (Controller, JSONModel, Fragment, MessageToast, MessageBox, SelectDialog, StandardListItem, Filter, FilterOperator, ODataModel) {
 	"use strict";
 
 	return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.ReferenceDocuments", {
 
-		onInit: function () {
-			this._ensureRefDocModel();
-			this._getRefDocSuggestionModel();
-			this._getMaterialSuggestionModel();
-			this._loadDocTypes();
-			this._sSelectedDocType = "";
-			this._sSelectedMaterialDocType = "";
-		},
+	onInit: function () {
+		this._ensureRefDocModel();
+		this._getRefDocSuggestionModel();
+		this._getMaterialSuggestionModel();
+		this._loadDocTypes();
+		this._sSelectedDocType = "";
+		this._sSelectedMaterialDocType = "";
+		this._iEditingRefDocIndex = -1;
+		this._oEditingRefDoc = null;
+		this._iEditingMaterialIndex = -1;
+		this._oEditingMaterial = null;
+		this._oEventBus = sap.ui.getCore().getEventBus();
+		this._oEventBus.subscribe("TripData", "Updated", this._onTripDataUpdated, this);
+		this._onTripDataUpdated(); // Initial load
+	},
 
-		onExit: function () {
-			this._oAddRefDocDialog?.destroy();
-			this._oAddMaterialDialog?.destroy();
-			this._oRefDocValueHelp?.destroy();
-			this._oMaterialValueHelp?.destroy();
-		},
+	onExit: function () {
+		this._oAddRefDocDialog?.destroy();
+		this._oAddMaterialDialog?.destroy();
+		this._oRefDocValueHelp?.destroy();
+		this._oMaterialValueHelp?.destroy();
+		if (this._oEventBus) {
+			this._oEventBus.unsubscribe("TripData", "Updated", this._onTripDataUpdated, this);
+		}
+	},
 
 		// ============================================================
 		// Reference Documents Dialog Handlers
 		// ============================================================
 		onAddRefDocRow: function () {
+			this._resetRefDocDialog();
 			this._openAddRefDocDialog();
+		},
+
+		onEditRefDocRow: function (oEvent) {
+			var oCtx = oEvent.getSource().getBindingContext("refDocModel");
+			if (!oCtx) {
+				return;
+			}
+
+			var oData = oCtx.getObject() || {};
+			var sPath = oCtx.getPath();
+			var iIndex = parseInt(sPath.substring(sPath.lastIndexOf("/") + 1), 10);
+
+			if (isNaN(iIndex)) {
+				return;
+			}
+
+			this._iEditingRefDocIndex = iIndex;
+			this._oEditingRefDoc = Object.assign({}, oData);
+
+			this._openAddRefDocDialog().then(function () {
+				this._populateRefDocDialog(oData);
+				this._setRefDocDialogMode("edit");
+			}.bind(this));
 		},
 
 		onDocTypeSuggestionSelected: function (oEvent) {
@@ -91,16 +126,24 @@ sap.ui.define([
 				return MessageToast.show("Document Number is mandatory");
 			}
 
-			this._saveOrderDetail(oPayload)
+			var bIsEdit = this._iEditingRefDocIndex > -1;
+			var oSavePromise = bIsEdit ? this._updateOrderDetail(oPayload) : this._saveOrderDetail(oPayload);
+
+			oSavePromise
 				.then(function (oResponse) {
-					this._appendLocalReferenceDoc(oResponse || oPayload);
-					MessageToast.show("Reference document added");
-					this._loadRefDocSuggestions(this._sSelectedDocType || oPayload.DocType);
+					if (bIsEdit) {
+						this._updateLocalReferenceDoc(oResponse || oPayload);
+						MessageToast.show("Reference document updated");
+					} else {
+						this._appendLocalReferenceDoc(oResponse || oPayload);
+						MessageToast.show("Reference document added");
+						this._loadRefDocSuggestions(this._sSelectedDocType || oPayload.DocType);
+					}
 					this._closeRefDocDialog();
 					this._resetRefDocDialog();
 				}.bind(this))
 				.catch(function () {
-					MessageToast.show("Unable to save reference document");
+					MessageToast.show(bIsEdit ? "Unable to update reference document" : "Unable to save reference document");
 				});
 		},
 
@@ -115,18 +158,99 @@ sap.ui.define([
 			var aRefDocs = oModel.getProperty("/referenceDocs") || [];
 			var iIndex = oTable.indexOfItem(oEvent.getSource().getParent());
 
-			if (iIndex > -1) {
+			if (iIndex < 0 || !aRefDocs[iIndex]) {
+				return;
+			}
+
+			var oRefDoc = aRefDocs[iIndex];
+			var sTripNumber = oRefDoc.tripNumber || "";
+			var sDocType = oRefDoc.docType || "";
+			var sDocumentNumber = oRefDoc.documentNumber || "";
+
+			if (!sTripNumber || !sDocType || !sDocumentNumber) {
+				MessageToast.show("Cannot delete: Missing required information");
+				return;
+			}
+
+			MessageBox.confirm(
+				"Are you sure you want to delete this reference document?",
+				{
+					title: "Confirm Delete",
+					onClose: function (sAction) {
+						if (sAction === MessageBox.Action.OK) {
+							this._deleteOrderDetail(sTripNumber, sDocType, sDocumentNumber, iIndex);
+						}
+					}.bind(this)
+				}
+			);
+		},
+
+	_deleteOrderDetail: function (sTripNumber, sDocType, sDocumentNumber, iIndex) {
+		var oService = this._getOrderDetailsService();
+		var sPath = this._buildOrderDetailKeyPath(sTripNumber, sDocType, sDocumentNumber);
+		var oModel = this._ensureRefDocModel();
+		var aRefDocs = oModel.getProperty("/referenceDocs") || [];
+
+		// Use soft delete by updating Deleted flag to true
+		var oPayload = {
+			Deleted: true
+		};
+
+		oService.update(sPath, oPayload, {
+			headers: {
+				"X-Requested-With": "X"
+			},
+			success: function () {
 				aRefDocs.splice(iIndex, 1);
 				oModel.setProperty("/referenceDocs", aRefDocs);
-				MessageToast.show("Reference document removed");
+				MessageToast.show("Reference document deleted successfully");
+			}.bind(this),
+			error: function (oError) {
+				var sMessage = "Failed to delete reference document";
+				try {
+					var oResponse = JSON.parse(oError.responseText);
+					if (oResponse.error && oResponse.error.message && oResponse.error.message.value) {
+						sMessage = oResponse.error.message.value;
+					}
+				} catch (e) {
+					if (oError.message && oError.message.value) {
+						sMessage = oError.message.value;
+					}
+				}
+				MessageToast.show(sMessage);
 			}
-		},
+		});
+	},
 
 		// ============================================================
 		// Material Details Dialog Handlers
 		// ============================================================
 		onAddMaterialRow: function () {
+			this._resetMaterialDialog();
 			this._openAddMaterialDialog();
+		},
+
+		onEditMaterialRow: function (oEvent) {
+			var oCtx = oEvent.getSource().getBindingContext("refDocModel");
+			if (!oCtx) {
+				return;
+			}
+
+			var oData = oCtx.getObject() || {};
+			var sPath = oCtx.getPath();
+			var iIndex = parseInt(sPath.substring(sPath.lastIndexOf("/") + 1), 10);
+
+			if (isNaN(iIndex)) {
+				return;
+			}
+
+			this._iEditingMaterialIndex = iIndex;
+			this._oEditingMaterial = Object.assign({}, oData);
+
+			this._openAddMaterialDialog().then(function () {
+				this._populateMaterialDialog(oData);
+				this._setMaterialDialogMode("edit");
+			}.bind(this));
 		},
 
 		onMaterialDocTypeSuggestionSelected: function (oEvent) {
@@ -182,25 +306,41 @@ sap.ui.define([
 		},
 
 		onSaveMaterialDialog: function () {
-			var oModel = this._ensureRefDocModel();
-			var aMaterials = oModel.getProperty("/materialDetails") || [];
+			var oPayload = this._buildMaterialDetailPayload();
+			if (!oPayload.TripNumber) {
+				return MessageToast.show("Trip Number missing. Please open a trip first.");
+			}
+			if (!oPayload.DocType) {
+				return MessageToast.show("Material Doc Type is mandatory");
+			}
+			if (!oPayload.RefDocNo) {
+				return MessageToast.show("Ref Doc Number is mandatory");
+			}
+			if (!oPayload.RefDocItemNo) {
+				return MessageToast.show("Ref Doc Item Number is mandatory");
+			}
+			if (!oPayload.MaterialCode) {
+				return MessageToast.show("Material Code is mandatory");
+			}
 
-			var oNewMaterial = {
-				docType: this.byId("idMaterialDocType")?.getValue() || "",
-				refDocNo: this.byId("idMaterialRefDocNo")?.getValue() || "",
-				refDocItemNo: this.byId("idMaterialRefDocItem")?.getValue() || "",
-				materialCode: this.byId("idMaterialCode")?.getValue() || "",
-				materialDescription: this.byId("idMaterialDesc")?.getValue() || "",
-				qty: this.byId("idMaterialQty")?.getValue() || "",
-				uom: this.byId("idMaterialUoM")?.getValue() || ""
-			};
+			var bIsEdit = this._iEditingMaterialIndex > -1;
+			var oSavePromise = bIsEdit ? this._updateMaterialDetail(oPayload) : this._saveMaterialDetail(oPayload);
 
-			aMaterials.push(oNewMaterial);
-			oModel.setProperty("/materialDetails", aMaterials);
-
-			MessageToast.show("Material row added");
-			this._closeMaterialDialog();
-			this._resetMaterialDialog();
+			oSavePromise
+				.then(function (oResponse) {
+					if (bIsEdit) {
+						this._updateLocalMaterialDetail(oResponse || oPayload);
+						MessageToast.show("Material row updated");
+					} else {
+						this._appendLocalMaterialDetail(oResponse || oPayload);
+						MessageToast.show("Material row added");
+					}
+					this._closeMaterialDialog();
+					this._resetMaterialDialog();
+				}.bind(this))
+				.catch(function () {
+					MessageToast.show(bIsEdit ? "Unable to update material row" : "Unable to save material row");
+				});
 		},
 
 		onCancelMaterialDialog: function () {
@@ -208,18 +348,76 @@ sap.ui.define([
 			this._resetMaterialDialog();
 		},
 
-		onDeleteMaterialRow: function (oEvent) {
-			var oTable = this.byId("idMaterialDetailsTable");
-			var oModel = this._ensureRefDocModel();
-			var aMaterials = oModel.getProperty("/materialDetails") || [];
-			var iIndex = oTable.indexOfItem(oEvent.getSource().getParent());
+	onDeleteMaterialRow: function (oEvent) {
+		var oTable = this.byId("idMaterialDetailsTable");
+		var oModel = this._ensureRefDocModel();
+		var aMaterials = oModel.getProperty("/materialDetails") || [];
+		var iIndex = oTable.indexOfItem(oEvent.getSource().getParent());
 
-			if (iIndex > -1) {
+		if (iIndex < 0 || !aMaterials[iIndex]) {
+			return;
+		}
+
+		var oMaterial = aMaterials[iIndex];
+		var sDocType = oMaterial.docType || "";
+		var sTripNumber = oMaterial.tripNumber || "";
+		var sRefDocNo = oMaterial.refDocNo || "";
+		var sRefDocItemNo = oMaterial.refDocItemNo || "";
+
+		if (!sDocType || !sTripNumber || !sRefDocNo || !sRefDocItemNo) {
+			MessageToast.show("Cannot delete: Missing required information");
+			return;
+		}
+
+		MessageBox.confirm(
+			"Are you sure you want to delete this material detail?",
+			{
+				title: "Confirm Delete",
+				onClose: function (sAction) {
+					if (sAction === MessageBox.Action.OK) {
+						this._deleteItemDetail(sDocType, sTripNumber, sRefDocNo, sRefDocItemNo, iIndex);
+					}
+				}.bind(this)
+			}
+		);
+	},
+
+	_deleteItemDetail: function (sDocType, sTripNumber, sRefDocNo, sRefDocItemNo, iIndex) {
+		var oService = this._getItemDetailsService();
+		var sPath = this._buildMaterialDetailKeyPath(sDocType, sTripNumber, sRefDocNo, sRefDocItemNo);
+		var oModel = this._ensureRefDocModel();
+		var aMaterials = oModel.getProperty("/materialDetails") || [];
+
+		// Use soft delete by updating IsDeleted flag to "X"
+		var oPayload = {
+			IsDeleted: "X"
+		};
+
+		oService.update(sPath, oPayload, {
+			headers: {
+				"X-Requested-With": "X"
+			},
+			success: function () {
 				aMaterials.splice(iIndex, 1);
 				oModel.setProperty("/materialDetails", aMaterials);
-				MessageToast.show("Material row removed");
+				MessageToast.show("Material detail deleted successfully");
+			}.bind(this),
+			error: function (oError) {
+				var sMessage = "Failed to delete material detail";
+				try {
+					var oResponse = JSON.parse(oError.responseText);
+					if (oResponse.error && oResponse.error.message && oResponse.error.message.value) {
+						sMessage = oResponse.error.message.value;
+					}
+				} catch (e) {
+					if (oError.message && oError.message.value) {
+						sMessage = oError.message.value;
+					}
+				}
+				MessageToast.show(sMessage);
 			}
-		},
+		});
+	},
 
 		// ============================================================
 		// Private Helpers
@@ -239,39 +437,47 @@ sap.ui.define([
 		},
 
 		_openAddRefDocDialog: function () {
-			if (!this._oAddRefDocDialog) {
-				Fragment.load({
-					id: this.getView().getId(),
-					name: "com.incresolZ_INC_PLMS.fragments.ReferenceDocumentsFrags.AddRefDocDialog",
-					controller: this
-				}).then(function (oDialog) {
-					this._oAddRefDocDialog = oDialog;
-					this.getView().addDependent(oDialog);
-					oDialog.open();
+			return new Promise(function (resolve) {
+				if (!this._oAddRefDocDialog) {
+					Fragment.load({
+						id: this.getView().getId(),
+						name: "com.incresolZ_INC_PLMS.fragments.ReferenceDocumentsFrags.AddRefDocDialog",
+						controller: this
+					}).then(function (oDialog) {
+						this._oAddRefDocDialog = oDialog;
+						this.getView().addDependent(oDialog);
+						oDialog.open();
+						this.onDocTypeValueHelp();
+						resolve(oDialog);
+					}.bind(this));
+				} else {
+					this._oAddRefDocDialog.open();
 					this.onDocTypeValueHelp();
-				}.bind(this));
-			} else {
-				this._oAddRefDocDialog.open();
-				this.onDocTypeValueHelp();
-			}
+					resolve(this._oAddRefDocDialog);
+				}
+			}.bind(this));
 		},
 
 		_openAddMaterialDialog: function () {
-			if (!this._oAddMaterialDialog) {
-				Fragment.load({
-					id: this.getView().getId(),
-					name: "com.incresolZ_INC_PLMS.fragments.ReferenceDocumentsFrags.AddMaterialRowDialog",
-					controller: this
-				}).then(function (oDialog) {
-					this._oAddMaterialDialog = oDialog;
-					this.getView().addDependent(oDialog);
+			return new Promise(function (resolve) {
+				if (!this._oAddMaterialDialog) {
+					Fragment.load({
+						id: this.getView().getId(),
+						name: "com.incresolZ_INC_PLMS.fragments.ReferenceDocumentsFrags.AddMaterialRowDialog",
+						controller: this
+					}).then(function (oDialog) {
+						this._oAddMaterialDialog = oDialog;
+						this.getView().addDependent(oDialog);
+						this._loadMaterialSuggestions(this._sSelectedMaterialDocType);
+						oDialog.open();
+						resolve(oDialog);
+					}.bind(this));
+				} else {
 					this._loadMaterialSuggestions(this._sSelectedMaterialDocType);
-					oDialog.open();
-				}.bind(this));
-			} else {
-				this._loadMaterialSuggestions(this._sSelectedMaterialDocType);
-				this._oAddMaterialDialog.open();
-			}
+					this._oAddMaterialDialog.open();
+					resolve(this._oAddMaterialDialog);
+				}
+			}.bind(this));
 		},
 
 		_closeRefDocDialog: function () {
@@ -298,6 +504,32 @@ sap.ui.define([
 				var oControl = this.byId(sId);
 				oControl?.setValue("");
 			}.bind(this));
+
+			this._iEditingRefDocIndex = -1;
+			this._oEditingRefDoc = null;
+			this._setRefDocDialogMode("add");
+		},
+
+		_populateRefDocDialog: function (oData) {
+			if (!oData) {
+				return;
+			}
+
+			this.byId("idRefDocType")?.setValue(oData.docType || "");
+			this.byId("idRefDocNumber")?.setValue(oData.documentNumber || "");
+			this.byId("idRefDocPartyCode")?.setValue(oData.partyCode || "");
+			this.byId("idRefDocPartyName")?.setValue(oData.partyName || "");
+			this.byId("idRefDocDate")?.setValue(oData.documentDate || "");
+			this._sSelectedDocType = oData.docType || this._sSelectedDocType;
+		},
+
+		_setRefDocDialogMode: function (sMode) {
+			var oDialog = this.byId("idAddRefDocDialog");
+			var oSaveButton = this.byId("idRefDocDialogSaveBtn");
+			var bIsEdit = sMode === "edit";
+
+			oDialog?.setTitle(bIsEdit ? "Edit Reference Document" : "Add Reference Document");
+			oSaveButton?.setText(bIsEdit ? "Update" : "Add");
 		},
 
 		_resetMaterialDialog: function () {
@@ -314,10 +546,35 @@ sap.ui.define([
 			}.bind(this));
 
 			this._sSelectedMaterialDocType = "";
-		}
+			this._iEditingMaterialIndex = -1;
+			this._oEditingMaterial = null;
+			this._setMaterialDialogMode("add");
+		},
 
-		,
+		_populateMaterialDialog: function (oData) {
+			if (!oData) {
+				return;
+			}
 
+			this.byId("idMaterialDocType")?.setValue(oData.docType || "");
+			this.byId("idMaterialRefDocNo")?.setValue(oData.refDocNo || "");
+			this.byId("idMaterialRefDocItem")?.setValue(oData.refDocItemNo || "");
+			this.byId("idMaterialCode")?.setValue(oData.materialCode || "");
+			this.byId("idMaterialDesc")?.setValue(oData.materialDescription || "");
+			this.byId("idMaterialQty")?.setValue(oData.qty || "");
+			this.byId("idMaterialUoM")?.setValue(oData.uom || "");
+			this._sSelectedMaterialDocType = oData.docType || this._sSelectedMaterialDocType;
+		},
+
+		_setMaterialDialogMode: function (sMode) {
+			var oDialog = this.byId("idAddMaterialDialog");
+			var oSaveButton = this.byId("idMaterialDialogSaveBtn");
+			var bIsEdit = sMode === "edit";
+
+			oDialog?.setTitle(bIsEdit ? "Edit Material Row" : "Add Material Row");
+			oSaveButton?.setText(bIsEdit ? "Update" : "Add");
+		},
+		
 		_openMaterialValueHelpDialog: function (sDocType) {
 			this._fetchItemDetails(sDocType)
 				.then(function (aItems) {
@@ -582,6 +839,23 @@ sap.ui.define([
 			return this._oOrderDetailsService;
 		},
 
+		_buildOrderDetailKeyPath: function (sTripNumber, sDocType, sDocumentNumber) {
+			return "/OrderDetails(TripNumber='" + this._escapeODataValue(sTripNumber) +
+				"',DocType='" + this._escapeODataValue(sDocType) +
+				"',DocumentNumber='" + this._escapeODataValue(sDocumentNumber) + "')";
+		},
+
+		_buildMaterialDetailKeyPath: function (sDocType, sTripNumber, sRefDocNo, sRefDocItemNo) {
+			return "/ItemDetails(DocType='" + this._escapeODataValue(sDocType) +
+				"',TripNumber='" + this._escapeODataValue(sTripNumber) +
+				"',RefDocNo='" + this._escapeODataValue(sRefDocNo) +
+				"',RefDocItemNo='" + this._escapeODataValue(sRefDocItemNo) + "')";
+		},
+
+		_escapeODataValue: function (sValue) {
+			return (sValue || "").replace(/'/g, "''");
+		},
+
 		_getRefDocSuggestionModel: function () {
 			if (!this._oRefDocSuggestionsModel) {
 				this._oRefDocSuggestionsModel = new JSONModel({ items: [] });
@@ -672,6 +946,34 @@ sap.ui.define([
 			};
 		},
 
+		_buildMaterialDetailPayload: function () {
+			var oGlobalModel = sap.ui.getCore().getModel("globalData");
+			var sTripNumber = oGlobalModel?.getProperty("/TripNumber") || "";
+
+			var sDocType = this.byId("idMaterialDocType")?.getValue().trim() || "";
+			var sRefDocNo = this.byId("idMaterialRefDocNo")?.getValue().trim() || "";
+			var sRefDocItemNo = this.byId("idMaterialRefDocItem")?.getValue().trim() || "";
+			var sMaterialCode = this.byId("idMaterialCode")?.getValue().trim() || "";
+			var sMaterialDesc = this.byId("idMaterialDesc")?.getValue().trim() || "";
+			var sQty = this.byId("idMaterialQty")?.getValue().trim() || "";
+			var fQty = sQty ? parseFloat(sQty) : null;
+			if (fQty !== null && isNaN(fQty)) {
+				fQty = null;
+			}
+			var sUoM = this.byId("idMaterialUoM")?.getValue().trim() || "";
+
+			return {
+				TripNumber: sTripNumber,
+				DocType: sDocType,
+				RefDocNo: sRefDocNo,
+				RefDocItemNo: sRefDocItemNo,
+				MaterialCode: sMaterialCode,
+				MaterialDescription: sMaterialDesc,
+				Quantity: fQty,
+				UoM: sUoM
+			};
+		},
+
 		_saveOrderDetail: function (oPayload) {
 			return new Promise(function (resolve, reject) {
 				var oService = this._getOrderDetailsService();
@@ -687,17 +989,286 @@ sap.ui.define([
 			}.bind(this));
 		},
 
+		_updateOrderDetail: function (oPayload) {
+			return new Promise(function (resolve, reject) {
+				var oService = this._getOrderDetailsService();
+				var oOriginal = this._oEditingRefDoc || {};
+
+				var sTripNumber = oPayload.TripNumber || oOriginal.tripNumber || "";
+				var sDocType = oOriginal.docType || oPayload.DocType || "";
+				var sDocNumber = oOriginal.documentNumber || oPayload.DocumentNumber || "";
+
+				var sPath = this._buildOrderDetailKeyPath(sTripNumber, sDocType, sDocNumber);
+
+				oService.update(sPath, oPayload, {
+					headers: {
+						"X-Requested-With": "X"
+					},
+					success: function (oData) {
+						resolve(oData);
+					},
+					error: reject
+				});
+			}.bind(this));
+		},
+
 		_appendLocalReferenceDoc: function (oPayload) {
 			var oModel = this._ensureRefDocModel();
 			var aRefDocs = oModel.getProperty("/referenceDocs") || [];
+
+			var sDialogDocType = this.byId("idRefDocType")?.getValue() || "";
+			var sDialogDocNumber = this.byId("idRefDocNumber")?.getValue() || "";
+			var sDialogPartyCode = this.byId("idRefDocPartyCode")?.getValue() || "";
+			var sDialogPartyName = this.byId("idRefDocPartyName")?.getValue() || "";
+			var sDialogDate = this.byId("idRefDocDate")?.getValue() || "";
+
 			aRefDocs.push({
-				docType: oPayload.DocType,
-				documentNumber: oPayload.DocumentNumber,
-				documentDate: this._formatODataDate(oPayload.DocumentDate) || this.byId("idRefDocDate")?.getValue() || "",
-				partyCode: oPayload.Vendor,
-				partyName: oPayload.Name
+				tripNumber: oPayload.TripNumber || "",
+				docType: oPayload.DocType || sDialogDocType,
+				documentNumber: oPayload.DocumentNumber || sDialogDocNumber,
+				documentDate: this._formatODataDate(oPayload.DocumentDate) || sDialogDate,
+				partyCode: oPayload.Vendor || oPayload.Customer || sDialogPartyCode,
+				partyName: oPayload.Name || sDialogPartyName
 			});
 			oModel.setProperty("/referenceDocs", aRefDocs);
+		},
+
+		_updateLocalReferenceDoc: function (oPayload) {
+			var oModel = this._ensureRefDocModel();
+			var aRefDocs = oModel.getProperty("/referenceDocs") || [];
+			var iIndex = this._iEditingRefDocIndex;
+
+			if (iIndex < 0 || !aRefDocs[iIndex]) {
+				return;
+			}
+
+			var sDialogDocType = this.byId("idRefDocType")?.getValue() || "";
+			var sDialogDocNumber = this.byId("idRefDocNumber")?.getValue() || "";
+			var sDialogPartyCode = this.byId("idRefDocPartyCode")?.getValue() || "";
+			var sDialogPartyName = this.byId("idRefDocPartyName")?.getValue() || "";
+			var sDialogDate = this.byId("idRefDocDate")?.getValue() || "";
+
+			var oExisting = aRefDocs[iIndex];
+			aRefDocs[iIndex] = Object.assign({}, oExisting, {
+				tripNumber: oPayload.TripNumber || oExisting.tripNumber || "",
+				docType: oPayload.DocType || sDialogDocType || oExisting.docType || "",
+				documentNumber: oPayload.DocumentNumber || sDialogDocNumber || oExisting.documentNumber || "",
+				documentDate: this._formatODataDate(oPayload.DocumentDate) || sDialogDate || oExisting.documentDate || "",
+				partyCode: oPayload.Vendor || oPayload.Customer || sDialogPartyCode || oExisting.partyCode || "",
+				partyName: oPayload.Name || sDialogPartyName || oExisting.partyName || ""
+			});
+
+			oModel.setProperty("/referenceDocs", aRefDocs);
+		},
+
+		_saveMaterialDetail: function (oPayload) {
+			return new Promise(function (resolve, reject) {
+				var oService = this._getItemDetailsService();
+				oService.create("/ItemDetails", oPayload, {
+					headers: {
+						"X-Requested-With": "X"
+					},
+					success: function (oData) {
+						resolve(oData);
+					},
+					error: reject
+				});
+			}.bind(this));
+		},
+
+		_updateMaterialDetail: function (oPayload) {
+			return new Promise(function (resolve, reject) {
+				var oService = this._getItemDetailsService();
+				var oOriginal = this._oEditingMaterial || {};
+
+				var sTripNumber = oPayload.TripNumber || oOriginal.tripNumber || "";
+				var sDocType = oOriginal.docType || oPayload.DocType || "";
+				var sRefDocNo = oOriginal.refDocNo || oPayload.RefDocNo || "";
+				var sRefDocItemNo = oOriginal.refDocItemNo || oPayload.RefDocItemNo || "";
+
+				var sPath = this._buildMaterialDetailKeyPath(sDocType, sTripNumber, sRefDocNo, sRefDocItemNo);
+
+				oService.update(sPath, oPayload, {
+					headers: {
+						"X-Requested-With": "X"
+					},
+					success: function (oData) {
+						resolve(oData);
+					},
+					error: reject
+				});
+			}.bind(this));
+		},
+
+		_appendLocalMaterialDetail: function (oPayload) {
+			var oModel = this._ensureRefDocModel();
+			var aMaterials = oModel.getProperty("/materialDetails") || [];
+
+			var sDialogDocType = this.byId("idMaterialDocType")?.getValue() || "";
+			var sDialogRefDocNo = this.byId("idMaterialRefDocNo")?.getValue() || "";
+			var sDialogRefDocItem = this.byId("idMaterialRefDocItem")?.getValue() || "";
+			var sDialogMaterial = this.byId("idMaterialCode")?.getValue() || "";
+			var sDialogDesc = this.byId("idMaterialDesc")?.getValue() || "";
+			var sDialogQty = this.byId("idMaterialQty")?.getValue() || "";
+			var sDialogUoM = this.byId("idMaterialUoM")?.getValue() || "";
+
+			var vQty = oPayload.Quantity;
+			var sQtyDisplay = (vQty === null || vQty === undefined || vQty === "") ? sDialogQty : String(vQty);
+
+			aMaterials.push({
+				tripNumber: oPayload.TripNumber || "",
+				docType: oPayload.DocType || sDialogDocType,
+				refDocNo: oPayload.RefDocNo || sDialogRefDocNo,
+				refDocItemNo: oPayload.RefDocItemNo || sDialogRefDocItem,
+				materialCode: oPayload.MaterialCode || sDialogMaterial,
+				materialDescription: oPayload.MaterialDescription || sDialogDesc,
+				qty: sQtyDisplay,
+				uom: oPayload.UoM || sDialogUoM,
+				createdBy: oPayload.CreatedBy || "",
+				createdOnDate: this._formatODataDate(oPayload.CreatedOn),
+				createdOnTime: this._formatODataTime(oPayload.CreatedTime),
+				changedBy: oPayload.ChangedBy || "",
+				changedOnDate: this._formatODataDate(oPayload.ChangedDate),
+				changedOnTime: this._formatODataTime(oPayload.ChangedTime)
+			});
+
+			oModel.setProperty("/materialDetails", aMaterials);
+		},
+
+		_updateLocalMaterialDetail: function (oPayload) {
+			var oModel = this._ensureRefDocModel();
+			var aMaterials = oModel.getProperty("/materialDetails") || [];
+			var iIndex = this._iEditingMaterialIndex;
+
+			if (iIndex < 0 || !aMaterials[iIndex]) {
+				return;
+			}
+
+			var sDialogDocType = this.byId("idMaterialDocType")?.getValue() || "";
+			var sDialogRefDocNo = this.byId("idMaterialRefDocNo")?.getValue() || "";
+			var sDialogRefDocItem = this.byId("idMaterialRefDocItem")?.getValue() || "";
+			var sDialogMaterial = this.byId("idMaterialCode")?.getValue() || "";
+			var sDialogDesc = this.byId("idMaterialDesc")?.getValue() || "";
+			var sDialogQty = this.byId("idMaterialQty")?.getValue() || "";
+			var sDialogUoM = this.byId("idMaterialUoM")?.getValue() || "";
+
+			var oExisting = aMaterials[iIndex];
+			var vQty = oPayload.Quantity;
+			var sQtyDisplay = (vQty === null || vQty === undefined || vQty === "") ? (sDialogQty || oExisting.qty || "") : String(vQty);
+
+			aMaterials[iIndex] = Object.assign({}, oExisting, {
+				tripNumber: oPayload.TripNumber || oExisting.tripNumber || "",
+				docType: oPayload.DocType || sDialogDocType || oExisting.docType || "",
+				refDocNo: oPayload.RefDocNo || sDialogRefDocNo || oExisting.refDocNo || "",
+				refDocItemNo: oPayload.RefDocItemNo || sDialogRefDocItem || oExisting.refDocItemNo || "",
+				materialCode: oPayload.MaterialCode || sDialogMaterial || oExisting.materialCode || "",
+				materialDescription: oPayload.MaterialDescription || sDialogDesc || oExisting.materialDescription || "",
+				qty: sQtyDisplay,
+				uom: oPayload.UoM || sDialogUoM || oExisting.uom || "",
+				changedBy: oPayload.ChangedBy || oExisting.changedBy || "",
+				changedOnDate: this._formatODataDate(oPayload.ChangedDate) || oExisting.changedOnDate || "",
+				changedOnTime: this._formatODataTime(oPayload.ChangedTime) || oExisting.changedOnTime || ""
+			});
+
+			oModel.setProperty("/materialDetails", aMaterials);
+		},
+
+	_onTripDataUpdated: function () {
+		var oTripData = sap.ui.getCore().getModel("TripData");
+		var oModel = this._ensureRefDocModel();
+
+		if (!oTripData) {
+			oModel.setProperty("/referenceDocs", []);
+			oModel.setProperty("/materialDetails", []);
+			return;
+		}
+
+		var aOrderDetails = this._extractResults(oTripData.getProperty("/OrderDetails"));
+		var aItemDetails = this._extractResults(oTripData.getProperty("/ItemDetails"));
+		this._setReferenceDocsFromService(aOrderDetails);
+		this._setMaterialDetailsFromService(aItemDetails);
+	},
+
+	_setReferenceDocsFromService: function (aDocs) {
+		// Filter out deleted records (Deleted === true)
+		var aRefDocs = (aDocs || [])
+			.filter(function (oDoc) {
+				return !oDoc.Deleted;
+			})
+			.map(function (oDoc) {
+				return {
+					tripNumber: oDoc.TripNumber || "",
+					docType: oDoc.DocType || "",
+					documentNumber: oDoc.DocumentNumber || "",
+					documentDate: this._formatODataDate(oDoc.DocumentDate),
+					partyCode: oDoc.Vendor || oDoc.Customer || "",
+					partyName: oDoc.Name || "",
+					createdBy: oDoc.CreatedBy || "",
+					createdOnDate: this._formatODataDate(oDoc.CreatedOnDate),
+					createdOnTime: this._formatODataTime(oDoc.CreatedOnTime),
+					changedBy: oDoc.ChangedBy || "",
+					changedOnDate: this._formatODataDate(oDoc.ChangedOnDate),
+					changedOnTime: this._formatODataTime(oDoc.ChangedOnTime)
+				};
+			}.bind(this));
+		this._ensureRefDocModel().setProperty("/referenceDocs", aRefDocs);
+	},
+
+	_setMaterialDetailsFromService: function (aItems) {
+		// Filter out deleted records (IsDeleted === "X")
+		var aMaterials = (aItems || [])
+			.filter(function (oItem) {
+				return oItem.IsDeleted !== "X";
+			})
+			.map(function (oItem) {
+				return {
+					tripNumber: oItem.TripNumber || "",
+					docType: oItem.DocType || "",
+					refDocNo: oItem.RefDocNo || "",
+					refDocItemNo: oItem.RefDocItemNo || "",
+					materialCode: oItem.MaterialCode || "",
+					materialDescription: oItem.MaterialDescription || "",
+					qty: (oItem.Quantity === null || oItem.Quantity === undefined) ? "" : String(oItem.Quantity),
+					uom: oItem.UoM || "",
+					createdBy: oItem.CreatedBy || "",
+					createdOnDate: this._formatODataDate(oItem.CreatedOn),
+					createdOnTime: this._formatODataTime(oItem.CreatedTime),
+					changedBy: oItem.ChangedBy || "",
+					changedOnDate: this._formatODataDate(oItem.ChangedDate),
+					changedOnTime: this._formatODataTime(oItem.ChangedTime)
+				};
+			}.bind(this));
+		this._ensureRefDocModel().setProperty("/materialDetails", aMaterials);
+	},
+
+		_fetchTripDetails: function (sTripNumber) {
+			return new Promise(function (resolve, reject) {
+				var oService = this._getOrderDetailsService();
+				var sPath = "/TripDetails('" + this._escapeODataValue(sTripNumber) + "')";
+
+				oService.read(sPath, {
+					urlParameters: {
+						"$expand": "OrderDetails,ItemDetails"
+					},
+					success: function (oData) {
+						resolve(oData);
+					},
+					error: reject
+				});
+			}.bind(this));
+		},
+
+		_extractResults: function (vData) {
+			if (!vData) {
+				return [];
+			}
+			if (Array.isArray(vData)) {
+				return vData;
+			}
+			if (Array.isArray(vData.results)) {
+				return vData.results;
+			}
+			return [];
 		},
 
 		_loadDocTypes: function () {

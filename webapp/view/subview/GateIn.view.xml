@@ -51,7 +51,10 @@
                                 placeholder="Select Entry Gate"
                                 valueHelpRequest="onEntryGateValueHelp"
                                 width="50%"
-                               value="{LocalTripData>/EntryGateNum}"
+                                value="{
+                                    path: 'TripData>/EntryGateNum',
+                                    mode: 'OneWay'
+                                }"
 
                             />
                         </VBox>
@@ -70,6 +73,10 @@
                                 placeholder="Select Delay Reason"
                                 valueHelpRequest="onDelayReasonValueHelp"
                                 width="100%"
+                                value="{
+                                    path: 'TripData>/DelayReasonDesc',
+                                    mode: 'OneWay'
+                                }"
                             />
                         </VBox>
                     </layout:content>
@@ -95,6 +102,10 @@
                                 rows="4"
                                 placeholder="Enter any remarks"
                                 width="100%"
+                                value="{
+                                    path: 'TripData>/DelayRemarks',
+                                    mode: 'OneWay'
+                                }"
                             />
                         </VBox>
                     </layout:content>
@@ -163,10 +174,14 @@
                                 text="Created By"
                                 design="Bold"
                             />
-                            <Select
+                            <Input
                                 id="idGateInCreatedBy"
                                 enabled="false"
                                 width="100%"
+                                value="{
+                                    path: 'TripData>/CreatedBy',
+                                    mode: 'OneWay'
+                                }"
                             />
                         </VBox>
                     </layout:content>
@@ -181,6 +196,12 @@
                                 id="idGateInCreatedOnDate"
                                 enabled="false"
                                 width="100%"
+                                valueFormat="yyyy-MM-dd"
+                                displayFormat="long"
+                                value="{
+                                    path: 'TripData>/CreatedOn',
+                                    formatter: '.formatTripDate'
+                                }"
                             />
                         </VBox>
                     </layout:content>
@@ -195,6 +216,12 @@
                         id="idGateInCreatedOnTime"
                         enabled="false"
                         width="100%"
+                        valueFormat="HH:mm:ss"
+                        displayFormat="HH:mm:ss"
+                        value="{
+                            path: 'TripData>/CreatedTime',
+                            formatter: '.formatTripTime'
+                        }"
                     />
                 </VBox>
             </VBox>

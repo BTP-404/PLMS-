@@ -26,23 +26,14 @@ sap.ui.define(
                 });
 
                 this.getView().setModel(this.oModel);
-                var oTripDataModel = sap.ui.getCore().getModel("TripData");
-                var oGlobalDataModel = sap.ui.getCore().getModel("globalData");
-                var sTripNumber =
-                    oTripDataModel?.getProperty("/TripNumber") ||
-                    oGlobalDataModel?.getProperty("/TripNumber") ||
-                    "";
-
-                if (!sTripNumber) {
-                    MessageBox.warning("Trip number not available. Please select a trip first.");
-                    return;
-                }
-
-                // Trip number must be set
-                this.TripNumber = sTripNumber;
-
-                // Load existing notes
+                this._eventBus = sap.ui.getCore().getEventBus();
+                this._eventBus.subscribe("TripData", "Updated", this._onTripDataUpdated, this);
+                this._syncTripContext();
                 this.loadNotes();
+            },
+
+            onExit: function () {
+                this._eventBus?.unsubscribe("TripData", "Updated", this._onTripDataUpdated, this);
             },
 
             /** --------------------------------------------
@@ -50,49 +41,21 @@ sap.ui.define(
              * --------------------------------------------*/
             loadNotes: function () {
                 const sTripNumber = this.TripNumber;
-                const oContainer = this.byId("idNotesContainer");
-                const oNoNotesText = this.byId("idNoNotesText");
+                if (!sTripNumber) {
+                    MessageBox.warning("Trip number not available. Please select a trip first.");
+                    return;
+                }
 
-                // Clear UI
-                oContainer.removeAllItems();
+                if (this._renderNotesFromTripModel()) {
+                    return;
+                }
 
                 this.oModel.read("/Feeds", {
                     urlParameters: {
                         "$filter": `TripNumber eq '${sTripNumber}'`
                     },
                     success: function (oData) {
-
-                        if (!oData.results.length) {
-                            oNoNotesText.setVisible(true);
-                            return;
-                        }
-
-                        oNoNotesText.setVisible(false);
-
-                        oData.results.forEach((note) => {
-
-                            // Format Date/Time
-                            let sFormattedDate = this._formatDateTime(note.CreatedOn);
-
-                            let oNoteBox = new sap.m.VBox({
-                                items: [
-                                    new sap.m.Text({
-                                        text: note.Remarks,
-                                        wrapping: true
-                                    }).addStyleClass("stickyNoteText"),
-
-                                    new sap.m.VBox({
-                                        items: [
-                                            new sap.m.Text({ text: "By: " + note.CreatedBy }),
-                                            new sap.m.Text({ text: "On: " + sFormattedDate })
-                                        ]
-                                    }).addStyleClass("stickyNoteFooter")
-                                ]
-                            }).addStyleClass("stickyNote");
-
-                            oContainer.addItem(oNoteBox);
-                        });
-
+                        this._renderNotes(oData.results || []);
                     }.bind(this),
 
                     error: function (oError) {
@@ -152,10 +115,22 @@ sap.ui.define(
              * FORMAT DATETIME → dd-mm-yyyy hh:mm
              * --------------------------------------------*/
             _formatDateTime: function (sDateTime) {
-                if (!sDateTime) return "";
-
-                let oDate = new Date(sDateTime);
-
+                if (!sDateTime) {
+                    return "";
+                }
+                let oDate;
+                if (typeof sDateTime === "string" && sDateTime.indexOf("/Date") === 0) {
+                    var iTimestamp = parseInt(sDateTime.replace(/\D/g, ""), 10);
+                    if (!isNaN(iTimestamp)) {
+                        oDate = new Date(iTimestamp);
+                    }
+                }
+                if (!oDate) {
+                    oDate = new Date(sDateTime);
+                }
+                if (isNaN(oDate?.getTime())) {
+                    return "";
+                }
                 let dd = String(oDate.getDate()).padStart(2, "0");
                 let mm = String(oDate.getMonth() + 1).padStart(2, "0");
                 let yyyy = oDate.getFullYear();
@@ -164,6 +139,87 @@ sap.ui.define(
                 let min = String(oDate.getMinutes()).padStart(2, "0");
 
                 return `${dd}-${mm}-${yyyy} ${hh}:${min}`;
+            },
+
+            _syncTripContext: function () {
+                var oTripDataModel = sap.ui.getCore().getModel("TripData");
+                var oGlobalDataModel = sap.ui.getCore().getModel("globalData");
+                this.TripNumber =
+                    oTripDataModel?.getProperty("/TripNumber") ||
+                    oGlobalDataModel?.getProperty("/TripNumber") ||
+                    "";
+                if (oTripDataModel) {
+                    this.getView().setModel(oTripDataModel, "TripData");
+                }
+            },
+
+            _onTripDataUpdated: function () {
+                this._syncTripContext();
+                this.loadNotes();
+            },
+
+            _renderNotesFromTripModel: function () {
+                var oTripData = this.getView().getModel("TripData");
+                if (!oTripData) {
+                    return false;
+                }
+                var aNotes = this._extractResults(oTripData.getProperty("/Feeds"));
+                if (aNotes === null) {
+                    return false;
+                }
+                if (!aNotes.length) {
+                    this._renderNotes([]);
+                    return true;
+                }
+                this._renderNotes(aNotes);
+                return true;
+            },
+
+            _renderNotes: function (aNotes) {
+                const oContainer = this.byId("idNotesContainer");
+                const oNoNotesText = this.byId("idNoNotesText");
+                oContainer.removeAllItems();
+
+                if (!aNotes.length) {
+                    oNoNotesText.setVisible(true);
+                    return;
+                }
+                oNoNotesText.setVisible(false);
+
+                aNotes.forEach((note) => {
+                    let sFormattedDate = this._formatDateTime(note.CreatedOn);
+                    let oNoteBox = new sap.m.VBox({
+                        items: [
+                            new sap.m.Text({
+                                text: note.Remarks,
+                                wrapping: true
+                            }).addStyleClass("stickyNoteText"),
+                            new sap.m.VBox({
+                                items: [
+                                    new sap.m.Text({ text: "By: " + (note.CreatedBy || "") }),
+                                    new sap.m.Text({ text: "On: " + sFormattedDate })
+                                ]
+                            }).addStyleClass("stickyNoteFooter")
+                        ]
+                    }).addStyleClass("stickyNote");
+                    oContainer.addItem(oNoteBox);
+                });
+            },
+
+            _extractResults: function (vData) {
+                if (!vData) {
+                    return null;
+                }
+                if (Array.isArray(vData)) {
+                    return vData;
+                }
+                if (Array.isArray(vData.results)) {
+                    return vData.results;
+                }
+                if (vData.__deferred) {
+                    return null;
+                }
+                return [];
             }
 
         });

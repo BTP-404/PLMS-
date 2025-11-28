@@ -93,6 +93,9 @@ sap.ui.define(
           this._setButtonStates(true, true); // Ensure visible/enabled before load
 
           oModel.read("/TripDetails('" + sTripNumber + "')", {
+            urlParameters: {
+              "$expand": "OrderDetails,ItemDetails,Feeds"
+            },
             success: function (oData) {
               // Create JSON model for trip data
               const oTripDataModel = new sap.ui.model.json.JSONModel(oData);

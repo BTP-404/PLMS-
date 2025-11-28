@@ -108,70 +108,26 @@
             <Input
                 id="idMaterialDesc"
                 valueLiveUpdate="true"
-                showValueHelp="true"
-                valueHelpRequest=".onMaterialValueHelp"
-                showSuggestion="true"
-                filterSuggests="true"
-                suggestionItemSelected=".onMaterialSuggestionSelected"
-                suggestionItems="{materialSuggestions>/items}"
-            >
-                <suggestionItems>
-                    <core:Item
-                        key="{materialSuggestions>MaterialDescription}"
-                        text="{materialSuggestions>MaterialDescription}"
-                        additionalText="{materialSuggestions>MaterialCode}"
-                        templateShareable="false"
-                    />
-                </suggestionItems>
-            </Input>
+            />
 
             <Label text="Quantity" />
             <Input
                 id="idMaterialQty"
                 type="Number"
                 valueLiveUpdate="true"
-                showValueHelp="true"
-                valueHelpRequest=".onMaterialValueHelp"
-                showSuggestion="true"
-                filterSuggests="true"
-                suggestionItemSelected=".onMaterialSuggestionSelected"
-                suggestionItems="{materialSuggestions>/items}"
-            >
-                <suggestionItems>
-                    <core:Item
-                        key="{materialSuggestions>Quantity}"
-                        text="{materialSuggestions>Quantity}"
-                        additionalText="{materialSuggestions>MaterialCode}"
-                        templateShareable="false"
-                    />
-                </suggestionItems>
-            </Input>
+            />
 
             <Label text="UoM" />
             <Input
                 id="idMaterialUoM"
                 valueLiveUpdate="true"
-                showValueHelp="true"
-                valueHelpRequest=".onMaterialValueHelp"
-                showSuggestion="true"
-                filterSuggests="true"
-                suggestionItemSelected=".onMaterialSuggestionSelected"
-                suggestionItems="{materialSuggestions>/items}"
-            >
-                <suggestionItems>
-                    <core:Item
-                        key="{materialSuggestions>UoM}"
-                        text="{materialSuggestions>UoM}"
-                        additionalText="{materialSuggestions>MaterialCode}"
-                        templateShareable="false"
-                    />
-                </suggestionItems>
-            </Input>
+            />
 
         </form:SimpleForm>
 
         <beginButton>
             <Button
+                id="idMaterialDialogSaveBtn"
                 text="Add"
                 type="Emphasized"
                 press=".onSaveMaterialDialog"

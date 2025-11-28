@@ -67,56 +67,25 @@
                 id="idRefDocDate"
                 valueFormat="yyyy-MM-dd"
                 displayFormat="long"
-                showValueHelp="true"
-                valueHelpRequest=".onRefDocValueHelp"
             />
 
             <Label text="Sending / Receiving Party Code" />
             <Input
                 id="idRefDocPartyCode"
                 valueLiveUpdate="true"
-                showValueHelp="true"
-                valueHelpRequest=".onRefDocValueHelp"
-                showSuggestion="true"
-                filterSuggests="true"
-                suggestionItemSelected=".onRefDocSuggestionSelected"
-                suggestionItems="{refDocSuggestions>/items}"
-            >
-                <suggestionItems>
-                    <core:Item
-                        key="{refDocSuggestions>Vendor}"
-                        text="{refDocSuggestions>Vendor}"
-                        additionalText="{refDocSuggestions>DocumentNumber}"
-                        templateShareable="false"
-                    />
-                </suggestionItems>
-            </Input>
+            />
 
             <Label text="Sending / Receiving Party Name" />
             <Input
                 id="idRefDocPartyName"
                 valueLiveUpdate="true"
-                showValueHelp="true"
-                valueHelpRequest=".onRefDocValueHelp"
-                showSuggestion="true"
-                filterSuggests="true"
-                suggestionItemSelected=".onRefDocSuggestionSelected"
-                suggestionItems="{refDocSuggestions>/items}"
-            >
-                <suggestionItems>
-                    <core:Item
-                        key="{path: 'refDocSuggestions>Name'}"
-                        text="{path: 'refDocSuggestions>Name'}"
-                        additionalText="{refDocSuggestions>DocumentNumber}"
-                        templateShareable="false"
-                    />
-                </suggestionItems>
-            </Input>
+            />
 
         </form:SimpleForm>
 
         <beginButton>
             <Button
+                id="idRefDocDialogSaveBtn"
                 text="Add"
                 type="Emphasized"
                 press=".onSaveRefDocDialog"

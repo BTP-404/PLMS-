@@ -67,7 +67,7 @@
                                 <Column><Text text="Changed By"/></Column>
                                 <Column><Text text="Changed On Date"/></Column>
                                 <Column><Text text="Changed On Time"/></Column>
-                                <Column hAlign="Center" width="6rem">
+                                <Column hAlign="Center" width="8rem">
                                     <Text text="Action"/>
                                 </Column>
                             </columns>
@@ -86,10 +86,21 @@
                                         <Text text="{refDocModel>changedBy}"/>
                                         <Text text="{refDocModel>changedOnDate}"/>
                                         <Text text="{refDocModel>changedOnTime}"/>
-                                        <Button
-                                            icon="sap-icon://delete"
-                                            type="Reject"
-                                            press=".onDeleteRefDocRow"/>
+                                        <HBox
+                                            alignItems="Center"
+                                            justifyContent="SpaceAround"
+                                            width="100%">
+                                            <Button
+                                                icon="sap-icon://edit"
+                                                type="Transparent"
+                                                tooltip="Edit"
+                                                press=".onEditRefDocRow"/>
+                                            <Button
+                                                icon="sap-icon://delete"
+                                                type="Transparent"
+                                                tooltip="Delete"
+                                                press=".onDeleteRefDocRow"/>
+                                        </HBox>
                                     </cells>
                                 </ColumnListItem>
                             </items>
@@ -161,7 +172,7 @@
                                 <Column><Text text="Changed By"/></Column>
                                 <Column><Text text="Changed On Date"/></Column>
                                 <Column><Text text="Changed On Time"/></Column>
-                                <Column hAlign="Center" width="6rem">
+                                <Column hAlign="Center" width="8rem">
                                     <Text text="Action"/>
                                 </Column>
                             </columns>
@@ -181,10 +192,21 @@
                                         <Text text="{refDocModel>changedBy}"/>
                                         <Text text="{refDocModel>changedOnDate}"/>
                                         <Text text="{refDocModel>changedOnTime}"/>
-                                        <Button
-                                            icon="sap-icon://delete"
-                                            type="Reject"
-                                            press=".onDeleteMaterialRow"/>
+                                        <HBox
+                                            alignItems="Center"
+                                            justifyContent="SpaceAround"
+                                            width="100%">
+                                            <Button
+                                                icon="sap-icon://edit"
+                                                type="Transparent"
+                                                tooltip="Edit"
+                                                press=".onEditMaterialRow"/>
+                                            <Button
+                                                icon="sap-icon://delete"
+                                                type="Transparent"
+                                                tooltip="Delete"
+                                                press=".onDeleteMaterialRow"/>
+                                        </HBox>
                                     </cells>
                                 </ColumnListItem>
                             </items>

@@ -28,15 +28,22 @@ sap.ui.define(
             defaultBindingMode: "TwoWay",
           });
           this.getView().setModel(this.oModel);
+          this._eventBus = sap.ui.getCore().getEventBus();
+          this._eventBus.subscribe("TripData", "Updated", this._onTripDataUpdate, this);
+          this._onTripDataUpdate();
         },
         onAfterRendering: function () {
           this.loadDelayReason();
           this.loadGateNumber();
-          
-          //Accessing the global model
-          var TripData = sap.ui.getCore().getModel("TripData");
-          this.getView().setModel(TripData,"LocalTripData")
-         
+        },
+        onExit: function () {
+          this._eventBus?.unsubscribe("TripData", "Updated", this._onTripDataUpdate, this);
+        },
+        _onTripDataUpdate: function () {
+          var oTripData = sap.ui.getCore().getModel("TripData");
+          if (oTripData) {
+            this.getView().setModel(oTripData, "TripData");
+          }
         },
         loadDelayReason: function () {
           this.oModel.read("/ConfigValues", {
@@ -275,6 +282,54 @@ sap.ui.define(
               MessageBox.error(sMessage);
             }.bind(this),
           });
+        },
+        formatTripDate: function (vDate) {
+          if (!vDate) {
+            return "";
+          }
+          if (vDate instanceof Date) {
+            return vDate.toISOString().slice(0, 10);
+          }
+          if (typeof vDate === "string" && vDate.indexOf("/Date") === 0) {
+            var iTimestamp = parseInt(vDate.replace(/\D/g, ""), 10);
+            if (!isNaN(iTimestamp)) {
+              return new Date(iTimestamp).toISOString().slice(0, 10);
+            }
+          }
+          return vDate;
+        },
+        formatTripTime: function (vTime) {
+          if (vTime == null) {
+            return "";
+          }
+          var iMs = NaN;
+          if (typeof vTime === "object" && typeof vTime.ms === "number") {
+            iMs = vTime.ms;
+          } else if (typeof vTime === "number") {
+            iMs = vTime;
+          } else if (typeof vTime === "string") {
+            var oMatch = vTime.match(/PT(\d+)H(\d+)M(\d+)S/);
+            if (oMatch) {
+              iMs =
+                ((parseInt(oMatch[1], 10) || 0) * 3600 +
+                  (parseInt(oMatch[2], 10) || 0) * 60 +
+                  (parseInt(oMatch[3], 10) || 0)) *
+                1000;
+            }
+          }
+          if (isNaN(iMs)) {
+            return "";
+          }
+          var iHours = Math.floor(iMs / 3600000);
+          var iMinutes = Math.floor((iMs % 3600000) / 60000);
+          var iSeconds = Math.floor((iMs % 60000) / 1000);
+          return (
+            String(iHours).padStart(2, "0") +
+            ":" +
+            String(iMinutes).padStart(2, "0") +
+            ":" +
+            String(iSeconds).padStart(2, "0")
+          );
         },
       }
     );

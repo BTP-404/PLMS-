@@ -30,6 +30,13 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Loading", {
 
         var oTableModel = new JSONModel({ materials: [] });
         this.getView().byId("idLoadingMaterialTable").setModel(oTableModel);
+        this._eventBus = sap.ui.getCore().getEventBus();
+        this._eventBus.subscribe("TripData", "Updated", this._bindMaterialsFromTrip, this);
+        this._bindMaterialsFromTrip();
+    },
+
+    onExit: function () {
+        this._eventBus?.unsubscribe("TripData", "Updated", this._bindMaterialsFromTrip, this);
     },
 
     // =====================================================================
@@ -56,9 +63,9 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Loading", {
                 MessageToast.show("Loading started successfully.");
 
                 if (oData && oData.results) {
-                    oView.setModel(new JSONModel(oData.results), "ItemDetailsModel");
+                    this._applyMaterials(oData.results);
                 }
-            },
+            }.bind(this),
             error: function (oError) {
                 oView.setBusy(false);
 
@@ -234,6 +241,118 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Loading", {
         oModel.setProperty("/materials", aData);
 
         MessageToast.show("Row deleted successfully!");
+    },
+
+    _bindMaterialsFromTrip: function () {
+        var oTripData = sap.ui.getCore().getModel("TripData");
+        if (!oTripData) {
+            return;
+        }
+        var aItems = this._extractResults(oTripData.getProperty("/ItemDetails"));
+        if (aItems) {
+            this._applyMaterials(aItems);
+        }
+    },
+
+    _applyMaterials: function (aItems) {
+        var oTable = this.byId("idLoadingMaterialTable");
+        var oModel = oTable.getModel();
+        if (!oModel) {
+            oModel = new JSONModel({ materials: [] });
+            oTable.setModel(oModel);
+        }
+        var aMapped = (aItems || []).map(this._mapItemDetail, this);
+        oModel.setProperty("/materials", aMapped);
+    },
+
+    _mapItemDetail: function (oItem) {
+        return {
+            RefDocNumber: oItem.RefDocNo || oItem.RefDocNumber || "",
+            RefDocItemNumber: oItem.RefDocItemNo || oItem.RefDocItemNumber || "",
+            MaterialCode: oItem.MaterialCode || "",
+            MaterialDescription: oItem.MaterialDescription || "",
+            Qty: this._formatQuantity(oItem.Quantity),
+            UoM: oItem.UoM || "",
+            LoadedQty: oItem.LoadedQty || "",
+            GrossWt: oItem.GrossWt || "",
+            TareWt: oItem.TareWt || "",
+            CreatedBy: oItem.CreatedBy || "",
+            CreatedOnDate: this._formatODataDate(oItem.CreatedOn),
+            CreatedOnTime: this._formatODataTime(oItem.CreatedTime)
+        };
+    },
+
+    _formatQuantity: function (vQty) {
+        if (vQty === null || vQty === undefined || vQty === "") {
+            return "";
+        }
+        return String(vQty);
+    },
+
+    _formatODataDate: function (vDate) {
+        if (!vDate) {
+            return "";
+        }
+        if (vDate instanceof Date) {
+            return vDate.toISOString().slice(0, 10);
+        }
+        if (typeof vDate === "string" && vDate.indexOf("/Date") === 0) {
+            var iTimestamp = parseInt(vDate.replace(/\D/g, ""), 10);
+            if (!isNaN(iTimestamp)) {
+                return new Date(iTimestamp).toISOString().slice(0, 10);
+            }
+        }
+        return vDate;
+    },
+
+    _formatODataTime: function (vTime) {
+        if (vTime == null) {
+            return "";
+        }
+        var iMs = NaN;
+        if (typeof vTime === "object" && typeof vTime.ms === "number") {
+            iMs = vTime.ms;
+        } else if (typeof vTime === "number") {
+            iMs = vTime;
+        } else if (typeof vTime === "string") {
+            var oMatch = vTime.match(/PT(\d+)H(\d+)M(\d+)S/);
+            if (oMatch) {
+                iMs =
+                    ((parseInt(oMatch[1], 10) || 0) * 3600 +
+                        (parseInt(oMatch[2], 10) || 0) * 60 +
+                        (parseInt(oMatch[3], 10) || 0)) *
+                    1000;
+            }
+        }
+        if (isNaN(iMs)) {
+            return "";
+        }
+        var iHours = Math.floor(iMs / 3600000);
+        var iMinutes = Math.floor((iMs % 3600000) / 60000);
+        var iSeconds = Math.floor((iMs % 60000) / 1000);
+        return (
+            String(iHours).padStart(2, "0") +
+            ":" +
+            String(iMinutes).padStart(2, "0") +
+            ":" +
+            String(iSeconds).padStart(2, "0")
+        );
+    },
+
+    _extractResults: function (vData) {
+        if (!vData) {
+            return null;
+        }
+        if (Array.isArray(vData)) {
+            return vData;
+        }
+        if (Array.isArray(vData.results)) {
+            return vData.results;
+        }
+        if (vData.__deferred) {
+            return null;
+        }
+        return [];
     }
 });
 });
