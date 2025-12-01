@@ -217,6 +217,11 @@ sap.ui.define(
               that.getView().byId("idRelatedTripNumber").setValue(oResponse.TripNumber);
               MessageToast.show(`Trip ( ${oResponse.TripNumber} ) Created !`);
               
+              // Save driver photo if selected
+              if (that._oSelectedDriverPhoto) {
+                that._saveDriverPhoto(oResponse.TripNumber);
+              }
+              
               this._clearForm();
               that._setFormEditable(false);
               that._setInputsEnabled(false);
@@ -250,29 +255,69 @@ sap.ui.define(
         },
 
         /* ===========================================================
-         * NO CHANGE: _updateTrip
+         * UPDATED: _updateTrip
+         * - Only updates TripDetails (no deep update / $expand payload)
+         * - Strips navigation properties and __metadata before sending
          * =========================================================== */
         _updateTrip: function (oModel) {
           const oData = this._collectFormData();
           const sTripNumber = oData.TripNumber;
           const that = this;
 
-          // ADDED: set busy while update
+          // Build a flat payload with only TripDetails fields (no nav props)
+          const oUpdateData = Object.assign({}, oData);
+
+          // Remove navigation properties / deferred / collections
+          delete oUpdateData.ActivityHistory;
+          delete oUpdateData.Attachments;
+          delete oUpdateData.OrderDetails;
+          delete oUpdateData.ItemDetails;
+          delete oUpdateData.Feeds;
+
+          // Remove metadata
+          delete oUpdateData.__metadata;
+
+          // If backend is sensitive to null vs empty, you can normalize here as needed
+
+          // Optional: log what we are sending to backend for debugging
+          console.log("=== TripDetails UPDATE payload ===");
+          console.log(JSON.stringify(oUpdateData, null, 2));
+
+          // Only update TripDetails('<TripNumber>') – no deep update
           this.getView().setBusy(true);
 
-          oModel.update("/TripDetails('" + sTripNumber + "')", oData, {
+          oModel.update("/TripDetails('" + sTripNumber + "')", oUpdateData, {
             headers: {
               "X-Requested-With": "X",
             },
             success: function () {
-              that.getView().setBusy(false); // ADDED
+              that.getView().setBusy(false);
               MessageToast.show("Trip updated successfully!");
+
+              // Save driver photo if selected
+              if (that._oSelectedDriverPhoto) {
+                that._saveDriverPhoto(sTripNumber);
+              }
               that._setFormEditable(false);
               that._setInputsEnabled(false);
             },
-            error: function () {
-              that.getView().setBusy(false); // ADDED
-              MessageBox.error("Failed to update trip.");
+            error: function (oError) {
+              that.getView().setBusy(false);
+
+              // Try to surface backend error message
+              let sMessage = "Failed to update trip.";
+              try {
+                if (oError && oError.responseText) {
+                  const oResp = JSON.parse(oError.responseText);
+                  if (oResp.error && oResp.error.message && oResp.error.message.value) {
+                    sMessage = oResp.error.message.value;
+                  }
+                }
+              } catch (e) {
+                // ignore parse errors, keep default message
+              }
+              console.error("TripDetails UPDATE error:", oError);
+              MessageBox.error(sMessage);
             },
           });
         },
@@ -996,6 +1041,204 @@ sap.ui.define(
             oItem.getCustomData()[0]?.getValue() ||
             "";
           this.byId("idCompanyCode").setValue(sCompanyCode);
+        },
+
+        // =====================================================================
+        // DRIVER PHOTO UPLOAD
+        // =====================================================================
+        onDriverPhotoChange: function (oEvent) {
+          var oFileUploader = oEvent.getSource();
+          
+          // Get files from the native file input element
+          var oDomRef = oFileUploader.getDomRef();
+          var oFileInput = oDomRef ? oDomRef.querySelector("input[type='file']") : null;
+          
+          if (!oFileInput || !oFileInput.files || oFileInput.files.length === 0) {
+            this._oSelectedDriverPhoto = null;
+            console.log("Driver photo cleared");
+            return;
+          }
+          
+          var oFile = oFileInput.files[0];
+          this._oSelectedDriverPhoto = oFile;
+          
+          console.log("Driver photo selected:", oFile.name, "Size:", oFile.size);
+          
+          // Upload immediately if trip number exists
+          var oGlobalModel = sap.ui.getCore().getModel("globalData");
+          var sTripNumber = oGlobalModel?.getProperty("/TripNumber") || "";
+          var sRelatedTripNumber = this.byId("idRelatedTripNumber")?.getValue() || "";
+          var sCurrentTripNumber = sTripNumber || sRelatedTripNumber;
+          
+          if (sCurrentTripNumber) {
+            // Trip exists, upload immediately
+            console.log("Trip number exists, uploading driver photo immediately:", sCurrentTripNumber);
+            this._saveDriverPhoto(sCurrentTripNumber);
+          } else {
+            // Trip doesn't exist yet, will upload after creation
+            console.log("Trip number not available yet, will upload after trip creation");
+            MessageToast.show("Driver photo will be uploaded after trip is created");
+          }
+          
+          // Optionally show preview
+          this._previewDriverPhoto(this._oSelectedDriverPhoto);
+        },
+
+        _previewDriverPhoto: function (oFile) {
+          if (!oFile) {
+            return;
+          }
+
+          var oReader = new FileReader();
+          oReader.onload = function (oEvent) {
+            var sDataUrl = oEvent.target.result;
+            // Store base64 for later upload
+            this._sDriverPhotoBase64 = sDataUrl.split(",")[1] || sDataUrl;
+          }.bind(this);
+
+          oReader.readAsDataURL(oFile);
+        },
+
+        _saveDriverPhoto: function (sTripNumber) {
+          if (!this._oSelectedDriverPhoto || !sTripNumber) {
+            return Promise.resolve();
+          }
+
+          return new Promise(function (resolve, reject) {
+            var oFile = this._oSelectedDriverPhoto;
+            var sFileName = "DriverPhoto_" + oFile.name;
+            var sContentType = oFile.type || "image/jpeg";
+
+            // Read file as base64
+            var oReader = new FileReader();
+            oReader.onload = function (oEvent) {
+              var sBase64Content = oEvent.target.result;
+              var sBase64Data = sBase64Content.split(",")[1] || sBase64Content;
+
+              var oModel = this.getView().getModel();
+              
+              // Save filename to TripDetails.DriverPhoto field
+              var oUpdateData = {
+                DriverPhoto: sFileName
+              };
+
+              oModel.update("/TripDetails('" + sTripNumber + "')", oUpdateData, {
+                headers: {
+                  "X-Requested-With": "X"
+                },
+                success: function () {
+                  // Upload the actual file to Attachments entity
+                  this._uploadDriverPhotoToAttachments(sTripNumber, sFileName, sContentType, sBase64Data)
+                    .then(function () {
+                      resolve();
+                    })
+                    .catch(function () {
+                      resolve(); // Don't block on attachment upload failure
+                    });
+                }.bind(this),
+                error: function (oError) {
+                  // Silently fail - photo is optional
+                  console.error("Failed to save driver photo:", oError);
+                  resolve(); // Don't block trip creation/update
+                }
+              });
+            }.bind(this);
+
+            oReader.onerror = function () {
+              resolve(); // Don't block on photo error
+            };
+
+            oReader.readAsDataURL(oFile);
+          }.bind(this));
+        },
+
+        _uploadDriverPhotoToAttachments: function (sTripNumber, sFileName, sContentType, sBase64Data) {
+          return new Promise(function (resolve, reject) {
+            var oModel = this.getView().getModel();
+            var sPath = "/Attachments('" + sTripNumber + "')";
+            
+            // Check if attachment already exists
+            oModel.read(sPath, {
+              success: function () {
+                // Attachment exists, update it
+                this._updateDriverPhotoAttachment(sTripNumber, sFileName, sContentType, sBase64Data, resolve, reject);
+              }.bind(this),
+              error: function () {
+                // Attachment doesn't exist, create it
+                this._createDriverPhotoAttachment(sTripNumber, sFileName, sContentType, sBase64Data, resolve, reject);
+              }.bind(this)
+            });
+          }.bind(this));
+        },
+
+        _createDriverPhotoAttachment: function (sTripNumber, sFileName, sContentType, sBase64Data, resolve, reject) {
+          var oModel = this.getView().getModel();
+          var oMetadata = {
+            TripNumber: sTripNumber,
+            FileName: sFileName,
+            ContentType: sContentType
+          };
+
+          oModel.create("/Attachments", oMetadata, {
+            headers: {
+              "X-Requested-With": "X"
+            },
+            success: function () {
+              this._uploadDriverPhotoBinary(sTripNumber, sBase64Data, sContentType, resolve, reject);
+            }.bind(this),
+            error: function (oError) {
+              console.error("Failed to create driver photo attachment:", oError);
+              reject(oError);
+            }
+          });
+        },
+
+        _updateDriverPhotoAttachment: function (sTripNumber, sFileName, sContentType, sBase64Data, resolve, reject) {
+          var oModel = this.getView().getModel();
+          var oMetadata = {
+            FileName: sFileName,
+            ContentType: sContentType
+          };
+
+          oModel.update("/Attachments('" + sTripNumber + "')", oMetadata, {
+            headers: {
+              "X-Requested-With": "X"
+            },
+            success: function () {
+              this._uploadDriverPhotoBinary(sTripNumber, sBase64Data, sContentType, resolve, reject);
+            }.bind(this),
+            error: function () {
+              // Try uploading binary anyway
+              this._uploadDriverPhotoBinary(sTripNumber, sBase64Data, sContentType, resolve, reject);
+            }.bind(this)
+          });
+        },
+
+        _uploadDriverPhotoBinary: function (sTripNumber, sBase64Data, sContentType, resolve, reject) {
+          var oModel = this.getView().getModel();
+          var sPath = "/Attachments('" + sTripNumber + "')/$value";
+          
+          // Convert base64 to binary
+          var sBinaryData = atob(sBase64Data);
+          var aBytes = new Uint8Array(sBinaryData.length);
+          for (var i = 0; i < sBinaryData.length; i++) {
+            aBytes[i] = sBinaryData.charCodeAt(i);
+          }
+
+          oModel.update(sPath, aBytes, {
+            headers: {
+              "X-Requested-With": "X",
+              "Content-Type": sContentType
+            },
+            success: function () {
+              MessageToast.show("Driver photo uploaded successfully");
+              resolve();
+            },
+            error: function (oError) {
+              console.error("Failed to upload driver photo binary:", oError);
+              reject(oError);
+            }
+          });
         },
       }
     );

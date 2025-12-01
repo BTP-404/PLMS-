@@ -29,13 +29,12 @@
                 filterSuggests="true"
                 change=".onMaterialDocTypeChange"
                 suggestionItemSelected=".onMaterialDocTypeSuggestionSelected"
-                suggestionItems="{docTypeModel>/items}"
+                suggestionItems="{refDocModel>/materialDocTypes}"
             >
                 <suggestionItems>
                     <core:Item
-                        key="{docTypeModel>ConfigID}"
-                        text="{docTypeModel>ConfigID}"
-                        additionalText="{docTypeModel>Description}"
+                        key="{refDocModel>docType}"
+                        text="{refDocModel>docType}"
                         templateShareable="false"
                     />
                 </suggestionItems>
@@ -46,17 +45,18 @@
                 id="idMaterialRefDocNo"
                 valueLiveUpdate="true"
                 showValueHelp="true"
-                valueHelpRequest=".onMaterialValueHelp"
+                valueHelpRequest=".onMaterialRefDocNoValueHelp"
                 showSuggestion="true"
                 filterSuggests="true"
-                suggestionItemSelected=".onMaterialSuggestionSelected"
-                suggestionItems="{materialSuggestions>/items}"
+                suggestionItemSelected=".onMaterialRefDocNoSuggestionSelected"
+                change=".onMaterialRefDocNoChange"
+                suggestionItems="{refDocModel>/materialRefDocNumbers}"
             >
                 <suggestionItems>
                     <core:Item
-                        key="{materialSuggestions>RefDocNo}"
-                        text="{materialSuggestions>RefDocNo}"
-                        additionalText="{materialSuggestions>MaterialCode}"
+                        key="{refDocModel>DocumentNumber}"
+                        text="{refDocModel>DocumentNumber}"
+                        additionalText="{refDocModel>DocType}"
                         templateShareable="false"
                     />
                 </suggestionItems>

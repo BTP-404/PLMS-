@@ -22,13 +22,50 @@
             columnsM="1">
 
             <Label text="Ref Doc Number"/>
-            <Input id="idDialogRefDocNo" valueLiveUpdate="true" />
+            <Input 
+                id="idDialogRefDocNo" 
+                valueLiveUpdate="true"
+                showValueHelp="true"
+                valueHelpRequest=".onLoadingRefDocNoValueHelp"
+                showSuggestion="true"
+                filterSuggests="true"
+                suggestionItemSelected=".onLoadingRefDocNoSuggestionSelected"
+                suggestionItems="{refDocSuggestions>/items}"
+                change=".onLoadingRefDocNoChange"
+            >
+                <suggestionItems>
+                    <core:Item
+                        key="{refDocSuggestions>DocumentNumber}"
+                        text="{refDocSuggestions>DocumentNumber}"
+                        additionalText="{refDocSuggestions>DocType}"
+                        templateShareable="false"
+                    />
+                </suggestionItems>
+            </Input>
 
             <Label text="Ref Doc Item Number"/>
             <Input id="idDialogRefDocItem" valueLiveUpdate="true" />
 
             <Label text="Material Code"/>
-            <Input id="idDialogMaterialCode" valueLiveUpdate="true" />
+            <Input 
+                id="idDialogMaterialCode" 
+                valueLiveUpdate="true"
+                showValueHelp="true"
+                valueHelpRequest=".onLoadingMaterialCodeValueHelp"
+                showSuggestion="true"
+                filterSuggests="true"
+                suggestionItemSelected=".onLoadingMaterialCodeSuggestionSelected"
+                suggestionItems="{materialSuggestions>/items}"
+            >
+                <suggestionItems>
+                    <core:Item
+                        key="{materialSuggestions>MaterialCode}"
+                        text="{materialSuggestions>MaterialCode}"
+                        additionalText="{materialSuggestions>MaterialDescription}"
+                        templateShareable="false"
+                    />
+                </suggestionItems>
+            </Input>
 
             <Label text="Material Description"/>
             <Input id="idDialogMaterialDesc" valueLiveUpdate="true" />

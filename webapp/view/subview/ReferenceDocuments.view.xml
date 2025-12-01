@@ -31,7 +31,7 @@
                         <Table
                             id="idReferenceDocsTable"
                             inset="false"
-                            mode="None"
+                            mode="SingleSelectMaster"
                             width="100%"
                             class="sapUiSizeCompact"
                             fixedLayout="false"
@@ -41,6 +41,7 @@
                             growingScrollToLoad="true"
                             growingThreshold="20"
                             items="{path: 'refDocModel>/referenceDocs'}"
+                            selectionChange="onRefDocSelectionChange"
                             noDataText="No reference documents added yet">
 
                             <headerToolbar>
@@ -144,7 +145,7 @@
                             sticky="ColumnHeaders,HeaderToolbar"
                             growing="true"
                             growingScrollToLoad="true"
-                            items="{path: 'refDocModel>/materialDetails'}"
+                            items="{path: 'refDocModel>/filteredMaterialDetails'}"
                             noDataText="No material rows added yet">
 
                             <headerToolbar>

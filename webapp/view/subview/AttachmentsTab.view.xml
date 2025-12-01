@@ -1,5 +1,5 @@
 <mvc:View
-    controllerName="com.incresolZ_INC_PLMS.controller.Stage"
+    controllerName="com.incresolZ_INC_PLMS.controller.subview.AttachmentsTab"
     xmlns:mvc="sap.ui.core.mvc"
     xmlns="sap.m"
     xmlns:core="sap.ui.core"
@@ -102,7 +102,18 @@
                     mode="Delete"
                     noDataText="No files uploaded yet."
                     delete=".onDeleteFile"
-                />
+                    items="{attachmentsModel>/attachments}"
+                >
+                    <items>
+                        <StandardListItem
+                            title="{attachmentsModel>fileName}"
+                            description="{attachmentsModel>contentType}"
+                            type="Active"
+                            press=".onPreviewAttachment"
+                            icon="sap-icon://attachment"
+                        />
+                    </items>
+                </List>
             </VBox>
         </Panel>
 
