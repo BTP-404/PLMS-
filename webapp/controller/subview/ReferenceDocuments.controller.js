@@ -1319,7 +1319,7 @@ sap.ui.define([
 		var sUoM = (this.byId("idMaterialUoM")?.getValue() || "").trim();
 
 		// Quantity is required (Nullable="false")
-		// Parse and validate quantity - format as number for OData Decimal
+		// Parse and validate quantity
 		var fQty = 0;
 		if (sQty) {
 			var fParsed = parseFloat(sQty);
@@ -1337,10 +1337,8 @@ sap.ui.define([
 		// Note: All fields have sap:creatable="false" but we still need to send key fields
 		// and user-provided values. The backend will handle the rest.
 		
-		// Quantity: Some SAP OData backends are very particular about decimal format
-		// Try sending as a properly formatted number (not string, as OData expects number for Edm.Decimal)
-		// Round to 3 decimal places to match Scale="3"
-		var fFormattedQty = Math.round(fQty * 1000) / 1000;
+		// Quantity: align with tested payload (send as string with 2 decimals, e.g. "1.00")
+		var sFormattedQty = fQty ? fQty.toFixed(2) : "0.00";
 		
 		var oPayload = {
 			TripNumber: sTripNumber,
@@ -1349,7 +1347,7 @@ sap.ui.define([
 			RefDocItemNo: sRefDocItemNo,
 			MaterialCode: sMaterialCode,
 			MaterialDescription: sMaterialDesc || sMaterialCode, // Required, fallback to MaterialCode
-			Quantity: fFormattedQty,
+			Quantity: sFormattedQty,
 			UoM: sUoM || "", // Set to empty string if not provided
 			IsDeleted: "", // Required MaxLength="1", use empty string for not deleted
 			IsSplitActive: false
@@ -1363,7 +1361,7 @@ sap.ui.define([
 		console.log("RefDocNo:", sRefDocNo);
 		console.log("RefDocItemNo:", sRefDocItemNo);
 		console.log("MaterialCode:", sMaterialCode);
-		console.log("Quantity:", fFormattedQty, "(type:", typeof fFormattedQty + ")");
+		console.log("Quantity:", sFormattedQty, "(type:", typeof sFormattedQty + ")");
 
 		return oPayload;
 	},
