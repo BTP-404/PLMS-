@@ -28,50 +28,64 @@ sap.ui.define([
 			this._oEventBus?.unsubscribe("TripData", "Updated", this._refreshPageTitleModel, this);
 		},
 
-		_onRouteMatched: function (oEvent) {
+	_onRouteMatched: function (oEvent) {
 
-			var oArgs = oEvent.getParameter("arguments") || {};
-			var sTripNumber = oArgs.tripNo || "";
-		
-			// Get matched route object correctly
+		var oArgs = oEvent.getParameter("arguments") || {};
+		var sTripNumber = oArgs.tripNo || "";
+	
+		// Safely get matched route name
+		var sRouteName = "";
+		try {
 			var oRoute = oEvent.getSource();
-			var sRouteName = oRoute.getName();         // ← CORRECT WAY
-		
-			console.log("Matched route:", sRouteName);
-		
-			// ============================
-			//   CASE 1 — CREATE MODE
-			// ============================
-			if (sRouteName === "Stage") {
-		
-				this._bCreateMode = true;
-				this._sCurrentTripNumber = "";
-		
-				sap.ui.getCore().getModel("globalData")?.setProperty("/TripNumber", "");
-				sap.ui.getCore().setModel(null, "TripData");
-		
-				this.resetPageTitleModel();   // ← finally clears
-				this._setIconTabSelection("vehicleReporting");
-		
-				console.log("Stage (Create): pageTitleModel cleared");
-				return;
+			// Check if route object exists and has getName method
+			if (oRoute && typeof oRoute.getName === "function") {
+				sRouteName = oRoute.getName();
+			} else {
+				// Fallback: determine route based on arguments
+				// If tripNo parameter exists, it's StagewithParam route
+				sRouteName = sTripNumber ? "StagewithParam" : "Stage";
 			}
-		
-			// ============================
-			//   CASE 2 — UPDATE MODE
-			// ============================
-			if (sRouteName === "StagewithParam") {
-		
-				this._bCreateMode = false;
-				this._sCurrentTripNumber = sTripNumber;
-		
-				sap.ui.getCore().getModel("globalData")?.setProperty("/TripNumber", sTripNumber);
-		
-				this._refreshPageTitleModel();
-		
-				console.log("StagewithParam (Update): refreshed pageTitleModel");
-			}
+		} catch (oError) {
+			// Error handling: determine route based on arguments as fallback
+			sRouteName = sTripNumber ? "StagewithParam" : "Stage";
+			console.warn("Could not get route name from event, using fallback:", sRouteName);
 		}
+	
+		console.log("Matched route:", sRouteName);
+	
+		// ============================
+		//   CASE 1 — CREATE MODE
+		// ============================
+		if (sRouteName === "Stage") {
+	
+			this._bCreateMode = true;
+			this._sCurrentTripNumber = "";
+	
+			sap.ui.getCore().getModel("globalData")?.setProperty("/TripNumber", "");
+			sap.ui.getCore().setModel(null, "TripData");
+	
+			this.resetPageTitleModel();   // ← finally clears
+			this._setIconTabSelection("vehicleReporting");
+	
+			console.log("Stage (Create): pageTitleModel cleared");
+			return;
+		}
+	
+		// ============================
+		//   CASE 2 — UPDATE MODE
+		// ============================
+		if (sRouteName === "StagewithParam") {
+	
+			this._bCreateMode = false;
+			this._sCurrentTripNumber = sTripNumber;
+	
+			sap.ui.getCore().getModel("globalData")?.setProperty("/TripNumber", sTripNumber);
+	
+			this._refreshPageTitleModel();
+	
+			console.log("StagewithParam (Update): refreshed pageTitleModel");
+		}
+	}
 		
 		,
 		_setIconTabSelection: function (sKey) {

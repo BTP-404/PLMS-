@@ -34,14 +34,16 @@ sap.ui.define(
         });
         this.getView().setModel(oModel);
         this._initializeColumnVisibility();
-
+        // this is for refresh the table data when user cancels the trip
         this._oEventBus = sap.ui.getCore().getEventBus();
+
         this._oEventBus.subscribe(
           "HomePage",
           "RefreshTripTable",
           this._onExternalRefresh,
           this
         );
+        this.onRefresh();
       },
 
       onExit: function () {
@@ -58,16 +60,16 @@ sap.ui.define(
       // --------------------------------------------
       onReportVehicle: function () {
         // clear global data
-    var oGlobalModel = sap.ui.getCore().getModel("globalData");
-    if (oGlobalModel) {
-        oGlobalModel.setProperty("/TripNumber", "");
-    }
+        var oGlobalModel = sap.ui.getCore().getModel("globalData");
+        if (oGlobalModel) {
+          oGlobalModel.setProperty("/TripNumber", "");
+        }
 
-    sap.ui.getCore().setModel(null, "TripData");
-    sap.ui.getCore().getEventBus().publish("TripData", "Updated");
+        sap.ui.getCore().setModel(null, "TripData");
+        sap.ui.getCore().getEventBus().publish("TripData", "Updated");
 
-    // Notify Stage view to clear title model
-    sap.ui.getCore().getEventBus().publish("Stage", "ResetPageTitle");
+        // Notify Stage view to clear title model
+        sap.ui.getCore().getEventBus().publish("Stage", "ResetPageTitle");
         var oRouter = this.getOwnerComponent().getRouter();
         if (oRouter) {
           oRouter.navTo("Stage");
@@ -80,18 +82,18 @@ sap.ui.define(
         var oCtx = oEvent.getParameter("listItem").getBindingContext();
         var oRowData = oCtx.getObject();
         var sTripNo = oRowData.TripNumber;
-		   var oGlobalModel = sap.ui.getCore().getModel("globalData");
+        var oGlobalModel = sap.ui.getCore().getModel("globalData");
 
-    if (!oGlobalModel) {
-        oGlobalModel = new sap.ui.model.json.JSONModel({ TripNumber: "" });
-        sap.ui.getCore().setModel(oGlobalModel, "globalData");
-    }
+        if (!oGlobalModel) {
+          oGlobalModel = new sap.ui.model.json.JSONModel({ TripNumber: "" });
+          sap.ui.getCore().setModel(oGlobalModel, "globalData");
+        }
 
-    oGlobalModel.setProperty("/TripNumber", sTripNo);
+        oGlobalModel.setProperty("/TripNumber", sTripNo);
 
-    var oTripDataModel = new JSONModel(oRowData);
-    sap.ui.getCore().setModel(oTripDataModel, "TripData");
-    sap.ui.getCore().getEventBus().publish("TripData", "Updated");
+        var oTripDataModel = new JSONModel(oRowData);
+        sap.ui.getCore().setModel(oTripDataModel, "TripData");
+        sap.ui.getCore().getEventBus().publish("TripData", "Updated");
 
         this.getView().byId("tripTable").removeSelections(true);
         sap.ui.core.UIComponent.getRouterFor(this).navTo("StagewithParam", {
@@ -107,7 +109,7 @@ sap.ui.define(
           oModel.refresh(true);
           oModel.attachRequestCompleted(function () {
             oTable.setBusy(false);
-            MessageToast.show("Trip details refreshed");
+            // MessageToast.show("Trip details refreshed");
           });
         }
       },
@@ -135,14 +137,14 @@ sap.ui.define(
             var sValue = oEvt.getParameter("value");
             var aFilters = sValue
               ? [
-                  new Filter(
-                    [
-                      new Filter(sKeyField, FilterOperator.Contains, sValue),
-                      new Filter(sDescField, FilterOperator.Contains, sValue),
-                    ],
-                    false
-                  ),
-                ]
+                new Filter(
+                  [
+                    new Filter(sKeyField, FilterOperator.Contains, sValue),
+                    new Filter(sDescField, FilterOperator.Contains, sValue),
+                  ],
+                  false
+                ),
+              ]
               : [];
             oEvt.getSource().getBinding("items").filter(aFilters);
           },
@@ -180,14 +182,14 @@ sap.ui.define(
         var { sKeyField, sDescField } = oFieldConfig;
         var aFilters = sValue
           ? [
-              new Filter(
-                [
-                  new Filter(sKeyField, FilterOperator.Contains, sValue),
-                  new Filter(sDescField, FilterOperator.Contains, sValue),
-                ],
-                false
-              ),
-            ]
+            new Filter(
+              [
+                new Filter(sKeyField, FilterOperator.Contains, sValue),
+                new Filter(sDescField, FilterOperator.Contains, sValue),
+              ],
+              false
+            ),
+          ]
           : [];
 
         this.getView()
@@ -252,14 +254,14 @@ sap.ui.define(
             var oStartOfDay = new Date(oDateFrom);
             oStartOfDay.setHours(0, 0, 0, 0);
             aDateFilters.push(
-              new Filter("LR_Date", FilterOperator.GE, oStartOfDay)
+              new Filter("CreatedOn", FilterOperator.GE, oStartOfDay)
             );
           }
           if (oDateTo) {
             var oEndOfDay = new Date(oDateTo);
             oEndOfDay.setHours(23, 59, 59, 999);
             aDateFilters.push(
-              new Filter("LR_Date", FilterOperator.LE, oEndOfDay)
+              new Filter("CreatedOn", FilterOperator.LE, oEndOfDay)
             );
           }
           if (aDateFilters.length) {
@@ -402,7 +404,7 @@ sap.ui.define(
         if (!this._oColumnVisibilityDialog) {
           Fragment.load({
             id: this.getView().getId(),
-            name: "com.incresolZ_INC_PLMS.fragments.ColumnVisibilityDialog",
+            name: "com.incresolZ_INC_PLMS.fragments.HomePageFrags.ColumnVisibilityDialog",
             controller: this,
           }).then(
             function (oDialog) {

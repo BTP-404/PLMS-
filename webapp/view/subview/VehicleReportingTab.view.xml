@@ -4,7 +4,6 @@
     xmlns="sap.m"
     xmlns:core="sap.ui.core"
     xmlns:layout="sap.ui.layout"
-    xmlns:unified="sap.ui.unified"
     displayBlock="true"
 >
     <VBox class="sapUiSizeCompact sapUiSmallMargin">
@@ -106,7 +105,7 @@
                             <Input
                                 id="idVehicleType"
                                 width="100%"
-                                showValueHelp="true"
+                                showValueHelp="false"
                                 valueHelpRequest="onValueHelpVehicleType"
                                 value="{TripData>/VehicleType}"
                             />
@@ -122,7 +121,7 @@
                             <Input
                                 id="idVehicleSize"
                                 width="100%"
-                                showValueHelp="true"
+                                showValueHelp="false"
                                 valueHelpRequest="onValueHelpVehicleSize"
                                 value="{TripData>/VehicleSize}"
                             />
@@ -195,6 +194,7 @@
                                 id="idDriverContact"
                                 width="100%"
                                 value="{TripData>/DriverMobile}"
+                                type="Number"
                             />
                         </VBox>
                     </layout:content>
@@ -209,23 +209,6 @@
                                 id="idDriverLicense"
                                 width="100%"
                                 value="{TripData>/DriverLicence}"
-                            />
-                        </VBox>
-                    </layout:content>
-                    <layout:content>
-                        <VBox>
-                            <Label
-                                text="Driver Photo"
-                                design="Bold"
-                            />
-                            <unified:FileUploader
-                                id="idDriverPhoto"
-                                width="100%"
-                                uploadUrl="/upload"
-                                buttonText="Browse"
-                                fileType="jpg,png"
-                                placeholder="Upload Driver Photo"
-                                change="onDriverPhotoChange"
                             />
                         </VBox>
                     </layout:content>
@@ -372,7 +355,10 @@
                         <Input
                             id="idCreatedOnDate"
                             width="100%"
-                            value="{TripData>/CreatedOn}"
+                            value="{
+                                path: 'TripData>/CreatedOn',
+                                formatter: '.formatTripDate'
+                            }"
                             enabled="false"
                         />
                     </VBox>
@@ -385,7 +371,10 @@
                     <Input
                         id="idCreatedOnTime"
                         width="100%"
-                        value="{TripData>/CreatedTime}"
+                        value="{
+                            path: 'TripData>/CreatedTime',
+                            formatter: '.formatTripTime'
+                        }"
                         enabled="false"
                     />
                 </VBox>

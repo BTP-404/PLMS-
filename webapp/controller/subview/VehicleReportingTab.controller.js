@@ -188,8 +188,31 @@ sap.ui.define(
           } else {
             oData.LR_Date = oDate ? oDate : new Date();
           }
-          oData.Plant = PlantCode;
-          oData.CompanyCode = CompanyCod;
+          // Extract only the code part from Plant (remove description if present)
+          // Priority: PlantCode variable > input field value > model data
+          var sPlantInput = this.byId("idPlant")?.getValue() || "";
+          var sPlant = PlantCode || sPlantInput || oData.Plant || "";
+          // If Plant contains a dash, extract only the part before the dash
+          if (sPlant && sPlant.indexOf("-") > 0) {
+            sPlant = sPlant.split("-")[0].trim();
+          }
+          oData.Plant = sPlant;
+          
+          // Extract only the code part from CompanyCode (remove description if present)
+          // Priority: CompanyCod variable > input field value > model data
+          var sCompanyCodeInput = this.byId("idCompanyCode")?.getValue() || "";
+          var sCompanyCode = CompanyCod || sCompanyCodeInput || oData.CompanyCode || "";
+          // If CompanyCode contains a dash, extract only the part before the dash
+          if (sCompanyCode && sCompanyCode.indexOf("-") > 0) {
+            sCompanyCode = sCompanyCode.split("-")[0].trim();
+          }
+          oData.CompanyCode = sCompanyCode;
+          
+          // Log for debugging
+          console.log("=== Trip Creation Payload ===");
+          console.log("Plant (code only):", oData.Plant);
+          console.log("CompanyCode (code only):", oData.CompanyCode);
+          
           const that = this;
 
           // ADDED: show busy while creating (non-invasive)
@@ -216,11 +239,6 @@ sap.ui.define(
               that.getView().setBusy(false);
               that.getView().byId("idRelatedTripNumber").setValue(oResponse.TripNumber);
               MessageToast.show(`Trip ( ${oResponse.TripNumber} ) Created !`);
-              
-              // Save driver photo if selected
-              if (that._oSelectedDriverPhoto) {
-                that._saveDriverPhoto(oResponse.TripNumber);
-              }
               
               this._clearForm();
               that._setFormEditable(false);
@@ -277,10 +295,30 @@ sap.ui.define(
           // Remove metadata
           delete oUpdateData.__metadata;
 
-          // If backend is sensitive to null vs empty, you can normalize here as needed
+          // Extract only the code part from Plant (remove description if present)
+          // Priority: PlantCode variable > input field value > model data
+          var sPlantInput = this.byId("idPlant")?.getValue() || "";
+          var sPlant = PlantCode || sPlantInput || oUpdateData.Plant || "";
+          // If Plant contains a dash, extract only the part before the dash
+          if (sPlant && sPlant.indexOf("-") > 0) {
+            sPlant = sPlant.split("-")[0].trim();
+          }
+          oUpdateData.Plant = sPlant;
+          
+          // Extract only the code part from CompanyCode (remove description if present)
+          // Priority: CompanyCod variable > input field value > model data
+          var sCompanyCodeInput = this.byId("idCompanyCode")?.getValue() || "";
+          var sCompanyCode = CompanyCod || sCompanyCodeInput || oUpdateData.CompanyCode || "";
+          // If CompanyCode contains a dash, extract only the part before the dash
+          if (sCompanyCode && sCompanyCode.indexOf("-") > 0) {
+            sCompanyCode = sCompanyCode.split("-")[0].trim();
+          }
+          oUpdateData.CompanyCode = sCompanyCode;
 
           // Optional: log what we are sending to backend for debugging
           console.log("=== TripDetails UPDATE payload ===");
+          console.log("Plant (code only):", oUpdateData.Plant);
+          console.log("CompanyCode (code only):", oUpdateData.CompanyCode);
           console.log(JSON.stringify(oUpdateData, null, 2));
 
           // Only update TripDetails('<TripNumber>') – no deep update
@@ -294,10 +332,6 @@ sap.ui.define(
               that.getView().setBusy(false);
               MessageToast.show("Trip updated successfully!");
 
-              // Save driver photo if selected
-              if (that._oSelectedDriverPhoto) {
-                that._saveDriverPhoto(sTripNumber);
-              }
               that._setFormEditable(false);
               that._setInputsEnabled(false);
             },
@@ -461,6 +495,59 @@ sap.ui.define(
         },
 
         /* ===========================================================
+         * FORMATTERS: CreatedOn / CreatedTime (Change History)
+         * =========================================================== */
+        formatTripDate: function (vDate) {
+          if (!vDate) {
+            return "";
+          }
+          if (vDate instanceof Date) {
+            return vDate.toISOString().slice(0, 10);
+          }
+          if (typeof vDate === "string" && vDate.indexOf("/Date") === 0) {
+            var iTimestamp = parseInt(vDate.replace(/\D/g, ""), 10);
+            if (!isNaN(iTimestamp)) {
+              return new Date(iTimestamp).toISOString().slice(0, 10);
+            }
+          }
+          return vDate;
+        },
+
+        formatTripTime: function (vTime) {
+          if (vTime == null) {
+            return "";
+          }
+          var iMs = NaN;
+          if (typeof vTime === "object" && typeof vTime.ms === "number") {
+            iMs = vTime.ms;
+          } else if (typeof vTime === "number") {
+            iMs = vTime;
+          } else if (typeof vTime === "string") {
+            var oMatch = vTime.match(/PT(\d+)H(\d+)M(\d+)S/);
+            if (oMatch) {
+              iMs =
+                ((parseInt(oMatch[1], 10) || 0) * 3600 +
+                  (parseInt(oMatch[2], 10) || 0) * 60 +
+                  (parseInt(oMatch[3], 10) || 0)) *
+                1000;
+            }
+          }
+          if (isNaN(iMs)) {
+            return "";
+          }
+          var iHours = Math.floor(iMs / 3600000);
+          var iMinutes = Math.floor((iMs % 3600000) / 60000);
+          var iSeconds = Math.floor((iMs % 60000) / 1000);
+          return (
+            String(iHours).padStart(2, "0") +
+            ":" +
+            String(iMinutes).padStart(2, "0") +
+            ":" +
+            String(iSeconds).padStart(2, "0")
+          );
+        },
+
+        /* ===========================================================
          * NO CHANGE: _collectFormData
          * - returns the TripData model data (same as before)
          * =========================================================== */
@@ -587,11 +674,21 @@ sap.ui.define(
           var oItem = oEvent.getParameter("listItem");
           var oData = oItem.getBindingContext("VHModel").getObject();
           var plant = `${oData.ConfigID}-${oData.Description}`;
-          var companyCode = `${oData.ParentConfig}-${oData.Val01}`;
-          // Set selected Company Code on field
+          
+          // Store code values in global variables (code only, no description)
+          PlantCode = oData.ConfigID;
+          CompanyCod = oData.ParentConfig || "";
+          
+          // Build CompanyCode display value with description (for UI)
+          // Check if Val01 contains the CompanyCode description
+          var sCompanyCodeDisplay = oData.ParentConfig || "";
+          if (oData.Val01) {
+            sCompanyCodeDisplay = `${oData.ParentConfig}-${oData.Val01}`;
+          }
+          
+          // Set selected values - show descriptions in UI
           this.byId("idPlant").setValue(plant);
-
-          this.byId("idCompanyCode").setValue(companyCode);
+          this.byId("idCompanyCode").setValue(sCompanyCodeDisplay);
 
           // Close dialog
           this._mValueHelps.VHPlant.close();
@@ -749,9 +846,19 @@ sap.ui.define(
                 movementScenario = row.MovementScenario;
                 movementType = row.movementType;
                 Mtype = row.movementType;
+                
+                // Determine icon based on movement type
+                var sIcon = "";
+                if (row.MovementType === "O") {
+                  sIcon = "sap-icon://outbox"; // Outward icon
+                } else if (row.MovementType === "I") {
+                  sIcon = "sap-icon://inbox"; // Inward icon
+                }
+                
                 oList.addItem(
                   new sap.m.StandardListItem({
                     title: row.ShortText,
+                    icon: sIcon,
                     // description: row.ShortText,
                     // info: row.LongText,
                     type: "Active",
@@ -818,7 +925,14 @@ sap.ui.define(
             success: function (oData) {
               if (oData.results.length === 1) {
                 const oPlant = oData.results[0];
-                that.byId("idCompanyCode").setValue(oPlant.ConfigID);
+                // Store code in global variable (code only)
+                CompanyCod = oPlant.ConfigID || "";
+                // Build CompanyCode display value with description (for UI)
+                var sCompanyCodeDisplay = oPlant.ConfigID || "";
+                if (oPlant.Description) {
+                  sCompanyCodeDisplay = `${oPlant.ConfigID}-${oPlant.Description}`;
+                }
+                that.byId("idCompanyCode").setValue(sCompanyCodeDisplay);
               } else if (oData.results.length > 1) {
                 const oJSON = new sap.ui.model.json.JSONModel(oData.results);
                 const oDialog = that._mValueHelps?.VHPlant;
@@ -829,6 +943,7 @@ sap.ui.define(
                 }
               } else {
                 MessageToast.show("No Company Code found for Plant " + sPlant);
+                CompanyCod = "";
                 that.byId("idCompanyCode").setValue("");
               }
             },
@@ -1032,214 +1147,55 @@ sap.ui.define(
           const oItem = oEvent.getParameter("selectedItem");
           if (!oItem) return;
 
-          // Set Plant input
-          this.byId("idPlant").setValue(oItem.getText());
-
-          // Fetch Company Code from customData
+          // Extract plant code from key (key contains just the code)
+          const sPlantKey = oItem.getKey() || "";
+          const sPlantText = oItem.getText() || ""; // Contains "Code - Description"
+          
+          // Store code values in global variables (code only, no description)
+          PlantCode = sPlantKey;
+          
+          // Fetch Company Code from customData (should already be code only)
           const sCompanyCode =
             oItem.data("CompanyCode") ||
             oItem.getCustomData()[0]?.getValue() ||
             "";
-          this.byId("idCompanyCode").setValue(sCompanyCode);
-        },
-
-        // =====================================================================
-        // DRIVER PHOTO UPLOAD
-        // =====================================================================
-        onDriverPhotoChange: function (oEvent) {
-          var oFileUploader = oEvent.getSource();
+          CompanyCod = sCompanyCode;
           
-          // Get files from the native file input element
-          var oDomRef = oFileUploader.getDomRef();
-          var oFileInput = oDomRef ? oDomRef.querySelector("input[type='file']") : null;
-          
-          if (!oFileInput || !oFileInput.files || oFileInput.files.length === 0) {
-            this._oSelectedDriverPhoto = null;
-            console.log("Driver photo cleared");
-            return;
-          }
-          
-          var oFile = oFileInput.files[0];
-          this._oSelectedDriverPhoto = oFile;
-          
-          console.log("Driver photo selected:", oFile.name, "Size:", oFile.size);
-          
-          // Upload immediately if trip number exists
-          var oGlobalModel = sap.ui.getCore().getModel("globalData");
-          var sTripNumber = oGlobalModel?.getProperty("/TripNumber") || "";
-          var sRelatedTripNumber = this.byId("idRelatedTripNumber")?.getValue() || "";
-          var sCurrentTripNumber = sTripNumber || sRelatedTripNumber;
-          
-          if (sCurrentTripNumber) {
-            // Trip exists, upload immediately
-            console.log("Trip number exists, uploading driver photo immediately:", sCurrentTripNumber);
-            this._saveDriverPhoto(sCurrentTripNumber);
-          } else {
-            // Trip doesn't exist yet, will upload after creation
-            console.log("Trip number not available yet, will upload after trip creation");
-            MessageToast.show("Driver photo will be uploaded after trip is created");
-          }
-          
-          // Optionally show preview
-          this._previewDriverPhoto(this._oSelectedDriverPhoto);
-        },
-
-        _previewDriverPhoto: function (oFile) {
-          if (!oFile) {
-            return;
-          }
-
-          var oReader = new FileReader();
-          oReader.onload = function (oEvent) {
-            var sDataUrl = oEvent.target.result;
-            // Store base64 for later upload
-            this._sDriverPhotoBase64 = sDataUrl.split(",")[1] || sDataUrl;
-          }.bind(this);
-
-          oReader.readAsDataURL(oFile);
-        },
-
-        _saveDriverPhoto: function (sTripNumber) {
-          if (!this._oSelectedDriverPhoto || !sTripNumber) {
-            return Promise.resolve();
-          }
-
-          return new Promise(function (resolve, reject) {
-            var oFile = this._oSelectedDriverPhoto;
-            var sFileName = "DriverPhoto_" + oFile.name;
-            var sContentType = oFile.type || "image/jpeg";
-
-            // Read file as base64
-            var oReader = new FileReader();
-            oReader.onload = function (oEvent) {
-              var sBase64Content = oEvent.target.result;
-              var sBase64Data = sBase64Content.split(",")[1] || sBase64Content;
-
-              var oModel = this.getView().getModel();
-              
-              // Save filename to TripDetails.DriverPhoto field
-              var oUpdateData = {
-                DriverPhoto: sFileName
-              };
-
-              oModel.update("/TripDetails('" + sTripNumber + "')", oUpdateData, {
-                headers: {
-                  "X-Requested-With": "X"
-                },
-                success: function () {
-                  // Upload the actual file to Attachments entity
-                  this._uploadDriverPhotoToAttachments(sTripNumber, sFileName, sContentType, sBase64Data)
-                    .then(function () {
-                      resolve();
-                    })
-                    .catch(function () {
-                      resolve(); // Don't block on attachment upload failure
-                    });
-                }.bind(this),
-                error: function (oError) {
-                  // Silently fail - photo is optional
-                  console.error("Failed to save driver photo:", oError);
-                  resolve(); // Don't block trip creation/update
+          // Fetch CompanyCode description to display in UI
+          const that = this;
+          if (sCompanyCode) {
+            const oModel = this.getView().getModel();
+            oModel.read("/ConfigValues", {
+              filters: [
+                new sap.ui.model.Filter("ConfigGroup", sap.ui.model.FilterOperator.EQ, "CompanyCode"),
+                new sap.ui.model.Filter("ConfigID", sap.ui.model.FilterOperator.EQ, sCompanyCode)
+              ],
+              success: function (oData) {
+                if (oData.results && oData.results.length > 0) {
+                  const oCompanyCode = oData.results[0];
+                  // Build CompanyCode display value with description (for UI)
+                  var sCompanyCodeDisplay = oCompanyCode.ConfigID || sCompanyCode;
+                  if (oCompanyCode.Description) {
+                    sCompanyCodeDisplay = `${oCompanyCode.ConfigID}-${oCompanyCode.Description}`;
+                  }
+                  that.byId("idCompanyCode").setValue(sCompanyCodeDisplay);
+                } else {
+                  // Fallback: just show code if description not found
+                  that.byId("idCompanyCode").setValue(sCompanyCode);
                 }
-              });
-            }.bind(this);
-
-            oReader.onerror = function () {
-              resolve(); // Don't block on photo error
-            };
-
-            oReader.readAsDataURL(oFile);
-          }.bind(this));
-        },
-
-        _uploadDriverPhotoToAttachments: function (sTripNumber, sFileName, sContentType, sBase64Data) {
-          return new Promise(function (resolve, reject) {
-            var oModel = this.getView().getModel();
-            var sPath = "/Attachments('" + sTripNumber + "')";
-            
-            // Check if attachment already exists
-            oModel.read(sPath, {
-              success: function () {
-                // Attachment exists, update it
-                this._updateDriverPhotoAttachment(sTripNumber, sFileName, sContentType, sBase64Data, resolve, reject);
-              }.bind(this),
+              },
               error: function () {
-                // Attachment doesn't exist, create it
-                this._createDriverPhotoAttachment(sTripNumber, sFileName, sContentType, sBase64Data, resolve, reject);
-              }.bind(this)
+                // Fallback: just show code if error fetching description
+                that.byId("idCompanyCode").setValue(sCompanyCode);
+              }
             });
-          }.bind(this));
-        },
-
-        _createDriverPhotoAttachment: function (sTripNumber, sFileName, sContentType, sBase64Data, resolve, reject) {
-          var oModel = this.getView().getModel();
-          var oMetadata = {
-            TripNumber: sTripNumber,
-            FileName: sFileName,
-            ContentType: sContentType
-          };
-
-          oModel.create("/Attachments", oMetadata, {
-            headers: {
-              "X-Requested-With": "X"
-            },
-            success: function () {
-              this._uploadDriverPhotoBinary(sTripNumber, sBase64Data, sContentType, resolve, reject);
-            }.bind(this),
-            error: function (oError) {
-              console.error("Failed to create driver photo attachment:", oError);
-              reject(oError);
-            }
-          });
-        },
-
-        _updateDriverPhotoAttachment: function (sTripNumber, sFileName, sContentType, sBase64Data, resolve, reject) {
-          var oModel = this.getView().getModel();
-          var oMetadata = {
-            FileName: sFileName,
-            ContentType: sContentType
-          };
-
-          oModel.update("/Attachments('" + sTripNumber + "')", oMetadata, {
-            headers: {
-              "X-Requested-With": "X"
-            },
-            success: function () {
-              this._uploadDriverPhotoBinary(sTripNumber, sBase64Data, sContentType, resolve, reject);
-            }.bind(this),
-            error: function () {
-              // Try uploading binary anyway
-              this._uploadDriverPhotoBinary(sTripNumber, sBase64Data, sContentType, resolve, reject);
-            }.bind(this)
-          });
-        },
-
-        _uploadDriverPhotoBinary: function (sTripNumber, sBase64Data, sContentType, resolve, reject) {
-          var oModel = this.getView().getModel();
-          var sPath = "/Attachments('" + sTripNumber + "')/$value";
-          
-          // Convert base64 to binary
-          var sBinaryData = atob(sBase64Data);
-          var aBytes = new Uint8Array(sBinaryData.length);
-          for (var i = 0; i < sBinaryData.length; i++) {
-            aBytes[i] = sBinaryData.charCodeAt(i);
+          } else {
+            this.byId("idCompanyCode").setValue("");
           }
-
-          oModel.update(sPath, aBytes, {
-            headers: {
-              "X-Requested-With": "X",
-              "Content-Type": sContentType
-            },
-            success: function () {
-              MessageToast.show("Driver photo uploaded successfully");
-              resolve();
-            },
-            error: function (oError) {
-              console.error("Failed to upload driver photo binary:", oError);
-              reject(oError);
-            }
-          });
-        },
+          
+          // Set Plant input (can show description for user)
+          this.byId("idPlant").setValue(sPlantText);
+        }
       }
     );
   }

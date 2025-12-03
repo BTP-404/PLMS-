@@ -1,0 +1,16 @@
+<core:FragmentDefinition
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core">
+    <SelectDialog
+        id="idMaterialDocTypeValueHelpDialog"
+        title="Select Doc Type"
+        search="._onMaterialDocTypeValueHelpSearch"
+        liveChange="._onMaterialDocTypeValueHelpSearch"
+        confirm="._onMaterialDocTypeVHConfirm"
+        cancel=".onMaterialDocTypeValueHelpCancel"
+        items="{docTypeVHMaterial>/items}">
+        <StandardListItem
+            title="{docTypeVHMaterial>docType}"/>
+    </SelectDialog>
+</core:FragmentDefinition>
+

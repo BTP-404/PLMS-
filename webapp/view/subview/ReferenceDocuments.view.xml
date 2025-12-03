@@ -27,12 +27,11 @@
                     vertical="false"
                     width="100%"
                     class="sapUiNoContentPadding sapUiSmallMarginTop sapUiSizeCompact">
-                    <HBox wrap="Wrap" width="auto">
                         <Table
                             id="idReferenceDocsTable"
                             inset="false"
                             mode="SingleSelectMaster"
-                            width="100%"
+                            width="auto"
                             class="sapUiSizeCompact"
                             fixedLayout="false"
                             autoPopin="true"
@@ -57,18 +56,40 @@
                             </headerToolbar>
 
                             <columns>
-                                <Column><Text text="Doc Type"/></Column>
-                                <Column><Text text="Document Number"/></Column>
-                                <Column><Text text="Document Date"/></Column>
-                                <Column><Text text="Sending / Receiving Party Code"/></Column>
-                                <Column><Text text="Sending / Receiving Party Name"/></Column>
-                                <Column><Text text="Created By"/></Column>
-                                <Column><Text text="Created On Date"/></Column>
-                                <Column><Text text="Created On Time"/></Column>
-                                <Column><Text text="Changed By"/></Column>
-                                <Column><Text text="Changed On Date"/></Column>
-                                <Column><Text text="Changed On Time"/></Column>
-                                <Column hAlign="Center" width="8rem">
+                                <Column demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                    <Text text="Doc Type"/>
+                                </Column>
+                                <Column demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                    <Text text="Document Number"/>
+                                </Column>
+                                <Column demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                    <Text text="Document Date"/>
+                                </Column>
+                                <Column demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                    <Text text="Sending / Receiving Party Code"/>
+                                </Column>
+                                <Column demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                    <Text text="Sending / Receiving Party Name"/>
+                                </Column>
+                                <Column demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                    <Text text="Created By"/>
+                                </Column>
+                                <Column demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                    <Text text="Created On Date"/>
+                                </Column>
+                                <Column demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                    <Text text="Created On Time"/>
+                                </Column>
+                                <Column demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                    <Text text="Changed By"/>
+                                </Column>
+                                <Column demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                    <Text text="Changed On Date"/>
+                                </Column>
+                                <Column demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                    <Text text="Changed On Time"/>
+                                </Column>
+                                <Column hAlign="Center" width="8rem" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
                                     <Text text="Action"/>
                                 </Column>
                             </columns>
@@ -107,7 +128,6 @@
                             </items>
 
                         </Table>
-                    </HBox>
                 </ScrollContainer>
             </VBox>
         </Panel>
@@ -134,11 +154,10 @@
                     vertical="false"
                     width="100%"
                     class="sapUiNoContentPadding sapUiSmallMarginTop sapUiSizeCompact">
-                    <HBox wrap="Wrap" width="auto">
                         <Table
                             id="idMaterialDetailsTable"
                             inset="false"
-                            width="100%"
+                            width="auto"
                             class="sapUiSizeCompact"
                             fixedLayout="false"
                             autoPopin="true"
@@ -161,19 +180,43 @@
                             </headerToolbar>
 
                             <columns>
-                                <Column><Text text="Ref Doc No"/></Column>
-                                <Column><Text text="Ref Doc Item No"/></Column>
-                                <Column><Text text="Material Code"/></Column>
-                                <Column><Text text="Material Description"/></Column>
-                                <Column hAlign="End"><Text text="Quantity"/></Column>
-                                <Column><Text text="UoM"/></Column>
-                                <Column><Text text="Created By"/></Column>
-                                <Column><Text text="Created On Date"/></Column>
-                                <Column><Text text="Created On Time"/></Column>
-                                <Column><Text text="Changed By"/></Column>
-                                <Column><Text text="Changed On Date"/></Column>
-                                <Column><Text text="Changed On Time"/></Column>
-                                <Column hAlign="Center" width="8rem">
+                                <Column demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                    <Text text="Ref Doc No"/>
+                                </Column>
+                                <Column demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                    <Text text="Ref Doc Item No"/>
+                                </Column>
+                                <Column demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                    <Text text="Material Code"/>
+                                </Column>
+                                <Column demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                    <Text text="Material Description"/>
+                                </Column>
+                                <Column hAlign="End" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                    <Text text="Quantity"/>
+                                </Column>
+                                <Column demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                    <Text text="UoM"/>
+                                </Column>
+                                <Column demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                    <Text text="Created By"/>
+                                </Column>
+                                <Column demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                    <Text text="Created On Date"/>
+                                </Column>
+                                <Column demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                    <Text text="Created On Time"/>
+                                </Column>
+                                <Column demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                    <Text text="Changed By"/>
+                                </Column>
+                                <Column demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                    <Text text="Changed On Date"/>
+                                </Column>
+                                <Column demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                    <Text text="Changed On Time"/>
+                                </Column>
+                                <Column hAlign="Center" width="8rem" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
                                     <Text text="Action"/>
                                 </Column>
                             </columns>
@@ -213,7 +256,6 @@
                             </items>
 
                         </Table>
-                    </HBox>
                 </ScrollContainer>
             </VBox>
         </Panel>
