@@ -40,20 +40,10 @@
                             growingScrollToLoad="true"
                             growingThreshold="20"
                             items="{tableModel>/materials}"
-                            enabled="false"
                         >
                             <headerToolbar>
                                 <Toolbar>
                                     <Title text="Material Details" level="H6" />
-                                    <ToolbarSpacer />
-                                    <Button
-                                        id="btnAddRowLoading"
-                                        text="Add Row"
-                                        icon="sap-icon://add"
-                                        type="Emphasized"
-                                        press="onOpenAddRowDialog"
-                                        enabled="false"
-                                    />
                                 </Toolbar>
                             </headerToolbar>
                             <columns>
@@ -137,34 +127,23 @@
                                 >
                                     <Text text="Created On Time" />
                                 </Column>
-                                <Column
-                                    hAlign="Center"
-                                    width="6rem"
-                                >
-                                    <Text text="Action" />
-                                </Column>
                             </columns>
 
                             <items>
                                 <ColumnListItem>
                                     <cells>
-                                        <Text text="{RefDocNumber}"/>
-                                        <Text text="{RefDocItemNumber}"/>
-                                        <Text text="{MaterialCode}"/>
-                                        <Text text="{MaterialDescription}"/>
-                                        <Text text="{Qty}"/>
-                                        <Text text="{UoM}"/>
-                                        <Text text="{LoadedQty}"/>
-                                        <Text text="{GrossWt}"/>
-                                        <Text text="{TareWt}"/>
-                                        <Text text="{CreatedBy}"/>
-                                        <Text text="{CreatedOnDate}"/>
-                                        <Text text="{CreatedOnTime}"/>
-                                        <Button 
-                                            icon="sap-icon://delete" 
-                                            type="Reject" 
-                                            press=".onDeleteLoadingRow" 
-                                            tooltip="Delete Row"/>
+                                        <Text text="{tableModel>RefDocNumber}"/>
+                                        <Text text="{tableModel>RefDocItemNumber}"/>
+                                        <Text text="{tableModel>MaterialCode}"/>
+                                        <Text text="{tableModel>MaterialDescription}"/>
+                                        <Text text="{tableModel>Qty}"/>
+                                        <Text text="{tableModel>UoM}"/>
+                                        <Text text="{tableModel>LoadedQty}"/>
+                                        <Text text="{tableModel>GrossWt}"/>
+                                        <Text text="{tableModel>TareWt}"/>
+                                        <Text text="{tableModel>CreatedBy}"/>
+                                        <Text text="{tableModel>CreatedOnDate}"/>
+                                        <Text text="{tableModel>CreatedOnTime}"/>
                                     </cells>
                                 </ColumnListItem>
                             </items>

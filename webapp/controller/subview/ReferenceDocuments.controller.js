@@ -14,18 +14,20 @@ sap.ui.define([
 
 	return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.ReferenceDocuments", {
 
-		onInit: function () {
-			this._ensureRefDocModel();
-			this._getRefDocSuggestionModel();
-			this._getMaterialSuggestionModel();
-			this._loadDocTypes();
-			this._sSelectedDocType = "";
-			this._sSelectedMaterialDocType = "";
-			this._oSelectedRefDoc = null; // Track selected reference document
-			this._oEventBus = sap.ui.getCore().getEventBus();
-			this._oEventBus.subscribe("TripData", "Updated", this._onTripDataUpdated, this);
-			this._onTripDataUpdated(); // Initial load
-		},
+	onInit: function () {
+		this._ensureRefDocModel();
+		this._getRefDocSuggestionModel();
+		this._getMaterialSuggestionModel();
+		this._loadDocTypes();
+		this._sSelectedDocType = "";
+		this._sSelectedMaterialDocType = "";
+		this._oSelectedRefDoc = null; // Track selected reference document
+		this._oEditingMaterial = null; // Track material being edited
+		this._bIsEditMode = false; // Track if dialog is in edit mode
+		this._oEventBus = sap.ui.getCore().getEventBus();
+		this._oEventBus.subscribe("TripData", "Updated", this._onTripDataUpdated, this);
+		this._onTripDataUpdated(); // Initial load
+	},
 
 		onExit: function () {
 			this._oAddRefDocDialog?.destroy();
@@ -319,24 +321,73 @@ sap.ui.define([
 			if (oPayload.Quantity === null || oPayload.Quantity === undefined || isNaN(oPayload.Quantity)) {
 				return MessageToast.show("Quantity must be a valid number");
 			}
-
-
-			this._saveMaterialDetail(oPayload)
-				.then(function (oResponse) {
-					this._appendLocalMaterialDetail(oResponse || oPayload);
-					MessageToast.show("Material row added");
-					this._closeMaterialDialog();
-					this._resetMaterialDialog();
-				}.bind(this))
-				.catch(function (oError) {
-					var sMessage = this._extractErrorMessage(oError) || "Unable to save material row";
-					MessageToast.show(sMessage);
-				}.bind(this));
+			
+			if (this._bIsEditMode && this._oEditingMaterial) {
+				// Update existing material
+				this._updateMaterialDetail(oPayload, this._oEditingMaterial)
+					.then(function (oResponse) {
+						this._updateLocalMaterialDetail(oResponse || oPayload, this._oEditingMaterial);
+						MessageToast.show("Material row updated");
+						this._closeMaterialDialog();
+						this._resetMaterialDialog();
+					}.bind(this))
+					.catch(function (oError) {
+						var sMessage = this._extractErrorMessage(oError) || "Unable to update material row";
+						MessageToast.show(sMessage);
+					}.bind(this));
+			} else {
+				// Create new material
+				this._saveMaterialDetail(oPayload)
+					.then(function (oResponse) {
+						this._appendLocalMaterialDetail(oResponse || oPayload);
+						MessageToast.show("Material row added");
+						this._closeMaterialDialog();
+						this._resetMaterialDialog();
+					}.bind(this))
+					.catch(function (oError) {
+						var sMessage = this._extractErrorMessage(oError) || "Unable to save material row";
+						MessageToast.show(sMessage);
+					}.bind(this));
+			}
 		},
 
 		onCancelMaterialDialog: function () {
 			this._closeMaterialDialog();
 			this._resetMaterialDialog();
+		},
+
+		onEditMaterialRow: function (oEvent) {
+			var oItem = oEvent.getSource().getParent();
+			var oCtx = oItem.getBindingContext("refDocModel");
+			if (!oCtx) {
+				return MessageToast.show("Unable to get material details");
+			}
+			
+			var oMaterial = oCtx.getObject();
+			this._oEditingMaterial = oMaterial;
+			this._bIsEditMode = true;
+			// Populate dialog after it's opened (will be called in _openAddMaterialDialog)
+			this._openAddMaterialDialog();
+		},
+
+		onDeleteMaterialRow: function (oEvent) {
+			var oItem = oEvent.getSource().getParent();
+			var oCtx = oItem.getBindingContext("refDocModel");
+			if (!oCtx) {
+				return MessageToast.show("Unable to get material details");
+			}
+			
+			var oMaterial = oCtx.getObject();
+			var sMessage = "Are you sure you want to delete this material row?";
+			
+			MessageBox.confirm(sMessage, {
+				actions: [MessageBox.Action.YES, MessageBox.Action.NO],
+				onClose: function (sAction) {
+					if (sAction === MessageBox.Action.YES) {
+						this._deleteMaterialDetail(oMaterial);
+					}
+				}.bind(this)
+			});
 		},
 
 
@@ -395,6 +446,12 @@ sap.ui.define([
 					}).then(function (oDialog) {
 						this._oAddMaterialDialog = oDialog;
 						this.getView().addDependent(oDialog);
+						// Set dialog mode after dialog is loaded (important for first time)
+						this._setMaterialDialogMode(this._bIsEditMode ? "edit" : "add");
+						// Populate dialog if in edit mode
+						if (this._bIsEditMode && this._oEditingMaterial) {
+							this._populateMaterialDialog(this._oEditingMaterial);
+						}
 						this._loadMaterialDocTypesFromRefDocs();
 						this._loadMaterialRefDocNumbersFromRefDocs();
 						this._loadMaterialSuggestions(this._sSelectedMaterialDocType);
@@ -402,6 +459,12 @@ sap.ui.define([
 						resolve(oDialog);
 					}.bind(this));
 				} else {
+					// Set dialog mode when reopening (in case mode changed)
+					this._setMaterialDialogMode(this._bIsEditMode ? "edit" : "add");
+					// Populate dialog if in edit mode
+					if (this._bIsEditMode && this._oEditingMaterial) {
+						this._populateMaterialDialog(this._oEditingMaterial);
+					}
 					this._loadMaterialDocTypesFromRefDocs();
 					this._loadMaterialRefDocNumbersFromRefDocs();
 					this._loadMaterialSuggestions(this._sSelectedMaterialDocType);
@@ -463,6 +526,8 @@ sap.ui.define([
 			}.bind(this));
 
 			this._sSelectedMaterialDocType = "";
+			this._oEditingMaterial = null;
+			this._bIsEditMode = false;
 			this._setMaterialDialogMode("add");
 		},
 
@@ -470,10 +535,33 @@ sap.ui.define([
 		_setMaterialDialogMode: function (sMode) {
 			var oDialog = this.byId("idAddMaterialDialog");
 			var oSaveButton = this.byId("idMaterialDialogSaveBtn");
-			var bIsEdit = false; // Edit mode removed
+			var bIsEdit = (sMode === "edit");
 
-			oDialog?.setTitle("Add Material Row");
-			oSaveButton?.setText("Add");
+			oDialog?.setTitle(bIsEdit ? "Edit Material Row" : "Add Material Row");
+			oSaveButton?.setText(bIsEdit ? "Update" : "Add");
+			
+			// Keep all fields enabled in both add and edit mode
+		},
+
+		_populateMaterialDialog: function (oMaterial) {
+			if (!oMaterial) {
+				return;
+			}
+
+			this.byId("idMaterialDocType")?.setValue(oMaterial.docType || "");
+			this._sSelectedMaterialDocType = oMaterial.docType || "";
+			this.byId("idMaterialRefDocNo")?.setValue(oMaterial.refDocNo || "");
+			this.byId("idMaterialRefDocItem")?.setValue(oMaterial.refDocItemNo || "");
+			this.byId("idMaterialCode")?.setValue(oMaterial.materialCode || "");
+			this.byId("idMaterialDesc")?.setValue(oMaterial.materialDescription || "");
+			this.byId("idMaterialQty")?.setValue(oMaterial.qty || "");
+			this.byId("idMaterialUoM")?.setValue(oMaterial.uom || "");
+			
+			// Load suggestions for the selected doc type
+			if (oMaterial.docType) {
+				this._loadMaterialRefDocNumbersFromRefDocs(oMaterial.docType);
+				this._loadMaterialSuggestions(oMaterial.docType);
+			}
 		},
 
 		_openMaterialValueHelpDialog: function (sDocType) {
@@ -1251,6 +1339,140 @@ sap.ui.define([
 					error: reject
 				});
 			});
+		},
+
+		_updateMaterialDetail: function (oPayload, oOriginalMaterial) {
+			// Validate required fields
+			if (!oPayload.TripNumber || !oPayload.DocType || !oPayload.RefDocNo || !oPayload.RefDocItemNo) {
+				return Promise.reject(new Error("Missing required fields"));
+			}
+
+			// Use original material values (lowercase property names from local model)
+			// Fallback to payload values if original material doesn't have them
+			var sDocType = this._escapeODataValue(oOriginalMaterial.docType || oPayload.DocType);
+			var sTripNumber = this._escapeODataValue(oOriginalMaterial.tripNumber || oPayload.TripNumber);
+			var sRefDocNo = this._escapeODataValue(oOriginalMaterial.refDocNo || oPayload.RefDocNo);
+			var sRefDocItemNo = this._escapeODataValue(oOriginalMaterial.refDocItemNo || oPayload.RefDocItemNo);
+
+			// Build correct OData entity key path using original material values
+			var sEntityPath = "/ItemDetails(DocType='" + sDocType +
+				"',TripNumber='" + sTripNumber +
+				"',RefDocNo='" + sRefDocNo +
+				"',RefDocItemNo='" + sRefDocItemNo + "')";
+
+			// Build update payload - only include updatable fields
+			var oUpdatePayload = {
+				MaterialCode: oPayload.MaterialCode,
+				MaterialDescription: oPayload.MaterialDescription,
+				Quantity: oPayload.Quantity,
+				UoM: oPayload.UoM || "",
+				IsDeleted: oPayload.IsDeleted || "",
+				IsSplitActive: oPayload.IsSplitActive !== undefined ? oPayload.IsSplitActive : false
+			};
+
+			console.log("=== Update Material Detail ===");
+			console.log("Original Material:", JSON.stringify(oOriginalMaterial, null, 2));
+			console.log("Entity Path:", sEntityPath);
+			console.log("Update Payload:", JSON.stringify(oUpdatePayload, null, 2));
+			console.log("Full Payload (for reference):", JSON.stringify(oPayload, null, 2));
+
+			var oService = this._getItemDetailsService();
+			return new Promise(function (resolve, reject) {
+				oService.update(sEntityPath, oUpdatePayload, {
+					headers: {
+						"X-Requested-With": "X"
+					},
+					success: function (oData) {
+						console.log("Update successful:", oData);
+						// Merge response with original payload to include all fields
+						var oResponse = Object.assign({}, oPayload, oData);
+						resolve(oResponse);
+					},
+					error: function (oError) {
+						console.error("Update failed for path:", sEntityPath, "Payload:", JSON.stringify(oUpdatePayload, null, 2), "Error:", oError);
+						reject(oError);
+					}
+				});
+			});
+		},
+
+		_deleteMaterialDetail: function (oMaterial) {
+			if (!oMaterial) {
+				return Promise.reject(new Error("Material data missing"));
+			}
+
+			// Build OData entity key path
+			var sDocType = this._escapeODataValue(oMaterial.docType);
+			var sTripNumber = this._escapeODataValue(oMaterial.tripNumber);
+			var sRefDocNo = this._escapeODataValue(oMaterial.refDocNo);
+			var sRefDocItemNo = this._escapeODataValue(oMaterial.refDocItemNo);
+
+			var sEntityPath = "/ItemDetails(DocType='" + sDocType + 
+				"',TripNumber='" + sTripNumber + 
+				"',RefDocNo='" + sRefDocNo + 
+				"',RefDocItemNo='" + sRefDocItemNo + "')";
+
+			// Build delete payload - set IsDeleted flag
+			var oDeletePayload = {
+				IsDeleted: "X"
+			};
+
+			console.log("=== Delete Material Detail ===");
+			console.log("Entity Path:", sEntityPath);
+
+			var oService = this._getItemDetailsService();
+			return new Promise(function (resolve, reject) {
+				oService.update(sEntityPath, oDeletePayload, {
+					headers: {
+						"X-Requested-With": "X",
+						"Content-Type": "application/json"
+					},
+					success: function (oData) {
+						MessageToast.show("Material row deleted");
+						// Refresh material details from service
+						this._onTripDataUpdated();
+						resolve(oData);
+					}.bind(this),
+					error: function (oError) {
+						var sMessage = this._extractErrorMessage(oError) || "Unable to delete material row";
+						MessageToast.show(sMessage);
+						reject(oError);
+					}.bind(this)
+				});
+			}.bind(this));
+		},
+
+		_updateLocalMaterialDetail: function (oPayload, oOriginalMaterial) {
+			var oModel = this._ensureRefDocModel();
+			var aMaterials = oModel.getProperty("/materialDetails") || [];
+
+			// Find and update the material in the array
+			var iIndex = aMaterials.findIndex(function (oMat) {
+				return oMat.tripNumber === oOriginalMaterial.tripNumber &&
+					oMat.docType === oOriginalMaterial.docType &&
+					oMat.refDocNo === oOriginalMaterial.refDocNo &&
+					oMat.refDocItemNo === oOriginalMaterial.refDocItemNo;
+			});
+
+			if (iIndex >= 0) {
+				var vQty = oPayload.Quantity;
+				var sQtyDisplay = (vQty === null || vQty === undefined || vQty === "") ? "" : String(vQty);
+
+				// Update the material
+				aMaterials[iIndex] = Object.assign({}, aMaterials[iIndex], {
+					materialCode: oPayload.MaterialCode || aMaterials[iIndex].materialCode,
+					materialDescription: oPayload.MaterialDescription || aMaterials[iIndex].materialDescription,
+					qty: sQtyDisplay,
+					uom: oPayload.UoM || aMaterials[iIndex].uom,
+					changedBy: oPayload.ChangedBy || "",
+					changedOnDate: this._formatODataDate(oPayload.ChangedDate),
+					changedOnTime: this._formatODataTime(oPayload.ChangedTime)
+				});
+
+				oModel.setProperty("/materialDetails", aMaterials);
+				// Update filtered list after updating material
+				this._filterMaterialDetails();
+			}
 		},
 
 

@@ -36,15 +36,26 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Loading", {
 
         this.getView().setModel(this.oModel);
 
+        // Create and set tableModel on the view (not just the table) so binding works
         var oTableModel = new JSONModel({ materials: [] });
-        this.getView().byId("idLoadingMaterialTable").setModel(oTableModel);
+        this.getView().setModel(oTableModel, "tableModel");
         
-        // Initialize suggestion models for value help
-        this._initSuggestionModels();
-        
+        // Subscribe to TripData updates to populate materials from Reference Documents
         this._eventBus = sap.ui.getCore().getEventBus();
-        this._eventBus.subscribe("TripData", "Updated", this._bindMaterialsFromTrip, this);
-        this._bindMaterialsFromTrip();
+        this._eventBus.subscribe("TripData", "Updated", this._bindMaterialsFromRefDocs, this);
+        
+        // Initial load - wait a bit to ensure refDocModel is available
+        setTimeout(function() {
+            this._bindMaterialsFromRefDocs();
+        }.bind(this), 100);
+    },
+
+    onAfterRendering: function() {
+        // Refresh data when view is rendered/becomes visible
+        // Use setTimeout to ensure view is fully rendered
+        setTimeout(function() {
+            this._bindMaterialsFromRefDocs();
+        }.bind(this), 200);
     },
 
     _initSuggestionModels: function () {
@@ -60,7 +71,7 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Loading", {
     },
 
     onExit: function () {
-        this._eventBus?.unsubscribe("TripData", "Updated", this._bindMaterialsFromTrip, this);
+        this._eventBus?.unsubscribe("TripData", "Updated", this._bindMaterialsFromRefDocs, this);
     },
 
     // =====================================================================
@@ -71,23 +82,37 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Loading", {
         var oView = this.getView();
         var sTripNumber = sap.ui.getCore().getModel("globalData").getProperty("/TripNumber");
 
+        if (!sTripNumber) {
+            MessageToast.show("Trip Number missing. Please open a trip first.");
+            return;
+        }
+
         oView.byId("btnStartLoading").setEnabled(false);
         oView.byId("btnEndLoading").setEnabled(true);
-        oView.byId("btnAddRowLoading").setEnabled(true);
 
         oView.setBusy(true);
 
+        // FunctionImport: StartLoading - GET method, returns Collection(ItemDetails)
         this.oModel.callFunction("/StartLoading", {
-            method: "POST",
-            urlParameters: { TripNumber: sTripNumber },headers: {
-              "X-Requested-With": "X",
+            method: "GET",
+            urlParameters: {
+                TripNumber: sTripNumber
+            },
+            headers: {
+                "X-Requested-With": "X"
             },
             success: function (oData) {
                 oView.setBusy(false);
                 MessageToast.show("Loading started successfully.");
 
+                // Handle Collection(ItemDetails) response
                 if (oData && oData.results) {
                     this._applyMaterials(oData.results);
+                } else if (oData && Array.isArray(oData)) {
+                    this._applyMaterials(oData);
+                } else if (oData) {
+                    // Handle single object response
+                    this._applyMaterials([oData]);
                 }
             }.bind(this),
             error: function (oError) {
@@ -96,18 +121,25 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Loading", {
                 let sMessage = "Failed to Start Loading";
 
                 try {
-                    const oResponse = JSON.parse(oError.responseText);
-                    if (oResponse.error?.message?.value) {
-                        sMessage = oResponse.error.message.value;
+                    if (oError && oError.responseText) {
+                        const oResponse = JSON.parse(oError.responseText);
+                        if (oResponse.error?.message?.value) {
+                            sMessage = oResponse.error.message.value;
+                        } else if (oResponse.error?.message) {
+                            sMessage = oResponse.error.message;
+                        }
+                    } else if (oError && oError.message) {
+                        sMessage = oError.message.value || oError.message;
                     }
-                } catch (e) {}
+                } catch (e) {
+                    console.error("Error parsing response:", e);
+                }
 
                 MessageBox.error(sMessage);
 
                 oView.byId("btnStartLoading").setEnabled(true);
                 oView.byId("btnEndLoading").setEnabled(false);
-                oView.byId("btnAddRowLoading").setEnabled(false);
-            }
+            }.bind(this)
         });
     },
 
@@ -119,204 +151,183 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Loading", {
         var oView = this.getView();
         var sTripNumber = sap.ui.getCore().getModel("globalData").getProperty("/TripNumber");
 
+        if (!sTripNumber) {
+            MessageToast.show("Trip Number missing. Please open a trip first.");
+            return;
+        }
+
         oView.byId("btnStartLoading").setEnabled(true);
         oView.byId("btnEndLoading").setEnabled(false);
-        oView.byId("btnAddRowLoading").setEnabled(false);
 
         oView.setBusy(true);
 
+        // FunctionImport: EndLoading - POST method, returns RegisterEvent
         this.oModel.callFunction("/EndLoading", {
-            method: "POST",headers: {
-              "X-Requested-With": "X",
+            method: "POST",
+            urlParameters: {
+                TripNumber: sTripNumber
             },
-            urlParameters: { TripNumber: sTripNumber },
-
-            success: function () {
+            headers: {
+                "X-Requested-With": "X"
+            },
+            success: function (oData) {
                 oView.setBusy(false);
                 MessageToast.show("Loading ended.");
+                
+                // Optional: Log the RegisterEvent response if needed
+                if (oData) {
+                    console.log("EndLoading response:", oData);
+                }
             },
-
             error: function (oError) {
                 oView.setBusy(false);
 
                 let sMessage = "Failed to end loading";
 
                 try {
-                    const oResponse = JSON.parse(oError.responseText);
-                    if (oResponse.error?.message?.value) {
-                        sMessage = oResponse.error.message.value;
+                    if (oError && oError.responseText) {
+                        const oResponse = JSON.parse(oError.responseText);
+                        if (oResponse.error?.message?.value) {
+                            sMessage = oResponse.error.message.value;
+                        } else if (oResponse.error?.message) {
+                            sMessage = oResponse.error.message;
+                        }
+                    } else if (oError && oError.message) {
+                        sMessage = oError.message.value || oError.message;
                     }
-                } catch (e) {}
+                } catch (e) {
+                    console.error("Error parsing response:", e);
+                }
 
                 MessageBox.error(sMessage);
 
                 oView.byId("btnStartLoading").setEnabled(true);
                 oView.byId("btnEndLoading").setEnabled(false);
-                oView.byId("btnAddRowLoading").setEnabled(false);
-            }
+            }.bind(this)
         });
     },
 
+
     // =====================================================================
-    // OPEN ADD ROW DIALOG
+    // BIND MATERIALS FROM REFERENCE DOCUMENTS
     // =====================================================================
-    onOpenAddRowDialog: function () {
-        // Ensure suggestion models are initialized
-        this._initSuggestionModels();
+    _bindMaterialsFromRefDocs: function () {
+        console.log("=== Loading: Binding Materials from Reference Documents ===");
         
-        // Load reference documents from TripData
-        var oTripData = sap.ui.getCore().getModel("TripData");
-        if (oTripData) {
-            var aOrderDetails = this._extractResults(oTripData.getProperty("/OrderDetails")) || [];
-            var aFilteredDocs = aOrderDetails.filter(function (oDoc) {
-                return !oDoc.Deleted;
-            });
-            this._oRefDocSuggestionsModel.setProperty("/items", aFilteredDocs);
+        // Get materials from Reference Documents refDocModel
+        var oRefDocModel = sap.ui.getCore().getModel("refDocModel");
+        console.log("refDocModel:", oRefDocModel);
+        
+        if (!oRefDocModel) {
+            console.log("refDocModel not found, trying TripData");
+            // If refDocModel doesn't exist, try to get from TripData
+            var oTripData = sap.ui.getCore().getModel("TripData");
+            if (oTripData) {
+                var aItems = this._extractResults(oTripData.getProperty("/ItemDetails"));
+                console.log("Items from TripData:", aItems);
+                if (aItems && aItems.length > 0) {
+                    this._applyMaterials(aItems);
+                } else {
+                    // Clear table if no items
+                    var oModel = this.getView().getModel("tableModel");
+                    if (oModel) {
+                        oModel.setProperty("/materials", []);
+                    }
+                }
+            } else {
+                // Clear table if no TripData
+                var oModel = this.getView().getModel("tableModel");
+                if (oModel) {
+                    oModel.setProperty("/materials", []);
+                }
+            }
+            return;
         }
-
-        if (!this._oAddRowDialog) {
-            Fragment.load({
-                id: this.getView().getId(),     // important!
-                name: "com.incresolZ_INC_PLMS.fragments.VehicleLoadingFrags.AddRowDialog",
-                controller: this
-            }).then(function (oDialog) {
-                this._oAddRowDialog = oDialog;
-                this.getView().addDependent(oDialog);
-                // Set models on dialog
-                oDialog.setModel(this._oRefDocSuggestionsModel, "refDocSuggestions");
-                oDialog.setModel(this._oMaterialSuggestionsModel, "materialSuggestions");
-                oDialog.open();
-            }.bind(this));
+        
+        // Get materialDetails from refDocModel
+        var aMaterials = oRefDocModel.getProperty("/materialDetails") || [];
+        console.log("Materials from refDocModel:", aMaterials);
+        console.log("Materials count:", aMaterials.length);
+        
+        if (aMaterials && aMaterials.length > 0) {
+            console.log("Found materials, applying to table");
+            this._applyMaterials(aMaterials);
         } else {
-            // Update models when reopening
-            this._oAddRowDialog.setModel(this._oRefDocSuggestionsModel, "refDocSuggestions");
-            this._oAddRowDialog.setModel(this._oMaterialSuggestionsModel, "materialSuggestions");
-            this._oAddRowDialog.open();
+            console.log("No materials found in refDocModel, clearing table");
+            // Clear table if no materials
+            var oModel = this.getView().getModel("tableModel");
+            if (oModel) {
+                oModel.setProperty("/materials", []);
+            }
         }
     },
 
-    // =====================================================================
-    // SAVE BUTTON → Add Row
-    // =====================================================================
-    onAddRow: function () {
-        this._onAddRow();
-    },
-
-    _onAddRow: function () {
-
-        var oTable = this.byId("idLoadingMaterialTable");
-        var oModel = oTable.getModel();
-        var aData = oModel.getProperty("/materials");
-
-        // Read dialog controls safely
-        var oUoM = this.byId("idDialogUoM");
-        var oQty = this.byId("idDialogQty");
-
-        if (!oUoM || !oQty) {
-            MessageToast.show("Dialog not fully loaded yet.");
-            return;
-        }
-
-        var newRow = {
-            RefDocNumber: this.byId("idDialogRefDocNo").getValue(),
-            RefDocItemNumber: this.byId("idDialogRefDocItem").getValue(),
-            MaterialCode: this.byId("idDialogMaterialCode").getValue(),
-            MaterialDescription: this.byId("idDialogMaterialDesc").getValue(),
-            Qty: oQty.getValue(),
-            UoM: oUoM.getSelectedKey(),
-            LoadedQty: this.byId("idDialogLoadedQty").getValue(),
-            GrossWt: this.byId("idDialogGrossWt").getValue(),
-            TareWt: this.byId("idDialogTareWt").getValue()
-        };
-
-        aData.push(newRow);
-        oModel.setProperty("/materials", aData);
-
-        this._oAddRowDialog.close();
-        MessageToast.show("Row added successfully!");
-        this._resetDialogFields();
-    },
-
-    // =====================================================================
-    // CANCEL ADD ROW
-    // =====================================================================
-    onCancelAddRow: function () {
-        this._oAddRowDialog.close();
-        this._resetDialogFields();
-    },
-
-    // =====================================================================
-    // RESET DIALOG FIELDS
-    // =====================================================================
-    _resetDialogFields: function () {
-
-        [
-            "idDialogRefDocNo",
-            "idDialogRefDocItem",
-            "idDialogMaterialCode",
-            "idDialogMaterialDesc",
-            "idDialogQty",
-            "idDialogLoadedQty",
-            "idDialogGrossWt",
-            "idDialogTareWt"
-        ].forEach(id => this.byId(id)?.setValue(""));
-
-        this.byId("idDialogUoM")?.setSelectedKey("");
-    },
-
-    // =====================================================================
-    // DELETE ROW
-    // =====================================================================
-    onDeleteLoadingRow: function (oEvent) {
-
-        var oTable = this.byId("idLoadingMaterialTable");
-        var oModel = oTable.getModel();
-        var aData = oModel.getProperty("/materials");
-
-        var iIndex = oTable.indexOfItem(oEvent.getSource().getParent());
-
-        aData.splice(iIndex, 1);
-        oModel.setProperty("/materials", aData);
-
-        MessageToast.show("Row deleted successfully!");
-    },
-
-    _bindMaterialsFromTrip: function () {
-        var oTripData = sap.ui.getCore().getModel("TripData");
-        if (!oTripData) {
-            return;
-        }
-        var aItems = this._extractResults(oTripData.getProperty("/ItemDetails"));
-        if (aItems) {
-            this._applyMaterials(aItems);
-        }
-    },
-
-    _applyMaterials: function (aItems) {
-        var oTable = this.byId("idLoadingMaterialTable");
-        var oModel = oTable.getModel();
+    _applyMaterials: function (aMaterials) {
+        console.log("=== Loading: Applying Materials ===");
+        console.log("Input materials:", aMaterials);
+        
+        var oModel = this.getView().getModel("tableModel");
         if (!oModel) {
+            console.log("tableModel not found, creating new one");
             oModel = new JSONModel({ materials: [] });
-            oTable.setModel(oModel);
+            this.getView().setModel(oModel, "tableModel");
         }
-        var aMapped = (aItems || []).map(this._mapItemDetail, this);
-        oModel.setProperty("/materials", aMapped);
+        
+        var aMapped = (aMaterials || []).map(this._mapMaterialDetail, this);
+        console.log("Mapped materials:", aMapped);
+        console.log("Mapped count:", aMapped.length);
+        if (aMapped.length > 0) {
+            console.log("First mapped material (full):", JSON.stringify(aMapped[0], null, 2));
+            console.log("First mapped material properties:", Object.keys(aMapped[0]));
+            console.log("RefDocNumber:", aMapped[0].RefDocNumber);
+            console.log("MaterialCode:", aMapped[0].MaterialCode);
+        }
+        
+        // Update the model using setData to ensure proper refresh
+        oModel.setData({ materials: aMapped });
+        
+        // Verify the data was set
+        var aSetMaterials = oModel.getProperty("/materials");
+        console.log("Materials after setting:", aSetMaterials);
+        console.log("Materials count after setting:", aSetMaterials ? aSetMaterials.length : 0);
+        
+        // Get table and verify binding
+        var oTable = this.byId("idLoadingMaterialTable");
+        console.log("Table control:", oTable);
+        if (oTable) {
+            var oBinding = oTable.getBinding("items");
+            console.log("Table binding:", oBinding);
+            if (oBinding) {
+                // Refresh the binding
+                oBinding.refresh();
+                console.log("Binding refreshed");
+            } else {
+                console.error("Table binding not found!");
+            }
+        } else {
+            console.error("Table control not found!");
+        }
+        
+        // Also update bindings on the view
+        this.getView().getBindingContext();
+        this.getView().updateBindings(false);
     },
 
-    _mapItemDetail: function (oItem) {
+    _mapMaterialDetail: function (oMaterial) {
+        // Map from Reference Documents material format to Loading table format
         return {
-            RefDocNumber: oItem.RefDocNo || oItem.RefDocNumber || "",
-            RefDocItemNumber: oItem.RefDocItemNo || oItem.RefDocItemNumber || "",
-            MaterialCode: oItem.MaterialCode || "",
-            MaterialDescription: oItem.MaterialDescription || "",
-            Qty: this._formatQuantity(oItem.Quantity),
-            UoM: oItem.UoM || "",
-            LoadedQty: oItem.LoadedQty || "",
-            GrossWt: oItem.GrossWt || "",
-            TareWt: oItem.TareWt || "",
-            CreatedBy: oItem.CreatedBy || "",
-            CreatedOnDate: this._formatODataDate(oItem.CreatedOn),
-            CreatedOnTime: this._formatODataTime(oItem.CreatedTime)
+            RefDocNumber: oMaterial.refDocNo || "",
+            RefDocItemNumber: oMaterial.refDocItemNo || "",
+            MaterialCode: oMaterial.materialCode || "",
+            MaterialDescription: oMaterial.materialDescription || "",
+            Qty: oMaterial.qty || "",
+            UoM: oMaterial.uom || "",
+            LoadedQty: "", // Empty for Reference Documents materials
+            GrossWt: "", // Empty for Reference Documents materials
+            TareWt: "", // Empty for Reference Documents materials
+            CreatedBy: oMaterial.createdBy || "",
+            CreatedOnDate: oMaterial.createdOnDate || "",
+            CreatedOnTime: oMaterial.createdOnTime || ""
         };
     },
 
@@ -672,6 +683,14 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Loading", {
         if (oCtx) {
             this._populateLoadingFieldsFromItem(oCtx.getObject());
         }
+    },
+
+    // =====================================================================
+    // HELPER METHODS
+    // =====================================================================
+    _escapeODataValue: function (sValue) {
+        // Escape single quotes in OData string values
+        return (sValue || "").replace(/'/g, "''");
     }
 });
 });
