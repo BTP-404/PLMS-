@@ -4,11 +4,10 @@
     xmlns="sap.m"
     xmlns:core="sap.ui.core"
     xmlns:unified="sap.ui.unified"
-    xmlns:form="sap.ui.layout.form"
     xmlns:layout="sap.ui.layout"
     displayBlock="true"
 >
-    <VBox class="sapUiSmallMargin sapUiSizeCompact">
+    <VBox class="sapUiSizeCompact sapUiTinyMargin">
         <!-- ========================================================= -->
         <!-- ==================== Gate Out Details ==================== -->
         <!-- ========================================================= -->
@@ -18,100 +17,72 @@
             expanded="true"
             class="sapUiNoContentPadding"
         >
-            <!-- Header Toolbar (NO BUTTONS here anymore) -->
             <headerToolbar>
-                <OverflowToolbar style="Clear">
-                    <Title text="Gate Out Details" />
+                <OverflowToolbar>
+                    <Title text="Gate-Out" />
                 </OverflowToolbar>
             </headerToolbar>
 
-            <!-- Body -->
-            <VBox class="sapUiSizeCompact sapUiMediumPadding">
-                <!-- ========================================================= -->
-                <!-- ========================== ROW 1 ========================= -->
-                <!-- Exit Gate No + Document Verified + Upload Attachment -->
-                <!-- ========================================================= -->
-
+            <VBox class="sapUiSizeCompact sapUiSmallPadding">
+                <!-- ========================= ROW 1 ========================= -->
+                <!-- Exit Gate + Verified Docs + Upload Attachments -->
                 <layout:Grid
                     defaultSpan="L4 M6 S12"
-                    hSpacing="2"
-                    vSpacing="2"
+                    hSpacing="0.5rem"
+                    vSpacing="0.5rem"
                     width="100%"
                 >
                     <!-- Exit Gate Number -->
                     <layout:content>
-                        <form:SimpleForm
-                            layout="ResponsiveGridLayout"
-                            labelSpanL="4"
-                            labelSpanM="4"
-                            columnsL="1"
-                            columnsM="1"
-                            class="sapUiNoContentPadding"
-                            binding="{TripData>/}"
-                        >
+                        <VBox width="100%">
                             <Label
                                 text="Exit Gate Number"
                                 required="true"
                                 design="Bold"
+                                class="sapUiNoMarginBottom"
                             />
                             <Input
                                 id="idExitGateNumber"
                                 showValueHelp="true"
                                 placeholder="Select Exit Gate"
                                 valueHelpRequest="onExitGateValueHelp"
+                                width="100%"
+                                value="{
+                                    path: 'TripData>/ExitGateNum',
+                                    mode: 'OneWay'
+                                }"
                             />
-                        </form:SimpleForm>
+                        </VBox>
                     </layout:content>
 
                     <!-- Verified Docs -->
                     <layout:content>
-                        <form:SimpleForm
-                            layout="ResponsiveGridLayout"
-                            labelSpanL="4"
-                            labelSpanM="4"
-                            columnsL="1"
-                            columnsM="1"
-                            class="sapUiNoContentPadding"
-                            binding="{TripData>/}"
-                        >
+                        <VBox width="100%">
                             <Label
                                 text="Verified the Documents?"
                                 required="true"
                                 design="Bold"
+                                class="sapUiNoMarginBottom"
                             />
                             <RadioButtonGroup
                                 id="idVerifiedDocs"
                                 columns="2"
                                 selectedIndex="{TripData>/VerifiedDocs}"
+                                width="100%"
                             >
-                                <buttons>
-                                    <RadioButton
-                                        text="Yes"
-                                        key="Y"
-                                    />
-                                    <RadioButton
-                                        text="No"
-                                        key="N"
-                                    />
-                                </buttons>
+                                <RadioButton text="Yes" />
+                                <RadioButton text="No" />
                             </RadioButtonGroup>
-                        </form:SimpleForm>
+                        </VBox>
                     </layout:content>
 
                     <!-- Upload Attachments -->
                     <layout:content>
-                        <form:SimpleForm
-                            layout="ResponsiveGridLayout"
-                            labelSpanL="4"
-                            labelSpanM="4"
-                            columnsL="1"
-                            columnsM="1"
-                            class="sapUiNoContentPadding"
-                            binding="{TripData>/}"
-                        >
+                        <VBox width="100%">
                             <Label
                                 text="Upload Attachments"
                                 design="Bold"
+                                class="sapUiNoMarginBottom"
                             />
                             <unified:FileUploader
                                 id="idGateOutAttachments"
@@ -121,79 +92,64 @@
                                 placeholder="Attach related documents"
                                 uploadUrl="/upload"
                                 change="onGateOutAttachmentChange"
+                                width="100%"
                             />
-                        </form:SimpleForm>
+                        </VBox>
                     </layout:content>
                 </layout:Grid>
 
-                <!-- ========================================================= -->
-                <!-- ========================== ROW 2 ========================= -->
+                <!-- ========================= ROW 2 ========================= -->
                 <!-- Remarks + Additional Info -->
-                <!-- ========================================================= -->
-
                 <layout:Grid
                     defaultSpan="L6 M6 S12"
-                    hSpacing="2"
-                    vSpacing="2"
+                    hSpacing="0.5rem"
+                    vSpacing="0.5rem"
                     width="100%"
                     class="sapUiTinyMarginTop"
                 >
                     <!-- Remarks -->
                     <layout:content>
-                        <form:SimpleForm
-                            layout="ResponsiveGridLayout"
-                            labelSpanL="4"
-                            labelSpanM="4"
-                            columnsL="1"
-                            columnsM="1"
-                            class="sapUiNoContentPadding"
-                            binding="{TripData>/}"
-                        >
+                        <VBox width="100%">
                             <Label
                                 text="Remarks"
                                 design="Bold"
+                                class="sapUiNoMarginBottom"
                             />
                             <TextArea
                                 id="idGateOutRemarks"
+                                rows="4"
+                                placeholder="Enter any remarks"
                                 value="{TripData>/GateOutRemarks}"
                                 width="100%"
                             />
-                        </form:SimpleForm>
+                        </VBox>
                     </layout:content>
 
                     <!-- Additional Info -->
                     <layout:content>
-                        <form:SimpleForm
-                            layout="ResponsiveGridLayout"
-                            labelSpanL="4"
-                            labelSpanM="4"
-                            columnsL="1"
-                            columnsM="1"
-                            class="sapUiNoContentPadding"
-                            binding="{TripData>/}"
-                        >
+                        <VBox width="100%">
                             <Label
                                 text="Additional Info"
                                 design="Bold"
+                                class="sapUiNoMarginBottom"
                             />
                             <TextArea
                                 id="idGateOutAdditionalInfo"
+                                rows="4"
+                                placeholder="Enter additional information"
                                 value="{TripData>/GateOutAdditionalInfo}"
                                 growing="true"
                                 width="100%"
                             />
-                        </form:SimpleForm>
+                        </VBox>
                     </layout:content>
                 </layout:Grid>
 
-                <!-- ========================================================= -->
-                <!-- ==================== BUTTON ROW ======================== -->
-                <!-- Right-aligned inside panel, last row -->
-                <!-- ========================================================= -->
-
+                <!-- ==================== BUTTON ROW ======================= -->
+                <!-- Right aligned bottom buttons -->
                 <HBox
                     justifyContent="End"
-                    class="sapUiSmallMarginTop sapUiSmallMarginEnd"
+                    class="sapUiTinyMarginTop"
                     width="100%"
                 >
                     <Button
@@ -216,46 +172,45 @@
         </Panel>
 
         <!-- ========================================================= -->
-        <!-- ==================== Change History ===================== -->
+        <!-- ================= Change History Panel ================== -->
         <!-- ========================================================= -->
-        <Panel
+        <!-- <Panel
             id="gateOutHistoryPanel"
             expandable="true"
             expanded="false"
-            class="sapUiNoContentPadding"
+            class="sapUiNoContentPadding sapUiTinyMarginTop"
         >
             <headerToolbar>
-                <OverflowToolbar style="Clear">
+                <OverflowToolbar>
                     <Title text="Change History" />
                 </OverflowToolbar>
             </headerToolbar>
 
             <VBox
-                class="sapUiSmallMargin sapUiMediumPadding sapUiSizeCompact"
-                binding="{TripData>/}"
+                class="sapUiSmallPadding sapUiSizeCompact"
+                width="100%"
             >
-                <Title
-                    text="Change History"
-                    level="H5"
-                    class="sapUiSmallMarginBottom sapUiTinyMarginTop"
-                />
-
                 <layout:Grid
-                    defaultSpan="L6 M6 S12"
+                    defaultSpan="L4 M6 S12"
                     width="100%"
-                    hSpacing="2"
-                    vSpacing="2"
+                    hSpacing="0.5rem"
+                    vSpacing="0.5rem"
                 >
                     <layout:content>
                         <VBox width="100%">
                             <Label
                                 text="Created By"
                                 design="Bold"
+                                class="sapUiNoMarginBottom"
                             />
                             <Input
                                 id="idGateOutCreatedBy"
-                                value="{TripData>/GateOutCreatedBy}"
                                 enabled="false"
+                                width="100%"
+                                value="{
+                                    path: 'TripData>/CreatedBy',
+                                    mode: 'OneWay'
+                                }"
                             />
                         </VBox>
                     </layout:content>
@@ -265,28 +220,44 @@
                             <Label
                                 text="Created On Date"
                                 design="Bold"
+                                class="sapUiNoMarginBottom"
                             />
                             <DatePicker
                                 id="idGateOutCreatedOnDate"
-                                value="{TripData>/GateOutCreatedOnDate}"
                                 enabled="false"
+                                width="100%"
+                                valueFormat="yyyy-MM-dd"
+                                displayFormat="long"
+                                value="{
+                                    path: 'TripData>/CreatedOn',
+                                    formatter: '.formatTripDate'
+                                }"
+                            />
+                        </VBox>
+                    </layout:content>
+
+                    <layout:content>
+                        <VBox width="100%">
+                            <Label
+                                text="Created On Time"
+                                design="Bold"
+                                class="sapUiNoMarginBottom"
+                            />
+                            <TimePicker
+                                id="idGateOutCreatedOnTime"
+                                enabled="false"
+                                width="100%"
+                                valueFormat="HH:mm:ss"
+                                displayFormat="HH:mm:ss"
+                                value="{
+                                    path: 'TripData>/CreatedTime',
+                                    formatter: '.formatTripTime'
+                                }"
                             />
                         </VBox>
                     </layout:content>
                 </layout:Grid>
-
-                <VBox width="100%">
-                    <Label
-                        text="Created On Time"
-                        design="Bold"
-                    />
-                    <TimePicker
-                        id="idGateOutCreatedOnTime"
-                        value="{TripData>/GateOutCreatedOnTime}"
-                        enabled="false"
-                    />
-                </VBox>
             </VBox>
-        </Panel>
+        </Panel> -->
     </VBox>
 </mvc:View>

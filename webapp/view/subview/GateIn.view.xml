@@ -7,7 +7,7 @@
     displayBlock="true"
 >
     <VBox
-        class="sapUiSizeCompact sapUiSmallMargin"
+        class="sapUiSizeCompact sapUiTinyMargin"
         width="100%"
     >
         <!-- ========================================================= -->
@@ -21,21 +21,18 @@
         >
             <headerToolbar>
                 <OverflowToolbar>
-                    <Title text="Gate-In " />
+                    <Title text="Gate-In" />
                 </OverflowToolbar>
             </headerToolbar>
 
-            <VBox
-                class="sapUiSizeCompact "
-                width="100%"
-            >
+         
                 <!-- ========================= ROW 1 ========================= -->
                 <!-- Entry Gate + Delay Reason -->
                 <layout:Grid
-                    defaultSpan="L6 M6 S12"
-                    hSpacing="2"
-                    vSpacing="2"
-                    
+                    defaultSpan="L4 M6 S12"
+                    hSpacing="0.5rem"
+                    vSpacing="0.5rem"
+                    width="100%"
                 >
                     <!-- Entry Gate Number -->
                     <layout:content>
@@ -44,28 +41,29 @@
                                 text="Entry Gate Number"
                                 required="true"
                                 design="Bold"
+                                class="sapUiNoMarginBottom"
                             />
                             <Input
                                 id="idEntryGateNumber"
                                 showValueHelp="true"
                                 placeholder="Select Entry Gate"
                                 valueHelpRequest="onEntryGateValueHelp"
-                                width="50%"
+                                width="100%"
                                 value="{
                                     path: 'TripData>/EntryGateNum',
                                     mode: 'OneWay'
                                 }"
-
                             />
                         </VBox>
                     </layout:content>
 
                     <!-- Delay Reason -->
                     <layout:content>
-                        <VBox width="50%">
+                        <VBox width="100%">
                             <Label
                                 text="Delay Reasons"
                                 design="Bold"
+                                class="sapUiNoMarginBottom"
                             />
                             <Input
                                 id="idDelayReasons"
@@ -83,19 +81,50 @@
                 </layout:Grid>
 
                 <!-- ========================= ROW 2 ========================= -->
-                <!-- Remarks full-width responsive -->
+                <!-- Weighment Required Radio Button -->
                 <layout:Grid
-                    defaultSpan="L6 M6 S12"
-                    hSpacing="2"
-                    vSpacing="2"
+                    defaultSpan="L4 M6 S12"
+                    hSpacing="0.5rem"
+                    vSpacing="0.5rem"
                     width="100%"
-                    
+                    class="sapUiTinyMarginTop"
                 >
                     <layout:content>
-                        <VBox width="50%">
+                        <VBox width="100%">
+                            <Label
+                                text="Weighment Required"
+                                design="Bold"
+                                class="sapUiNoMarginBottom"
+                            />
+                            <RadioButtonGroup
+                                id="idWeighmentRequired"
+                                columns="2"
+                                selectedIndex="{path: 'TripData>/WeighmentRequired', formatter: '.formatWeighmentRequiredIndex'}"
+                                select="onWeighmentRequiredChange"
+                                width="100%"
+                            >
+                                <RadioButton text="Yes" />
+                                <RadioButton text="No" />
+                            </RadioButtonGroup>
+                        </VBox>
+                    </layout:content>
+                </layout:Grid>
+
+                <!-- ========================= ROW 3 ========================= -->
+                <!-- Remarks full-width responsive -->
+                <layout:Grid
+                    defaultSpan="L8 M12 S12"
+                    hSpacing="0.5rem"
+                    vSpacing="0.5rem"
+                    width="100%"
+                    class="sapUiTinyMarginTop"
+                >
+                    <layout:content>
+                        <VBox width="100%">
                             <Label
                                 text="Remarks"
                                 design="Bold"
+                                class="sapUiNoMarginBottom"
                             />
                             <TextArea
                                 id="idGateInRemarks"
@@ -115,7 +144,7 @@
                 <!-- Right aligned bottom buttons -->
                 <HBox
                     justifyContent="End"
-                    class="sapUiSmallMarginEnd"
+                    class="sapUiTinyMarginTop"
                     width="100%"
                 >
                     <Button
@@ -134,17 +163,17 @@
                         class="sapUiTinyMarginBegin"
                     />
                 </HBox>
-            </VBox>
+           
         </Panel>
 
         <!-- ========================================================= -->
         <!-- ================= Change History Panel ================== -->
         <!-- ========================================================= -->
-        <Panel
+        <!-- <Panel
             id="gateInChangeHistoryPanel"
             expandable="true"
             expanded="false"
-            class="sapUiNoContentPadding"
+            class="sapUiNoContentPadding sapUiTinyMarginTop"
         >
             <headerToolbar>
                 <OverflowToolbar>
@@ -153,26 +182,21 @@
             </headerToolbar>
 
             <VBox
-                class="sapUiSmallMargin sapUiMediumPadding sapUiSizeCompact"
+                class="sapUiSmallPadding sapUiSizeCompact"
                 width="100%"
             >
-                <Title
-                    text="Change History"
-                    level="H5"
-                    class="sapUiSmallMarginBottom"
-                />
-
                 <layout:Grid
-                    defaultSpan="L6 M6 S12"
+                    defaultSpan="L4 M6 S12"
                     width="100%"
-                    hSpacing="2"
-                    vSpacing="2"
+                    hSpacing="0.5rem"
+                    vSpacing="0.5rem"
                 >
                     <layout:content>
                         <VBox width="100%">
                             <Label
                                 text="Created By"
                                 design="Bold"
+                                class="sapUiNoMarginBottom"
                             />
                             <Input
                                 id="idGateInCreatedBy"
@@ -191,6 +215,7 @@
                             <Label
                                 text="Created On Date"
                                 design="Bold"
+                                class="sapUiNoMarginBottom"
                             />
                             <DatePicker
                                 id="idGateInCreatedOnDate"
@@ -205,26 +230,29 @@
                             />
                         </VBox>
                     </layout:content>
-                </layout:Grid>
 
-                <VBox width="48%">
-                    <Label
-                        text="Created On Time"
-                        design="Bold"
-                    />
-                    <TimePicker
-                        id="idGateInCreatedOnTime"
-                        enabled="false"
-                        width="100%"
-                        valueFormat="HH:mm:ss"
-                        displayFormat="HH:mm:ss"
-                        value="{
-                            path: 'TripData>/CreatedTime',
-                            formatter: '.formatTripTime'
-                        }"
-                    />
-                </VBox>
+                    <layout:content>
+                        <VBox width="100%">
+                            <Label
+                                text="Created On Time"
+                                design="Bold"
+                                class="sapUiNoMarginBottom"
+                            />
+                            <TimePicker
+                                id="idGateInCreatedOnTime"
+                                enabled="false"
+                                width="100%"
+                                valueFormat="HH:mm:ss"
+                                displayFormat="HH:mm:ss"
+                                value="{
+                                    path: 'TripData>/CreatedTime',
+                                    formatter: '.formatTripTime'
+                                }"
+                            />
+                        </VBox>
+                    </layout:content>
+                </layout:Grid>
             </VBox>
-        </Panel>
+        </Panel> -->
     </VBox>
 </mvc:View>

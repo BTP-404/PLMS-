@@ -237,8 +237,9 @@ sap.ui.define(
               oGlobalModel.setProperty("/TripNumber", oResponse.TripNumber);
 
               that.getView().setBusy(false);
-              that.getView().byId("idRelatedTripNumber").setValue(oResponse.TripNumber);
-              MessageToast.show(`Trip ( ${oResponse.TripNumber} ) Created !`);
+              var sFormattedTripNo = that.formatTripNumber(oResponse.TripNumber);
+              that.getView().byId("idRelatedTripNumber").setValue(sFormattedTripNo);
+              MessageToast.show(`Trip ( ${sFormattedTripNo} ) Created !`);
               
               this._clearForm();
               that._setFormEditable(false);
@@ -545,6 +546,16 @@ sap.ui.define(
             ":" +
             String(iSeconds).padStart(2, "0")
           );
+        },
+
+        formatTripNumber: function (sTripNumber) {
+          if (!sTripNumber) {
+            return "";
+          }
+          // Convert to string and remove leading zeros
+          var sStr = String(sTripNumber);
+          // Remove leading zeros but keep at least one digit (e.g., "0000000014" -> "14", "0" -> "0")
+          return sStr.replace(/^0+/, "") || "0";
         },
 
         /* ===========================================================

@@ -263,14 +263,26 @@ sap.ui.define([
 
 			oService.read("/TripDetails('" + sTripNumber + "')", {
 				success: function (oData) {
-					this._oPageTitleModel.setProperty("/tripNumber", oData.TripNumber || sTripNumber);
+					var sFormattedTripNo = this.formatTripNumber(oData.TripNumber || sTripNumber);
+					this._oPageTitleModel.setProperty("/tripNumber", sFormattedTripNo);
 					this._oPageTitleModel.setProperty("/vehicleNumber", oData.VehicleNumber || "");
 					this._oPageTitleModel.setProperty("/tripStatus", oData.TripStatus || "");
 				}.bind(this),
 				error: function () {
-					this._oPageTitleModel.setProperty("/tripNumber", sTripNumber);
+					var sFormattedTripNo = this.formatTripNumber(sTripNumber);
+					this._oPageTitleModel.setProperty("/tripNumber", sFormattedTripNo);
 				}.bind(this)
 			});
+		},
+
+		formatTripNumber: function (sTripNumber) {
+			if (!sTripNumber) {
+				return "";
+			}
+			// Convert to string and remove leading zeros
+			var sStr = String(sTripNumber);
+			// Remove leading zeros but keep at least one digit (e.g., "0000000014" -> "14", "0" -> "0")
+			return sStr.replace(/^0+/, "") || "0";
 		},
 
 		_getTripService: function () {

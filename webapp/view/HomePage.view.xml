@@ -287,7 +287,10 @@
                         <ColumnListItem vAlign="Middle">
                             <cells>
                                 <Text
-                                    text="{TripNumber}"
+                                    text="{
+                                        path: 'TripNumber',
+                                        formatter: '.formatTripNumber'
+                                    }"
                                     wrapping="true"
                                 />
                                 <Text

@@ -6,7 +6,10 @@
 				<customHeader>
 					<Bar>
 						<contentLeft>
-							<Text text="Trip No: {pageTitleModel>/tripNumber}" class="sapUiSmallMarginBegin"/>
+							<Text text="Trip No: {
+								path: 'pageTitleModel>/tripNumber',
+								formatter: '.formatTripNumber'
+							}" class="sapUiSmallMarginBegin"/>
 						</contentLeft>
 						<contentMiddle>
 							<Text text="Vehicle No:- {pageTitleModel>/vehicleNumber}"/>
@@ -34,7 +37,10 @@
 									<mvc:XMLView viewName="com.incresolZ_INC_PLMS.view.subview.GateIn"/>
 								</IconTabFilter>
 								<IconTabFilter id="idLoadingMaterial" text="Loading" icon="sap-icon://shipping-status">
-									<mvc:XMLView id="idLoadingMaterialView" viewName="com.incresolZ_INC_PLMS.view.subView.Loading"/>
+									<mvc:XMLView id="idLoadingMaterialView" viewName="com.incresolZ_INC_PLMS.view.subview.Loading"/>
+								</IconTabFilter>
+								<IconTabFilter id="idUnloadingMaterial" text="Unloading" icon="sap-icon://inventory">
+									<mvc:XMLView id="idUnloadingMaterialView" viewName="com.incresolZ_INC_PLMS.view.subview.Unloading"/>
 								</IconTabFilter>
 								<IconTabFilter id="tabGateOut" text="Gate Out" key="gateout" icon="sap-icon://outbox" iconColor="Default">
 									<mvc:XMLView viewName="com.incresolZ_INC_PLMS.view.subview.GateOut"/>

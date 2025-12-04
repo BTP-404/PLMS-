@@ -1,5 +1,5 @@
 <mvc:View
-    controllerName="com.incresolZ_INC_PLMS.controller.subview.Loading"
+    controllerName="com.incresolZ_INC_PLMS.controller.subview.Unloading"
     xmlns:mvc="sap.ui.core.mvc"
     xmlns="sap.m"
     xmlns:layout="sap.ui.layout"
@@ -17,7 +17,7 @@
         >
             <headerToolbar>
                 <OverflowToolbar>
-                    <Title text="Loading" />
+                    <Title text="Unloading" />
                 </OverflowToolbar>
             </headerToolbar>
 
@@ -28,7 +28,7 @@
                     class="sapUiNoContentPadding sapUiSmallMarginTop sapUiSizeCompact">
                     <HBox wrap="Wrap" width="auto">
                         <Table
-                            id="idLoadingMaterialTable"
+                            id="idUnloadingMaterialTable"
                             inset="false"
                             mode="None"
                             width="100%"
@@ -46,15 +46,15 @@
                                     <Title text="Material Details" level="H6" />
                                     <ToolbarSpacer/>
                                     <Button
-                                        id="idLoadingColumnsButton"
+                                        id="idUnloadingColumnsButton"
                                         icon="sap-icon://action-settings"
                                         tooltip="Column Settings"
-                                        press="onLoadingColumnSettings"/>
+                                        press="onUnloadingColumnSettings"/>
                                 </Toolbar>
                             </headerToolbar>
                             <columns>
                                 <Column
-                                    id="colLoadingRefDocNumber"
+                                    id="colUnloadingRefDocNumber"
                                     demandPopin="true"
                                     minScreenWidth="Tablet"
                                     popinDisplay="Inline"
@@ -62,7 +62,7 @@
                                     <Text text="Ref Doc Number" />
                                 </Column>
                                 <Column
-                                    id="colLoadingRefDocItemNumber"
+                                    id="colUnloadingRefDocItemNumber"
                                     demandPopin="true"
                                     minScreenWidth="Tablet"
                                     popinDisplay="Inline"
@@ -70,14 +70,14 @@
                                     <Text text="Ref Doc Item Number" />
                                 </Column>
                                 <Column
-                                    id="colLoadingMaterialCode"
+                                    id="colUnloadingMaterialCode"
                                     demandPopin="true"
                                     minScreenWidth="Tablet"
                                 >
                                     <Text text="Material Code" />
                                 </Column>
                                 <Column
-                                    id="colLoadingMaterialDescription"
+                                    id="colUnloadingMaterialDescription"
                                     demandPopin="true"
                                     minScreenWidth="Desktop"
                                     popinDisplay="Inline"
@@ -85,29 +85,29 @@
                                     <Text text="Material Description" />
                                 </Column>
                                 <Column
-                                    id="colLoadingQty"
+                                    id="colUnloadingQty"
                                     demandPopin="true"
                                     minScreenWidth="Desktop"
                                 >
                                     <Text text="Qty" />
                                 </Column>
                                 <Column
-                                    id="colLoadingUoM"
+                                    id="colUnloadingUoM"
                                     demandPopin="true"
                                     minScreenWidth="Desktop"
                                 >
                                     <Text text="UoM" />
                                 </Column>
                                 <Column
-                                    id="colLoadingLoadedQty"
+                                    id="colUnloadingUnloadedQty"
                                     demandPopin="true"
                                     minScreenWidth="Desktop"
                                     popinDisplay="Inline"
                                 >
-                                    <Text text="Loaded Qty / Net Wt" />
+                                    <Text text="Unloaded Qty / Net Wt" />
                                 </Column>
                                 <Column
-                                    id="colLoadingGrossWt"
+                                    id="colUnloadingGrossWt"
                                     demandPopin="true"
                                     minScreenWidth="Desktop"
                                     popinDisplay="Inline"
@@ -115,7 +115,7 @@
                                     <Text text="Gross Wt" />
                                 </Column>
                                 <Column
-                                    id="colLoadingTareWt"
+                                    id="colUnloadingTareWt"
                                     demandPopin="true"
                                     minScreenWidth="Desktop"
                                     popinDisplay="Inline"
@@ -123,7 +123,7 @@
                                     <Text text="Tare Wt" />
                                 </Column>
                                 <Column
-                                    id="colLoadingNetWt"
+                                    id="colUnloadingNetWt"
                                     demandPopin="true"
                                     minScreenWidth="Desktop"
                                     popinDisplay="Inline"
@@ -131,14 +131,14 @@
                                     <Text text="Net Wt" />
                                 </Column>
                                 <Column
-                                    id="colLoadingCreatedBy"
+                                    id="colUnloadingCreatedBy"
                                     demandPopin="true"
                                     minScreenWidth="XLarge"
                                 >
                                     <Text text="Created By" />
                                 </Column>
                                 <Column
-                                    id="colLoadingCreatedOnDate"
+                                    id="colUnloadingCreatedOnDate"
                                     demandPopin="true"
                                     minScreenWidth="XLarge"
                                     popinDisplay="Inline"
@@ -146,7 +146,7 @@
                                     <Text text="Created On Date" />
                                 </Column>
                                 <Column
-                                    id="colLoadingCreatedOnTime"
+                                    id="colUnloadingCreatedOnTime"
                                     demandPopin="true"
                                     minScreenWidth="XLarge"
                                     popinDisplay="Inline"
@@ -165,16 +165,16 @@
                                         <Text text="{tableModel>Qty}"/>
                                         <Text text="{tableModel>UoM}"/>
                                         <Input
-                                            value="{tableModel>LoadedQty}"
-                                            enabled="{loadingModel>/weighmentEnabled}"
-                                            placeholder="Enter Loaded Qty"
+                                            value="{tableModel>UnloadedQty}"
+                                            enabled="{unloadingModel>/weighmentEnabled}"
+                                            placeholder="Enter Unloaded Qty"
                                             width="100%"
                                             type="Number"
                                             change="onWeightFieldChange"
                                         />
                                         <Input
                                             value="{tableModel>GrossWt}"
-                                            enabled="{loadingModel>/weighmentEnabled}"
+                                            enabled="{unloadingModel>/weighmentEnabled}"
                                             placeholder="Enter Gross Wt"
                                             width="100%"
                                             type="Number"
@@ -182,7 +182,7 @@
                                         />
                                         <Input
                                             value="{tableModel>TareWt}"
-                                            enabled="{loadingModel>/weighmentEnabled}"
+                                            enabled="{unloadingModel>/weighmentEnabled}"
                                             placeholder="Enter Tare Wt"
                                             width="100%"
                                             type="Number"
@@ -204,22 +204,22 @@
 
         <!-- ===================== BUTTONS AT BOTTOM ===================== -->
         <HBox justifyContent="End" class="sapUiSmallMarginTop sapUiSmallMarginEnd">
-            <!-- Start Loading Button -->
+            <!-- Start Unloading Button -->
                     <Button 
-                        id="btnStartLoading" 
-                        text="Start Loading" 
+                        id="btnStartUnloading" 
+                        text="Start Unloading" 
                         type="Accept" 
-                        press="onStartLoading" 
-                        icon="sap-icon://cart-3"
+                        press="onStartUnloading" 
+                        icon="sap-icon://unload"
                         enabled="true" 
                     />
 
-                    <!-- End Loading Button -->
+                    <!-- End Unloading Button -->
                     <Button 
-                        id="btnEndLoading" 
-                        text="End Loading" 
+                        id="btnEndUnloading" 
+                        text="End Unloading" 
                         type="Reject" 
-                        press="onEndLoading" 
+                        press="onEndUnloading" 
                         icon="sap-icon://cart-5"
                         enabled="false" 
                         class="sapUiTinyMarginBegin"
@@ -228,3 +228,4 @@
 
     </VBox>
 </mvc:View>
+

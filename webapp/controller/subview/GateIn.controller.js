@@ -31,6 +31,12 @@ sap.ui.define(
           this._eventBus = sap.ui.getCore().getEventBus();
           this._eventBus.subscribe("TripData", "Updated", this._onTripDataUpdate, this);
           this._onTripDataUpdate();
+          
+          // Initialize weighment required if not set (default to "No")
+          var oTripData = sap.ui.getCore().getModel("TripData");
+          if (oTripData && !oTripData.getProperty("/WeighmentRequired")) {
+            oTripData.setProperty("/WeighmentRequired", "N");
+          }
         },
         onAfterRendering: function () {
           this.loadDelayReason();
@@ -235,11 +241,29 @@ sap.ui.define(
           var sEntryGateNumber = oView.byId("idEntryGateNumber").getValue();
           // var sDelayReasons = oView.byId("idDelayReasons").getValue();
           var sRemarks = oView.byId("idGateInRemarks").getValue();
+          
+          // Get weighment required value
+          var oWeighmentRadioGroup = oView.byId("idWeighmentRequired");
+          var sWeighmentRequired = "N"; // Default to No
+          if (oWeighmentRadioGroup) {
+            var iSelectedIndex = oWeighmentRadioGroup.getSelectedIndex();
+            sWeighmentRequired = iSelectedIndex === 0 ? "Y" : "N";
+          }
 
           var sTripNumber = sap.ui
             .getCore()
             .getModel("globalData")
             .getProperty("/TripNumber");
+          
+          // Update TripData model with weighment required value
+          var oTripData = sap.ui.getCore().getModel("TripData");
+          if (oTripData) {
+            oTripData.setProperty("/WeighmentRequired", sWeighmentRequired);
+            // Publish event so Loading controller can react
+            this._eventBus.publish("TripData", "WeighmentRequiredChanged", {
+              weighmentRequired: sWeighmentRequired
+            });
+          }
 
           // Function Import Call with Custom Headers
           oModel.callFunction("/GateIn", {
@@ -250,6 +274,7 @@ sap.ui.define(
               Modified: true,
               Remarks: sRemarks,
               DelayReasons: sID,
+              WeighmentRequired: sWeighmentRequired,
             },
             headers: {
               "X-Requested-With": "X",
@@ -330,6 +355,26 @@ sap.ui.define(
             ":" +
             String(iSeconds).padStart(2, "0")
           );
+        },
+        formatWeighmentRequiredIndex: function (sValue) {
+          // Convert "Y"/"N" to radio button index (0 = Yes, 1 = No)
+          if (sValue === "Y" || sValue === "Yes") {
+            return 0;
+          }
+          return 1; // Default to "No"
+        },
+        onWeighmentRequiredChange: function (oEvent) {
+          var iSelectedIndex = oEvent.getParameter("selectedIndex");
+          var sValue = iSelectedIndex === 0 ? "Y" : "N";
+          
+          var oTripData = sap.ui.getCore().getModel("TripData");
+          if (oTripData) {
+            oTripData.setProperty("/WeighmentRequired", sValue);
+            // Publish event so Loading controller can react
+            this._eventBus.publish("TripData", "WeighmentRequiredChanged", {
+              weighmentRequired: sValue
+            });
+          }
         },
       }
     );

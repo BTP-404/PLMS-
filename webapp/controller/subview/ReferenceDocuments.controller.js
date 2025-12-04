@@ -27,6 +27,7 @@ sap.ui.define([
 		this._oEventBus = sap.ui.getCore().getEventBus();
 		this._oEventBus.subscribe("TripData", "Updated", this._onTripDataUpdated, this);
 		this._onTripDataUpdated(); // Initial load
+		this._initializeColumnVisibility();
 	},
 
 		onExit: function () {
@@ -38,6 +39,8 @@ sap.ui.define([
 			this._oItemDetailsValueHelp?.destroy();
 			this._oDocTypeValueHelp?.destroy();
 			this._oMaterialDocTypeVH?.destroy();
+			this._oRefDocColumnVisibilityDialog?.destroy();
+			this._oMaterialColumnVisibilityDialog?.destroy();
 			if (this._oEventBus) {
 				this._oEventBus.unsubscribe("TripData", "Updated", this._onTripDataUpdated, this);
 			}
@@ -1952,6 +1955,200 @@ sap.ui.define([
 
 		_padTime: function (iValue) {
 			return String(iValue).padStart(2, "0");
+		},
+
+		// ============================================================
+		// Column Visibility Functions
+		// ============================================================
+		_initializeColumnVisibility: function () {
+			// Initialize Reference Documents column settings
+			var aRefDocColumns = [
+				{ id: "colRefDocType", label: "Doc Type", visible: true },
+				{ id: "colRefDocNumber", label: "Document Number", visible: true },
+				{ id: "colRefDocDate", label: "Document Date", visible: true },
+				{ id: "colRefDocPartyCode", label: "Sending / Receiving Party Code", visible: true },
+				{ id: "colRefDocPartyName", label: "Sending / Receiving Party Name", visible: true },
+				{ id: "colRefDocCreatedBy", label: "Created By", visible: false },
+				{ id: "colRefDocCreatedOnDate", label: "Created On Date", visible: false },
+				{ id: "colRefDocCreatedOnTime", label: "Created On Time", visible: false },
+				{ id: "colRefDocChangedBy", label: "Changed By", visible: false },
+				{ id: "colRefDocChangedOnDate", label: "Changed On Date", visible: false },
+				{ id: "colRefDocChangedOnTime", label: "Changed On Time", visible: false },
+				{ id: "colRefDocAction", label: "Action", visible: true }
+			];
+
+			// Initialize Material Details column settings
+			var aMaterialColumns = [
+				{ id: "colMaterialRefDocNo", label: "Ref Doc No", visible: true },
+				{ id: "colMaterialRefDocItemNo", label: "Ref Doc Item No", visible: true },
+				{ id: "colMaterialCode", label: "Material Code", visible: true },
+				{ id: "colMaterialDescription", label: "Material Description", visible: true },
+				{ id: "colMaterialQuantity", label: "Quantity", visible: true },
+				{ id: "colMaterialUoM", label: "UoM", visible: true },
+				{ id: "colMaterialCreatedBy", label: "Created By", visible: false },
+				{ id: "colMaterialCreatedOnDate", label: "Created On Date", visible: false },
+				{ id: "colMaterialCreatedOnTime", label: "Created On Time", visible: false },
+				{ id: "colMaterialChangedBy", label: "Changed By", visible: false },
+				{ id: "colMaterialChangedOnDate", label: "Changed On Date", visible: false },
+				{ id: "colMaterialChangedOnTime", label: "Changed On Time", visible: false },
+				{ id: "colMaterialAction", label: "Action", visible: true }
+			];
+
+			// Create models for column settings
+			this._oRefDocColumnSettingsModel = new JSONModel({
+				columns: aRefDocColumns
+			});
+			this.getView().setModel(this._oRefDocColumnSettingsModel, "refDocColumnSettings");
+
+			this._oMaterialColumnSettingsModel = new JSONModel({
+				columns: aMaterialColumns
+			});
+			this.getView().setModel(this._oMaterialColumnSettingsModel, "materialColumnSettings");
+
+			// Apply initial column visibility
+			this._applyRefDocColumnVisibility();
+			this._applyMaterialColumnVisibility();
+		},
+
+		_applyRefDocColumnVisibility: function () {
+			var oTable = this.byId("idReferenceDocsTable");
+			if (!oTable) {
+				return;
+			}
+
+			var aColumns = this._oRefDocColumnSettingsModel.getProperty("/columns");
+			aColumns.forEach(function (oColumn) {
+				var oCol = this.byId(oColumn.id);
+				if (oCol) {
+					oCol.setVisible(oColumn.visible);
+				}
+			}.bind(this));
+		},
+
+		_applyMaterialColumnVisibility: function () {
+			var oTable = this.byId("idMaterialDetailsTable");
+			if (!oTable) {
+				return;
+			}
+
+			var aColumns = this._oMaterialColumnSettingsModel.getProperty("/columns");
+			aColumns.forEach(function (oColumn) {
+				var oCol = this.byId(oColumn.id);
+				if (oCol) {
+					oCol.setVisible(oColumn.visible);
+				}
+			}.bind(this));
+		},
+
+		onRefDocColumnSettings: function () {
+			if (!this._oRefDocColumnVisibilityDialog) {
+				this._oRefDocColumnVisibilityDialog = Fragment.load({
+					id: this.getView().getId(),
+					name: "com.incresolZ_INC_PLMS.fragments.ReferenceDocumentsFrags.RefDocColumnVisibilityDialog",
+					controller: this
+				}).then(function (oDialog) {
+					this.getView().addDependent(oDialog);
+					return oDialog;
+				}.bind(this));
+			}
+
+			this._oRefDocColumnVisibilityDialog.then(function (oDialog) {
+				oDialog.open();
+			});
+		},
+
+		onMaterialColumnSettings: function () {
+			if (!this._oMaterialColumnVisibilityDialog) {
+				this._oMaterialColumnVisibilityDialog = Fragment.load({
+					id: this.getView().getId(),
+					name: "com.incresolZ_INC_PLMS.fragments.ReferenceDocumentsFrags.MaterialColumnVisibilityDialog",
+					controller: this
+				}).then(function (oDialog) {
+					this.getView().addDependent(oDialog);
+					return oDialog;
+				}.bind(this));
+			}
+
+			this._oMaterialColumnVisibilityDialog.then(function (oDialog) {
+				oDialog.open();
+			});
+		},
+
+		onRefDocColumnSwitchChanged: function (oEvent) {
+			var oSwitch = oEvent.getSource();
+			var oBindingContext = oSwitch.getBindingContext("refDocColumnSettings");
+			if (oBindingContext) {
+				var oColumn = oBindingContext.getObject();
+				oColumn.visible = oSwitch.getState();
+				this._applyRefDocColumnVisibility();
+			}
+		},
+
+		onMaterialColumnSwitchChanged: function (oEvent) {
+			var oSwitch = oEvent.getSource();
+			var oBindingContext = oSwitch.getBindingContext("materialColumnSettings");
+			if (oBindingContext) {
+				var oColumn = oBindingContext.getObject();
+				oColumn.visible = oSwitch.getState();
+				this._applyMaterialColumnVisibility();
+			}
+		},
+
+		onResetRefDocColumnVisibility: function () {
+			var aDefaultColumns = [
+				{ id: "colRefDocType", label: "Doc Type", visible: true },
+				{ id: "colRefDocNumber", label: "Document Number", visible: true },
+				{ id: "colRefDocDate", label: "Document Date", visible: true },
+				{ id: "colRefDocPartyCode", label: "Sending / Receiving Party Code", visible: true },
+				{ id: "colRefDocPartyName", label: "Sending / Receiving Party Name", visible: true },
+				{ id: "colRefDocCreatedBy", label: "Created By", visible: false },
+				{ id: "colRefDocCreatedOnDate", label: "Created On Date", visible: false },
+				{ id: "colRefDocCreatedOnTime", label: "Created On Time", visible: false },
+				{ id: "colRefDocChangedBy", label: "Changed By", visible: false },
+				{ id: "colRefDocChangedOnDate", label: "Changed On Date", visible: false },
+				{ id: "colRefDocChangedOnTime", label: "Changed On Time", visible: false },
+				{ id: "colRefDocAction", label: "Action", visible: true }
+			];
+
+			this._oRefDocColumnSettingsModel.setProperty("/columns", aDefaultColumns);
+			this._applyRefDocColumnVisibility();
+		},
+
+		onResetMaterialColumnVisibility: function () {
+			var aDefaultColumns = [
+				{ id: "colMaterialRefDocNo", label: "Ref Doc No", visible: true },
+				{ id: "colMaterialRefDocItemNo", label: "Ref Doc Item No", visible: true },
+				{ id: "colMaterialCode", label: "Material Code", visible: true },
+				{ id: "colMaterialDescription", label: "Material Description", visible: true },
+				{ id: "colMaterialQuantity", label: "Quantity", visible: true },
+				{ id: "colMaterialUoM", label: "UoM", visible: true },
+				{ id: "colMaterialCreatedBy", label: "Created By", visible: false },
+				{ id: "colMaterialCreatedOnDate", label: "Created On Date", visible: false },
+				{ id: "colMaterialCreatedOnTime", label: "Created On Time", visible: false },
+				{ id: "colMaterialChangedBy", label: "Changed By", visible: false },
+				{ id: "colMaterialChangedOnDate", label: "Changed On Date", visible: false },
+				{ id: "colMaterialChangedOnTime", label: "Changed On Time", visible: false },
+				{ id: "colMaterialAction", label: "Action", visible: true }
+			];
+
+			this._oMaterialColumnSettingsModel.setProperty("/columns", aDefaultColumns);
+			this._applyMaterialColumnVisibility();
+		},
+
+		onCloseRefDocColumnVisibilityDialog: function () {
+			if (this._oRefDocColumnVisibilityDialog) {
+				this._oRefDocColumnVisibilityDialog.then(function (oDialog) {
+					oDialog.close();
+				});
+			}
+		},
+
+		onCloseMaterialColumnVisibilityDialog: function () {
+			if (this._oMaterialColumnVisibilityDialog) {
+				this._oMaterialColumnVisibilityDialog.then(function (oDialog) {
+					oDialog.close();
+				});
+			}
 		}
 
 	});

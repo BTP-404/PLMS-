@@ -470,6 +470,16 @@ sap.ui.define(
           this._oColumnVisibilityDialog.close();
         }
       },
+
+      formatTripNumber: function (sTripNumber) {
+        if (!sTripNumber) {
+          return "";
+        }
+        // Convert to string and remove leading zeros
+        var sStr = String(sTripNumber);
+        // Remove leading zeros but keep at least one digit (e.g., "0000000014" -> "14", "0" -> "0")
+        return sStr.replace(/^0+/, "") || "0";
+      },
     });
   }
 );

@@ -48,6 +48,11 @@
                                     <Title text="Reference Documents" level="H6"/>
                                     <ToolbarSpacer/>
                                     <Button
+                                        id="idRefDocColumnsButton"
+                                        icon="sap-icon://action-settings"
+                                        tooltip="Column Settings"
+                                        press="onRefDocColumnSettings"/>
+                                    <Button
                                         text="Add Document"
                                         icon="sap-icon://add"
                                         type="Emphasized"
@@ -56,40 +61,40 @@
                             </headerToolbar>
 
                             <columns>
-                                <Column demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colRefDocType" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
                                     <Text text="Doc Type"/>
                                 </Column>
-                                <Column demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colRefDocNumber" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
                                     <Text text="Document Number"/>
                                 </Column>
-                                <Column demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colRefDocDate" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
                                     <Text text="Document Date"/>
                                 </Column>
-                                <Column demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colRefDocPartyCode" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
                                     <Text text="Sending / Receiving Party Code"/>
                                 </Column>
-                                <Column demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colRefDocPartyName" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
                                     <Text text="Sending / Receiving Party Name"/>
                                 </Column>
-                                <Column demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colRefDocCreatedBy" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
                                     <Text text="Created By"/>
                                 </Column>
-                                <Column demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colRefDocCreatedOnDate" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
                                     <Text text="Created On Date"/>
                                 </Column>
-                                <Column demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colRefDocCreatedOnTime" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
                                     <Text text="Created On Time"/>
                                 </Column>
-                                <Column demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colRefDocChangedBy" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
                                     <Text text="Changed By"/>
                                 </Column>
-                                <Column demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colRefDocChangedOnDate" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
                                     <Text text="Changed On Date"/>
                                 </Column>
-                                <Column demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colRefDocChangedOnTime" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
                                     <Text text="Changed On Time"/>
                                 </Column>
-                                <Column hAlign="Center" width="8rem" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colRefDocAction" hAlign="Center" width="8rem" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
                                     <Text text="Action"/>
                                 </Column>
                             </columns>
@@ -172,6 +177,11 @@
                                     <Title text="Material Details" level="H6"/>
                                     <ToolbarSpacer/>
                                     <Button
+                                        id="idMaterialColumnsButton"
+                                        icon="sap-icon://action-settings"
+                                        tooltip="Column Settings"
+                                        press="onMaterialColumnSettings"/>
+                                    <Button
                                         text="Add Material"
                                         icon="sap-icon://add"
                                         type="Emphasized"
@@ -180,43 +190,43 @@
                             </headerToolbar>
 
                             <columns>
-                                <Column demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colMaterialRefDocNo" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
                                     <Text text="Ref Doc No"/>
                                 </Column>
-                                <Column demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colMaterialRefDocItemNo" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
                                     <Text text="Ref Doc Item No"/>
                                 </Column>
-                                <Column demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colMaterialCode" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
                                     <Text text="Material Code"/>
                                 </Column>
-                                <Column demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colMaterialDescription" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
                                     <Text text="Material Description"/>
                                 </Column>
-                                <Column hAlign="End" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colMaterialQuantity" hAlign="End" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
                                     <Text text="Quantity"/>
                                 </Column>
-                                <Column demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colMaterialUoM" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
                                     <Text text="UoM"/>
                                 </Column>
-                                <Column demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colMaterialCreatedBy" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
                                     <Text text="Created By"/>
                                 </Column>
-                                <Column demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colMaterialCreatedOnDate" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
                                     <Text text="Created On Date"/>
                                 </Column>
-                                <Column demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colMaterialCreatedOnTime" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
                                     <Text text="Created On Time"/>
                                 </Column>
-                                <Column demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colMaterialChangedBy" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
                                     <Text text="Changed By"/>
                                 </Column>
-                                <Column demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colMaterialChangedOnDate" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
                                     <Text text="Changed On Date"/>
                                 </Column>
-                                <Column demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colMaterialChangedOnTime" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
                                     <Text text="Changed On Time"/>
                                 </Column>
-                                <Column hAlign="Center" width="8rem" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colMaterialAction" hAlign="Center" width="8rem" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
                                     <Text text="Action"/>
                                 </Column>
                             </columns>

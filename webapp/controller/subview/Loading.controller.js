@@ -40,14 +40,31 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Loading", {
         var oTableModel = new JSONModel({ materials: [] });
         this.getView().setModel(oTableModel, "tableModel");
         
+        // Create loadingModel for weighment enabled state
+        var oLoadingModel = new JSONModel({ weighmentEnabled: false });
+        this.getView().setModel(oLoadingModel, "loadingModel");
+        
+        // Set TripData model on view for bindings
+        var oTripData = sap.ui.getCore().getModel("TripData");
+        if (oTripData) {
+            this.getView().setModel(oTripData, "TripData");
+        }
+        
         // Subscribe to TripData updates to populate materials from Reference Documents
         this._eventBus = sap.ui.getCore().getEventBus();
-        this._eventBus.subscribe("TripData", "Updated", this._bindMaterialsFromRefDocs, this);
+        this._eventBus.subscribe("TripData", "Updated", this._onTripDataUpdated, this);
+        this._eventBus.subscribe("TripData", "WeighmentRequiredChanged", this._onWeighmentRequiredChanged, this);
+        
+        // Check initial weighment required state
+        this._updateWeighmentEnabledState();
         
         // Initial load - wait a bit to ensure refDocModel is available
         setTimeout(function() {
             this._bindMaterialsFromRefDocs();
         }.bind(this), 100);
+        
+        // Initialize column visibility
+        this._initializeLoadingColumnVisibility();
     },
 
     onAfterRendering: function() {
@@ -71,7 +88,21 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Loading", {
     },
 
     onExit: function () {
-        this._eventBus?.unsubscribe("TripData", "Updated", this._bindMaterialsFromRefDocs, this);
+        this._eventBus?.unsubscribe("TripData", "Updated", this._onTripDataUpdated, this);
+        this._eventBus?.unsubscribe("TripData", "WeighmentRequiredChanged", this._onWeighmentRequiredChanged, this);
+        this._oLoadingColumnVisibilityDialog?.destroy();
+    },
+    
+    _onTripDataUpdated: function () {
+        // Update TripData model on view
+        var oTripData = sap.ui.getCore().getModel("TripData");
+        if (oTripData) {
+            this.getView().setModel(oTripData, "TripData");
+        }
+        // Update weighment enabled state
+        this._updateWeighmentEnabledState();
+        // Bind materials
+        this._bindMaterialsFromRefDocs();
     },
 
     // =====================================================================
@@ -325,6 +356,7 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Loading", {
             LoadedQty: "", // Empty for Reference Documents materials
             GrossWt: "", // Empty for Reference Documents materials
             TareWt: "", // Empty for Reference Documents materials
+            NetWt: "", // Calculated as GrossWt - TareWt
             CreatedBy: oMaterial.createdBy || "",
             CreatedOnDate: oMaterial.createdOnDate || "",
             CreatedOnTime: oMaterial.createdOnTime || ""
@@ -686,11 +718,160 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Loading", {
     },
 
     // =====================================================================
+    // WEIGHMENT REQUIRED HANDLERS
+    // =====================================================================
+    _onWeighmentRequiredChanged: function (oEvent, sChannel, oData) {
+        this._updateWeighmentEnabledState();
+    },
+    
+    _updateWeighmentEnabledState: function () {
+        var oTripData = sap.ui.getCore().getModel("TripData");
+        var bEnabled = false;
+        
+        if (oTripData) {
+            var sWeighmentRequired = oTripData.getProperty("/WeighmentRequired");
+            bEnabled = (sWeighmentRequired === "Y" || sWeighmentRequired === "Yes");
+        }
+        
+        var oLoadingModel = this.getView().getModel("loadingModel");
+        if (oLoadingModel) {
+            oLoadingModel.setProperty("/weighmentEnabled", bEnabled);
+        }
+    },
+    
+    onWeightFieldChange: function (oEvent) {
+        // Calculate Net Wt when Gross Wt or Tare Wt changes
+        var oInput = oEvent.getSource();
+        var sValue = oInput.getValue();
+        var oBindingContext = oInput.getBindingContext("tableModel");
+        
+        if (!oBindingContext) {
+            return;
+        }
+        
+        var oMaterial = oBindingContext.getObject();
+        var sGrossWt = oMaterial.GrossWt || "";
+        var sTareWt = oMaterial.TareWt || "";
+        
+        // Calculate Net Wt = Gross Wt - Tare Wt
+        if (sGrossWt && sTareWt) {
+            var fGrossWt = parseFloat(sGrossWt);
+            var fTareWt = parseFloat(sTareWt);
+            if (!isNaN(fGrossWt) && !isNaN(fTareWt)) {
+                var fNetWt = fGrossWt - fTareWt;
+                oBindingContext.getModel().setProperty(oBindingContext.getPath() + "/NetWt", fNetWt.toFixed(2));
+            }
+        }
+    },
+
+    // =====================================================================
     // HELPER METHODS
     // =====================================================================
     _escapeODataValue: function (sValue) {
         // Escape single quotes in OData string values
         return (sValue || "").replace(/'/g, "''");
+    },
+
+    // =====================================================================
+    // COLUMN VISIBILITY FUNCTIONS
+    // =====================================================================
+    _initializeLoadingColumnVisibility: function () {
+        // Initialize Loading column settings
+        var aLoadingColumns = [
+            { id: "colLoadingRefDocNumber", label: "Ref Doc Number", visible: true },
+            { id: "colLoadingRefDocItemNumber", label: "Ref Doc Item Number", visible: true },
+            { id: "colLoadingMaterialCode", label: "Material Code", visible: true },
+            { id: "colLoadingMaterialDescription", label: "Material Description", visible: true },
+            { id: "colLoadingQty", label: "Qty", visible: true },
+            { id: "colLoadingUoM", label: "UoM", visible: true },
+            { id: "colLoadingLoadedQty", label: "Loaded Qty / Net Wt", visible: true },
+            { id: "colLoadingGrossWt", label: "Gross Wt", visible: true },
+            { id: "colLoadingTareWt", label: "Tare Wt", visible: true },
+            { id: "colLoadingNetWt", label: "Net Wt", visible: true },
+            { id: "colLoadingCreatedBy", label: "Created By", visible: false },
+            { id: "colLoadingCreatedOnDate", label: "Created On Date", visible: false },
+            { id: "colLoadingCreatedOnTime", label: "Created On Time", visible: false }
+        ];
+
+        // Create model for column settings
+        this._oLoadingColumnSettingsModel = new JSONModel({
+            columns: aLoadingColumns
+        });
+        this.getView().setModel(this._oLoadingColumnSettingsModel, "loadingColumnSettings");
+
+        // Apply initial column visibility
+        this._applyLoadingColumnVisibility();
+    },
+
+    _applyLoadingColumnVisibility: function () {
+        var oTable = this.byId("idLoadingMaterialTable");
+        if (!oTable) {
+            return;
+        }
+
+        var aColumns = this._oLoadingColumnSettingsModel.getProperty("/columns");
+        aColumns.forEach(function (oColumn) {
+            var oCol = this.byId(oColumn.id);
+            if (oCol) {
+                oCol.setVisible(oColumn.visible);
+            }
+        }.bind(this));
+    },
+
+    onLoadingColumnSettings: function () {
+        if (!this._oLoadingColumnVisibilityDialog) {
+            this._oLoadingColumnVisibilityDialog = Fragment.load({
+                id: this.getView().getId(),
+                name: "com.incresolZ_INC_PLMS.fragments.VehicleLoadingFrags.LoadingColumnVisibilityDialog",
+                controller: this
+            }).then(function (oDialog) {
+                this.getView().addDependent(oDialog);
+                return oDialog;
+            }.bind(this));
+        }
+
+        this._oLoadingColumnVisibilityDialog.then(function (oDialog) {
+            oDialog.open();
+        });
+    },
+
+    onLoadingColumnSwitchChanged: function (oEvent) {
+        var oSwitch = oEvent.getSource();
+        var oBindingContext = oSwitch.getBindingContext("loadingColumnSettings");
+        if (oBindingContext) {
+            var oColumn = oBindingContext.getObject();
+            oColumn.visible = oSwitch.getState();
+            this._applyLoadingColumnVisibility();
+        }
+    },
+
+    onResetLoadingColumnVisibility: function () {
+        var aDefaultColumns = [
+            { id: "colLoadingRefDocNumber", label: "Ref Doc Number", visible: true },
+            { id: "colLoadingRefDocItemNumber", label: "Ref Doc Item Number", visible: true },
+            { id: "colLoadingMaterialCode", label: "Material Code", visible: true },
+            { id: "colLoadingMaterialDescription", label: "Material Description", visible: true },
+            { id: "colLoadingQty", label: "Qty", visible: true },
+            { id: "colLoadingUoM", label: "UoM", visible: true },
+            { id: "colLoadingLoadedQty", label: "Loaded Qty / Net Wt", visible: true },
+            { id: "colLoadingGrossWt", label: "Gross Wt", visible: true },
+            { id: "colLoadingTareWt", label: "Tare Wt", visible: true },
+            { id: "colLoadingNetWt", label: "Net Wt", visible: true },
+            { id: "colLoadingCreatedBy", label: "Created By", visible: false },
+            { id: "colLoadingCreatedOnDate", label: "Created On Date", visible: false },
+            { id: "colLoadingCreatedOnTime", label: "Created On Time", visible: false }
+        ];
+
+        this._oLoadingColumnSettingsModel.setProperty("/columns", aDefaultColumns);
+        this._applyLoadingColumnVisibility();
+    },
+
+    onCloseLoadingColumnVisibilityDialog: function () {
+        if (this._oLoadingColumnVisibilityDialog) {
+            this._oLoadingColumnVisibilityDialog.then(function (oDialog) {
+                oDialog.close();
+            });
+        }
     }
 });
 });

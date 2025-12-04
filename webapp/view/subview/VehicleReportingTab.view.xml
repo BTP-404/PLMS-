@@ -268,7 +268,10 @@
                             <Input
                                 id="idRelatedTripNumber"
                                 width="100%"
-                                value="{TripData>/TripNumber}"
+                                value="{
+                                    path: 'TripData>/TripNumber',
+                                    formatter: '.formatTripNumber'
+                                }"
                                 enabled="false"
                             />
                         </VBox>

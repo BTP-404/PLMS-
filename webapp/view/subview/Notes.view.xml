@@ -4,59 +4,78 @@
     xmlns="sap.m"
     xmlns:layout="sap.ui.layout"
 >
-    <VBox class="sapUiSmallMargin sapUiSizeCompact">
+    <VBox class="sapUiSizeCompact sapUiTinyMargin">
 
         <!-- ========================================================= -->
         <!-- Add Note Section -->
         <!-- ========================================================= -->
-        <VBox class="sapUiMediumMargin">
+        <Panel
+            id="addNotePanel"
+            expandable="true"
+            expanded="true"
+            class="sapUiNoContentPadding"
+        >
+            <headerToolbar>
+                <OverflowToolbar>
+                    <Title text="Add Note" />
+                </OverflowToolbar>
+            </headerToolbar>
 
-            <Title text="Add Note" level="H5" class="sapUiTinyMarginBottom"/>
-
-            <Text text="Write your note below:" class="sapUiTinyMarginBottom"/>
-
-            <TextArea
-                id="idNoteInput"
-                rows="3"
-                width="100%"
-                placeholder="Type your note here..."
-            />
-
-            <HBox justifyContent="End" class="sapUiTinyMarginTop">
-                <Button
-                    text="Save Note"
-                    type="Accept"
-                    icon="sap-icon://save"
-                    press=".onSaveNote"
+            <VBox class="sapUiSizeCompact sapUiSmallPadding">
+                <TextArea
+                    id="idNoteInput"
+                    rows="4"
+                    width="100%"
+                    placeholder="Type your note here..."
+                    class="sapUiTinyMarginBottom"
                 />
-            </HBox>
-        </VBox>
+
+                <HBox justifyContent="End" class="sapUiTinyMarginTop">
+                    <Button
+                        text="Save Note"
+                        type="Accept"
+                        icon="sap-icon://save"
+                        press=".onSaveNote"
+                    />
+                </HBox>
+            </VBox>
+        </Panel>
 
         <!-- ========================================================= -->
         <!-- Saved Notes Section -->
         <!-- ========================================================= -->
-        <VBox class="sapUiMediumMargin">
+        <Panel
+            id="savedNotesPanel"
+            expandable="true"
+            expanded="true"
+            class="sapUiNoContentPadding sapUiTinyMarginTop"
+        >
+            <headerToolbar>
+                <OverflowToolbar>
+                    <Title text="Saved Notes" />
+                </OverflowToolbar>
+            </headerToolbar>
 
-            <Title text="Saved Notes" level="H5" class="sapUiTinyMarginBottom"/>
-
-            <VBox class="sapUiSmallMargin noteVboxBG sapUiMediumPadding">
-                <FlexBox
-                    id="idNotesContainer"
-                    wrap="Wrap"
-                    alignItems="Start"
-                    justifyContent="Start"
-                    class="notesContainer"
-                >
-                    <Text
-                        id="idNoNotesText"
-                        text="No notes added yet."
-                        visible="true"
-                        class="sapUiTinyMargin"
-                    />
-                </FlexBox>
+            <VBox class="sapUiSizeCompact sapUiSmallPadding">
+                <VBox class="noteVboxBG sapUiSmallPadding">
+                    <FlexBox
+                        id="idNotesContainer"
+                        wrap="Wrap"
+                        alignItems="Start"
+                        justifyContent="Start"
+                        class="notesContainer"
+                    >
+                        <Text
+                            id="idNoNotesText"
+                            text="No notes added yet."
+                            visible="true"
+                            class="sapUiTinyMargin"
+                        />
+                    </FlexBox>
+                </VBox>
             </VBox>
 
-        </VBox>
+        </Panel>
 
     </VBox>
 </mvc:View>
