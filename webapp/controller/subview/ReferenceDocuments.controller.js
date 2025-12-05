@@ -1535,25 +1535,19 @@ sap.ui.define([
 				"',DocType='" + sDocType + 
 				"',DocumentNumber='" + sDocumentNumber + "')";
 
-			// Build delete payload - set Deleted flag
-			var oDeletePayload = {
-				Deleted: true
-			};
-
 			console.log("=== Delete Order Detail ===");
 			console.log("Entity Path:", sEntityPath);
 
 			var oService = this._getOrderDetailsService();
 			return new Promise(function (resolve, reject) {
-				oService.update(sEntityPath, oDeletePayload, {
+				oService.remove(sEntityPath, {
 					headers: {
-						"X-Requested-With": "X",
-						"Content-Type": "application/json"
+						"X-Requested-With": "X"
 					},
 					success: function (oData) {
 						MessageToast.show("Reference document deleted");
-						// Refresh reference documents from service
-						this._onTripDataUpdated();
+						// Refresh both tables from service
+						this._refreshBothTables();
 						resolve(oData);
 					}.bind(this),
 					error: function (oError) {
@@ -1709,25 +1703,19 @@ sap.ui.define([
 				"',RefDocNo='" + sRefDocNo + 
 				"',RefDocItemNo='" + sRefDocItemNo + "')";
 
-			// Build delete payload - set IsDeleted flag
-			var oDeletePayload = {
-				IsDeleted: "X"
-			};
-
 			console.log("=== Delete Material Detail ===");
 			console.log("Entity Path:", sEntityPath);
 
 			var oService = this._getItemDetailsService();
 			return new Promise(function (resolve, reject) {
-				oService.update(sEntityPath, oDeletePayload, {
+				oService.remove(sEntityPath, {
 					headers: {
-						"X-Requested-With": "X",
-						"Content-Type": "application/json"
+						"X-Requested-With": "X"
 					},
 					success: function (oData) {
 						MessageToast.show("Material row deleted");
-						// Refresh material details from service
-						this._onTripDataUpdated();
+						// Refresh both tables from service
+						this._refreshBothTables();
 						resolve(oData);
 					}.bind(this),
 					error: function (oError) {
@@ -1961,6 +1949,54 @@ sap.ui.define([
 				},
 				error: function (oError) {
 					console.error("Failed to load ItemDetails separately:", oError);
+					that._setMaterialDetailsFromService([]);
+				}
+			});
+		},
+
+		_refreshBothTables: function () {
+			var oGlobalModel = sap.ui.getCore().getModel("globalData");
+			var sTripNumber = oGlobalModel?.getProperty("/TripNumber") || "";
+
+			if (!sTripNumber) {
+				console.warn("Cannot refresh tables: TripNumber missing");
+				return;
+			}
+
+			var that = this;
+			var oOrderService = this._getOrderDetailsService();
+			var oItemService = this._getItemDetailsService();
+
+			// Load OrderDetails
+			oOrderService.read("/OrderDetails", {
+				filters: [
+					new Filter("TripNumber", FilterOperator.EQ, sTripNumber),
+					new Filter("Deleted", FilterOperator.NE, true)
+				],
+				success: function (oData) {
+					var aOrderDetails = oData.results || [];
+					console.log("OrderDetails refreshed. Count:", aOrderDetails.length);
+					that._setReferenceDocsFromService(aOrderDetails);
+				},
+				error: function (oError) {
+					console.error("Failed to refresh OrderDetails:", oError);
+					that._setReferenceDocsFromService([]);
+				}
+			});
+
+			// Load ItemDetails
+			oItemService.read("/ItemDetails", {
+				filters: [
+					new Filter("TripNumber", FilterOperator.EQ, sTripNumber),
+					new Filter("IsDeleted", FilterOperator.NE, "X")
+				],
+				success: function (oData) {
+					var aItemDetails = oData.results || [];
+					console.log("ItemDetails refreshed. Count:", aItemDetails.length);
+					that._setMaterialDetailsFromService(aItemDetails);
+				},
+				error: function (oError) {
+					console.error("Failed to refresh ItemDetails:", oError);
 					that._setMaterialDetailsFromService([]);
 				}
 			});
