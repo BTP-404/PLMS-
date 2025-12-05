@@ -24,6 +24,8 @@ sap.ui.define([
 		this._oSelectedRefDoc = null; // Track selected reference document
 		this._oEditingMaterial = null; // Track material being edited
 		this._bIsEditMode = false; // Track if dialog is in edit mode
+		this._oEditingRefDoc = null; // Track reference document being edited
+		this._bIsRefDocEditMode = false; // Track if reference doc dialog is in edit mode
 		this._oEventBus = sap.ui.getCore().getEventBus();
 		this._oEventBus.subscribe("TripData", "Updated", this._onTripDataUpdated, this);
 		this._onTripDataUpdated(); // Initial load
@@ -160,25 +162,108 @@ sap.ui.define([
 				return MessageToast.show("Document Number is mandatory");
 			}
 
-			this._saveOrderDetail(oPayload)
-				.then(function (oResponse) {
-					this._appendLocalReferenceDoc(oResponse || oPayload);
-					MessageToast.show("Reference document added");
-					this._loadRefDocSuggestions(this._sSelectedDocType || oPayload.DocType);
-					this._loadMaterialDocTypesFromRefDocs();
-					this._loadMaterialRefDocNumbersFromRefDocs();
-					this._closeRefDocDialog();
-					this._resetRefDocDialog();
-				}.bind(this))
-				.catch(function (oError) {
-					var sMessage = this._extractErrorMessage(oError) || "Unable to save reference document";
-					MessageToast.show(sMessage);
-				}.bind(this));
+			if (this._bIsRefDocEditMode && this._oEditingRefDoc) {
+				// Update existing reference document
+				this._updateOrderDetail(oPayload, this._oEditingRefDoc)
+					.then(function (oResponse) {
+						this._updateLocalReferenceDoc(oResponse || oPayload, this._oEditingRefDoc);
+						MessageToast.show("Reference document updated");
+						this._loadRefDocSuggestions(this._sSelectedDocType || oPayload.DocType);
+						this._loadMaterialDocTypesFromRefDocs();
+						this._loadMaterialRefDocNumbersFromRefDocs();
+						this._closeRefDocDialog();
+						this._resetRefDocDialog();
+					}.bind(this))
+					.catch(function (oError) {
+						var sMessage = this._extractErrorMessage(oError) || "Unable to update reference document";
+						MessageToast.show(sMessage);
+					}.bind(this));
+			} else {
+				// Create new reference document
+				this._saveOrderDetail(oPayload)
+					.then(function (oResponse) {
+						this._appendLocalReferenceDoc(oResponse || oPayload);
+						MessageToast.show("Reference document added");
+						this._loadRefDocSuggestions(this._sSelectedDocType || oPayload.DocType);
+						this._loadMaterialDocTypesFromRefDocs();
+						this._loadMaterialRefDocNumbersFromRefDocs();
+						this._closeRefDocDialog();
+						this._resetRefDocDialog();
+					}.bind(this))
+					.catch(function (oError) {
+						var sMessage = this._extractErrorMessage(oError) || "Unable to save reference document";
+						MessageToast.show(sMessage);
+					}.bind(this));
+			}
 		},
 
 		onCancelRefDocDialog: function () {
 			this._closeRefDocDialog();
 			this._resetRefDocDialog();
+		},
+
+		onEditRefDocRow: function (oEvent) {
+			var oButton = oEvent.getSource();
+			// Get the table row - button -> cell -> row
+			var oCell = oButton.getParent();
+			var oRow = oCell ? oCell.getParent() : null;
+			
+			if (!oRow) {
+				// Try alternative: get parent until we find a row
+				var oCurrent = oButton.getParent();
+				while (oCurrent && !oCurrent.getBindingContext) {
+					oCurrent = oCurrent.getParent();
+				}
+				oRow = oCurrent;
+			}
+			
+			if (!oRow) {
+				console.error("Could not find table row for edit button");
+				return MessageToast.show("Unable to find reference document row");
+			}
+			
+			var oCtx = oRow.getBindingContext("refDocModel");
+			if (!oCtx) {
+				console.error("Could not get binding context for reference document row");
+				return MessageToast.show("Unable to get reference document details");
+			}
+			
+			var oRefDoc = oCtx.getObject();
+			if (!oRefDoc) {
+				console.error("Reference document object is null");
+				return MessageToast.show("Reference document data not available");
+			}
+			
+			console.log("Editing reference document:", oRefDoc);
+			this._oEditingRefDoc = oRefDoc;
+			this._bIsRefDocEditMode = true;
+			
+			// Open dialog - it will populate itself
+			this._openAddRefDocDialog()
+				.catch(function (oError) {
+					console.error("Failed to open reference document dialog:", oError);
+					MessageToast.show("Failed to open edit dialog: " + (oError.message || "Unknown error"));
+				});
+		},
+
+		onDeleteRefDocRow: function (oEvent) {
+			var oItem = oEvent.getSource().getParent();
+			var oCtx = oItem.getBindingContext("refDocModel");
+			if (!oCtx) {
+				return MessageToast.show("Unable to get reference document details");
+			}
+			
+			var oRefDoc = oCtx.getObject();
+			var sMessage = "Are you sure you want to delete this reference document?";
+			
+			MessageBox.confirm(sMessage, {
+				actions: [MessageBox.Action.YES, MessageBox.Action.NO],
+				onClose: function (sAction) {
+					if (sAction === MessageBox.Action.YES) {
+						this._deleteOrderDetail(oRefDoc);
+					}
+				}.bind(this)
+			});
 		},
 
 
@@ -360,17 +445,47 @@ sap.ui.define([
 		},
 
 		onEditMaterialRow: function (oEvent) {
-			var oItem = oEvent.getSource().getParent();
-			var oCtx = oItem.getBindingContext("refDocModel");
+			var oButton = oEvent.getSource();
+			// Get the table row - button -> cell -> row
+			var oCell = oButton.getParent();
+			var oRow = oCell ? oCell.getParent() : null;
+			
+			if (!oRow) {
+				// Try alternative: get parent until we find a row
+				var oCurrent = oButton.getParent();
+				while (oCurrent && !oCurrent.getBindingContext) {
+					oCurrent = oCurrent.getParent();
+				}
+				oRow = oCurrent;
+			}
+			
+			if (!oRow) {
+				console.error("Could not find table row for edit button");
+				return MessageToast.show("Unable to find material row");
+			}
+			
+			var oCtx = oRow.getBindingContext("refDocModel");
 			if (!oCtx) {
+				console.error("Could not get binding context for material row");
 				return MessageToast.show("Unable to get material details");
 			}
 			
 			var oMaterial = oCtx.getObject();
+			if (!oMaterial) {
+				console.error("Material object is null");
+				return MessageToast.show("Material data not available");
+			}
+			
+			console.log("Editing material:", oMaterial);
 			this._oEditingMaterial = oMaterial;
 			this._bIsEditMode = true;
-			// Populate dialog after it's opened (will be called in _openAddMaterialDialog)
-			this._openAddMaterialDialog();
+			
+			// Open dialog - it will populate itself
+			this._openAddMaterialDialog()
+				.catch(function (oError) {
+					console.error("Failed to open material dialog:", oError);
+					MessageToast.show("Failed to open edit dialog: " + (oError.message || "Unknown error"));
+				});
 		},
 
 		onDeleteMaterialRow: function (oEvent) {
@@ -420,19 +535,41 @@ sap.ui.define([
 		},
 
 		_openAddRefDocDialog: function () {
-			return new Promise(function (resolve) {
+			return new Promise(function (resolve, reject) {
 				if (!this._oAddRefDocDialog) {
 					Fragment.load({
 						id: this.getView().getId(),
 						name: "com.incresolZ_INC_PLMS.fragments.ReferenceDocumentsFrags.AddRefDocDialog",
 						controller: this
 					}).then(function (oDialog) {
+						if (!oDialog) {
+							reject(new Error("Fragment loaded but dialog is null"));
+							return;
+						}
 						this._oAddRefDocDialog = oDialog;
 						this.getView().addDependent(oDialog);
+						// Set dialog mode after dialog is loaded (important for first time)
+						this._setRefDocDialogMode(this._bIsRefDocEditMode ? "edit" : "add");
+						// Populate dialog if in edit mode
+						if (this._bIsRefDocEditMode && this._oEditingRefDoc) {
+							this._populateRefDocDialog(this._oEditingRefDoc);
+						}
+						this._loadRefDocSuggestions(this._sSelectedDocType);
 						oDialog.open();
 						resolve(oDialog);
-					}.bind(this));
+					}.bind(this))
+					.catch(function (oError) {
+						console.error("Failed to load reference document dialog fragment:", oError);
+						reject(oError);
+					});
 				} else {
+					// Set dialog mode when reopening (in case mode changed)
+					this._setRefDocDialogMode(this._bIsRefDocEditMode ? "edit" : "add");
+					// Populate dialog if in edit mode
+					if (this._bIsRefDocEditMode && this._oEditingRefDoc) {
+						this._populateRefDocDialog(this._oEditingRefDoc);
+					}
+					this._loadRefDocSuggestions(this._sSelectedDocType);
 					this._oAddRefDocDialog.open();
 					resolve(this._oAddRefDocDialog);
 				}
@@ -440,13 +577,17 @@ sap.ui.define([
 		},
 
 		_openAddMaterialDialog: function () {
-			return new Promise(function (resolve) {
+			return new Promise(function (resolve, reject) {
 				if (!this._oAddMaterialDialog) {
 					Fragment.load({
 						id: this.getView().getId(),
 						name: "com.incresolZ_INC_PLMS.fragments.ReferenceDocumentsFrags.AddMaterialRowDialog",
 						controller: this
 					}).then(function (oDialog) {
+						if (!oDialog) {
+							reject(new Error("Fragment loaded but dialog is null"));
+							return;
+						}
 						this._oAddMaterialDialog = oDialog;
 						this.getView().addDependent(oDialog);
 						// Set dialog mode after dialog is loaded (important for first time)
@@ -460,7 +601,11 @@ sap.ui.define([
 						this._loadMaterialSuggestions(this._sSelectedMaterialDocType);
 						oDialog.open();
 						resolve(oDialog);
-					}.bind(this));
+					}.bind(this))
+					.catch(function (oError) {
+						console.error("Failed to load material dialog fragment:", oError);
+						reject(oError);
+					});
 				} else {
 					// Set dialog mode when reopening (in case mode changed)
 					this._setMaterialDialogMode(this._bIsEditMode ? "edit" : "add");
@@ -502,6 +647,8 @@ sap.ui.define([
 				oControl?.setValue("");
 			}.bind(this));
 
+			this._oEditingRefDoc = null;
+			this._bIsRefDocEditMode = false;
 			this._setRefDocDialogMode("add");
 		},
 
@@ -509,10 +656,28 @@ sap.ui.define([
 		_setRefDocDialogMode: function (sMode) {
 			var oDialog = this.byId("idAddRefDocDialog");
 			var oSaveButton = this.byId("idRefDocDialogSaveBtn");
-			var bIsEdit = false; // Edit mode removed
+			var bIsEdit = (sMode === "edit");
 
 			oDialog?.setTitle(bIsEdit ? "Edit Reference Document" : "Add Reference Document");
 			oSaveButton?.setText(bIsEdit ? "Update" : "Add");
+		},
+
+		_populateRefDocDialog: function (oRefDoc) {
+			if (!oRefDoc) {
+				return;
+			}
+
+			this.byId("idRefDocType")?.setValue(oRefDoc.docType || "");
+			this._sSelectedDocType = oRefDoc.docType || "";
+			this.byId("idRefDocNumber")?.setValue(oRefDoc.documentNumber || "");
+			this.byId("idRefDocDate")?.setValue(oRefDoc.documentDate || "");
+			this.byId("idRefDocPartyCode")?.setValue(oRefDoc.partyCode || "");
+			this.byId("idRefDocPartyName")?.setValue(oRefDoc.partyName || "");
+			
+			// Load suggestions for the selected doc type
+			if (oRefDoc.docType) {
+				this._loadRefDocSuggestions(oRefDoc.docType);
+			}
 		},
 
 		_resetMaterialDialog: function () {
@@ -1302,6 +1467,134 @@ sap.ui.define([
 			});
 		},
 
+		_updateOrderDetail: function (oPayload, oOriginalRefDoc) {
+			// Validate required fields
+			if (!oPayload.TripNumber || !oPayload.DocType || !oPayload.DocumentNumber) {
+				return Promise.reject(new Error("Missing required fields"));
+			}
+
+			// Use original reference document values (lowercase property names from local model)
+			// Fallback to payload values if original doesn't have them
+			var sDocType = this._escapeODataValue(oOriginalRefDoc.docType || oPayload.DocType);
+			var sTripNumber = this._escapeODataValue(oOriginalRefDoc.tripNumber || oPayload.TripNumber);
+			var sDocumentNumber = this._escapeODataValue(oOriginalRefDoc.documentNumber || oPayload.DocumentNumber);
+
+			// Build correct OData entity key path using original values
+			var sEntityPath = "/OrderDetails(TripNumber='" + sTripNumber +
+				"',DocType='" + sDocType +
+				"',DocumentNumber='" + sDocumentNumber + "')";
+
+			// Build update payload - include all fields (key fields + updatable fields)
+			var oUpdatePayload = {
+				TripNumber: oPayload.TripNumber,
+				DocType: oPayload.DocType,
+				DocumentNumber: oPayload.DocumentNumber,
+				DocumentDate: oPayload.DocumentDate,
+				Vendor: oPayload.Vendor || "",
+				Customer: oPayload.Customer || "",
+				Name: oPayload.Name || "",
+				Deleted: oPayload.Deleted !== undefined ? oPayload.Deleted : false
+			};
+
+			console.log("=== Update Order Detail ===");
+			console.log("Original Reference Doc:", JSON.stringify(oOriginalRefDoc, null, 2));
+			console.log("Entity Path:", sEntityPath);
+			console.log("Update Payload:", JSON.stringify(oUpdatePayload, null, 2));
+
+			var oService = this._getOrderDetailsService();
+			return new Promise(function (resolve, reject) {
+				oService.update(sEntityPath, oUpdatePayload, {
+					merge: false,
+					headers: {
+						"X-Requested-With": "X"
+					},
+					success: function (oData) {
+						console.log("Update successful:", oData);
+						var oResponse = Object.assign({}, oPayload, oData);
+						resolve(oResponse);
+					},
+					error: function (oError) {
+						console.error("Update failed for path:", sEntityPath, "Payload:", JSON.stringify(oUpdatePayload, null, 2), "Error:", oError);
+						reject(oError);
+					}
+				});
+			});
+		},
+
+		_deleteOrderDetail: function (oRefDoc) {
+			if (!oRefDoc) {
+				return Promise.reject(new Error("Reference document data missing"));
+			}
+
+			// Build OData entity key path
+			var sDocType = this._escapeODataValue(oRefDoc.docType);
+			var sTripNumber = this._escapeODataValue(oRefDoc.tripNumber);
+			var sDocumentNumber = this._escapeODataValue(oRefDoc.documentNumber);
+
+			var sEntityPath = "/OrderDetails(TripNumber='" + sTripNumber + 
+				"',DocType='" + sDocType + 
+				"',DocumentNumber='" + sDocumentNumber + "')";
+
+			// Build delete payload - set Deleted flag
+			var oDeletePayload = {
+				Deleted: true
+			};
+
+			console.log("=== Delete Order Detail ===");
+			console.log("Entity Path:", sEntityPath);
+
+			var oService = this._getOrderDetailsService();
+			return new Promise(function (resolve, reject) {
+				oService.update(sEntityPath, oDeletePayload, {
+					headers: {
+						"X-Requested-With": "X",
+						"Content-Type": "application/json"
+					},
+					success: function (oData) {
+						MessageToast.show("Reference document deleted");
+						// Refresh reference documents from service
+						this._onTripDataUpdated();
+						resolve(oData);
+					}.bind(this),
+					error: function (oError) {
+						var sMessage = this._extractErrorMessage(oError) || "Unable to delete reference document";
+						MessageToast.show(sMessage);
+						reject(oError);
+					}.bind(this)
+				});
+			}.bind(this));
+		},
+
+		_updateLocalReferenceDoc: function (oPayload, oOriginalRefDoc) {
+			var oModel = this._ensureRefDocModel();
+			var aRefDocs = oModel.getProperty("/referenceDocs") || [];
+
+			// Find and update the reference document in the array
+			var iIndex = aRefDocs.findIndex(function (oDoc) {
+				return oDoc.tripNumber === oOriginalRefDoc.tripNumber &&
+					oDoc.docType === oOriginalRefDoc.docType &&
+					oDoc.documentNumber === oOriginalRefDoc.documentNumber;
+			});
+
+			if (iIndex >= 0) {
+				// Update the reference document
+				aRefDocs[iIndex] = Object.assign({}, aRefDocs[iIndex], {
+					docType: oPayload.DocType || aRefDocs[iIndex].docType,
+					documentNumber: oPayload.DocumentNumber || aRefDocs[iIndex].documentNumber,
+					documentDate: this._formatODataDate(oPayload.DocumentDate) || aRefDocs[iIndex].documentDate,
+					partyCode: oPayload.Vendor || oPayload.Customer || aRefDocs[iIndex].partyCode,
+					partyName: oPayload.Name || aRefDocs[iIndex].partyName,
+					changedBy: oPayload.ChangedBy || "",
+					changedOnDate: this._formatODataDate(oPayload.ChangedOn),
+					changedOnTime: this._formatODataTime(oPayload.ChangedTime)
+				});
+
+				oModel.setProperty("/referenceDocs", aRefDocs);
+				// Update Material Doc Types and Document Numbers when Reference Documents are updated
+				this._loadMaterialDocTypesFromRefDocs();
+				this._loadMaterialRefDocNumbersFromRefDocs();
+			}
+		},
 
 		_appendLocalReferenceDoc: function (oPayload) {
 			var oModel = this._ensureRefDocModel();
@@ -1363,8 +1656,12 @@ sap.ui.define([
 				"',RefDocNo='" + sRefDocNo +
 				"',RefDocItemNo='" + sRefDocItemNo + "')";
 
-			// Build update payload - only include updatable fields
+			// Build update payload - include all fields (key fields + updatable fields)
 			var oUpdatePayload = {
+				TripNumber: oPayload.TripNumber,
+				DocType: oPayload.DocType,
+				RefDocNo: oPayload.RefDocNo,
+				RefDocItemNo: oPayload.RefDocItemNo,
 				MaterialCode: oPayload.MaterialCode,
 				MaterialDescription: oPayload.MaterialDescription,
 				Quantity: oPayload.Quantity,
@@ -1373,15 +1670,12 @@ sap.ui.define([
 				IsSplitActive: oPayload.IsSplitActive !== undefined ? oPayload.IsSplitActive : false
 			};
 
-			console.log("=== Update Material Detail ===");
-			console.log("Original Material:", JSON.stringify(oOriginalMaterial, null, 2));
-			console.log("Entity Path:", sEntityPath);
-			console.log("Update Payload:", JSON.stringify(oUpdatePayload, null, 2));
-			console.log("Full Payload (for reference):", JSON.stringify(oPayload, null, 2));
+			
 
 			var oService = this._getItemDetailsService();
 			return new Promise(function (resolve, reject) {
 				oService.update(sEntityPath, oUpdatePayload, {
+					merge:false,
 					headers: {
 						"X-Requested-With": "X"
 					},

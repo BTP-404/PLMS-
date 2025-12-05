@@ -4,6 +4,7 @@
     xmlns="sap.m"
     xmlns:core="sap.ui.core"
     xmlns:layout="sap.ui.layout"
+    xmlns:unified="sap.ui.unified"
     displayBlock="true"
 >
     <VBox class="sapUiSizeCompact sapUiSmallMargin">
@@ -209,6 +210,45 @@
                                 id="idDriverLicense"
                                 width="100%"
                                 value="{TripData>/DriverLicence}"
+                            />
+                        </VBox>
+                    </layout:content>
+                    <layout:content>
+                        <VBox>
+                            <Label
+                                text="Driver Photo"
+                                design="Bold"
+                            />
+                            <HBox alignItems="Center" class="sapUiTinyMarginTop">
+                                <unified:FileUploader
+                                    id="idDriverPhotoUploader"
+                                    name="driverPhoto"
+                                    placeholder="Choose photo (JPG, PNG)"
+                                    fileType="jpg,jpeg,png"
+                                    icon="sap-icon://camera"
+                                    width="70%"
+                                    change=".onDriverPhotoChange"
+                                    class="sapUiTinyMarginEnd"
+                                />
+                                <Button
+                                    id="idPreviewDriverPhoto"
+                                    icon="sap-icon://show"
+                                    text="Preview"
+                                    type="Transparent"
+                                    press=".onPreviewDriverPhoto"
+                                    visible="{= !!${TripData>/DriverPhoto}}"
+                                    class="sapUiTinyMarginBegin"
+                                />
+                            </HBox>
+                            <Image
+                                id="idDriverPhotoPreview"
+                                src="{TripData>/DriverPhoto}"
+                                width="150px"
+                                height="150px"
+                                densityAware="false"
+                                visible="{= !!${TripData>/DriverPhoto}}"
+                                class="sapUiTinyMarginTop driverPhotoPreview"
+                                press=".onPreviewDriverPhoto"
                             />
                         </VBox>
                     </layout:content>

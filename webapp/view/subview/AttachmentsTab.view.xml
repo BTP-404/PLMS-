@@ -112,13 +112,35 @@
                     class="sapUiSizeCompact"
                 >
                     <items>
-                        <StandardListItem
-                            title="{attachmentsModel>fileName}"
-                            description="{attachmentsModel>contentType}"
-                            type="Active"
-                            press=".onPreviewAttachment"
-                            icon="sap-icon://attachment"
-                        />
+                        <CustomListItem>
+                            <HBox alignItems="Center" class="sapUiSmallMarginBegin sapUiSmallMarginEnd sapUiTinyMarginTop sapUiTinyMarginBottom">
+                                <core:Icon
+                                    src="sap-icon://attachment"
+                                    size="1.5rem"
+                                    class="sapUiTinyMarginEnd"
+                                    color="#0070f2"
+                                />
+                                <VBox class="sapUiTinyMarginBegin" flex="1">
+                                    <Text
+                                        text="{attachmentsModel>fileName}"
+                                        class="sapUiTinyMarginBottom"
+                                        wrapping="true"
+                                    />
+                                    <Text
+                                        text="{attachmentsModel>contentType}"
+                                        class="sapUiSmallFontSize"
+                                        wrapping="true"
+                                    />
+                                </VBox>
+                                <Button
+                                    text="Preview / Open"
+                                    type="Emphasized"
+                                    icon="sap-icon://show"
+                                    press=".onPreviewAttachment"
+                                    class="sapUiTinyMarginBegin"
+                                />
+                            </HBox>
+                        </CustomListItem>
                     </items>
                 </List>
             </VBox>

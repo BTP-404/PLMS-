@@ -107,6 +107,9 @@ sap.ui.define(
               // Also bind to this view (optional)
               that.getView().setModel(oTripDataModel, "TripData");
 
+              // Load driver photo from Attachments entity separately
+              that._loadDriverPhotoFromAttachments(sTripNumber);
+
               // UPDATED: call inputs helper to properly disable inputs
               that._setInputsEnabled(false); // UPDATED (was _setFormEditable(false))
               that._setButtonStates(true, true); // Re-enable after load
@@ -179,6 +182,10 @@ sap.ui.define(
         _createTrip: function (oModel) {
           const oData = this._collectFormData();
 
+          // Store driver photo separately in Attachments, not in TripDetails
+          var sDriverPhoto = oData.DriverPhoto;
+          delete oData.DriverPhoto; // Remove from TripDetails payload
+
           oData.MovementScenario = movementScenario;
           oData.MovementType = Mtype;
           //   oData.LR_Number = LRNumber;
@@ -241,6 +248,11 @@ sap.ui.define(
               that.getView().byId("idRelatedTripNumber").setValue(sFormattedTripNo);
               MessageToast.show(`Trip ( ${sFormattedTripNo} ) Created !`);
               
+              // Save driver photo separately in Attachments if exists
+              if (sDriverPhoto) {
+                that._saveDriverPhotoToAttachments(oResponse.TripNumber, sDriverPhoto);
+              }
+              
               this._clearForm();
               that._setFormEditable(false);
               that._setInputsEnabled(false);
@@ -285,6 +297,10 @@ sap.ui.define(
 
           // Build a flat payload with only TripDetails fields (no nav props)
           const oUpdateData = Object.assign({}, oData);
+
+          // Store driver photo separately in Attachments, not in TripDetails
+          var sDriverPhoto = oUpdateData.DriverPhoto;
+          delete oUpdateData.DriverPhoto; // Remove from TripDetails payload
 
           // Remove navigation properties / deferred / collections
           delete oUpdateData.ActivityHistory;
@@ -332,6 +348,11 @@ sap.ui.define(
             success: function () {
               that.getView().setBusy(false);
               MessageToast.show("Trip updated successfully!");
+              
+              // Save driver photo separately in Attachments if exists
+              if (sDriverPhoto) {
+                that._saveDriverPhotoToAttachments(sTripNumber, sDriverPhoto);
+              }
 
               that._setFormEditable(false);
               that._setInputsEnabled(false);
@@ -564,6 +585,216 @@ sap.ui.define(
          * =========================================================== */
         _collectFormData: function () {
           return this.getView().getModel("TripData").getData();
+        },
+
+        /* ===========================================================
+         * Driver Photo Upload and Preview
+         * =========================================================== */
+        onDriverPhotoChange: function (oEvent) {
+          var oFileUploader = oEvent.getSource();
+          
+          // Get files from the native file input element
+          var oDomRef = oFileUploader.getDomRef();
+          var oFileInput = oDomRef ? oDomRef.querySelector("input[type='file']") : null;
+          
+          if (!oFileInput || !oFileInput.files || oFileInput.files.length === 0) {
+            this._oDriverPhotoFile = null;
+            return;
+          }
+          
+          var oFile = oFileInput.files[0];
+          
+          // Validate file type
+          var sFileType = oFile.type || "";
+          if (!sFileType.startsWith("image/")) {
+            MessageToast.show("Please select an image file (JPG, PNG)");
+            oFileUploader.clear();
+            return;
+          }
+          
+          // Validate file size (max 5MB)
+          if (oFile.size > 5 * 1024 * 1024) {
+            MessageToast.show("File size should be less than 5MB");
+            oFileUploader.clear();
+            return;
+          }
+          
+          this._oDriverPhotoFile = oFile;
+          
+          // Read and preview the image
+          var oReader = new FileReader();
+          oReader.onload = function (oEvent) {
+            var sBase64Content = oEvent.target.result;
+            // Store base64 data URL directly for preview
+            var oTripDataModel = this.getView().getModel("TripData");
+            oTripDataModel.setProperty("/DriverPhoto", sBase64Content);
+            
+            // Show preview button and image
+            this.byId("idPreviewDriverPhoto")?.setVisible(true);
+            this.byId("idDriverPhotoPreview")?.setVisible(true);
+          }.bind(this);
+          
+          oReader.onerror = function () {
+            MessageToast.show("Failed to read photo");
+          };
+          
+          oReader.readAsDataURL(oFile);
+        },
+
+        onPreviewDriverPhoto: function () {
+          var oTripDataModel = this.getView().getModel("TripData");
+          var sDriverPhoto = oTripDataModel?.getProperty("/DriverPhoto");
+          
+          if (!sDriverPhoto) {
+            MessageToast.show("No driver photo available");
+            return;
+          }
+          
+          // Create preview dialog
+          if (!this._oDriverPhotoDialog) {
+            this._oDriverPhotoDialog = new sap.m.Dialog({
+              title: "Driver Photo",
+              contentWidth: "60%",
+              contentHeight: "70%",
+              resizable: true,
+              draggable: true,
+              beginButton: new sap.m.Button({
+                text: "Close",
+                press: function () {
+                  this._oDriverPhotoDialog.close();
+                }.bind(this)
+              })
+            });
+            this.getView().addDependent(this._oDriverPhotoDialog);
+          }
+          
+          this._oDriverPhotoDialog.removeAllContent();
+          
+          var oScrollContainer = new sap.m.ScrollContainer({
+            width: "100%",
+            height: "100%",
+            vertical: true,
+            horizontal: true,
+            content: [
+              new sap.m.Image({
+                src: sDriverPhoto,
+                densityAware: false,
+                width: "100%",
+                height: "auto"
+              })
+            ]
+          });
+          
+          this._oDriverPhotoDialog.addContent(oScrollContainer);
+          this._oDriverPhotoDialog.open();
+        },
+
+        /* ===========================================================
+         * Save Driver Photo to Attachments Entity
+         * =========================================================== */
+        _saveDriverPhotoToAttachments: function (sTripNumber, sDriverPhoto) {
+          // Convert data URL to base64 string if needed
+          var sBase64Data = sDriverPhoto;
+          if (sDriverPhoto.startsWith("data:")) {
+            sBase64Data = sDriverPhoto.split(",")[1] || sDriverPhoto;
+          }
+
+          var oService = this.getView().getModel();
+          var oPayload = {
+            TripNumber: sTripNumber,
+            FileName: "DriverPhoto.jpg",
+            ContentType: "image/jpeg",
+            Content: sBase64Data
+          };
+
+          // Try to create first (if exists, will get error and we'll update)
+          oService.create("/Attachments", oPayload, {
+            headers: {
+              "X-Requested-With": "X"
+            },
+            success: function () {
+              MessageToast.show("Driver photo saved successfully");
+            }.bind(this),
+            error: function (oError) {
+              // If creation fails (entity exists), try update
+              if (oError.statusCode === 409 || oError.statusCode === 400) {
+                this._updateDriverPhotoInAttachments(sTripNumber, sBase64Data);
+              } else {
+                var sMessage = "Failed to save driver photo";
+                try {
+                  var oResponse = JSON.parse(oError.responseText);
+                  if (oResponse.error?.message?.value) {
+                    sMessage = oResponse.error.message.value;
+                  }
+                } catch (e) {}
+                MessageToast.show(sMessage);
+                console.error("Save driver photo error:", oError);
+              }
+            }.bind(this)
+          });
+        },
+
+        _updateDriverPhotoInAttachments: function (sTripNumber, sBase64Data) {
+          var oService = this.getView().getModel();
+          var sPath = "/Attachments('" + sTripNumber + "')";
+          
+          var oPayload = {
+            FileName: "DriverPhoto.jpg",
+            ContentType: "image/jpeg",
+            Content: sBase64Data
+          };
+
+          oService.update(sPath, oPayload, {
+            headers: {
+              "X-Requested-With": "X"
+            },
+            success: function () {
+              MessageToast.show("Driver photo updated successfully");
+            }.bind(this),
+            error: function (oError) {
+              var sMessage = "Failed to update driver photo";
+              try {
+                var oResponse = JSON.parse(oError.responseText);
+                if (oResponse.error?.message?.value) {
+                  sMessage = oResponse.error.message.value;
+                }
+              } catch (e) {}
+              MessageToast.show(sMessage);
+              console.error("Update driver photo error:", oError);
+            }.bind(this)
+          });
+        },
+
+        /* ===========================================================
+         * Load Driver Photo from Attachments Entity
+         * =========================================================== */
+        _loadDriverPhotoFromAttachments: function (sTripNumber) {
+          var oService = this.getView().getModel();
+          var sPath = "/Attachments('" + sTripNumber + "')";
+          
+          oService.read(sPath, {
+            success: function (oData) {
+              if (oData && oData.Content && oData.FileName === "DriverPhoto.jpg") {
+                // Convert base64 to data URL for display
+                var sDataUrl = "data:" + (oData.ContentType || "image/jpeg") + ";base64," + oData.Content;
+                var oTripDataModel = this.getView().getModel("TripData");
+                if (oTripDataModel) {
+                  oTripDataModel.setProperty("/DriverPhoto", sDataUrl);
+                  this.byId("idPreviewDriverPhoto")?.setVisible(true);
+                  this.byId("idDriverPhotoPreview")?.setVisible(true);
+                }
+              } else {
+                // No driver photo attachment found, hide preview
+                this.byId("idPreviewDriverPhoto")?.setVisible(false);
+                this.byId("idDriverPhotoPreview")?.setVisible(false);
+              }
+            }.bind(this),
+            error: function () {
+              // No driver photo attachment found, hide preview
+              this.byId("idPreviewDriverPhoto")?.setVisible(false);
+              this.byId("idDriverPhotoPreview")?.setVisible(false);
+            }.bind(this)
+          });
         },
 
         /* ===========================================================

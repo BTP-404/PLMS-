@@ -79,9 +79,16 @@ sap.ui.define([
 				return;
 			}
 
+			var oStageSelect = this.byId("idStageSelect");
+			var sStage = oStageSelect ? oStageSelect.getSelectedKey() : "";
+			// Note: Stage is not part of the Attachments entity, so it's only for UI reference
+
 			var oFile = this._oSelectedFile;
 			var sFileName = oFile.name;
 			var sContentType = oFile.type || "application/octet-stream";
+
+			// Show busy indicator
+			this.getView().setBusy(true);
 
 			// Read file as base64
 			var oReader = new FileReader();
@@ -90,116 +97,83 @@ sap.ui.define([
 				// Remove data URL prefix (e.g., "data:image/jpeg;base64,")
 				var sBase64Data = sBase64Content.split(",")[1] || sBase64Content;
 
-				this._saveAttachment(sTripNumber, sFileName, sContentType, sBase64Data);
+				this._saveAttachment(sTripNumber, sFileName, sContentType, sBase64Data, sStage);
 			}.bind(this);
 
 			oReader.onerror = function () {
+				this.getView().setBusy(false);
 				MessageToast.show("Failed to read file");
-			};
+			}.bind(this);
 
 			oReader.readAsDataURL(oFile);
 		},
 
-		_saveAttachment: function (sTripNumber, sFileName, sContentType, sBase64Data) {
-			var oService = this._getAttachmentsService();
-			var sPath = "/Attachments('" + sTripNumber + "')";
-			
-			// Check if attachment already exists
-			oService.read(sPath, {
-				success: function () {
-					// Attachment exists, update it
-					this._updateAttachmentContent(sTripNumber, sFileName, sContentType, sBase64Data, true);
-				}.bind(this),
-				error: function () {
-					// Attachment doesn't exist, create it
-					this._createAttachment(sTripNumber, sFileName, sContentType, sBase64Data);
-				}.bind(this)
-			});
-		},
-
-		_createAttachment: function (sTripNumber, sFileName, sContentType, sBase64Data) {
+		_saveAttachment: function (sTripNumber, sFileName, sContentType, sBase64Data, sStage) {
 			var oService = this._getAttachmentsService();
 			
-			// For media entities with HasStream="true", create with metadata first
-			var oMetadata = {
+			// Since TripNumber is the key and Content is Edm.String, we store base64 directly
+			// For slug-based entities, we create/update with all properties including Content
+			var oPayload = {
 				TripNumber: sTripNumber,
 				FileName: sFileName,
-				ContentType: sContentType
+				ContentType: sContentType,
+				Content: sBase64Data
 			};
 
-			oService.create("/Attachments", oMetadata, {
+			// Try to create first (if exists, will get error and we'll update)
+			oService.create("/Attachments", oPayload, {
 				headers: {
 					"X-Requested-With": "X"
 				},
 				success: function () {
-					// Update with binary content
-					this._updateAttachmentContent(sTripNumber, sFileName, sContentType, sBase64Data, false);
-				}.bind(this),
-				error: function (oError) {
-					var sMessage = "Failed to create attachment";
-					try {
-						var oResponse = JSON.parse(oError.responseText);
-						if (oResponse.error?.message?.value) {
-							sMessage = oResponse.error.message.value;
-						}
-					} catch (e) {}
-					MessageToast.show(sMessage);
-					console.error("Create error:", oError);
-				}
-			});
-		},
-
-		_updateAttachmentContent: function (sTripNumber, sFileName, sContentType, sBase64Data, bIsUpdate) {
-			var oService = this._getAttachmentsService();
-			var sPath = "/Attachments('" + sTripNumber + "')/$value";
-			
-			// Convert base64 to binary
-			var sBinaryData = atob(sBase64Data);
-			var aBytes = new Uint8Array(sBinaryData.length);
-			for (var i = 0; i < sBinaryData.length; i++) {
-				aBytes[i] = sBinaryData.charCodeAt(i);
-			}
-
-			// Update metadata if updating existing attachment
-			if (bIsUpdate) {
-				var oMetadata = {
-					FileName: sFileName,
-					ContentType: sContentType
-				};
-				oService.update("/Attachments('" + sTripNumber + "')", oMetadata, {
-					headers: {
-						"X-Requested-With": "X"
-					},
-					success: function () {
-						this._uploadBinaryContent(sPath, aBytes, sContentType);
-					}.bind(this),
-					error: function () {
-						// Try uploading binary anyway
-						this._uploadBinaryContent(sPath, aBytes, sContentType);
-					}.bind(this)
-				});
-			} else {
-				this._uploadBinaryContent(sPath, aBytes, sContentType);
-			}
-		},
-
-		_uploadBinaryContent: function (sPath, aBytes, sContentType) {
-			var oService = this._getAttachmentsService();
-			
-			oService.update(sPath, aBytes, {
-				headers: {
-					"X-Requested-With": "X",
-					"Content-Type": sContentType
-				},
-				success: function () {
+					this.getView().setBusy(false);
 					MessageToast.show("Attachment uploaded successfully");
 					this._loadAttachments();
-					// Clear file uploader
-					this.byId("idUnifiedUploader")?.clear();
-					this._oSelectedFile = null;
+					this._clearUploadForm();
 				}.bind(this),
 				error: function (oError) {
-					var sMessage = "Failed to upload attachment content";
+					// If creation fails (entity exists), try update
+					if (oError.statusCode === 409 || oError.statusCode === 400) {
+						this._updateAttachment(sTripNumber, sFileName, sContentType, sBase64Data);
+					} else {
+						this.getView().setBusy(false);
+						var sMessage = "Failed to upload attachment";
+						try {
+							var oResponse = JSON.parse(oError.responseText);
+							if (oResponse.error?.message?.value) {
+								sMessage = oResponse.error.message.value;
+							}
+						} catch (e) {}
+						MessageToast.show(sMessage);
+						console.error("Upload error:", oError);
+					}
+				}.bind(this)
+			});
+		},
+
+		_updateAttachment: function (sTripNumber, sFileName, sContentType, sBase64Data) {
+			var oService = this._getAttachmentsService();
+			var sPath = "/Attachments('" + sTripNumber + "')";
+			
+			var oPayload = {
+				FileName: sFileName,
+				ContentType: sContentType,
+				Content: sBase64Data
+			};
+
+			oService.update(sPath, oPayload, {
+				headers: {
+					"X-Requested-With": "X"
+				},
+				success: function () {
+					this.getView().setBusy(false);
+					MessageToast.show("Attachment updated successfully");
+					this._loadAttachments();
+					this._clearUploadForm();
+				}.bind(this),
+				error: function (oError) {
+					this.getView().setBusy(false);
+					var sMessage = "Failed to update attachment";
 					try {
 						var oResponse = JSON.parse(oError.responseText);
 						if (oResponse.error?.message?.value) {
@@ -207,9 +181,24 @@ sap.ui.define([
 						}
 					} catch (e) {}
 					MessageToast.show(sMessage);
-					console.error("Upload error:", oError);
-				}
+					console.error("Update error:", oError);
+				}.bind(this)
 			});
+		},
+
+		_clearUploadForm: function () {
+			// Clear file uploader
+			var oFileUploader = this.byId("idUnifiedUploader");
+			if (oFileUploader) {
+				oFileUploader.clear();
+			}
+			this._oSelectedFile = null;
+			
+			// Reset stage selection
+			var oStageSelect = this.byId("idStageSelect");
+			if (oStageSelect) {
+				oStageSelect.setSelectedKey("");
+			}
 		},
 
 		_loadAttachments: function () {
@@ -223,13 +212,15 @@ sap.ui.define([
 			}
 
 			var oService = this._getAttachmentsService();
-			oService.read("/Attachments('" + sTripNumber + "')", {
+			var sPath = "/Attachments('" + sTripNumber + "')";
+			
+			oService.read(sPath, {
 				success: function (oData) {
 					var aAttachments = [];
 					if (oData && oData.FileName) {
-						// Single attachment
+						// Single attachment (slug-based, one per trip)
 						aAttachments.push({
-							tripNumber: oData.TripNumber || "",
+							tripNumber: oData.TripNumber || sTripNumber,
 							fileName: oData.FileName || "",
 							contentType: oData.ContentType || ""
 						});
@@ -237,29 +228,10 @@ sap.ui.define([
 					this._oAttachmentsModel.setProperty("/attachments", aAttachments);
 					this._renderAttachmentsList();
 				}.bind(this),
-				error: function () {
-					// Try reading as collection
-					oService.read("/Attachments", {
-						filters: [
-							new Filter("TripNumber", FilterOperator.EQ, sTripNumber)
-						],
-						success: function (oData) {
-							var aResults = oData.results || [];
-							var aAttachments = aResults.map(function (oItem) {
-								return {
-									tripNumber: oItem.TripNumber || "",
-									fileName: oItem.FileName || "",
-									contentType: oItem.ContentType || ""
-								};
-							});
-							this._oAttachmentsModel.setProperty("/attachments", aAttachments);
-							this._renderAttachmentsList();
-						}.bind(this),
-						error: function () {
-							this._oAttachmentsModel.setProperty("/attachments", []);
-							this._renderAttachmentsList();
-						}.bind(this)
-					});
+				error: function (oError) {
+					// No attachment found for this trip
+					this._oAttachmentsModel.setProperty("/attachments", []);
+					this._renderAttachmentsList();
 				}.bind(this)
 			});
 		},
@@ -270,11 +242,36 @@ sap.ui.define([
 		},
 
 		onPreviewAttachment: function (oEvent) {
-			var oItem = oEvent.getSource();
-			var oContext = oItem.getBindingContext("attachmentsModel");
+			// Get the CustomListItem parent if button was clicked
+			var oSource = oEvent.getSource();
+			var oListItem = null;
+			
+			// Try to find the CustomListItem parent
+			var oParent = oSource.getParent();
+			while (oParent) {
+				if (oParent.getBindingContext && oParent.getBindingContext("attachmentsModel")) {
+					oListItem = oParent;
+					break;
+				}
+				oParent = oParent.getParent ? oParent.getParent() : null;
+			}
+			
+			if (oListItem) {
+				var oContext = oListItem.getBindingContext("attachmentsModel");
+				if (oContext) {
+					var oAttachment = oContext.getObject();
+					this._previewAttachment(oAttachment);
+					return;
+				}
+			}
+			
+			// Fallback: try to get from event source directly
+			var oContext = oSource.getBindingContext("attachmentsModel");
 			if (oContext) {
 				var oAttachment = oContext.getObject();
 				this._previewAttachment(oAttachment);
+			} else {
+				MessageToast.show("Unable to load attachment");
 			}
 		},
 
@@ -287,36 +284,49 @@ sap.ui.define([
 			}
 
 			var oService = this._getAttachmentsService();
-			var sPath = "/Attachments('" + sTripNumber + "')/$value";
+			var sPath = "/Attachments('" + sTripNumber + "')";
 
-			// Fetch the binary content
+			// Fetch the attachment with Content property (base64 string)
 			oService.read(sPath, {
-				headers: {
-					"Accept": oAttachment.contentType || "*/*"
-				},
 				success: function (oData) {
-					// Create preview dialog
-					this._showPreviewDialog(oAttachment, oData);
+					if (!oData || !oData.Content) {
+						MessageToast.show("Attachment content not found");
+						return;
+					}
+					// Content is already base64 string, use it directly
+					this._showPreviewDialog(oAttachment, oData.Content);
 				}.bind(this),
-				error: function () {
+				error: function (oError) {
 					MessageToast.show("Failed to load attachment for preview");
-				}
+					console.error("Preview error:", oError);
+				}.bind(this)
 			});
 		},
 
-		_showPreviewDialog: function (oAttachment, oContent) {
+		_showPreviewDialog: function (oAttachment, sBase64Content) {
+			var that = this;
+			
+			// Create dialog if it doesn't exist
 			if (!this._oPreviewDialog) {
 				this._oPreviewDialog = new Dialog({
 					title: oAttachment.fileName,
-					contentWidth: "80%",
-					contentHeight: "80%",
+					contentWidth: "90%",
+					contentHeight: "85%",
 					resizable: true,
 					draggable: true,
 					beginButton: new Button({
 						text: "Close",
 						press: function () {
-							this._oPreviewDialog.close();
-						}.bind(this)
+							that._oPreviewDialog.close();
+						}
+					}),
+					endButton: new Button({
+						text: "Download",
+						type: "Emphasized",
+						icon: "sap-icon://download",
+						press: function () {
+							that._downloadAttachment(oAttachment, sBase64Content);
+						}
 					})
 				});
 				this.getView().addDependent(this._oPreviewDialog);
@@ -326,60 +336,103 @@ sap.ui.define([
 			this._oPreviewDialog.removeAllContent();
 
 			var sContentType = oAttachment.contentType || "";
-			var sFileName = oAttachment.fileName || "";
+			var sBase64 = sBase64Content || "";
 
-			// Determine if it's an image
-			if (sContentType.startsWith("image/")) {
-				// For images, create base64 data URL
-				var sBase64 = "";
-				if (typeof oContent === "string") {
-					sBase64 = oContent;
-				} else {
-					// Convert binary to base64
-					var aBytes = new Uint8Array(oContent);
-					var sBinary = "";
-					for (var i = 0; i < aBytes.length; i++) {
-						sBinary += String.fromCharCode(aBytes[i]);
-					}
-					sBase64 = btoa(sBinary);
-				}
-				var sDataUrl = "data:" + sContentType + ";base64," + sBase64;
-
-				var oImage = new Image({
-					src: sDataUrl,
-					densityAware: false,
-					width: "100%",
-					height: "100%"
-				});
-				this._oPreviewDialog.addContent(oImage);
-			} else if (sContentType === "application/pdf") {
-				// For PDF, use iframe
-				var sBase64 = "";
-				if (typeof oContent === "string") {
-					sBase64 = oContent;
-				} else {
-					var aBytes = new Uint8Array(oContent);
-					var sBinary = "";
-					for (var i = 0; i < aBytes.length; i++) {
-						sBinary += String.fromCharCode(aBytes[i]);
-					}
-					sBase64 = btoa(sBinary);
-				}
-				var sDataUrl = "data:" + sContentType + ";base64," + sBase64;
-
-				var oIFrame = new HTML({
-					content: '<iframe src="' + sDataUrl + '" width="100%" height="100%" style="border:none;"></iframe>'
-				});
-				this._oPreviewDialog.addContent(oIFrame);
-			} else {
-				// For other types, show download option
+			if (!sBase64) {
 				var oText = new Text({
-					text: "Preview not available for this file type. Please download to view."
+					text: "No content available for preview."
 				});
 				this._oPreviewDialog.addContent(oText);
+				this._oPreviewDialog.open();
+				return;
+			}
+
+			// Create data URL from base64 content
+			var sDataUrl = "data:" + sContentType + ";base64," + sBase64;
+
+			// Determine preview type based on content type
+			if (sContentType.startsWith("image/")) {
+				// For images, display directly with scroll container
+				var oScrollContainer = new sap.m.ScrollContainer({
+					width: "100%",
+					height: "100%",
+					vertical: true,
+					horizontal: true,
+					content: [
+						new Image({
+							src: sDataUrl,
+							densityAware: false,
+							width: "100%",
+							height: "auto"
+						})
+					]
+				});
+				this._oPreviewDialog.addContent(oScrollContainer);
+			} else if (sContentType === "application/pdf") {
+				// For PDF, use iframe with full height
+				var oScrollContainer = new sap.m.ScrollContainer({
+					width: "100%",
+					height: "100%",
+					vertical: false,
+					horizontal: false,
+					content: [
+						new HTML({
+							content: '<iframe src="' + sDataUrl + '" width="100%" height="100%" style="border:none; min-height: 600px;"></iframe>'
+						})
+					]
+				});
+				this._oPreviewDialog.addContent(oScrollContainer);
+			} else {
+				// For other types, provide download option
+				var oVBox = new sap.m.VBox({
+					class: "sapUiMediumPadding",
+					items: [
+						new Text({
+							text: "Preview not available for this file type. Please download to view.",
+							class: "sapUiMediumMarginBottom"
+						}),
+						new Button({
+							text: "Download File",
+							type: "Emphasized",
+							icon: "sap-icon://download",
+							press: function () {
+								that._downloadAttachment(oAttachment, sBase64);
+							}
+						})
+					]
+				});
+				this._oPreviewDialog.addContent(oVBox);
 			}
 
 			this._oPreviewDialog.open();
+		},
+
+		_downloadAttachment: function (oAttachment, sBase64Content) {
+			try {
+				// Convert base64 to blob
+				var sContentType = oAttachment.contentType || "application/octet-stream";
+				var sBinary = atob(sBase64Content);
+				var aBytes = new Uint8Array(sBinary.length);
+				for (var i = 0; i < sBinary.length; i++) {
+					aBytes[i] = sBinary.charCodeAt(i);
+				}
+				var oBlob = new Blob([aBytes], { type: sContentType });
+
+				// Create download link
+				var oUrl = URL.createObjectURL(oBlob);
+				var oLink = document.createElement("a");
+				oLink.href = oUrl;
+				oLink.download = oAttachment.fileName || "attachment";
+				document.body.appendChild(oLink);
+				oLink.click();
+				document.body.removeChild(oLink);
+				URL.revokeObjectURL(oUrl);
+
+				MessageToast.show("Download started");
+			} catch (oError) {
+				MessageToast.show("Failed to download file");
+				console.error("Download error:", oError);
+			}
 		},
 
 		onDeleteFile: function (oEvent) {
