@@ -113,15 +113,58 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Unloading", 
 
         oView.setBusy(true);
 
-        // FunctionImport: StartUnloading - GET method (if available)
-        // For now, just show a message - update with actual OData call when available
-        setTimeout(function() {
-            oView.setBusy(false);
-            MessageToast.show("Unloading started successfully.");
-            
-            // Reload TripData to get updated status fields
-            this._reloadTripDataAndUpdateButtons();
-        }.bind(this), 500);
+        // FunctionImport: StartUnloading - GET method, returns Collection(ItemDetails)
+        this.oModel.callFunction("/StartUnloading", {
+            method: "GET",
+            urlParameters: {
+                TripNumber: sTripNumber
+            },
+            headers: {
+                "X-Requested-With": "X"
+            },
+            success: function (oData) {
+                oView.setBusy(false);
+                MessageToast.show("Unloading started successfully.");
+
+                // Handle Collection(ItemDetails) response
+                if (oData && oData.results) {
+                    this._applyMaterials(oData.results);
+                } else if (oData && Array.isArray(oData)) {
+                    this._applyMaterials(oData);
+                } else if (oData) {
+                    // Handle single object response
+                    this._applyMaterials([oData]);
+                }
+                
+                // Reload TripData to get updated status fields
+                this._reloadTripDataAndUpdateButtons();
+            }.bind(this),
+            error: function (oError) {
+                oView.setBusy(false);
+
+                let sMessage = "Failed to Start Unloading";
+
+                try {
+                    if (oError && oError.responseText) {
+                        const oResponse = JSON.parse(oError.responseText);
+                        if (oResponse.error?.message?.value) {
+                            sMessage = oResponse.error.message.value;
+                        } else if (oResponse.error?.message) {
+                            sMessage = oResponse.error.message;
+                        }
+                    } else if (oError && oError.message) {
+                        sMessage = oError.message.value || oError.message;
+                    }
+                } catch (e) {
+                    console.error("Error parsing response:", e);
+                }
+
+                MessageBox.error(sMessage);
+
+                // Reload TripData to restore correct button states
+                this._reloadTripDataAndUpdateButtons();
+            }.bind(this)
+        });
     },
 
     // =====================================================================
@@ -139,15 +182,53 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Unloading", 
 
         oView.setBusy(true);
 
-        // FunctionImport: EndUnloading - POST method (if available)
-        // For now, just show a message - update with actual OData call when available
-        setTimeout(function() {
-            oView.setBusy(false);
-            MessageToast.show("Unloading ended.");
-            
-            // Reload TripData to get updated status fields
-            this._reloadTripDataAndUpdateButtons();
-        }.bind(this), 500);
+        // FunctionImport: EndUnloading - POST method, returns RegisterEvent
+        this.oModel.callFunction("/EndUnloading", {
+            method: "POST",
+            urlParameters: {
+                TripNumber: sTripNumber
+            },
+            headers: {
+                "X-Requested-With": "X"
+            },
+            success: function (oData) {
+                oView.setBusy(false);
+                MessageToast.show("Unloading ended.");
+                
+                // Optional: Log the RegisterEvent response if needed
+                if (oData) {
+                    console.log("EndUnloading response:", oData);
+                }
+                
+                // Reload TripData to get updated status fields
+                this._reloadTripDataAndUpdateButtons();
+            }.bind(this),
+            error: function (oError) {
+                oView.setBusy(false);
+
+                let sMessage = "Failed to end unloading";
+
+                try {
+                    if (oError && oError.responseText) {
+                        const oResponse = JSON.parse(oError.responseText);
+                        if (oResponse.error?.message?.value) {
+                            sMessage = oResponse.error.message.value;
+                        } else if (oResponse.error?.message) {
+                            sMessage = oResponse.error.message;
+                        }
+                    } else if (oError && oError.message) {
+                        sMessage = oError.message.value || oError.message;
+                    }
+                } catch (e) {
+                    console.error("Error parsing response:", e);
+                }
+
+                MessageBox.error(sMessage);
+
+                // Reload TripData to restore correct button states
+                this._reloadTripDataAndUpdateButtons();
+            }.bind(this)
+        });
     },
 
 
