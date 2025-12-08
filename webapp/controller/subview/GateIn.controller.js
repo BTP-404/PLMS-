@@ -238,9 +238,9 @@ sap.ui.define(
 
           var oView = this.getView();
 
-          var sEntryGateNumber = oView.byId("idEntryGateNumber").getValue();
+          var sEntryGateNumber = oView.byId("idEntryGateNumber").getValue() || "";
           // var sDelayReasons = oView.byId("idDelayReasons").getValue();
-          var sRemarks = oView.byId("idGateInRemarks").getValue();
+          var sRemarks = oView.byId("idGateInRemarks").getValue() || "";
           
           // Get weighment required value
           var oWeighmentRadioGroup = oView.byId("idWeighmentRequired");
@@ -253,7 +253,10 @@ sap.ui.define(
           var sTripNumber = sap.ui
             .getCore()
             .getModel("globalData")
-            .getProperty("/TripNumber");
+            .getProperty("/TripNumber") || "";
+          
+          // Ensure DelayReasons has a value (empty string if not selected)
+          var sDelayReasons = sID || "";
           
           // Update TripData model with weighment required value
           var oTripData = sap.ui.getCore().getModel("TripData");
@@ -272,9 +275,9 @@ sap.ui.define(
               TripNumber: sTripNumber,
               EntryGateNumber: sEntryGateNumber,
               Modified: true,
-              Remarks: sRemarks,
-              DelayReasons: sID,
-              WeighmentRequired: sWeighmentRequired,
+              Remarks: sRemarks || "",
+              DelayReasons: sDelayReasons,
+              // WeighmentRequired removed from payload - not sent to backend
             },
             headers: {
               "X-Requested-With": "X",

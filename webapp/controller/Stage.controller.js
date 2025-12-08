@@ -21,11 +21,13 @@ sap.ui.define([
 
 			this._oEventBus = sap.ui.getCore().getEventBus();
 			this._oEventBus.subscribe("TripData", "Updated", this._refreshPageTitleModel, this);
+			this._oEventBus.subscribe("Stage", "TripCreated", this._onTripCreated, this);
 		},
 		onAfterRendering: function() {},
 
 		onExit: function () {
 			this._oEventBus?.unsubscribe("TripData", "Updated", this._refreshPageTitleModel, this);
+			this._oEventBus?.unsubscribe("Stage", "TripCreated", this._onTripCreated, this);
 		},
 
 	_onRouteMatched: function (oEvent) {
@@ -156,6 +158,15 @@ sap.ui.define([
 			this._refreshPageTitleModel();
 		},
 
+		_onTripCreated: function (sChannel, sEvent, oData) {
+			// Trip was just created, update mode and refresh header
+			if (oData && oData.tripNumber) {
+				this._bCreateMode = false;
+				this._sCurrentTripNumber = oData.tripNumber;
+				this._refreshPageTitleModel();
+			}
+		},
+
 		_refreshPageTitleModel: function () {
 			if (!this._oPageTitleModel) {
 				return;
@@ -170,7 +181,8 @@ sap.ui.define([
 
 			var oGlobal = sap.ui.getCore().getModel("globalData");
 			var sTripNo = this._sCurrentTripNumber || (oGlobal ? oGlobal.getProperty("/TripNumber") : "") || "";
-			this._oPageTitleModel.setProperty("/tripNumber", sTripNo || "");
+			var sFormattedTripNo = this.formatTripNumber(sTripNo);
+			this._oPageTitleModel.setProperty("/tripNumber", sFormattedTripNo);
 
 			var oTripDataModel = sap.ui.getCore().getModel("TripData");
 			if (oTripDataModel) {

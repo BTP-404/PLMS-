@@ -59,10 +59,21 @@ sap.ui.define([
 			
 			if (!oFileInput || !oFileInput.files || oFileInput.files.length === 0) {
 				this._oSelectedFile = null;
+				// Disable preview button
+				var oPreviewBtn = this.byId("idPreviewSelectedFile");
+				if (oPreviewBtn) {
+					oPreviewBtn.setEnabled(false);
+				}
 				return;
 			}
 			
 			this._oSelectedFile = oFileInput.files[0];
+			
+			// Enable preview button
+			var oPreviewBtn = this.byId("idPreviewSelectedFile");
+			if (oPreviewBtn) {
+				oPreviewBtn.setEnabled(true);
+			}
 		},
 
 		onUploadDocument: function () {
@@ -108,72 +119,65 @@ sap.ui.define([
 			oReader.readAsDataURL(oFile);
 		},
 
-		_saveAttachment: function (sTripNumber, sFileName, sContentType, sBase64Data, sStage) {
-			var oService = this._getAttachmentsService();
-			
-			// Since TripNumber is the key and Content is Edm.String, we store base64 directly
-			// For slug-based entities, we create/update with all properties including Content
-			var oPayload = {
-				TripNumber: sTripNumber,
-				FileName: sFileName,
-				ContentType: sContentType,
-				Content: sBase64Data
-			};
+	_saveAttachment: function (sTripNumber, sFileName, sContentType, sBase64Data, sStage) {
+		var oService = this._getAttachmentsService();
+		
+		// Function to generate slug from a string (e.g., trip number)
+		function generateSlug(inputString) {
+			return inputString
+				.toLowerCase()  // Convert to lowercase
+				.replace(/\s+/g, '-')  // Replace spaces with hyphens
+				.replace(/[^\w\-]+/g, '')  // Remove non-alphanumeric characters
+				.replace(/--+/g, '-')  // Replace multiple hyphens with a single one
+				.trim();  // Remove leading and trailing spaces
+		}
+		
+		// Generate a slug from the trip number
+		var slug = generateSlug(sTripNumber);
+		
+		// Extract file extension from original filename or content type
+		var sFileExtension = "";
+		var sBaseFileName = sFileName;
+		if (sFileName && sFileName.lastIndexOf(".") > 0) {
+			sBaseFileName = sFileName.substring(0, sFileName.lastIndexOf("."));
+			sFileExtension = sFileName.substring(sFileName.lastIndexOf(".") + 1);
+		} else if (sContentType && sContentType.indexOf("/") > 0) {
+			sFileExtension = sContentType.split("/")[1];
+		} else {
+			sFileExtension = "bin";
+		}
+		
+		// Create filename with slug
+		var sSlugFileName = sBaseFileName + "_" + slug + "." + sFileExtension;
+		
+		// Since TripNumber is the key and Content is Edm.String, we store base64 directly
+		// For slug-based entities, we create/update with all properties including Content
+		var oPayload = {
+			TripNumber: sTripNumber,
+			FileName: sSlugFileName,
+			ContentType: sContentType,
+			Content: sBase64Data
+		};
 
-			// Try to create first (if exists, will get error and we'll update)
-			oService.create("/Attachments", oPayload, {
-				headers: {
-					"X-Requested-With": "X"
-				},
-				success: function () {
+		// Try to create first (if exists, will get error and we'll update)
+		oService.create("/Attachments", oPayload, {
+			headers: {
+				"X-Requested-With": "X",
+				"X-Driver-Slug": slug  // Send the slug in the header
+			},
+			success: function () {
+				this.getView().setBusy(false);
+				MessageToast.show("Attachment uploaded successfully");
+				this._loadAttachments();
+				this._clearUploadForm();
+			}.bind(this),
+			error: function (oError) {
+				// If creation fails (entity exists), try update
+				if (oError.statusCode === 409 || oError.statusCode === 400) {
+					this._updateAttachment(sTripNumber, sFileName, sContentType, sBase64Data);
+				} else {
 					this.getView().setBusy(false);
-					MessageToast.show("Attachment uploaded successfully");
-					this._loadAttachments();
-					this._clearUploadForm();
-				}.bind(this),
-				error: function (oError) {
-					// If creation fails (entity exists), try update
-					if (oError.statusCode === 409 || oError.statusCode === 400) {
-						this._updateAttachment(sTripNumber, sFileName, sContentType, sBase64Data);
-					} else {
-						this.getView().setBusy(false);
-						var sMessage = "Failed to upload attachment";
-						try {
-							var oResponse = JSON.parse(oError.responseText);
-							if (oResponse.error?.message?.value) {
-								sMessage = oResponse.error.message.value;
-							}
-						} catch (e) {}
-						MessageToast.show(sMessage);
-						console.error("Upload error:", oError);
-					}
-				}.bind(this)
-			});
-		},
-
-		_updateAttachment: function (sTripNumber, sFileName, sContentType, sBase64Data) {
-			var oService = this._getAttachmentsService();
-			var sPath = "/Attachments('" + sTripNumber + "')";
-			
-			var oPayload = {
-				FileName: sFileName,
-				ContentType: sContentType,
-				Content: sBase64Data
-			};
-
-			oService.update(sPath, oPayload, {
-				headers: {
-					"X-Requested-With": "X"
-				},
-				success: function () {
-					this.getView().setBusy(false);
-					MessageToast.show("Attachment updated successfully");
-					this._loadAttachments();
-					this._clearUploadForm();
-				}.bind(this),
-				error: function (oError) {
-					this.getView().setBusy(false);
-					var sMessage = "Failed to update attachment";
+					var sMessage = "Failed to upload attachment";
 					try {
 						var oResponse = JSON.parse(oError.responseText);
 						if (oResponse.error?.message?.value) {
@@ -181,9 +185,109 @@ sap.ui.define([
 						}
 					} catch (e) {}
 					MessageToast.show(sMessage);
-					console.error("Update error:", oError);
-				}.bind(this)
-			});
+					console.error("Upload error:", oError);
+				}
+			}.bind(this)
+		});
+	},
+
+	_updateAttachment: function (sTripNumber, sFileName, sContentType, sBase64Data) {
+		var oService = this._getAttachmentsService();
+		var sPath = "/Attachments('" + sTripNumber + "')";
+		
+		// Function to generate slug from a string (e.g., trip number)
+		function generateSlug(inputString) {
+			return inputString
+				.toLowerCase()  // Convert to lowercase
+				.replace(/\s+/g, '-')  // Replace spaces with hyphens
+				.replace(/[^\w\-]+/g, '')  // Remove non-alphanumeric characters
+				.replace(/--+/g, '-')  // Replace multiple hyphens with a single one
+				.trim();  // Remove leading and trailing spaces
+		}
+		
+		// Generate a slug from the trip number
+		var slug = generateSlug(sTripNumber);
+		
+		// Extract file extension from original filename or content type
+		var sFileExtension = "";
+		var sBaseFileName = sFileName;
+		if (sFileName && sFileName.lastIndexOf(".") > 0) {
+			sBaseFileName = sFileName.substring(0, sFileName.lastIndexOf("."));
+			sFileExtension = sFileName.substring(sFileName.lastIndexOf(".") + 1);
+		} else if (sContentType && sContentType.indexOf("/") > 0) {
+			sFileExtension = sContentType.split("/")[1];
+		} else {
+			sFileExtension = "bin";
+		}
+		
+		// Create filename with slug
+		var sSlugFileName = sBaseFileName + "_" + slug + "." + sFileExtension;
+		
+		var oPayload = {
+			FileName: sSlugFileName,
+			ContentType: sContentType,
+			Content: sBase64Data
+		};
+
+		oService.update(sPath, oPayload, {
+			headers: {
+				"X-Requested-With": "X",
+				"X-Driver-Slug": slug  // Send the slug in the header
+			},
+			success: function () {
+				this.getView().setBusy(false);
+				MessageToast.show("Attachment updated successfully");
+				this._loadAttachments();
+				this._clearUploadForm();
+			}.bind(this),
+			error: function (oError) {
+				this.getView().setBusy(false);
+				var sMessage = "Failed to update attachment";
+				try {
+					var oResponse = JSON.parse(oError.responseText);
+					if (oResponse.error?.message?.value) {
+						sMessage = oResponse.error.message.value;
+					}
+				} catch (e) {}
+				MessageToast.show(sMessage);
+				console.error("Update error:", oError);
+			}.bind(this)
+		});
+	},
+
+		onPreviewSelectedFile: function () {
+			if (!this._oSelectedFile) {
+				MessageToast.show("Please select a file first");
+				return;
+			}
+
+			var oFile = this._oSelectedFile;
+			var sFileName = oFile.name;
+			var sContentType = oFile.type || "application/octet-stream";
+
+			// Read file as base64 for preview
+			var oReader = new FileReader();
+			oReader.onload = function (oEvent) {
+				var sBase64Content = oEvent.target.result;
+				// Remove data URL prefix (e.g., "data:image/jpeg;base64,")
+				var sBase64Data = sBase64Content.split(",")[1] || sBase64Content;
+
+				// Create a temporary attachment object for preview
+				var oTempAttachment = {
+					fileName: sFileName,
+					contentType: sContentType,
+					tripNumber: sap.ui.getCore().getModel("globalData")?.getProperty("/TripNumber") || ""
+				};
+
+				// Show preview dialog (mark as selected file)
+				this._showPreviewDialog(oTempAttachment, sBase64Data, true);
+			}.bind(this);
+
+			oReader.onerror = function () {
+				MessageToast.show("Failed to read file for preview");
+			}.bind(this);
+
+			oReader.readAsDataURL(oFile);
 		},
 
 		_clearUploadForm: function () {
@@ -193,6 +297,12 @@ sap.ui.define([
 				oFileUploader.clear();
 			}
 			this._oSelectedFile = null;
+			
+			// Disable preview button
+			var oPreviewBtn = this.byId("idPreviewSelectedFile");
+			if (oPreviewBtn) {
+				oPreviewBtn.setEnabled(false);
+			}
 			
 			// Reset stage selection
 			var oStageSelect = this.byId("idStageSelect");
@@ -293,8 +403,8 @@ sap.ui.define([
 						MessageToast.show("Attachment content not found");
 						return;
 					}
-					// Content is already base64 string, use it directly
-					this._showPreviewDialog(oAttachment, oData.Content);
+					// Content is already base64 string, use it directly (uploaded file)
+					this._showPreviewDialog(oAttachment, oData.Content, false);
 				}.bind(this),
 				error: function (oError) {
 					MessageToast.show("Failed to load attachment for preview");
@@ -303,8 +413,9 @@ sap.ui.define([
 			});
 		},
 
-		_showPreviewDialog: function (oAttachment, sBase64Content) {
+		_showPreviewDialog: function (oAttachment, sBase64Content, bIsSelectedFile) {
 			var that = this;
+			var bIsSelected = bIsSelectedFile || false;
 			
 			// Create dialog if it doesn't exist
 			if (!this._oPreviewDialog) {
@@ -332,7 +443,14 @@ sap.ui.define([
 				this.getView().addDependent(this._oPreviewDialog);
 			}
 
-			this._oPreviewDialog.setTitle(oAttachment.fileName);
+			// Update dialog title and buttons
+			this._oPreviewDialog.setTitle(oAttachment.fileName || "Preview");
+			var oDownloadBtn = this._oPreviewDialog.getEndButton();
+			if (oDownloadBtn) {
+				// Always show download button - it works for both selected and uploaded files
+				oDownloadBtn.setVisible(true);
+				oDownloadBtn.setText(bIsSelected ? "Download Selected File" : "Download");
+			}
 			this._oPreviewDialog.removeAllContent();
 
 			var sContentType = oAttachment.contentType || "";

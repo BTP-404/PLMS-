@@ -83,6 +83,50 @@ sap.ui.define(
         },
 
         /* ===========================================================
+         * ADDED: _loadTripDetailsForHeader
+         * - loads TripDetails after creation to update header
+         * - does not disable inputs or change form state
+         * =========================================================== */
+        _loadTripDetailsForHeader: function (sTripNumber) {
+          const oModel = this.getView().getModel();
+          const that = this;
+
+          oModel.read("/TripDetails('" + sTripNumber + "')", {
+            urlParameters: {
+              "$expand": "OrderDetails,ItemDetails,Feeds"
+            },
+            success: function (oData) {
+              // Create JSON model for trip data
+              const oTripDataModel = new sap.ui.model.json.JSONModel(oData);
+
+              // Set as global model available across ALL views
+              sap.ui.getCore().setModel(oTripDataModel, "TripData");
+              
+              // Publish event to update header in Stage controller
+              sap.ui.getCore().getEventBus().publish("TripData", "Updated");
+              
+              // Publish custom event to notify Stage controller that trip was created
+              // This will update _bCreateMode and _sCurrentTripNumber in Stage controller
+              sap.ui.getCore().getEventBus().publish("Stage", "TripCreated", {
+                tripNumber: sTripNumber
+              });
+
+              // Also bind to this view
+              that.getView().setModel(oTripDataModel, "TripData");
+
+              // Load driver photo from Attachments entity separately
+              that._loadDriverPhotoFromAttachments(sTripNumber);
+            },
+            error: function () {
+              // Even if loading fails, try to update header with trip number
+              sap.ui.getCore().getEventBus().publish("Stage", "TripCreated", {
+                tripNumber: sTripNumber
+              });
+            },
+          });
+        },
+
+        /* ===========================================================
          * NO CHANGE with slight behavioral improvement: _loadTripDetails
          * - loads TripDetails and disables inputs for view mode
          * =========================================================== */
@@ -241,17 +285,21 @@ sap.ui.define(
               }
 
               // Store the trip number globally
-              oGlobalModel.setProperty("/TripNumber", oResponse.TripNumber);
+              var sTripNumber = oResponse.TripNumber;
+              oGlobalModel.setProperty("/TripNumber", sTripNumber);
 
               that.getView().setBusy(false);
-              var sFormattedTripNo = that.formatTripNumber(oResponse.TripNumber);
+              var sFormattedTripNo = that.formatTripNumber(sTripNumber);
               that.getView().byId("idRelatedTripNumber").setValue(sFormattedTripNo);
               MessageToast.show(`Trip ( ${sFormattedTripNo} ) Created !`);
               
               // Save driver photo separately in Attachments if exists
               if (sDriverPhoto) {
-                that._saveDriverPhotoToAttachments(oResponse.TripNumber, sDriverPhoto);
+                that._saveDriverPhotoToAttachments(sTripNumber, sDriverPhoto, oData.DriverName);
               }
+              
+              // Load full trip details to populate TripData model and update header
+              that._loadTripDetailsForHeader(sTripNumber);
               
               this._clearForm();
               that._setFormEditable(false);
@@ -300,6 +348,7 @@ sap.ui.define(
 
           // Store driver photo separately in Attachments, not in TripDetails
           var sDriverPhoto = oUpdateData.DriverPhoto;
+          var sDriverName = oUpdateData.DriverName;
           delete oUpdateData.DriverPhoto; // Remove from TripDetails payload
 
           // Remove navigation properties / deferred / collections
@@ -351,7 +400,7 @@ sap.ui.define(
               
               // Save driver photo separately in Attachments if exists
               if (sDriverPhoto) {
-                that._saveDriverPhotoToAttachments(sTripNumber, sDriverPhoto);
+                that._saveDriverPhotoToAttachments(sTripNumber, sDriverPhoto, sDriverName);
               }
 
               that._setFormEditable(false);
@@ -692,78 +741,207 @@ sap.ui.define(
         /* ===========================================================
          * Save Driver Photo to Attachments Entity
          * =========================================================== */
-        _saveDriverPhotoToAttachments: function (sTripNumber, sDriverPhoto) {
+        // _saveDriverPhotoToAttachments: function (sTripNumber, sDriverPhoto) {
+        //   // Convert data URL to base64 string if needed
+        //   var sBase64Data = sDriverPhoto;
+        //   if (sDriverPhoto.startsWith("data:")) {
+        //     sBase64Data = sDriverPhoto.split(",")[1] || sDriverPhoto;
+        //   }
+
+        //   var oService = this.getView().getModel();
+        //   var oPayload = {
+        //     TripNumber: sTripNumber,
+        //     FileName: "DriverPhoto.jpg",
+        //     ContentType: "image/jpeg",
+        //     Content: sBase64Data
+        //   };
+
+          
+
+        //   // Try to create first (if exists, will get error and we'll update)
+        //   oService.create("/Attachments", oPayload, {
+        //     headers: {
+        //       "X-Requested-With": "X"
+        //     },
+        //     success: function () {
+        //       MessageToast.show("Driver photo saved successfully");
+        //     }.bind(this),
+        //     error: function (oError) {
+        //       // If creation fails (entity exists), try update
+        //       if (oError.statusCode === 409 || oError.statusCode === 400) {
+        //         this._updateDriverPhotoInAttachments(sTripNumber, sBase64Data);
+        //       } else {
+        //         var sMessage = "Failed to save driver photo";
+        //         try {
+        //           var oResponse = JSON.parse(oError.responseText);
+        //           if (oResponse.error?.message?.value) {
+        //             sMessage = oResponse.error.message.value;
+        //           }
+        //         } catch (e) {}
+        //         MessageToast.show(sMessage);
+        //         console.error("Save driver photo error:", oError);
+        //       }
+        //     }.bind(this)
+        //   });
+        // },
+
+        // _updateDriverPhotoInAttachments: function (sTripNumber, sBase64Data) {
+        //   var oService = this.getView().getModel();
+        //   var sPath = "/Attachments('" + sTripNumber + "')";
+          
+        //   var oPayload = {
+        //     FileName: "DriverPhoto.jpg",
+        //     ContentType: "image/jpeg",
+        //     Content: sBase64Data
+        //   };
+
+        //   oService.update(sPath, oPayload, {
+        //     headers: {
+        //       "X-Requested-With": "X"
+        //     },
+        //     success: function () {
+        //       MessageToast.show("Driver photo updated successfully");
+        //     }.bind(this),
+        //     error: function (oError) {
+        //       var sMessage = "Failed to update driver photo";
+        //       try {
+        //         var oResponse = JSON.parse(oError.responseText);
+        //         if (oResponse.error?.message?.value) {
+        //           sMessage = oResponse.error.message.value;
+        //         }
+        //       } catch (e) {}
+        //       MessageToast.show(sMessage);
+        //       console.error("Update driver photo error:", oError);
+        //     }.bind(this)
+        //   });
+        // },
+        _saveDriverPhotoToAttachments: function (sTripNumber, sDriverPhoto, sDriverName) {
+          debugger;
           // Convert data URL to base64 string if needed
           var sBase64Data = sDriverPhoto;
-          if (sDriverPhoto.startsWith("data:")) {
-            sBase64Data = sDriverPhoto.split(",")[1] || sDriverPhoto;
-          }
-
-          var oService = this.getView().getModel();
-          var oPayload = {
-            TripNumber: sTripNumber,
-            FileName: "DriverPhoto.jpg",
-            ContentType: "image/jpeg",
-            Content: sBase64Data
-          };
-
-          // Try to create first (if exists, will get error and we'll update)
-          oService.create("/Attachments", oPayload, {
-            headers: {
-              "X-Requested-With": "X"
-            },
-            success: function () {
-              MessageToast.show("Driver photo saved successfully");
-            }.bind(this),
-            error: function (oError) {
-              // If creation fails (entity exists), try update
-              if (oError.statusCode === 409 || oError.statusCode === 400) {
-                this._updateDriverPhotoInAttachments(sTripNumber, sBase64Data);
-              } else {
-                var sMessage = "Failed to save driver photo";
-                try {
-                  var oResponse = JSON.parse(oError.responseText);
-                  if (oResponse.error?.message?.value) {
-                    sMessage = oResponse.error.message.value;
-                  }
-                } catch (e) {}
-                MessageToast.show(sMessage);
-                console.error("Save driver photo error:", oError);
-              }
-            }.bind(this)
-          });
-        },
-
-        _updateDriverPhotoInAttachments: function (sTripNumber, sBase64Data) {
-          var oService = this.getView().getModel();
-          var sPath = "/Attachments('" + sTripNumber + "')";
+          var sContentType = "image/jpeg"; // Default content type
           
+          if (sDriverPhoto.startsWith("data:")) {
+              // Extract content type from the data URL (e.g., "image/jpeg" or "image/png")
+              var sMimeType = sDriverPhoto.split(";")[0].split(":")[1];
+              sContentType = sMimeType || sContentType;  // Fallback to "image/jpeg" if mime type is not available
+              sBase64Data = sDriverPhoto.split(",")[1] || sDriverPhoto;
+          }
+      
+          // Function to generate slug from a string (e.g., driver name or trip number)
+          function generateSlug(inputString) {
+              return inputString
+                  .toLowerCase()  // Convert to lowercase
+                  .replace(/\s+/g, '-')  // Replace spaces with hyphens
+                  .replace(/[^\w\-]+/g, '')  // Remove non-alphanumeric characters
+                  .replace(/--+/g, '-')  // Replace multiple hyphens with a single one
+                  .trim();  // Remove leading and trailing spaces
+          }
+      
+          // Generate a slug from the driver's name (or trip number if needed)
+          var slug = generateSlug(sTripNumber);  // You can use either name or trip number here
+      
+          var oService = this.getView().getModel();
+          var sFileName = "DriverPhoto_" + slug + "." + sContentType.split("/")[1];  // Dynamically set the file name based on the slug and content type
+      
           var oPayload = {
-            FileName: "DriverPhoto.jpg",
-            ContentType: "image/jpeg",
-            Content: sBase64Data
+              TripNumber: sTripNumber,
+              FileName: sFileName,  // Use the slug in the file name
+              ContentType: sContentType,  // Use the dynamic content type
+              Content: sBase64Data
           };
-
-          oService.update(sPath, oPayload, {
-            headers: {
-              "X-Requested-With": "X"
-            },
-            success: function () {
-              MessageToast.show("Driver photo updated successfully");
-            }.bind(this),
-            error: function (oError) {
-              var sMessage = "Failed to update driver photo";
-              try {
-                var oResponse = JSON.parse(oError.responseText);
-                if (oResponse.error?.message?.value) {
-                  sMessage = oResponse.error.message.value;
-                }
-              } catch (e) {}
-              MessageToast.show(sMessage);
-              console.error("Update driver photo error:", oError);
-            }.bind(this)
+      
+          // Creating the header parameter for the slug
+          var oHeaderParameter = new sap.ui.unified.FileUploaderParameter({
+              name: "slug",
+              value: slug
           });
-        },
+      
+          // Send the slug in the header and content in the body
+          oService.create("/Attachments", oPayload, {
+              headers: {
+                  "X-Requested-With": "X",
+                  "X-Driver-Slug": slug  // Send the slug in the header (same as FileUploader)
+              },
+              success: function () {
+                  MessageToast.show("Driver photo saved successfully");
+              }.bind(this),
+              error: function (oError) {
+                  // If creation fails (entity exists), try update
+                  if (oError.statusCode === 409 || oError.statusCode === 400) {
+                      this._updateDriverPhotoInAttachments(sTripNumber, sBase64Data);
+                  } else {
+                      var sMessage = "Failed to save driver photo";
+                      try {
+                          var oResponse = JSON.parse(oError.responseText);
+                          if (oResponse.error?.message?.value) {
+                              sMessage = oResponse.error.message.value;
+                          }
+                      } catch (e) {}
+                      MessageToast.show(sMessage);
+                      console.error("Save driver photo error:", oError);
+                  }
+              }.bind(this)
+          });
+      }
+,      
+
+_updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverName) {
+  // Convert data URL to base64 string if needed
+  var sBase64Data = sDriverPhoto;
+  var sContentType = "image/jpeg"; // Default content type
+  
+  if (sDriverPhoto.startsWith("data:")) {
+      // Extract content type from the data URL (e.g., "image/jpeg" or "image/png")
+      var sMimeType = sDriverPhoto.split(";")[0].split(":")[1];
+      sContentType = sMimeType || sContentType;  // Fallback to "image/jpeg" if mime type is not available
+      sBase64Data = sDriverPhoto.split(",")[1] || sDriverPhoto;
+  }
+
+  // Function to generate slug from a string (e.g., driver name or trip number)
+  function generateSlug(inputString) {
+      return inputString
+          .toLowerCase()  // Convert to lowercase
+          .replace(/\s+/g, '-')  // Replace spaces with hyphens
+          .replace(/[^\w\-]+/g, '')  // Remove non-alphanumeric characters
+          .replace(/--+/g, '-')  // Replace multiple hyphens with a single one
+          .trim();  // Remove leading and trailing spaces
+  }
+
+  // Generate a slug from the driver's name (or trip number if needed)
+  var slug = generateSlug(sDriverName || sTripNumber);  // You can use either name or trip number here
+
+  var oService = this.getView().getModel();
+  var sPath = "/Attachments('" + sTripNumber + "')";
+  var sFileName = "DriverPhoto_" + slug + "." + sContentType.split("/")[1];  // Dynamically set the file name based on the slug and content type
+
+  var oPayload = {
+      FileName: sFileName,  // Use the slug in the file name
+      ContentType: sContentType,  // Use the dynamic content type
+      Content: sBase64Data,
+      DriverSlug: slug  // Add the slug to the payload if needed
+  };
+
+  oService.update(sPath, oPayload, {
+      headers: {
+          "X-Requested-With": "X"
+      },
+      success: function () {
+          MessageToast.show("Driver photo updated successfully");
+      }.bind(this),
+      error: function (oError) {
+          var sMessage = "Failed to update driver photo";
+          try {
+              var oResponse = JSON.parse(oError.responseText);
+              if (oResponse.error?.message?.value) {
+                  sMessage = oResponse.error.message.value;
+              }
+          } catch (e) {}
+          MessageToast.show(sMessage);
+          console.error("Update driver photo error:", oError);
+      }.bind(this)
+  });
+},
 
         /* ===========================================================
          * Load Driver Photo from Attachments Entity

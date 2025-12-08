@@ -62,15 +62,27 @@
                                 design="Bold"
                                 class="sapUiNoMarginBottom"
                             />
-                            <unified:FileUploader
-                                id="idUnifiedUploader"
-                                name="uploadFile"
-                                placeholder="Choose file (PDF or image)"
-                                fileType="pdf,jpg,jpeg,png"
-                                icon="sap-icon://upload"
-                                width="100%"
-                                change=".onFileChange"
-                            />
+                            <HBox alignItems="Center" width="100%">
+                                <unified:FileUploader
+                                    id="idUnifiedUploader"
+                                    name="uploadFile"
+                                    placeholder="Choose file (PDF or image)"
+                                    fileType="pdf,jpg,jpeg,png"
+                                    icon="sap-icon://upload"
+                                    width="100%"
+                                    change=".onFileChange"
+                                    class="sapUiTinyMarginEnd"
+                                />
+                                <Button
+                                    id="idPreviewSelectedFile"
+                                    icon="sap-icon://show"
+                                    tooltip="Preview Selected File"
+                                    type="Transparent"
+                                    enabled="false"
+                                    press=".onPreviewSelectedFile"
+                                    class="sapUiTinyMarginBegin"
+                                />
+                            </HBox>
                         </VBox>
                     </layout:content>
                 </layout:Grid>
