@@ -65,6 +65,9 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Loading", {
         
         // Initialize column visibility
         this._initializeLoadingColumnVisibility();
+        
+        // Initialize button states based on TripDetails
+        this._updateLoadingButtonStates();
     },
 
     onAfterRendering: function() {
@@ -103,6 +106,8 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Loading", {
         this._updateWeighmentEnabledState();
         // Bind materials
         this._bindMaterialsFromRefDocs();
+        // Update button states based on TripDetails status
+        this._updateLoadingButtonStates();
     },
 
     // =====================================================================
@@ -117,9 +122,6 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Loading", {
             MessageToast.show("Trip Number missing. Please open a trip first.");
             return;
         }
-
-        oView.byId("btnStartLoading").setEnabled(false);
-        oView.byId("btnEndLoading").setEnabled(true);
 
         oView.setBusy(true);
 
@@ -145,6 +147,9 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Loading", {
                     // Handle single object response
                     this._applyMaterials([oData]);
                 }
+                
+                // Reload TripData to get updated status fields
+                this._reloadTripDataAndUpdateButtons();
             }.bind(this),
             error: function (oError) {
                 oView.setBusy(false);
@@ -168,8 +173,8 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Loading", {
 
                 MessageBox.error(sMessage);
 
-                oView.byId("btnStartLoading").setEnabled(true);
-                oView.byId("btnEndLoading").setEnabled(false);
+                // Reload TripData to restore correct button states
+                this._reloadTripDataAndUpdateButtons();
             }.bind(this)
         });
     },
@@ -186,9 +191,6 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Loading", {
             MessageToast.show("Trip Number missing. Please open a trip first.");
             return;
         }
-
-        oView.byId("btnStartLoading").setEnabled(true);
-        oView.byId("btnEndLoading").setEnabled(false);
 
         oView.setBusy(true);
 
@@ -209,7 +211,10 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Loading", {
                 if (oData) {
                     console.log("EndLoading response:", oData);
                 }
-            },
+                
+                // Reload TripData to get updated status fields
+                this._reloadTripDataAndUpdateButtons();
+            }.bind(this),
             error: function (oError) {
                 oView.setBusy(false);
 
@@ -232,8 +237,8 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Loading", {
 
                 MessageBox.error(sMessage);
 
-                oView.byId("btnStartLoading").setEnabled(true);
-                oView.byId("btnEndLoading").setEnabled(false);
+                // Reload TripData to restore correct button states
+                this._reloadTripDataAndUpdateButtons();
             }.bind(this)
         });
     },
@@ -872,6 +877,75 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Loading", {
                 oDialog.close();
             });
         }
+    },
+
+    // =====================================================================
+    // UPDATE LOADING BUTTON STATES BASED ON TRIPDETAILS STATUS
+    // =====================================================================
+    _updateLoadingButtonStates: function () {
+        var oTripData = sap.ui.getCore().getModel("TripData");
+        var oView = this.getView();
+        
+        if (!oTripData || !oView) {
+            return;
+        }
+        
+        var sStartLoading = oTripData.getProperty("/Start_Loading") || "";
+        var sEndLoading = oTripData.getProperty("/End_Loading") || "";
+        
+        var bStartStarted = (sStartLoading === "X" || sStartLoading === "x");
+        var bEndCompleted = (sEndLoading === "X" || sEndLoading === "x");
+        
+        var oBtnStart = oView.byId("btnStartLoading");
+        var oBtnEnd = oView.byId("btnEndLoading");
+        
+        if (!oBtnStart || !oBtnEnd) {
+            return;
+        }
+        
+        // Logic:
+        // 1. If started but not completed: Start disabled, End enabled
+        // 2. If both started and completed: Both enabled
+        // 3. If neither started: Start enabled, End disabled
+        
+        if (bStartStarted && !bEndCompleted) {
+            // Started but not completed
+            oBtnStart.setEnabled(false);
+            oBtnEnd.setEnabled(true);
+        } else if (bStartStarted && bEndCompleted) {
+            // Both started and completed
+            oBtnStart.setEnabled(true);
+            oBtnEnd.setEnabled(true);
+        } else {
+            // Neither started (default)
+            oBtnStart.setEnabled(true);
+            oBtnEnd.setEnabled(false);
+        }
+    },
+
+    // =====================================================================
+    // RELOAD TRIPDATA AND UPDATE BUTTON STATES
+    // =====================================================================
+    _reloadTripDataAndUpdateButtons: function () {
+        var sTripNumber = sap.ui.getCore().getModel("globalData")?.getProperty("/TripNumber");
+        if (!sTripNumber) {
+            return;
+        }
+        
+        this.oModel.read("/TripDetails('" + sTripNumber + "')", {
+            urlParameters: {
+                "$expand": "OrderDetails,ItemDetails,Feeds"
+            },
+            success: function (oData) {
+                var oTripDataModel = new sap.ui.model.json.JSONModel(oData);
+                sap.ui.getCore().setModel(oTripDataModel, "TripData");
+                sap.ui.getCore().getEventBus().publish("TripData", "Updated");
+                this.getView().setModel(oTripDataModel, "TripData");
+            }.bind(this),
+            error: function () {
+                // Silently fail - button states will remain as set
+            }
+        });
     }
 });
 });

@@ -65,6 +65,9 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Unloading", 
         
         // Initialize column visibility
         this._initializeUnloadingColumnVisibility();
+        
+        // Initialize button states based on TripDetails
+        this._updateUnloadingButtonStates();
     },
 
     onAfterRendering: function() {
@@ -91,6 +94,8 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Unloading", 
         this._updateWeighmentEnabledState();
         // Bind materials
         this._bindMaterialsFromRefDocs();
+        // Update button states based on TripDetails status
+        this._updateUnloadingButtonStates();
     },
 
     // =====================================================================
@@ -106,9 +111,6 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Unloading", 
             return;
         }
 
-        oView.byId("btnStartUnloading").setEnabled(false);
-        oView.byId("btnEndUnloading").setEnabled(true);
-
         oView.setBusy(true);
 
         // FunctionImport: StartUnloading - GET method (if available)
@@ -116,6 +118,9 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Unloading", 
         setTimeout(function() {
             oView.setBusy(false);
             MessageToast.show("Unloading started successfully.");
+            
+            // Reload TripData to get updated status fields
+            this._reloadTripDataAndUpdateButtons();
         }.bind(this), 500);
     },
 
@@ -132,9 +137,6 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Unloading", 
             return;
         }
 
-        oView.byId("btnStartUnloading").setEnabled(true);
-        oView.byId("btnEndUnloading").setEnabled(false);
-
         oView.setBusy(true);
 
         // FunctionImport: EndUnloading - POST method (if available)
@@ -142,6 +144,9 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Unloading", 
         setTimeout(function() {
             oView.setBusy(false);
             MessageToast.show("Unloading ended.");
+            
+            // Reload TripData to get updated status fields
+            this._reloadTripDataAndUpdateButtons();
         }.bind(this), 500);
     },
 
@@ -427,6 +432,75 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Unloading", 
                 oDialog.close();
             });
         }
+    },
+
+    // =====================================================================
+    // UPDATE UNLOADING BUTTON STATES BASED ON TRIPDETAILS STATUS
+    // =====================================================================
+    _updateUnloadingButtonStates: function () {
+        var oTripData = sap.ui.getCore().getModel("TripData");
+        var oView = this.getView();
+        
+        if (!oTripData || !oView) {
+            return;
+        }
+        
+        var sStartUnloading = oTripData.getProperty("/Start_Unloading") || "";
+        var sEndUnloading = oTripData.getProperty("/End_Unloading") || "";
+        
+        var bStartStarted = (sStartUnloading === "X" || sStartUnloading === "x");
+        var bEndCompleted = (sEndUnloading === "X" || sEndUnloading === "x");
+        
+        var oBtnStart = oView.byId("btnStartUnloading");
+        var oBtnEnd = oView.byId("btnEndUnloading");
+        
+        if (!oBtnStart || !oBtnEnd) {
+            return;
+        }
+        
+        // Logic:
+        // 1. If started but not completed: Start disabled, End enabled
+        // 2. If both started and completed: Both enabled
+        // 3. If neither started: Start enabled, End disabled
+        
+        if (bStartStarted && !bEndCompleted) {
+            // Started but not completed
+            oBtnStart.setEnabled(false);
+            oBtnEnd.setEnabled(true);
+        } else if (bStartStarted && bEndCompleted) {
+            // Both started and completed
+            oBtnStart.setEnabled(true);
+            oBtnEnd.setEnabled(true);
+        } else {
+            // Neither started (default)
+            oBtnStart.setEnabled(true);
+            oBtnEnd.setEnabled(false);
+        }
+    },
+
+    // =====================================================================
+    // RELOAD TRIPDATA AND UPDATE BUTTON STATES
+    // =====================================================================
+    _reloadTripDataAndUpdateButtons: function () {
+        var sTripNumber = sap.ui.getCore().getModel("globalData")?.getProperty("/TripNumber");
+        if (!sTripNumber) {
+            return;
+        }
+        
+        this.oModel.read("/TripDetails('" + sTripNumber + "')", {
+            urlParameters: {
+                "$expand": "OrderDetails,ItemDetails,Feeds"
+            },
+            success: function (oData) {
+                var oTripDataModel = new sap.ui.model.json.JSONModel(oData);
+                sap.ui.getCore().setModel(oTripDataModel, "TripData");
+                sap.ui.getCore().getEventBus().publish("TripData", "Updated");
+                this.getView().setModel(oTripDataModel, "TripData");
+            }.bind(this),
+            error: function () {
+                // Silently fail - button states will remain as set
+            }
+        });
     }
 });
 });
