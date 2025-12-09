@@ -1,3 +1,182 @@
+==================== HIDE UNNECESSARY HORIZONTAL SCROLLBARS ====================
+
+/* Hide horizontal scrollbar by default, show only on hover or when scrolling */
+.sapMScrollContainer {
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    scrollbar-width: none; /* Firefox - hide by default */
+    -ms-overflow-style: none; /* IE and Edge - hide by default */
+}
+
+/* Webkit browsers (Chrome, Safari, Edge) - hide horizontal scrollbar by default */
+.sapMScrollContainer::-webkit-scrollbar:horizontal {
+    height: 0px !important;
+    background: transparent !important;
+}
+
+.sapMScrollContainer::-webkit-scrollbar-track:horizontal {
+    background: transparent !important;
+}
+
+.sapMScrollContainer::-webkit-scrollbar-thumb:horizontal {
+    background: transparent !important;
+}
+
+/* Show scrollbar on hover, active, or focus (Webkit) */
+.sapMScrollContainer:hover::-webkit-scrollbar:horizontal,
+.sapMScrollContainer:active::-webkit-scrollbar:horizontal,
+.sapMScrollContainer:focus::-webkit-scrollbar:horizontal {
+    height: 8px !important;
+    background: transparent !important;
+}
+
+.sapMScrollContainer:hover::-webkit-scrollbar-track:horizontal,
+.sapMScrollContainer:active::-webkit-scrollbar-track:horizontal {
+    background: #f1f1f1 !important;
+    border-radius: 4px;
+}
+
+.sapMScrollContainer:hover::-webkit-scrollbar-thumb:horizontal,
+.sapMScrollContainer:active::-webkit-scrollbar-thumb:horizontal {
+    background: #0070f2 !important;
+    border-radius: 4px;
+}
+
+/* Firefox - show scrollbar on hover */
+.sapMScrollContainer:hover {
+    scrollbar-width: thin !important;
+    scrollbar-color: #0070f2 #f1f1f1 !important;
+}
+
+/* For tables inside ScrollContainer - ensure proper width */
+.sapMScrollContainer .sapMTable {
+    min-width: 100%;
+}
+
+/* Tables with width="auto" should only expand if content requires it */
+.sapMScrollContainer .sapMTable[width="auto"] {
+    width: auto;
+    min-width: 100%;
+}
+
+/* ==================== GLOBAL LEFT MARGIN REDUCTION ==================== */
+
+/* Reduce left margin for common SAPUI5 margin classes (default is ~1rem) */
+.sapUiSmallMargin {
+    margin-left: 0.5rem !important;
+}
+
+.sapUiMediumMargin {
+    margin-left: 0.75rem !important;
+}
+
+.sapUiLargeMargin {
+    margin-left: 1rem !important;
+}
+
+/* Reduce left padding for Page content */
+.sapMPage .sapMPageContent {
+    padding-left: 0.5rem !important;
+}
+
+/* Reduce left padding for IconTabBar content */
+.sapMITBContent {
+    padding-left: 0.5rem !important;
+}
+
+/* Reduce left margin for VBox/HBox with margin classes */
+.sapMVBox.sapUiSmallMargin,
+.sapMHBox.sapUiSmallMargin {
+    margin-left: 0.5rem !important;
+}
+
+/* Reduce left padding for Panel content (but keep some for readability) */
+.sapMPanelContent {
+    padding-left: 0.5rem !important;
+}
+
+/* Reduce left margin for IconTabBar filter content */
+.sapMITBFilter .sapMITBContent {
+    padding-left: 0.5rem !important;
+}
+
+/* Reduce left margin for common layout containers */
+.sapUiLayoutGrid {
+    margin-left: 0.5rem !important;
+}
+
+/* Reduce left padding for ScrollContainer */
+.sapMScrollContainer {
+    padding-left: 0.5rem !important;
+}
+
+/* Reduce left margin for List items */
+.sapMList {
+    margin-left: 0.5rem !important;
+}
+
+/* Reduce left padding for Table (but keep some for column alignment) */
+.sapMTable {
+    padding-left: 0.5rem !important;
+}
+
+/* Reduce left margin for Form containers */
+.sapUiForm {
+    margin-left: 0.5rem !important;
+}
+
+/* Reduce left padding for Form containers */
+.sapUiFormContainer {
+    padding-left: 0.5rem !important;
+}
+
+/* Reduce left margin for IconTabBar itself */
+.sapMITB {
+    margin-left: 0.5rem !important;
+}
+
+/* Stage view specific - reduce left margin for main VBox */
+.sapUiView[data-controller-name*="Stage"] .sapMPageContent .sapMVBox {
+    margin-left: 0.5rem !important;
+}
+
+/* Stage view - reduce left margin for IconTabBar */
+.sapUiView[data-controller-name*="Stage"] .sapMITB {
+    margin-left: 0.5rem !important;
+}
+
+/* Mobile: Even less left margin for better space utilization */
+@media (max-width: 768px) {
+    .sapUiSmallMargin {
+        margin-left: 0.25rem !important;
+    }
+    
+    .sapMPage .sapMPageContent {
+        padding-left: 0.25rem !important;
+    }
+    
+    .sapMITBContent {
+        padding-left: 0.25rem !important;
+    }
+    
+    .sapMPanelContent {
+        padding-left: 0.25rem !important;
+    }
+    
+    .sapMVBox.sapUiSmallMargin,
+    .sapMHBox.sapUiSmallMargin {
+        margin-left: 0.25rem !important;
+    }
+    
+    .sapUiLayoutGrid {
+        margin-left: 0.25rem !important;
+    }
+    
+    .sapMScrollContainer {
+        padding-left: 0.25rem !important;
+    }
+}
+
 /* Main sticky note container */
 .stickyNote {
     background: #d7ecff;
@@ -94,6 +273,160 @@
     width: 100%;
     box-shadow: 0 4px 12px rgba(0, 112, 242, 0.15);
     position: relative;
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+}
+
+/* ProcessFlow internal elements - reduce left padding */
+.activityProcessFlow .sapSuitePFContent,
+.eyeCatchingTimeline .sapSuitePFContent {
+    padding-left: 0.25rem !important;
+    margin-left: 0 !important;
+}
+
+/* ProcessFlow SVG/Canvas - remove left margin */
+.activityProcessFlow svg,
+.eyeCatchingTimeline svg,
+.activityProcessFlow canvas,
+.eyeCatchingTimeline canvas {
+    margin-left: 0 !important;
+    padding-left: 0 !important;
+}
+
+/* ProcessFlow wrapper - reduce left padding */
+.activityProcessFlow .sapSuitePFWrapper,
+.eyeCatchingTimeline .sapSuitePFWrapper {
+    padding-left: 0.25rem !important;
+    margin-left: 0 !important;
+}
+
+/* ProcessFlow lane header container - reduce left padding */
+.activityProcessFlow .sapSuitePFLaneHeaderContainer,
+.eyeCatchingTimeline .sapSuitePFLaneHeaderContainer {
+    padding-left: 0.25rem !important;
+    margin-left: 0 !important;
+}
+
+/* ProcessFlow node container - reduce left padding */
+.activityProcessFlow .sapSuitePFNodeContainer,
+.eyeCatchingTimeline .sapSuitePFNodeContainer {
+    padding-left: 0.25rem !important;
+    margin-left: 0 !important;
+}
+
+/* Desktop: Better spacing and alignment */
+@media (min-width: 1025px) {
+    .activityProcessFlow {
+        min-height: 450px;
+        max-height: 500px;
+        padding: 1rem !important;
+    }
+    
+    /* Reduce vertical spacing between lane header and nodes */
+    .eyeCatchingTimeline .sapSuitePFLaneHeader {
+        margin-bottom: 0.5rem !important;
+        padding: 0.75rem 1rem !important;
+    }
+    
+    /* ProcessFlow content - reduce top padding and vertical spacing */
+    .eyeCatchingTimeline .sapSuitePFContent {
+        padding-top: 0.5rem !important;
+        padding-bottom: 0.5rem !important;
+    }
+    
+    /* ProcessFlow wrapper - reduce vertical spacing */
+    .eyeCatchingTimeline .sapSuitePFWrapper {
+        padding-top: 0.25rem !important;
+        padding-bottom: 0.25rem !important;
+    }
+    
+    /* Reduce gap between lane header area and node area */
+    .eyeCatchingTimeline .sapSuitePFLaneHeaderContainer {
+        margin-bottom: 0.5rem !important;
+        padding-bottom: 0.25rem !important;
+    }
+    
+    /* Larger nodes on desktop */
+    .eyeCatchingTimeline .sapSuitePFNode {
+        min-width: 220px !important;
+        min-height: 100px !important;
+        padding: 0.75rem !important;
+        margin: 0.5rem 0.25rem !important;
+    }
+    
+    /* Larger text on desktop nodes */
+    .eyeCatchingTimeline .sapSuitePFNodeTitle {
+        font-size: 1.2rem !important;
+        margin-bottom: 0.25rem !important;
+    }
+    
+    .eyeCatchingTimeline .sapSuitePFNodeText1,
+    .eyeCatchingTimeline .sapSuitePFNodeText2 {
+        font-size: 1rem !important;
+        margin-top: 0.25rem !important;
+    }
+    
+    /* Larger icons on desktop */
+    .eyeCatchingTimeline .sapSuitePFNodeIcon {
+        width: 3rem !important;
+        height: 3rem !important;
+        font-size: 1.75rem !important;
+        margin-bottom: 0.5rem !important;
+    }
+    
+    /* Thicker connections on desktop */
+    .eyeCatchingTimeline .sapSuitePFConnection {
+        stroke-width: 5px !important;
+    }
+    
+    /* Better lane header on desktop */
+    .eyeCatchingTimeline .sapSuitePFLaneHeader {
+        font-size: 1.2rem !important;
+        padding: 0.75rem 1.25rem !important;
+        margin-bottom: 0.75rem !important;
+    }
+    
+    /* Reduce gap in ProcessFlow SVG/Canvas */
+    .eyeCatchingTimeline svg,
+    .eyeCatchingTimeline canvas {
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+    }
+    
+    /* ProcessFlow internal divs - reduce vertical spacing */
+    .eyeCatchingTimeline > div {
+        padding-top: 0.25rem !important;
+        padding-bottom: 0.25rem !important;
+    }
+    
+    /* Better vertical alignment of nodes */
+    .eyeCatchingTimeline .sapSuitePFNodeContainer {
+        padding-top: 0.25rem !important;
+        padding-bottom: 0.25rem !important;
+    }
+    
+    /* Reduce VBox padding for Activity Timeline on desktop */
+    .sapUiView[data-controller-name*="Activity"] .sapMPanel[header-text*="Activity Timeline"] .sapMVBox {
+        padding: 0.5rem 0.5rem 0.5rem 0.25rem !important;
+    }
+    
+    /* Ensure ProcessFlow fills available space */
+    .eyeCatchingTimeline {
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: flex-start !important;
+        padding-left: 0.25rem !important;
+    }
+    
+    /* Desktop: Further reduce ProcessFlow left padding */
+    .activityProcessFlow {
+        padding-left: 0.25rem !important;
+    }
+    
+    .activityProcessFlow .sapSuitePFContent,
+    .eyeCatchingTimeline .sapSuitePFContent {
+        padding-left: 0.15rem !important;
+    }
 }
 
 /* Eye-catching Timeline Styling */
@@ -105,14 +438,15 @@
 
 /* Process Flow Nodes - More Prominent and Eye-catching */
 .eyeCatchingTimeline .sapSuitePFNode {
-    min-width: 180px !important;
-    min-height: 80px !important;
+    min-width: 200px !important;
+    min-height: 90px !important;
     box-shadow: 0 4px 12px rgba(0, 112, 242, 0.25) !important;
     border-radius: 8px !important;
     border: 2px solid #0070f2 !important;
     background: linear-gradient(135deg, #ffffff 0%, #f0f7ff 100%) !important;
     transition: all 0.3s ease !important;
-    padding: 0.5rem !important;
+    padding: 0.65rem !important;
+    margin: 0.25rem !important;
 }
 
 .eyeCatchingTimeline .sapSuitePFNode:hover {
@@ -129,10 +463,11 @@
     color: #ffffff !important;
     font-weight: 700 !important;
     font-size: 1.1rem !important;
-    padding: 1rem !important;
+    padding: 0.75rem 1rem !important;
     border-radius: 6px !important;
     box-shadow: 0 3px 10px rgba(0, 112, 242, 0.3) !important;
     border: 2px solid #0051d5 !important;
+    margin-bottom: 0.75rem !important;
 }
 
 /* Process Flow Connections - More Visible and Animated */
@@ -167,26 +502,29 @@
 
 /* Process Flow Node Text - Larger, Bolder, and More Readable */
 .eyeCatchingTimeline .sapSuitePFNodeTitle {
-    font-size: 1.1rem !important;
+    font-size: 1.15rem !important;
     font-weight: 700 !important;
     color: #1c4e80 !important;
     text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8) !important;
     line-height: 1.3 !important;
+    margin-bottom: 0.2rem !important;
 }
 
 .eyeCatchingTimeline .sapSuitePFNodeText1,
 .eyeCatchingTimeline .sapSuitePFNodeText2 {
-    font-size: 0.9rem !important;
+    font-size: 0.95rem !important;
     font-weight: 600 !important;
     color: #333 !important;
     line-height: 1.4 !important;
+    margin-top: 0.2rem !important;
 }
 
 /* Process Flow Node Icons - Larger and More Visible */
 .eyeCatchingTimeline .sapSuitePFNodeIcon {
-    width: 2.5rem !important;
-    height: 2.5rem !important;
-    font-size: 1.5rem !important;
+    width: 2.75rem !important;
+    height: 2.75rem !important;
+    font-size: 1.6rem !important;
+    margin-bottom: 0.35rem !important;
 }
 
 /* Highlighted/Focused Nodes - Even More Prominent */
@@ -339,6 +677,18 @@
     overflow-y: auto;
 }
 
+/* ScrollContainer for Activity Table - Similar to other views */
+.sapUiView[data-controller-name*="Activity"] .sapMScrollContainer {
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+}
+
+.sapUiView[data-controller-name*="Activity"] .sapMScrollContainer .sapMTable {
+    min-width: 100%;
+}
+
 /* Stage Summary List - Compact */
 .sapUiView[data-controller-name*="Activity"] .sapMPanel[header-text*="Stage Summary"] .sapMList {
     max-height: 200px;
@@ -377,7 +727,28 @@
     background: #0051d5;
 }
 
-/* Responsive adjustments */
+/* Mobile Scrollbar - Thinner but visible */
+@media (max-width: 768px) {
+    .eyeCatchingTimeline::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+    
+    .eyeCatchingTimeline::-webkit-scrollbar-thumb {
+        border: 1px solid #f1f1f1;
+    }
+}
+
+@media (max-width: 480px) {
+    .eyeCatchingTimeline::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+    }
+}
+
+/* ==================== RESPONSIVE ADJUSTMENTS ==================== */
+
+/* Tablet and smaller desktop */
 @media (max-width: 1024px) {
     .activityProcessFlow {
         max-height: 350px;
@@ -392,25 +763,273 @@
     #activityDetailsTable {
         max-height: 300px;
     }
+    
+    /* Metric cards - adjust spacing */
+    .metricCard {
+        margin-bottom: 0.5rem;
+    }
+    
+    .metricCardContent {
+        padding: 0.875rem;
+    }
+    
+    .metricValue {
+        font-size: 1.35rem;
+    }
 }
 
+/* Mobile devices */
 @media (max-width: 768px) {
+    /* Process Flow - Mobile */
     .activityProcessFlow {
         max-height: 300px;
         min-height: 250px;
+        height: 300px !important;
     }
     
     .eyeCatchingTimeline {
         max-height: 300px;
         min-height: 250px;
+        height: 300px !important;
+        border-width: 1.5px !important;
     }
     
+    /* Process Flow Nodes - Mobile sizing */
+    .eyeCatchingTimeline .sapSuitePFNode {
+        min-width: 140px !important;
+        min-height: 60px !important;
+        padding: 0.4rem !important;
+    }
+    
+    .eyeCatchingTimeline .sapSuitePFNodeTitle {
+        font-size: 0.9rem !important;
+        line-height: 1.2 !important;
+    }
+    
+    .eyeCatchingTimeline .sapSuitePFNodeText1,
+    .eyeCatchingTimeline .sapSuitePFNodeText2 {
+        font-size: 0.75rem !important;
+        line-height: 1.3 !important;
+    }
+    
+    .eyeCatchingTimeline .sapSuitePFNodeIcon {
+        width: 2rem !important;
+        height: 2rem !important;
+        font-size: 1.2rem !important;
+    }
+    
+    .eyeCatchingTimeline .sapSuitePFConnection {
+        stroke-width: 3px !important;
+    }
+    
+    .eyeCatchingTimeline .sapSuitePFLaneHeader {
+        font-size: 0.95rem !important;
+        padding: 0.75rem !important;
+    }
+    
+    /* Table - Mobile */
     #activityDetailsTable {
         max-height: 250px;
         font-size: 0.8rem;
     }
     
+    #activityDetailsTable .sapMListTblCell {
+        padding: 0.4rem 0.5rem;
+        font-size: 0.75rem;
+    }
+    
+    /* Metric Cards - Mobile */
     .metricCard {
         margin-bottom: 0.5rem;
+        min-height: 160px;
+    }
+    
+    .metricCardContent {
+        min-height: 130px;
+        padding: 0.75rem;
+    }
+    
+    .metricValue {
+        font-size: 1.25rem;
+    }
+    
+    .metricValueText {
+        font-size: 0.9rem;
+    }
+    
+    .metricLabel {
+        font-size: 0.85rem;
+    }
+    
+    /* Icons - Mobile */
+    .metricCard .sapUiCoreIcon {
+        font-size: 2.5rem !important;
+    }
+    
+    /* Stage Summary - Mobile */
+    .sapUiView[data-controller-name*="Activity"] .sapMCLI {
+        padding: 0.5rem;
+    }
+    
+    .sapUiView[data-controller-name*="Activity"] .sapMCLI .sapMHBox {
+        padding: 0.5rem;
+    }
+    
+    .sapUiView[data-controller-name*="Activity"] .sapMCLI .sapUiCoreIcon {
+        font-size: 1.75rem !important;
+    }
+    
+    /* Panel adjustments - Mobile */
+    .sapUiView[data-controller-name*="Activity"] .sapMPanel {
+        margin-bottom: 0.5rem;
+    }
+    
+    .sapUiView[data-controller-name*="Activity"] .sapMPanelContent {
+        max-height: 350px;
+        overflow-y: auto;
+    }
+    
+    /* Grid layout - Mobile */
+    .sapUiLayoutGrid {
+        margin: 0.25rem;
+    }
+}
+
+/* Small Mobile devices */
+@media (max-width: 480px) {
+    /* Process Flow - Small Mobile */
+    .activityProcessFlow {
+        max-height: 280px;
+        min-height: 250px;
+        height: 280px !important;
+    }
+    
+    .eyeCatchingTimeline {
+        max-height: 280px;
+        min-height: 250px;
+        height: 280px !important;
+        border-width: 1px !important;
+    }
+    
+    /* Process Flow Nodes - Small Mobile */
+    .eyeCatchingTimeline .sapSuitePFNode {
+        min-width: 120px !important;
+        min-height: 55px !important;
+        padding: 0.3rem !important;
+    }
+    
+    .eyeCatchingTimeline .sapSuitePFNodeTitle {
+        font-size: 0.8rem !important;
+        line-height: 1.1 !important;
+    }
+    
+    .eyeCatchingTimeline .sapSuitePFNodeText1,
+    .eyeCatchingTimeline .sapSuitePFNodeText2 {
+        font-size: 0.7rem !important;
+        line-height: 1.2 !important;
+    }
+    
+    .eyeCatchingTimeline .sapSuitePFNodeIcon {
+        width: 1.75rem !important;
+        height: 1.75rem !important;
+        font-size: 1rem !important;
+    }
+    
+    .eyeCatchingTimeline .sapSuitePFConnection {
+        stroke-width: 2.5px !important;
+    }
+    
+    .eyeCatchingTimeline .sapSuitePFLaneHeader {
+        font-size: 0.85rem !important;
+        padding: 0.6rem !important;
+    }
+    
+    /* Table - Small Mobile */
+    #activityDetailsTable {
+        max-height: 220px;
+        font-size: 0.75rem;
+    }
+    
+    #activityDetailsTable .sapMListTblCell {
+        padding: 0.35rem 0.4rem;
+        font-size: 0.7rem;
+    }
+    
+    /* Metric Cards - Small Mobile */
+    .metricCard {
+        min-height: 150px;
+        margin-bottom: 0.5rem;
+    }
+    
+    .metricCardContent {
+        min-height: 120px;
+        padding: 0.65rem;
+    }
+    
+    .metricValue {
+        font-size: 1.15rem;
+    }
+    
+    .metricValueText {
+        font-size: 0.85rem;
+    }
+    
+    .metricLabel {
+        font-size: 0.8rem;
+    }
+    
+    .metricCard .sapUiCoreIcon {
+        font-size: 2.25rem !important;
+    }
+    
+    /* Stage Summary - Small Mobile */
+    .sapUiView[data-controller-name*="Activity"] .sapMCLI {
+        padding: 0.4rem;
+    }
+    
+    .sapUiView[data-controller-name*="Activity"] .sapMCLI .sapMHBox {
+        padding: 0.4rem;
+    }
+    
+    .sapUiView[data-controller-name*="Activity"] .sapMCLI .sapUiCoreIcon {
+        font-size: 1.5rem !important;
+    }
+    
+    /* Panel adjustments - Small Mobile */
+    .sapUiView[data-controller-name*="Activity"] .sapMPanel {
+        margin-bottom: 0.25rem;
+    }
+    
+    .sapUiView[data-controller-name*="Activity"] .sapMPanelContent {
+        max-height: 300px;
+    }
+    
+    /* VBox padding - Small Mobile */
+    .sapUiView[data-controller-name*="Activity"] .sapMVBox.sapUiSmallMargin {
+        padding: 0.5rem !important;
+    }
+    
+    /* Grid layout - Small Mobile */
+    .sapUiLayoutGrid {
+        margin: 0.15rem;
+    }
+}
+
+/* Landscape Mobile - Better use of horizontal space */
+@media (max-width: 768px) and (orientation: landscape) {
+    .activityProcessFlow,
+    .eyeCatchingTimeline {
+        max-height: 280px !important;
+        min-height: 250px !important;
+        height: 280px !important;
+    }
+    
+    .eyeCatchingTimeline .sapSuitePFNode {
+        min-width: 130px !important;
+        min-height: 58px !important;
+    }
+    
+    #activityDetailsTable {
+        max-height: 220px;
     }
 }

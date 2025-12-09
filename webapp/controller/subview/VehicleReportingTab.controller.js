@@ -237,7 +237,7 @@ sap.ui.define(
           if (oDate) {
             oData.LR_Date = oDate.toISOString().split(".")[0];
           } else {
-            oData.LR_Date = oDate ? oDate : new Date();
+            oData.LR_Date =  null;
           }
           // Extract only the code part from Plant (remove description if present)
           // Priority: PlantCode variable > input field value > model data

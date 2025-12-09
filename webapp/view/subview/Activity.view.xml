@@ -137,14 +137,14 @@
                     expandable="true"
                     expanded="true">
                     <content>
-                        <VBox class="sapUiSmallMargin">
+                        <VBox class="sapUiSmallMargin" style="padding-left: 0.25rem;">
                             <suite:ProcessFlow
                                 id="activityProcessFlow"
                                 wheelZoomable="false"
                                 foldedCorners="false"
-                                zoomLevel="Two"
+                                zoomLevel="Three"
                                 class="activityProcessFlow eyeCatchingTimeline"
-                                height="400px"
+                                height="450px"
                                 nodes="{activityModel>/nodes}"
                                 lanes="{activityModel>/lanes}">
 
@@ -186,38 +186,81 @@
                     expandable="true"
                     expanded="true">
                     <content>
-                        <Table
-                            id="activityDetailsTable"
-                            width="100%"
-                            class="sapUiSizeCompact"
-                            inset="false"
-                            fixedLayout="false"
-                            growing="true"
-                            growingThreshold="5"
-                            growingScrollToLoad="true"
-                            mode="None"
-                            items="{activityModel>/events}">
+                        <VBox class="sapUiSmallMargin sapUiSizeCompact">
+                            <ScrollContainer
+                                horizontal="true"
+                                vertical="false"
+                                width="100%"
+                                class="sapUiNoContentPadding sapUiSizeCompact">
+                                <Table
+                                    id="activityDetailsTable"
+                                    width="auto"
+                                    class="sapUiSizeCompact"
+                                    inset="false"
+                                    fixedLayout="false"
+                                    autoPopin="true"
+                                    sticky="ColumnHeaders,HeaderToolbar"
+                                    growing="true"
+                                    growingThreshold="5"
+                                    growingScrollToLoad="true"
+                                    mode="None"
+                                    items="{activityModel>/events}">
 
-                            <columns>
-                                <Column width="10rem" hAlign="Begin">
-                                    <Text text="Event" class="sapUiSmallMarginBegin"/>
-                                </Column>
-                                <Column width="12rem" hAlign="Begin">
-                                    <Text text="Scenario"/>
-                                </Column>
-                                <Column width="14rem" hAlign="Begin">
-                                    <Text text="Timestamp"/>
-                                </Column>
-                                <Column width="8rem" hAlign="Begin">
-                                    <Text text="Created By"/>
-                                </Column>
-                                <Column width="8rem" hAlign="Begin">
-                                    <Text text="Changed By"/>
-                                </Column>
-                                <Column minScreenWidth="Tablet" demandPopin="true" hAlign="Begin">
-                                    <Text text="Remarks"/>
-                                </Column>
-                            </columns>
+                                    <columns>
+                                        <Column 
+                                            id="colActivityEvent"
+                                            width="10rem" 
+                                            hAlign="Begin"
+                                            demandPopin="true"
+                                            minScreenWidth="Desktop"
+                                            popinDisplay="Inline">
+                                            <Text text="Event" class="sapUiSmallMarginBegin"/>
+                                        </Column>
+                                        <Column 
+                                            id="colActivityScenario"
+                                            width="12rem" 
+                                            hAlign="Begin"
+                                            demandPopin="true"
+                                            minScreenWidth="Desktop"
+                                            popinDisplay="Inline">
+                                            <Text text="Scenario"/>
+                                        </Column>
+                                        <Column 
+                                            id="colActivityTimestamp"
+                                            width="14rem" 
+                                            hAlign="Begin"
+                                            demandPopin="true"
+                                            minScreenWidth="Desktop"
+                                            popinDisplay="Inline">
+                                            <Text text="Timestamp"/>
+                                        </Column>
+                                        <Column 
+                                            id="colActivityCreatedBy"
+                                            width="8rem" 
+                                            hAlign="Begin"
+                                            demandPopin="true"
+                                            minScreenWidth="Tablet"
+                                            popinDisplay="Inline">
+                                            <Text text="Created By"/>
+                                        </Column>
+                                        <Column 
+                                            id="colActivityChangedBy"
+                                            width="8rem" 
+                                            hAlign="Begin"
+                                            demandPopin="true"
+                                            minScreenWidth="Tablet"
+                                            popinDisplay="Inline">
+                                            <Text text="Changed By"/>
+                                        </Column>
+                                        <Column 
+                                            id="colActivityRemarks"
+                                            minScreenWidth="Tablet" 
+                                            demandPopin="true" 
+                                            hAlign="Begin"
+                                            popinDisplay="Inline">
+                                            <Text text="Remarks"/>
+                                        </Column>
+                                    </columns>
 
                             <items>
                                 <ColumnListItem type="Navigation">
@@ -242,9 +285,11 @@
                                             wrapping="true"/>
                                     </cells>
                                 </ColumnListItem>
-                            </items>
+                                </items>
 
-                        </Table>
+                                </Table>
+                            </ScrollContainer>
+                        </VBox>
                     </content>
                 </Panel>
 
