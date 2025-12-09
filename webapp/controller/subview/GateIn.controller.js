@@ -37,10 +37,41 @@ sap.ui.define(
           if (oTripData && !oTripData.getProperty("/WeighmentRequired")) {
             oTripData.setProperty("/WeighmentRequired", "N");
           }
+          
+          // Initialize attachments model
+          this._initGateInAttachmentsModel();
+          
+          // Initialize selected files array
+          this._aSelectedFiles = [];
+        },
+        _initGateInAttachmentsModel: function () {
+          if (!this._oGateInAttachmentsModel) {
+            this._oGateInAttachmentsModel = new JSONModel({ attachments: [] });
+            this.getView().setModel(this._oGateInAttachmentsModel, "gateInAttachmentsModel");
+          }
         },
         onAfterRendering: function () {
           this.loadDelayReason();
           this.loadGateNumber();
+          
+          // Set initial input state based on whether GateIn data exists
+          var oTripData = sap.ui.getCore().getModel("TripData");
+          if (oTripData) {
+            var sExistingEntryGateNum = oTripData.getProperty("/EntryGateNum");
+            if (sExistingEntryGateNum && sExistingEntryGateNum.trim() !== "") {
+              // GateIn exists - disable inputs (display mode)
+              this._setInputsEnabled(false);
+            } else {
+              // First time - enable inputs (create mode)
+              this._setInputsEnabled(true);
+            }
+          } else {
+            // No TripData - enable inputs for new entry
+            this._setInputsEnabled(true);
+          }
+          
+          // Load saved attachments
+          this._loadGateInAttachments();
         },
         onExit: function () {
           this._eventBus?.unsubscribe("TripData", "Updated", this._onTripDataUpdate, this);
@@ -49,7 +80,18 @@ sap.ui.define(
           var oTripData = sap.ui.getCore().getModel("TripData");
           if (oTripData) {
             this.getView().setModel(oTripData, "TripData");
+            // Disable inputs if GateIn data already exists (display mode)
+            var sExistingEntryGateNum = oTripData.getProperty("/EntryGateNum");
+            if (sExistingEntryGateNum && sExistingEntryGateNum.trim() !== "") {
+              this._setInputsEnabled(false);
+            } else {
+              // First time - enable inputs
+              this._setInputsEnabled(true);
+            }
           }
+          
+          // Reload attachments when trip data updates
+          this._loadGateInAttachments();
         },
         loadDelayReason: function () {
           this.oModel.read("/ConfigValues", {
@@ -268,13 +310,28 @@ sap.ui.define(
             });
           }
 
+          // Determine if this is first time (create) or update
+          // Check if EntryGateNum already exists in TripData
+          var bIsFirstTime = false;
+          if (oTripData) {
+            var sExistingEntryGateNum = oTripData.getProperty("/EntryGateNum");
+            // If EntryGateNum is empty, null, or undefined, it's the first time
+            bIsFirstTime = !sExistingEntryGateNum || sExistingEntryGateNum.trim() === "";
+          } else {
+            // If TripData doesn't exist, assume it's first time
+            bIsFirstTime = true;
+          }
+
+          // Modified flag: false for create (first time), true for update
+          var bModified = !bIsFirstTime;
+
           // Function Import Call with Custom Headers
           oModel.callFunction("/GateIn", {
             method: "POST",
             urlParameters: {
               TripNumber: sTripNumber,
               EntryGateNumber: sEntryGateNumber,
-              Modified: true,
+              Modified: bModified,
               Remarks: sRemarks || "",
               DelayReasons: sDelayReasons,
               // WeighmentRequired removed from payload - not sent to backend
@@ -283,8 +340,40 @@ sap.ui.define(
               "X-Requested-With": "X",
             },
             success: function (oData, oResponse) {
-              MessageBox.success("Gate In information saved successfully!");
-            },
+              var sMessage = bIsFirstTime 
+                ? "Gate In information created successfully!" 
+                : "Gate In information updated successfully!";
+              
+              // Update TripData model with saved EntryGateNum
+              var oTripData = sap.ui.getCore().getModel("TripData");
+              if (oTripData) {
+                oTripData.setProperty("/EntryGateNum", sEntryGateNumber);
+                // Publish event to notify other views
+                this._eventBus.publish("TripData", "Updated");
+              }
+              
+              // Upload attachments if any files were selected
+              if (this._aSelectedFiles && this._aSelectedFiles.length > 0) {
+                this._uploadGateInAttachments(function(bSuccess) {
+                  if (bSuccess) {
+                    MessageBox.success(sMessage + " Attachments uploaded successfully!");
+                  } else {
+                    MessageBox.success(sMessage);
+                    MessageBox.warning("Some attachments failed to upload.");
+                  }
+                  
+                  // Disable inputs after successful save
+                  this._setInputsEnabled(false);
+                  
+                  // Reload attachments list
+                  this._loadGateInAttachments();
+                });
+              } else {
+                MessageBox.success(sMessage);
+                // Disable inputs after successful save
+                this._setInputsEnabled(false);
+              }
+            }.bind(this),
             error: function (oError) {
               this.getView().setBusy(false);
 
@@ -378,6 +467,527 @@ sap.ui.define(
               weighmentRequired: sValue
             });
           }
+        },
+        onEditGateInInfo: function () {
+          // Enable inputs for edit mode
+          this._setInputsEnabled(true);
+          MessageToast.show("Edit mode activated");
+        },
+        _setInputsEnabled: function (bEnabled) {
+          try {
+            var oPanel = this.getView().byId("gateInInfoPanel");
+            if (!oPanel) return;
+            
+            // Find all aggregated controls in the panel
+            var aChildren = oPanel.findAggregatedObjects(true); // deep search
+            
+            aChildren.forEach(function(ctrl) {
+              // Ignore buttons
+              if (ctrl.isA && ctrl.isA("sap.m.Button")) return;
+              
+              // Try setEditable first (for Input, TextArea, etc.)
+              if (ctrl.setEditable) {
+                try {
+                  ctrl.setEditable(bEnabled);
+                } catch (e) {
+                  // Fallback to setEnabled if setEditable fails
+                  if (ctrl.setEnabled) {
+                    ctrl.setEnabled(bEnabled);
+                  }
+                }
+              } else if (ctrl.setEnabled) {
+                // For controls that only support setEnabled (like RadioButtonGroup)
+                try {
+                  ctrl.setEnabled(bEnabled);
+                } catch (e) {
+                  // Ignore errors
+                }
+              }
+            });
+            
+            // Ensure Edit/Save buttons remain enabled
+            if (this.getView().byId("btnEditGateInInfo")) {
+              this.getView().byId("btnEditGateInInfo").setEnabled(true);
+            }
+            if (this.getView().byId("btnSaveGateInInfo")) {
+              this.getView().byId("btnSaveGateInInfo").setEnabled(true);
+            }
+          } catch (e) {
+            // Don't break if something unexpected happens
+            console.error("Error in _setInputsEnabled: " + e);
+          }
+        },
+        onGateInAttachmentChange: function (oEvent) {
+          var oFileUploader = oEvent.getSource();
+          
+          // Get files from the native file input element
+          var oDomRef = oFileUploader.getDomRef();
+          var oFileInput = oDomRef ? oDomRef.querySelector("input[type='file']") : null;
+          
+          if (!oFileInput || !oFileInput.files || oFileInput.files.length === 0) {
+            this._aSelectedFiles = [];
+            // Disable preview button
+            var oPreviewBtn = this.getView().byId("idPreviewSelectedGateInFiles");
+            if (oPreviewBtn) {
+              oPreviewBtn.setEnabled(false);
+            }
+            return;
+          }
+          
+          // Store selected files
+          this._aSelectedFiles = Array.from(oFileInput.files);
+          
+          // Enable preview button
+          var oPreviewBtn = this.getView().byId("idPreviewSelectedGateInFiles");
+          if (oPreviewBtn) {
+            oPreviewBtn.setEnabled(true);
+          }
+        },
+        onPreviewSelectedGateInFiles: function () {
+          if (!this._aSelectedFiles || this._aSelectedFiles.length === 0) {
+            MessageToast.show("Please select files first");
+            return;
+          }
+          
+          // Show preview for first file (or create a list to preview all)
+          var oFile = this._aSelectedFiles[0];
+          var sFileName = oFile.name;
+          var sContentType = oFile.type || "application/octet-stream";
+          
+          // Read file as base64 for preview
+          var oReader = new FileReader();
+          oReader.onload = function (oEvent) {
+            var sBase64Content = oEvent.target.result;
+            // Remove data URL prefix
+            var sBase64Data = sBase64Content.split(",")[1] || sBase64Content;
+            
+            // Create a temporary attachment object for preview
+            var oTempAttachment = {
+              fileName: sFileName,
+              contentType: sContentType
+            };
+            
+            // Show preview dialog
+            this._showGateInPreviewDialog(oTempAttachment, sBase64Data, true);
+          }.bind(this);
+          
+          oReader.onerror = function () {
+            MessageToast.show("Failed to read file for preview");
+          }.bind(this);
+          
+          oReader.readAsDataURL(oFile);
+        },
+        _uploadGateInAttachments: function (fnCallback) {
+          if (!this._aSelectedFiles || this._aSelectedFiles.length === 0) {
+            return;
+          }
+
+          var oGlobalModel = sap.ui.getCore().getModel("globalData");
+          var sTripNumber = oGlobalModel?.getProperty("/TripNumber") || "";
+
+          if (!sTripNumber) {
+            MessageToast.show("Please open a trip first");
+            return;
+          }
+
+          // Show busy indicator
+          this.getView().setBusy(true);
+
+          // Process each file
+          var iTotalFiles = this._aSelectedFiles.length;
+          var iProcessedFiles = 0;
+          var iSuccessCount = 0;
+          var iErrorCount = 0;
+
+          var that = this;
+
+          this._aSelectedFiles.forEach(function (oFile) {
+            var sFileName = oFile.name;
+            var sContentType = oFile.type || "application/octet-stream";
+
+            // Read file as base64
+            var oReader = new FileReader();
+            oReader.onload = function (oEvent) {
+              var sBase64Content = oEvent.target.result;
+              // Remove data URL prefix (e.g., "data:image/jpeg;base64,")
+              var sBase64Data = sBase64Content.split(",")[1] || sBase64Content;
+
+              that._saveGateInAttachment(sTripNumber, sFileName, sContentType, sBase64Data, function (bSuccess) {
+                iProcessedFiles++;
+                if (bSuccess) {
+                  iSuccessCount++;
+                } else {
+                  iErrorCount++;
+                }
+
+                // Check if all files are processed
+                if (iProcessedFiles === iTotalFiles) {
+                  that.getView().setBusy(false);
+                  
+                  // Clear file uploader
+                  var oFileUploader = that.getView().byId("idGateInAttachments");
+                  if (oFileUploader) {
+                    oFileUploader.clear();
+                  }
+                  that._aSelectedFiles = [];
+                  
+                  // Disable preview button
+                  var oPreviewBtn = that.getView().byId("idPreviewSelectedGateInFiles");
+                  if (oPreviewBtn) {
+                    oPreviewBtn.setEnabled(false);
+                  }
+
+                  // Call callback with success status
+                  if (fnCallback) {
+                    fnCallback(iErrorCount === 0);
+                  }
+                }
+              });
+            };
+
+            oReader.onerror = function () {
+              iProcessedFiles++;
+              iErrorCount++;
+              
+              if (iProcessedFiles === iTotalFiles) {
+                that.getView().setBusy(false);
+                MessageToast.show("Failed to read some files");
+              }
+            };
+
+            oReader.readAsDataURL(oFile);
+          });
+        },
+        _saveGateInAttachment: function (sTripNumber, sFileName, sContentType, sBase64Data, fnCallback) {
+          var oService = this.oModel;
+          
+          // Function to generate slug from a string (e.g., trip number)
+          function generateSlug(inputString) {
+            return inputString
+              .toLowerCase()  // Convert to lowercase
+              .replace(/\s+/g, '-')  // Replace spaces with hyphens
+              .replace(/[^\w\-]+/g, '')  // Remove non-alphanumeric characters
+              .replace(/--+/g, '-')  // Replace multiple hyphens with a single one
+              .trim();  // Remove leading and trailing spaces
+          }
+          
+          // Generate a slug from the trip number
+          var slug = generateSlug(sTripNumber);
+          
+          // Extract file extension from original filename or content type
+          var sFileExtension = "";
+          var sBaseFileName = sFileName;
+          if (sFileName && sFileName.lastIndexOf(".") > 0) {
+            sBaseFileName = sFileName.substring(0, sFileName.lastIndexOf("."));
+            sFileExtension = sFileName.substring(sFileName.lastIndexOf(".") + 1);
+          } else if (sContentType && sContentType.indexOf("/") > 0) {
+            sFileExtension = sContentType.split("/")[1];
+          } else {
+            sFileExtension = "bin";
+          }
+          
+          // Create filename with slug and stage prefix
+          var sSlugFileName = "GateIn_" + sBaseFileName + "_" + slug + "." + sFileExtension;
+          
+          var oPayload = {
+            TripNumber: sTripNumber,
+            FileName: sSlugFileName,
+            ContentType: sContentType,
+            Content: sBase64Data
+          };
+
+          var that = this;
+
+          // Try to create first (if exists, will get error and we'll update)
+          oService.create("/Attachments", oPayload, {
+            headers: {
+              "X-Requested-With": "X",
+              "X-Driver-Slug": slug  // Send the slug in the header
+            },
+            success: function () {
+              if (fnCallback) {
+                fnCallback(true);
+              }
+            },
+            error: function (oError) {
+              // If creation fails (entity exists), try update
+              if (oError.statusCode === 409 || oError.statusCode === 400) {
+                that._updateGateInAttachment(sTripNumber, sSlugFileName, sContentType, sBase64Data, fnCallback);
+              } else {
+                if (fnCallback) {
+                  fnCallback(false);
+                }
+                console.error("Upload error:", oError);
+              }
+            }
+          });
+        },
+        _updateGateInAttachment: function (sTripNumber, sFileName, sContentType, sBase64Data, fnCallback) {
+          var oService = this.oModel;
+          var sPath = "/Attachments('" + sTripNumber + "')";
+          
+          var oPayload = {
+            FileName: sFileName,
+            ContentType: sContentType,
+            Content: sBase64Data
+          };
+
+          oService.update(sPath, oPayload, {
+            headers: {
+              "X-Requested-With": "X"
+            },
+            success: function () {
+              if (fnCallback) {
+                fnCallback(true);
+              }
+            },
+            error: function (oError) {
+              if (fnCallback) {
+                fnCallback(false);
+              }
+              console.error("Update attachment error:", oError);
+            }
+          });
+        },
+        _loadGateInAttachments: function () {
+          var oGlobalModel = sap.ui.getCore().getModel("globalData");
+          var sTripNumber = oGlobalModel?.getProperty("/TripNumber") || "";
+
+          if (!sTripNumber) {
+            this._oGateInAttachmentsModel.setProperty("/attachments", []);
+            return;
+          }
+
+          var oService = this.oModel;
+          // Try to read as collection first
+          oService.read("/Attachments", {
+            filters: [
+              new sap.ui.model.Filter("TripNumber", sap.ui.model.FilterOperator.EQ, sTripNumber)
+            ],
+            success: function (oData) {
+              var aAttachments = [];
+              if (oData && oData.results && Array.isArray(oData.results)) {
+                // Filter for GateIn attachments
+                oData.results.forEach(function(oAttachment) {
+                  if (oAttachment.FileName && oAttachment.FileName.startsWith("GateIn_")) {
+                    aAttachments.push({
+                      tripNumber: oAttachment.TripNumber || sTripNumber,
+                      fileName: oAttachment.FileName || "",
+                      contentType: oAttachment.ContentType || ""
+                    });
+                  }
+                });
+              } else if (oData && oData.FileName && oData.FileName.startsWith("GateIn_")) {
+                // Single entity response
+                aAttachments.push({
+                  tripNumber: oData.TripNumber || sTripNumber,
+                  fileName: oData.FileName || "",
+                  contentType: oData.ContentType || ""
+                });
+              }
+              this._oGateInAttachmentsModel.setProperty("/attachments", aAttachments);
+            }.bind(this),
+            error: function (oError) {
+              // Try reading by key if collection read fails
+              oService.read("/Attachments('" + sTripNumber + "')", {
+                success: function (oData) {
+                  var aAttachments = [];
+                  if (oData && oData.FileName && oData.FileName.startsWith("GateIn_")) {
+                    aAttachments.push({
+                      tripNumber: oData.TripNumber || sTripNumber,
+                      fileName: oData.FileName || "",
+                      contentType: oData.ContentType || ""
+                    });
+                  }
+                  this._oGateInAttachmentsModel.setProperty("/attachments", aAttachments);
+                }.bind(this),
+                error: function () {
+                  this._oGateInAttachmentsModel.setProperty("/attachments", []);
+                }.bind(this)
+              });
+            }.bind(this)
+          });
+        },
+        onPreviewGateInAttachment: function (oEvent) {
+          var oSource = oEvent.getSource();
+          var oListItem = oSource.getParent();
+          
+          // Try to find the CustomListItem parent
+          var oParent = oSource.getParent();
+          while (oParent) {
+            if (oParent.getBindingContext && oParent.getBindingContext("gateInAttachmentsModel")) {
+              oListItem = oParent;
+              break;
+            }
+            oParent = oParent.getParent ? oParent.getParent() : null;
+          }
+          
+          if (oListItem) {
+            var oContext = oListItem.getBindingContext("gateInAttachmentsModel");
+            if (oContext) {
+              var oAttachment = oContext.getObject();
+              this._previewGateInAttachment(oAttachment);
+              return;
+            }
+          }
+          
+          MessageToast.show("Unable to load attachment");
+        },
+        _previewGateInAttachment: function (oAttachment) {
+          var sTripNumber = oAttachment.tripNumber || sap.ui.getCore().getModel("globalData")?.getProperty("/TripNumber") || "";
+
+          if (!sTripNumber) {
+            MessageToast.show("Trip number not found");
+            return;
+          }
+
+          var oService = this.oModel;
+          // Try reading as collection first
+          oService.read("/Attachments", {
+            filters: [
+              new sap.ui.model.Filter("TripNumber", sap.ui.model.FilterOperator.EQ, sTripNumber),
+              new sap.ui.model.Filter("FileName", sap.ui.model.FilterOperator.EQ, oAttachment.fileName)
+            ],
+            success: function (oData) {
+              var oAttachmentData = null;
+              if (oData && oData.results && Array.isArray(oData.results) && oData.results.length > 0) {
+                oAttachmentData = oData.results[0];
+              } else if (oData && oData.FileName === oAttachment.fileName) {
+                oAttachmentData = oData;
+              }
+              
+              if (oAttachmentData && oAttachmentData.Content) {
+                this._showGateInPreviewDialog(oAttachment, oAttachmentData.Content, false);
+              } else {
+                // Try reading by key
+                oService.read("/Attachments('" + sTripNumber + "')", {
+                  success: function (oDataByKey) {
+                    if (oDataByKey && oDataByKey.Content) {
+                      this._showGateInPreviewDialog(oAttachment, oDataByKey.Content, false);
+                    } else {
+                      MessageToast.show("Attachment content not found");
+                    }
+                  }.bind(this),
+                  error: function () {
+                    MessageToast.show("Attachment not found");
+                  }
+                });
+              }
+            }.bind(this),
+            error: function (oError) {
+              // Try reading by key if collection read fails
+              oService.read("/Attachments('" + sTripNumber + "')", {
+                success: function (oDataByKey) {
+                  if (oDataByKey && oDataByKey.Content) {
+                    this._showGateInPreviewDialog(oAttachment, oDataByKey.Content, false);
+                  } else {
+                    MessageToast.show("Attachment content not found");
+                  }
+                }.bind(this),
+                error: function () {
+                  MessageToast.show("Failed to load attachment for preview");
+                  console.error("Preview error:", oError);
+                }
+              });
+            }.bind(this)
+          });
+        },
+        _showGateInPreviewDialog: function (oAttachment, sBase64Content, bIsSelectedFile) {
+          var that = this;
+          
+          // Create dialog if it doesn't exist
+          if (!this._oGateInPreviewDialog) {
+            this._oGateInPreviewDialog = new sap.m.Dialog({
+              title: oAttachment.fileName,
+              contentWidth: "90%",
+              contentHeight: "85%",
+              resizable: true,
+              draggable: true,
+              beginButton: new sap.m.Button({
+                text: "Close",
+                press: function () {
+                  that._oGateInPreviewDialog.close();
+                }
+              }),
+              endButton: new sap.m.Button({
+                text: "Download",
+                type: "Emphasized",
+                icon: "sap-icon://download",
+                press: function () {
+                  that._downloadGateInAttachment(oAttachment, sBase64Content);
+                }
+              })
+            });
+            this.getView().addDependent(this._oGateInPreviewDialog);
+          }
+
+          // Update dialog title
+          this._oGateInPreviewDialog.setTitle(oAttachment.fileName || "Preview");
+          this._oGateInPreviewDialog.removeAllContent();
+
+          var sContentType = oAttachment.contentType || "";
+          var sBase64 = sBase64Content || "";
+
+          if (!sBase64) {
+            var oText = new sap.m.Text({
+              text: "No content available for preview."
+            });
+            this._oGateInPreviewDialog.addContent(oText);
+            this._oGateInPreviewDialog.open();
+            return;
+          }
+
+          // Create data URL from base64 content
+          var sDataUrl = "data:" + sContentType + ";base64," + sBase64;
+
+          // Determine preview type based on content type
+          if (sContentType.startsWith("image/")) {
+            // Image preview
+            var oScrollContainer = new sap.m.ScrollContainer({
+              width: "100%",
+              height: "100%",
+              vertical: true,
+              horizontal: true,
+              content: [
+                new sap.m.Image({
+                  src: sDataUrl,
+                  densityAware: false,
+                  width: "100%",
+                  height: "auto"
+                })
+              ]
+            });
+            this._oGateInPreviewDialog.addContent(oScrollContainer);
+          } else if (sContentType === "application/pdf") {
+            // PDF preview using iframe
+            var oHTML = new sap.ui.core.HTML({
+              content: '<iframe src="' + sDataUrl + '" style="width:100%;height:100%;border:none;"></iframe>'
+            });
+            this._oGateInPreviewDialog.addContent(oHTML);
+          } else {
+            // Other file types - show download option
+            var oText = new sap.m.Text({
+              text: "Preview not available for this file type. Please download to view."
+            });
+            this._oGateInPreviewDialog.addContent(oText);
+          }
+
+          this._oGateInPreviewDialog.open();
+        },
+        _downloadGateInAttachment: function (oAttachment, sBase64Content) {
+          var sContentType = oAttachment.contentType || "application/octet-stream";
+          var sFileName = oAttachment.fileName || "attachment";
+          
+          // Create data URL
+          var sDataUrl = "data:" + sContentType + ";base64," + sBase64Content;
+          
+          // Create temporary link and trigger download
+          var oLink = document.createElement("a");
+          oLink.href = sDataUrl;
+          oLink.download = sFileName;
+          document.body.appendChild(oLink);
+          oLink.click();
+          document.body.removeChild(oLink);
         },
       }
     );
