@@ -3,121 +3,250 @@
     xmlns:mvc="sap.ui.core.mvc"
     xmlns="sap.m"
     xmlns:suite="sap.suite.ui.commons"
+    xmlns:layout="sap.ui.layout"
+    xmlns:core="sap.ui.core"
     displayBlock="true">
 
-    <VBox class="sapUiSmallMargin sapUiSizeCompact">
+    <VBox class="sapUiSmallMargin sapUiSizeCompact" width="100%">
+                
+                <!-- ==================== KEY METRICS CARDS ==================== -->
+                <Panel 
+                    headerText="Trip Analysis Dashboard"
+                    class="sapUiNoContentPadding sapUiTinyMarginBottom">
+                    <content>
+                        <layout:Grid 
+                            defaultSpan="L4 M4 S12" 
+                            hSpacing="0.5rem" 
+                            vSpacing="0.5rem"
+                            class="sapUiSmallMargin">
+                    
+                    <layout:content>
+                        <Panel 
+                            class="metricCard sapUiTinyMarginBegin sapUiTinyMarginEnd"
+                            headerText="Total TAT">
+                            <content>
+                                <VBox alignItems="Center" justifyContent="Center" class="metricCardContent">
+                                    <core:Icon 
+                                        src="sap-icon://time-entry-record"
+                                        size="3rem"
+                                        color="#0070f2"
+                                        class="sapUiTinyMarginBottom"/>
+                                    <Title 
+                                        text="{activityModel>/tatText}"
+                                        level="H2"
+                                        class="metricValue"/>
+                                    <Text 
+                                        text="Total Turnaround Time"
+                                        class="sapUiSmallFontSize sapUiTinyMarginTop metricLabel"/>
+                                </VBox>
+                            </content>
+                        </Panel>
+                    </layout:content>
+                    
+                    <layout:content>
+                        <Panel 
+                            class="metricCard sapUiTinyMarginBegin sapUiTinyMarginEnd"
+                            headerText="Total Events">
+                            <content>
+                                <VBox alignItems="Center" justifyContent="Center" class="metricCardContent">
+                                    <core:Icon 
+                                        src="sap-icon://activities"
+                                        size="3rem"
+                                        color="#107e3e"
+                                        class="sapUiTinyMarginBottom"/>
+                                    <Title 
+                                        text="{activityModel>/eventsCount}"
+                                        level="H2"
+                                        class="metricValue"/>
+                                    <Text 
+                                        text="Events Recorded"
+                                        class="sapUiSmallFontSize sapUiTinyMarginTop metricLabel"/>
+                                </VBox>
+                            </content>
+                        </Panel>
+                    </layout:content>
+                    
+                    <layout:content>
+                        <Panel 
+                            class="metricCard sapUiTinyMarginBegin sapUiTinyMarginEnd"
+                            headerText="Last Event">
+                            <content>
+                                <VBox alignItems="Center" justifyContent="Center" class="metricCardContent">
+                                    <core:Icon 
+                                        src="sap-icon://history"
+                                        size="3rem"
+                                        color="#e9730c"
+                                        class="sapUiTinyMarginBottom"/>
+                                    <Title 
+                                        text="{activityModel>/lastUpdatedText}"
+                                        level="H2"
+                                        class="metricValue metricValueText"
+                                        wrapping="true"/>
+                                    <Text 
+                                        text="Most Recent Activity"
+                                        class="sapUiSmallFontSize sapUiTinyMarginTop metricLabel"/>
+                                </VBox>
+                            </content>
+                        </Panel>
+                    </layout:content>
+                        </layout:Grid>
+                    </content>
+                </Panel>
 
-        <Panel class="sapUiNoContentPadding">
-            <headerToolbar>
-                <OverflowToolbar>
-                    <Title text="Activity Timeline"/>
-                </OverflowToolbar>
-            </headerToolbar>
-
-            <VBox class="sapUiSmallMargin sapUiSizeCompact" width="100%">
-
-                <HBox justifyContent="SpaceBetween" class="sapUiTinyMarginBottom sapUiTinyMarginTop">
-                    <ObjectStatus
-                        title="Total TAT"
-                        text="{activityModel>/tatText}"
-                        state="Information"/>
-                    <ObjectStatus
-                        title="Last Event"
-                        text="{activityModel>/lastUpdatedText}"
-                        state="None"/>
-                    <ObjectStatus
-                        title="Events"
-                        text="{activityModel>/eventsCount}"
-                        state="None"/>
-                </HBox>
-
-                <List
+                <!-- ==================== STAGE SUMMARY PANEL ==================== -->
+                <Panel 
                     headerText="Stage Summary"
-                    class="sapUiSmallMarginBottom"
-                    items="{activityModel>/milestones}">
-                    <StandardListItem
-                        icon="{activityModel>icon}"
-                        iconDensityAware="false"
-                        iconInset="false"
-                        title="{activityModel>title}"
-                        description="{activityModel>description}"
-                        info="{activityModel>tatText}"
-                        infoState="{activityModel>infoState}"
-                        type="Active"/>
-                </List>
+                    class="sapUiNoContentPadding sapUiTinyMarginTop"
+                    expandable="true"
+                    expanded="true">
+                    <content>
+                        <List
+                            class="sapUiNoContentPadding"
+                            items="{activityModel>/milestones}">
+                            <CustomListItem 
+                                class="sapUiTinyMargin"
+                                type="Active">
+                                <HBox alignItems="Center" class="sapUiSmallMargin">
+                                    <core:Icon 
+                                        src="{activityModel>icon}"
+                                        size="2rem"
+                                        class="sapUiTinyMarginEnd stageIcon"/>
+                                    <VBox class="sapUiTinyMarginBegin" flex="1">
+                                        <Title 
+                                            text="{activityModel>title}"
+                                            level="H6"
+                                            class="sapUiTinyMarginBottom"/>
+                                        <Text 
+                                            text="{activityModel>description}"
+                                            class="sapUiSmallFontSize"/>
+                                    </VBox>
+                                    <ObjectStatus
+                                        text="{activityModel>tatText}"
+                                        state="{activityModel>infoState}"
+                                        class="sapUiTinyMarginBegin"/>
+                                </HBox>
+                            </CustomListItem>
+                        </List>
+                    </content>
+                </Panel>
 
-                <suite:ProcessFlow
-                    id="activityProcessFlow"
-                    wheelZoomable="false"
-                    foldedCorners="false"
-                    zoomLevel="Two"
-                    class="sapUiSmallMarginBottom"
-                    nodes="{activityModel>/nodes}"
-                    lanes="{activityModel>/lanes}">
+                <!-- ==================== ACTIVITY TIMELINE PANEL ==================== -->
+                <Panel 
+                    headerText="Activity Timeline"
+                    class="sapUiNoContentPadding sapUiTinyMarginTop"
+                    expandable="true"
+                    expanded="true">
+                    <content>
+                        <VBox class="sapUiSmallMargin">
+                            <suite:ProcessFlow
+                                id="activityProcessFlow"
+                                wheelZoomable="false"
+                                foldedCorners="false"
+                                zoomLevel="Two"
+                                class="activityProcessFlow eyeCatchingTimeline"
+                                height="400px"
+                                nodes="{activityModel>/nodes}"
+                                lanes="{activityModel>/lanes}">
 
-                    <suite:nodes>
-                        <suite:ProcessFlowNode
-                            nodeId="{activityModel>id}"
-                            laneId="{activityModel>laneId}"
-                            title="{activityModel>title}"
-                            state="{activityModel>state}"
-                            stateText="{activityModel>stateText}"
-                            text1="{activityModel>text1}"
-                            text2="{activityModel>text2}"
-                            icon="{activityModel>icon}"
-                            iconShape="{activityModel>iconShape}"
-                            children="{activityModel>children}"
-                            highlighted="{activityModel>highlighted}"
-                            focused="{activityModel>focused}"
-                            templateShareable="false"/>
-                    </suite:nodes>
+                                <suite:nodes>
+                                    <suite:ProcessFlowNode
+                                        nodeId="{activityModel>id}"
+                                        laneId="{activityModel>laneId}"
+                                        title="{activityModel>title}"
+                                        state="{activityModel>state}"
+                                        stateText="{activityModel>stateText}"
+                                        text1="{activityModel>text1}"
+                                        text2="{activityModel>text2}"
+                                        icon="{activityModel>icon}"
+                                        iconShape="{activityModel>iconShape}"
+                                        children="{activityModel>children}"
+                                        highlighted="{activityModel>highlighted}"
+                                        focused="{activityModel>focused}"
+                                        templateShareable="false"/>
+                                </suite:nodes>
 
-                    <suite:lanes>
-                        <suite:ProcessFlowLaneHeader
-                            laneId="{activityModel>id}"
-                            position="{activityModel>position}"
-                            icon="{activityModel>icon}"
-                            text="{activityModel>text}"
-                            templateShareable="false"/>
-                    </suite:lanes>
+                                <suite:lanes>
+                                    <suite:ProcessFlowLaneHeader
+                                        laneId="{activityModel>id}"
+                                        position="{activityModel>position}"
+                                        icon="{activityModel>icon}"
+                                        text="{activityModel>text}"
+                                        templateShareable="false"/>
+                                </suite:lanes>
 
-                </suite:ProcessFlow>
+                            </suite:ProcessFlow>
+                        </VBox>
+                    </content>
+                </Panel>
 
-                <Table
-                    id="activityDetailsTable"
-                    width="100%"
-                    class="sapUiSizeCompact"
-                    inset="false"
-                    autoPopin="true"
-                    sticky="ColumnHeaders"
-                    items="{activityModel>/events}">
+                <!-- ==================== EVENTS TABLE ==================== -->
+                <Panel 
+                    headerText="Event Details"
+                    class="sapUiTinyMarginTop sapUiNoContentPadding"
+                    expandable="true"
+                    expanded="true">
+                    <content>
+                        <Table
+                            id="activityDetailsTable"
+                            width="100%"
+                            class="sapUiSizeCompact"
+                            inset="false"
+                            fixedLayout="false"
+                            growing="true"
+                            growingThreshold="5"
+                            growingScrollToLoad="true"
+                            mode="None"
+                            items="{activityModel>/events}">
 
-                    <columns>
-                        <Column width="10rem"><Text text="Event"/></Column>
-                        <Column width="12rem"><Text text="Scenario"/></Column>
-                        <Column width="14rem"><Text text="Timestamp"/></Column>
-                        <Column width="8rem"><Text text="Created By"/></Column>
-                        <Column width="8rem"><Text text="Changed By"/></Column>
-                        <Column><Text text="Remarks"/></Column>
-                    </columns>
+                            <columns>
+                                <Column width="10rem" hAlign="Begin">
+                                    <Text text="Event" class="sapUiSmallMarginBegin"/>
+                                </Column>
+                                <Column width="12rem" hAlign="Begin">
+                                    <Text text="Scenario"/>
+                                </Column>
+                                <Column width="14rem" hAlign="Begin">
+                                    <Text text="Timestamp"/>
+                                </Column>
+                                <Column width="8rem" hAlign="Begin">
+                                    <Text text="Created By"/>
+                                </Column>
+                                <Column width="8rem" hAlign="Begin">
+                                    <Text text="Changed By"/>
+                                </Column>
+                                <Column minScreenWidth="Tablet" demandPopin="true" hAlign="Begin">
+                                    <Text text="Remarks"/>
+                                </Column>
+                            </columns>
 
-                    <items>
-                        <ColumnListItem>
-                            <cells>
-                                <Text text="{activityModel>eventKey}"/>
-                                <Text text="{activityModel>movementScenario}"/>
-                                <Text text="{activityModel>displayTimestamp}"/>
-                                <Text text="{activityModel>createdBy}"/>
-                                <Text text="{activityModel>changedBy}"/>
-                                <Text text="{activityModel>remarks}"/>
-                            </cells>
-                        </ColumnListItem>
-                    </items>
+                            <items>
+                                <ColumnListItem type="Navigation">
+                                    <cells>
+                                        <ObjectIdentifier
+                                            title="{activityModel>eventKey}"
+                                            class="sapUiTinyMarginBegin"/>
+                                        <Text 
+                                            text="{activityModel>movementScenario}"
+                                            wrapping="false"/>
+                                        <Text 
+                                            text="{activityModel>displayTimestamp}"
+                                            wrapping="false"/>
+                                        <Text 
+                                            text="{activityModel>createdBy}"
+                                            wrapping="false"/>
+                                        <Text 
+                                            text="{activityModel>changedBy}"
+                                            wrapping="false"/>
+                                        <Text 
+                                            text="{activityModel>remarks}"
+                                            wrapping="true"/>
+                                    </cells>
+                                </ColumnListItem>
+                            </items>
 
-                </Table>
-
-            </VBox>
-        </Panel>
+                        </Table>
+                    </content>
+                </Panel>
 
     </VBox>
 </mvc:View>

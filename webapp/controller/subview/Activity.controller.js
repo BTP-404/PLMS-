@@ -133,18 +133,27 @@ sap.ui.define([
 			var that = this;
 			return aEvents.map(function (oItem, index) {
 				var sStageTitle = that._getStageTitle(oItem._stage);
-				var sTitle = sStageTitle ? sStageTitle + " (" + oItem.eventKey + ")" : oItem.eventKey;
+				// Make title more concise and readable
+				var sTitle = sStageTitle ? sStageTitle : oItem.eventKey;
+				
+				// Determine state based on position (last one is highlighted)
+				var sState = index === aEvents.length - 1 ? "Positive" : "Positive";
+				var bHighlighted = index === aEvents.length - 1;
+				var bFocused = index === aEvents.length - 1;
+				
 				return {
 					id: oItem._nodeId,
 					laneId: "lane1",
 					title: sTitle,
 					text1: oItem.displayTimestamp,
 					text2: oItem.remarks || oItem.movementScenario || "",
-					state: "Positive",
+					state: sState,
 					stateText: oItem.movementScenario,
 					icon: oItem._icon || "sap-icon://activities",
 					iconShape: "Circle",
-					children: index < aEvents.length - 1 ? [aEvents[index + 1]._nodeId] : []
+					children: index < aEvents.length - 1 ? [aEvents[index + 1]._nodeId] : [],
+					highlighted: bHighlighted,
+					focused: bFocused
 				};
 			});
 		},

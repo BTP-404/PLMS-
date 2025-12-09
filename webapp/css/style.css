@@ -79,3 +79,338 @@
     padding-top: 0.65rem;
     padding-bottom: 0.65rem;
 }
+
+/* ==================== ANALYSIS DASHBOARD STYLES ==================== */
+
+/* Process Flow Container - Eye-catching and Larger */
+.activityProcessFlow {
+    max-height: 400px;
+    min-height: 350px;
+    overflow-y: auto;
+    overflow-x: auto;
+    border: 2px solid #0070f2;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+    width: 100%;
+    box-shadow: 0 4px 12px rgba(0, 112, 242, 0.15);
+    position: relative;
+}
+
+/* Eye-catching Timeline Styling */
+.eyeCatchingTimeline {
+    background: linear-gradient(135deg, #f0f7ff 0%, #ffffff 50%, #f0f7ff 100%);
+    border: 2px solid #0070f2 !important;
+    box-shadow: 0 6px 20px rgba(0, 112, 242, 0.2) !important;
+}
+
+/* Process Flow Nodes - More Prominent and Eye-catching */
+.eyeCatchingTimeline .sapSuitePFNode {
+    min-width: 180px !important;
+    min-height: 80px !important;
+    box-shadow: 0 4px 12px rgba(0, 112, 242, 0.25) !important;
+    border-radius: 8px !important;
+    border: 2px solid #0070f2 !important;
+    background: linear-gradient(135deg, #ffffff 0%, #f0f7ff 100%) !important;
+    transition: all 0.3s ease !important;
+    padding: 0.5rem !important;
+}
+
+.eyeCatchingTimeline .sapSuitePFNode:hover {
+    transform: scale(1.08) !important;
+    box-shadow: 0 6px 20px rgba(0, 112, 242, 0.4) !important;
+    z-index: 100 !important;
+    border-color: #0051d5 !important;
+    background: linear-gradient(135deg, #ffffff 0%, #e0f0ff 100%) !important;
+}
+
+/* Process Flow Lane Header - More Visible */
+.eyeCatchingTimeline .sapSuitePFLaneHeader {
+    background: linear-gradient(135deg, #0070f2 0%, #0051d5 100%) !important;
+    color: #ffffff !important;
+    font-weight: 700 !important;
+    font-size: 1.1rem !important;
+    padding: 1rem !important;
+    border-radius: 6px !important;
+    box-shadow: 0 3px 10px rgba(0, 112, 242, 0.3) !important;
+    border: 2px solid #0051d5 !important;
+}
+
+/* Process Flow Connections - More Visible and Animated */
+.eyeCatchingTimeline .sapSuitePFConnection {
+    stroke-width: 4px !important;
+    stroke: #0070f2 !important;
+    stroke-dasharray: none !important;
+    filter: drop-shadow(0 2px 4px rgba(0, 112, 242, 0.3)) !important;
+}
+
+/* Process Flow Node States - Enhanced Colors with Gradients */
+.eyeCatchingTimeline .sapSuitePFNodeStatePositive {
+    background: linear-gradient(135deg, #107e3e 0%, #0a5d2a 100%) !important;
+    color: #ffffff !important;
+    border: 3px solid #0a5d2a !important;
+    box-shadow: 0 4px 12px rgba(16, 126, 62, 0.4) !important;
+}
+
+.eyeCatchingTimeline .sapSuitePFNodeStateNegative {
+    background: linear-gradient(135deg, #bb0000 0%, #8b0000 100%) !important;
+    color: #ffffff !important;
+    border: 3px solid #8b0000 !important;
+    box-shadow: 0 4px 12px rgba(187, 0, 0, 0.4) !important;
+}
+
+.eyeCatchingTimeline .sapSuitePFNodeStateNeutral {
+    background: linear-gradient(135deg, #6a6d70 0%, #4a4d50 100%) !important;
+    color: #ffffff !important;
+    border: 3px solid #4a4d50 !important;
+    box-shadow: 0 4px 12px rgba(106, 109, 112, 0.4) !important;
+}
+
+/* Process Flow Node Text - Larger, Bolder, and More Readable */
+.eyeCatchingTimeline .sapSuitePFNodeTitle {
+    font-size: 1.1rem !important;
+    font-weight: 700 !important;
+    color: #1c4e80 !important;
+    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8) !important;
+    line-height: 1.3 !important;
+}
+
+.eyeCatchingTimeline .sapSuitePFNodeText1,
+.eyeCatchingTimeline .sapSuitePFNodeText2 {
+    font-size: 0.9rem !important;
+    font-weight: 600 !important;
+    color: #333 !important;
+    line-height: 1.4 !important;
+}
+
+/* Process Flow Node Icons - Larger and More Visible */
+.eyeCatchingTimeline .sapSuitePFNodeIcon {
+    width: 2.5rem !important;
+    height: 2.5rem !important;
+    font-size: 1.5rem !important;
+}
+
+/* Highlighted/Focused Nodes - Even More Prominent */
+.eyeCatchingTimeline .sapSuitePFNodeHighlighted,
+.eyeCatchingTimeline .sapSuitePFNodeFocused {
+    border: 3px solid #ff8800 !important;
+    box-shadow: 0 6px 20px rgba(255, 136, 0, 0.5) !important;
+    background: linear-gradient(135deg, #fff4e6 0%, #ffffff 100%) !important;
+    transform: scale(1.05) !important;
+}
+
+/* Process Flow Node State Text - More Visible */
+.eyeCatchingTimeline .sapSuitePFNodeStateText {
+    font-weight: 700 !important;
+    font-size: 0.85rem !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+}
+
+/* Metric Card Styling */
+.metricCard {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border-radius: 4px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+    border: 1px solid #e0e0e0;
+    min-height: 180px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.metricCard:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.metricCardContent {
+    min-height: 140px;
+    height: 100%;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.metricValue {
+    font-weight: 700;
+    color: #1c4e80;
+    text-align: center;
+    font-size: 1.5rem;
+    line-height: 1.4;
+    margin: 0.25rem 0;
+    word-wrap: break-word;
+    max-width: 100%;
+}
+
+.metricValueText {
+    font-size: 1rem;
+    line-height: 1.3;
+}
+
+.metricLabel {
+    text-align: center;
+    color: #666;
+    margin-top: 0.5rem;
+}
+
+/* Panel Headers */
+.sapMPanelHdr {
+    font-weight: 600;
+    font-size: 1rem;
+    color: #1c4e80;
+}
+
+/* Stage Summary List Items */
+.sapMCLI {
+    border-bottom: 1px solid #e5e5e5;
+    transition: background-color 0.2s ease;
+}
+
+.sapMCLI:hover {
+    background-color: #f5f8fc;
+}
+
+/* Stage Icon Styling */
+.stageIcon {
+    color: #0070f2;
+}
+
+/* Table Styling for Events */
+#activityDetailsTable .sapMColumnHeader {
+    background-color: #f5f8fc;
+    border-bottom: 2px solid #dfe7f2;
+    font-weight: 600;
+}
+
+#activityDetailsTable .sapMListTblRow:nth-child(even) {
+    background-color: #fbfdff;
+}
+
+#activityDetailsTable .sapMListTblRow:hover {
+    background-color: #eef3ff;
+    cursor: pointer;
+}
+
+#activityDetailsTable .sapMListTblCell {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+}
+
+/* Compact spacing for Analysis page */
+.sapUiView[data-controller-name*="Activity"] .sapMPanel {
+    margin-bottom: 0.5rem;
+}
+
+.sapUiView[data-controller-name*="Activity"] .sapMPanelContent {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+/* Grid layout optimization */
+.sapUiLayoutGrid {
+    margin: 0;
+}
+
+/* Ensure metric cards in grid have equal height */
+.sapUiLayoutGrid .metricCard {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.sapUiLayoutGrid .metricCard .sapMPanelContent {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Process Flow Node Styling - Enhanced */
+.sapSuitePFNode {
+    min-width: 150px;
+    font-weight: 600;
+}
+
+/* Events Table Container */
+#activityDetailsTable {
+    max-height: 250px;
+    overflow-y: auto;
+}
+
+/* Stage Summary List - Compact */
+.sapUiView[data-controller-name*="Activity"] .sapMPanel[header-text*="Stage Summary"] .sapMList {
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+/* Analysis View Container */
+.sapUiView[data-controller-name*="Activity"] {
+    height: 100%;
+    overflow: hidden;
+}
+
+.sapUiView[data-controller-name*="Activity"] .sapMVBox {
+    height: 100%;
+    overflow-y: auto;
+}
+
+/* Process Flow Scrollbar Styling */
+.eyeCatchingTimeline::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+}
+
+.eyeCatchingTimeline::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 6px;
+}
+
+.eyeCatchingTimeline::-webkit-scrollbar-thumb {
+    background: #0070f2;
+    border-radius: 6px;
+    border: 2px solid #f1f1f1;
+}
+
+.eyeCatchingTimeline::-webkit-scrollbar-thumb:hover {
+    background: #0051d5;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1024px) {
+    .activityProcessFlow {
+        max-height: 350px;
+        min-height: 300px;
+    }
+    
+    .eyeCatchingTimeline {
+        max-height: 350px;
+        min-height: 300px;
+    }
+    
+    #activityDetailsTable {
+        max-height: 300px;
+    }
+}
+
+@media (max-width: 768px) {
+    .activityProcessFlow {
+        max-height: 300px;
+        min-height: 250px;
+    }
+    
+    .eyeCatchingTimeline {
+        max-height: 300px;
+        min-height: 250px;
+    }
+    
+    #activityDetailsTable {
+        max-height: 250px;
+        font-size: 0.8rem;
+    }
+    
+    .metricCard {
+        margin-bottom: 0.5rem;
+    }
+}
