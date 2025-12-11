@@ -178,115 +178,132 @@
                     </content>
                 </Panel>
 
-                <!-- ==================== EVENTS TABLE ==================== -->
+                <!-- ==================== EVENTS DETAILS WITH ICONS ==================== -->
                 <Panel 
                     headerText="Event Details"
                     class="sapUiTinyMarginTop sapUiNoContentPadding"
                     expandable="true"
                     expanded="true">
                     <content>
-                        <VBox class="sapUiSmallMargin sapUiSizeCompact">
+                        <VBox class="sapUiSmallMargin">
                             <ScrollContainer
-                                horizontal="true"
-                                vertical="false"
+                                horizontal="false"
+                                vertical="true"
                                 width="100%"
-                                class="sapUiNoContentPadding sapUiSizeCompact">
-                                <Table
-                                    id="activityDetailsTable"
-                                    width="auto"
-                                    class="sapUiSizeCompact"
-                                    inset="false"
-                                    fixedLayout="false"
-                                    autoPopin="true"
-                                    sticky="ColumnHeaders,HeaderToolbar"
-                                    growing="true"
-                                    growingThreshold="5"
-                                    growingScrollToLoad="true"
-                                    mode="None"
-                                    items="{activityModel>/events}">
-
-                                    <columns>
-                                        <Column 
-                                            id="colActivityEvent"
-                                            width="10rem" 
-                                            hAlign="Begin"
-                                            demandPopin="true"
-                                            minScreenWidth="Desktop"
-                                            popinDisplay="Inline">
-                                            <Text text="Event" class="sapUiSmallMarginBegin"/>
-                                        </Column>
-                                        <Column 
-                                            id="colActivityScenario"
-                                            width="12rem" 
-                                            hAlign="Begin"
-                                            demandPopin="true"
-                                            minScreenWidth="Desktop"
-                                            popinDisplay="Inline">
-                                            <Text text="Scenario"/>
-                                        </Column>
-                                        <Column 
-                                            id="colActivityTimestamp"
-                                            width="14rem" 
-                                            hAlign="Begin"
-                                            demandPopin="true"
-                                            minScreenWidth="Desktop"
-                                            popinDisplay="Inline">
-                                            <Text text="Timestamp"/>
-                                        </Column>
-                                        <Column 
-                                            id="colActivityCreatedBy"
-                                            width="8rem" 
-                                            hAlign="Begin"
-                                            demandPopin="true"
-                                            minScreenWidth="Tablet"
-                                            popinDisplay="Inline">
-                                            <Text text="Created By"/>
-                                        </Column>
-                                        <Column 
-                                            id="colActivityChangedBy"
-                                            width="8rem" 
-                                            hAlign="Begin"
-                                            demandPopin="true"
-                                            minScreenWidth="Tablet"
-                                            popinDisplay="Inline">
-                                            <Text text="Changed By"/>
-                                        </Column>
-                                        <Column 
-                                            id="colActivityRemarks"
-                                            minScreenWidth="Tablet" 
-                                            demandPopin="true" 
-                                            hAlign="Begin"
-                                            popinDisplay="Inline">
-                                            <Text text="Remarks"/>
-                                        </Column>
-                                    </columns>
-
-                            <items>
-                                <ColumnListItem type="Navigation">
-                                    <cells>
-                                        <ObjectIdentifier
-                                            title="{activityModel>eventKey}"
-                                            class="sapUiTinyMarginBegin"/>
-                                        <Text 
-                                            text="{activityModel>movementScenario}"
-                                            wrapping="false"/>
-                                        <Text 
-                                            text="{activityModel>displayTimestamp}"
-                                            wrapping="false"/>
-                                        <Text 
-                                            text="{activityModel>createdBy}"
-                                            wrapping="false"/>
-                                        <Text 
-                                            text="{activityModel>changedBy}"
-                                            wrapping="false"/>
-                                        <Text 
-                                            text="{activityModel>remarks}"
-                                            wrapping="true"/>
-                                    </cells>
-                                </ColumnListItem>
-                                </items>
-
-                                </Table>
+                                height="500px"
+                                class="sapUiNoContentPadding">
+                                <List
+                                    id="activityDetailsList"
+                                    items="{activityModel>/events}"
+                                    class="sapUiNoContentPadding">
+                                    <CustomListItem class="eventDetailItem">
+                                        <VBox class="sapUiSmallMargin">
+                                            <!-- Event Header Row -->
+                                            <HBox alignItems="Center" class="sapUiSmallMarginBottom">
+                                                <!-- Stage Icon -->
+                                                <core:Icon 
+                                                    src="{activityModel>_icon}"
+                                                    size="2.5rem"
+                                                    color="#0070f2"
+                                                    class="sapUiTinyMarginEnd"/>
+                                                <VBox class="sapUiTinyMarginBegin" flex="1">
+                                                    <!-- Stage Title (consistent with Activity Timeline) -->
+                                                    <HBox alignItems="Center" class="sapUiTinyMarginBottom">
+                                                        <Title 
+                                                            text="{activityModel>stageTitle}"
+                                                            level="H4"
+                                                            class="sapUiTinyMarginEnd"
+                                                            style="color: #dc2626; font-weight: 700;"/>
+                                                        <core:Icon 
+                                                            src="sap-icon://detail-view"
+                                                            size="1rem"
+                                                            color="#666"
+                                                            class="sapUiTinyMarginEnd"/>
+                                                        <Text 
+                                                            text="{activityModel>eventDescription}"
+                                                            class="sapUiSmallFontSize"
+                                                            wrapping="true"/>
+                                                    </HBox>
+                                                    <!-- Movement Type - Movement Scenario (consistent format with Stage Summary and Activity Timeline) -->
+                                                    <HBox alignItems="Center" class="sapUiTinyMarginBottom">
+                                                        <core:Icon 
+                                                            src="sap-icon://arrow-right"
+                                                            size="1rem"
+                                                            color="#107e3e"
+                                                            class="sapUiTinyMarginEnd"/>
+                                                        <Text 
+                                                            text="{activityModel>movementTypeDesc}"
+                                                            class="sapUiSmallFontSize"
+                                                            wrapping="false"/>
+                                                        <Text 
+                                                            text=" - "
+                                                            class="sapUiSmallFontSize sapUiTinyMarginBegin sapUiTinyMarginEnd"/>
+                                                        <Text 
+                                                            text="{activityModel>movementScenarioDesc}"
+                                                            class="sapUiSmallFontSize"
+                                                            wrapping="true"/>
+                                                        <!-- Show TAT inline if available -->
+                                                        <Text 
+                                                            text="{= ${activityModel>turnAroundTimeFormatted} !== '—' ? ' • TAT: ' + ${activityModel>turnAroundTimeFormatted} : ''}"
+                                                            class="sapUiSmallFontSize sapUiTinyMarginBegin"
+                                                            style="color: #107e3e; font-weight: 600;"/>
+                                                    </HBox>
+                                                </VBox>
+                                            </HBox>
+                                            
+                                            <!-- Details Row with Icons -->
+                                            <HBox alignItems="Start" wrap="Wrap" class="sapUiTinyMarginTop">
+                                                <!-- TAT -->
+                                                <HBox alignItems="Center" class="sapUiTinyMarginEnd sapUiTinyMarginBottom">
+                                                    <core:Icon 
+                                                        src="sap-icon://time-entry-record"
+                                                        size="1rem"
+                                                        color="#107e3e"
+                                                        class="sapUiTinyMarginEnd"/>
+                                                    <ObjectStatus
+                                                        text="{activityModel>turnAroundTimeFormatted}"
+                                                        state="Success"
+                                                        class="sapUiSmallFontSize"/>
+                                                </HBox>
+                                                
+                                                <!-- Timestamp -->
+                                                <HBox alignItems="Center" class="sapUiTinyMarginEnd sapUiTinyMarginBottom">
+                                                    <core:Icon 
+                                                        src="sap-icon://calendar"
+                                                        size="1rem"
+                                                        color="#666"
+                                                        class="sapUiTinyMarginEnd"/>
+                                                    <Text 
+                                                        text="{activityModel>displayTimestamp}"
+                                                        class="sapUiSmallFontSize"
+                                                        wrapping="false"/>
+                                                </HBox>
+                                                
+                                                <!-- Created By -->
+                                                <HBox alignItems="Center" class="sapUiTinyMarginEnd sapUiTinyMarginBottom">
+                                                    <core:Icon 
+                                                        src="sap-icon://employee"
+                                                        size="1rem"
+                                                        color="#666"
+                                                        class="sapUiTinyMarginEnd"/>
+                                                    <Text 
+                                                        text="{activityModel>createdBy}"
+                                                        class="sapUiSmallFontSize"
+                                                        wrapping="false"/>
+                                                </HBox>
+                                            </HBox>
+                                            
+                                            <!-- Arrow Separator -->
+                                            <HBox alignItems="Center" justifyContent="Center" class="sapUiSmallMarginTop">
+                                                <core:Icon 
+                                                    src="sap-icon://slim-arrow-down"
+                                                    size="1.5rem"
+                                                    color="#0070f2"
+                                                    class="sapUiTinyMargin"/>
+                                            </HBox>
+                                        </VBox>
+                                    </CustomListItem>
+                                </List>
                             </ScrollContainer>
                         </VBox>
                     </content>

@@ -552,22 +552,72 @@
 }
 */
 
-/* Metric Card Styling */
+/* Metric Card Styling - Beautiful Colors */
 .metricCard {
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    border-radius: 4px;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+    border-radius: 12px;
+    transition: all 0.3s ease;
     background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-    border: 1px solid #e0e0e0;
+    border: 2px solid transparent;
     min-height: 180px;
     height: 100%;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
+    position: relative;
+}
+
+.metricCard::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #0070f2, #0051d5);
+    opacity: 0;
+    transition: opacity 0.3s ease;
 }
 
 .metricCard:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0, 112, 242, 0.2);
+    border-color: #0070f2;
+}
+
+.metricCard:hover::before {
+    opacity: 1;
+}
+
+/* Individual Metric Card Colors */
+.metricCard[header-text*="Total TAT"] {
+    background: linear-gradient(135deg, #e3f2fd 0%, #ffffff 100%);
+    border-left: 4px solid #2196f3;
+}
+
+.metricCard[header-text*="Total TAT"]:hover {
+    background: linear-gradient(135deg, #bbdefb 0%, #e3f2fd 100%);
+    box-shadow: 0 8px 24px rgba(33, 150, 243, 0.25);
+}
+
+.metricCard[header-text*="Total Events"] {
+    background: linear-gradient(135deg, #e8f5e9 0%, #ffffff 100%);
+    border-left: 4px solid #4caf50;
+}
+
+.metricCard[header-text*="Total Events"]:hover {
+    background: linear-gradient(135deg, #c8e6c9 0%, #e8f5e9 100%);
+    box-shadow: 0 8px 24px rgba(76, 175, 80, 0.25);
+}
+
+.metricCard[header-text*="Last Event"] {
+    background: linear-gradient(135deg, #fff3e0 0%, #ffffff 100%);
+    border-left: 4px solid #ff9800;
+}
+
+.metricCard[header-text*="Last Event"]:hover {
+    background: linear-gradient(135deg, #ffe0b2 0%, #fff3e0 100%);
+    box-shadow: 0 8px 24px rgba(255, 152, 0, 0.25);
 }
 
 .metricCardContent {
@@ -581,14 +631,38 @@
 }
 
 .metricValue {
-    font-weight: 700;
-    color: #1c4e80;
+    font-weight: 800;
+    background: linear-gradient(135deg, #1c4e80 0%, #0070f2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
     text-align: center;
-    font-size: 1.5rem;
+    font-size: 1.75rem;
     line-height: 1.4;
     margin: 0.25rem 0;
     word-wrap: break-word;
     max-width: 100%;
+}
+
+.metricCard[header-text*="Total TAT"] .metricValue {
+    background: linear-gradient(135deg, #1976d2 0%, #2196f3 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.metricCard[header-text*="Total Events"] .metricValue {
+    background: linear-gradient(135deg, #388e3c 0%, #4caf50 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.metricCard[header-text*="Last Event"] .metricValue {
+    background: linear-gradient(135deg, #f57c00 0%, #ff9800 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
 }
 
 .metricValueText {
@@ -600,28 +674,70 @@
     text-align: center;
     color: #666;
     margin-top: 0.5rem;
+    font-weight: 500;
 }
 
-/* Panel Headers */
+/* Panel Headers - Beautiful Colors */
 .sapMPanelHdr {
-    font-weight: 600;
-    font-size: 1rem;
-    color: #1c4e80;
+    font-weight: 700;
+    font-size: 1.1rem;
+    background: linear-gradient(135deg, #1c4e80 0%, #0070f2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    padding: 0.5rem 0;
 }
 
-/* Stage Summary List Items */
+.sapMPanel[header-text*="Trip Analysis Dashboard"] .sapMPanelHdr {
+    background: linear-gradient(135deg, #0070f2 0%, #0051d5 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    font-size: 1.3rem;
+}
+
+.sapMPanel[header-text*="Stage Summary"] .sapMPanelHdr {
+    background: linear-gradient(135deg, #4caf50 0%, #388e3c 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.sapMPanel[header-text*="Activity Timeline"] .sapMPanelHdr {
+    background: linear-gradient(135deg, #2196f3 0%, #1976d2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.sapMPanel[header-text*="Event Details"] .sapMPanelHdr {
+    background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* Stage Summary List Items - Colorful */
 .sapMCLI {
-    border-bottom: 1px solid #e5e5e5;
-    transition: background-color 0.2s ease;
+    border-bottom: 2px solid #e8f5e9;
+    transition: all 0.3s ease;
+    border-left: 4px solid transparent;
+    margin: 0.25rem 0;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
 }
 
 .sapMCLI:hover {
-    background-color: #f5f8fc;
+    background: linear-gradient(135deg, #e8f5e9 0%, #ffffff 100%);
+    border-left-color: #4caf50;
+    transform: translateX(4px);
+    box-shadow: 0 2px 8px rgba(76, 175, 80, 0.15);
 }
 
-/* Stage Icon Styling */
+/* Stage Icon Styling - Colorful */
 .stageIcon {
-    color: #0070f2;
+    color: #4caf50;
+    filter: drop-shadow(0 2px 4px rgba(76, 175, 80, 0.3));
 }
 
 /* Table Styling for Events */
@@ -645,14 +761,56 @@
     font-size: 0.875rem;
 }
 
-/* Compact spacing for Analysis page */
+/* Compact spacing for Analysis page - Beautiful Background */
+.sapUiView[data-controller-name*="Activity"] {
+    background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 50%, #f0f4f8 100%);
+    min-height: 100vh;
+    padding: 1rem;
+}
+
+.sapUiView[data-controller-name*="Activity"] .sapMVBox {
+    background: transparent;
+}
+
 .sapUiView[data-controller-name*="Activity"] .sapMPanel {
-    margin-bottom: 0.5rem;
+    margin-bottom: 1rem;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    border: 1px solid rgba(0, 112, 242, 0.1);
+    background: #ffffff;
+}
+
+.sapUiView[data-controller-name*="Activity"] .sapMPanelHdr {
+    background: linear-gradient(135deg, rgba(0, 112, 242, 0.05) 0%, rgba(0, 112, 242, 0.02) 100%);
+    padding: 1rem;
+    border-bottom: 2px solid rgba(0, 112, 242, 0.1);
 }
 
 .sapUiView[data-controller-name*="Activity"] .sapMPanelContent {
     max-height: 400px;
     overflow-y: auto;
+    background: #ffffff;
+    padding: 1rem;
+}
+
+/* Beautiful Scrollbar */
+.sapUiView[data-controller-name*="Activity"] .sapMPanelContent::-webkit-scrollbar {
+    width: 8px;
+}
+
+.sapUiView[data-controller-name*="Activity"] .sapMPanelContent::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.sapUiView[data-controller-name*="Activity"] .sapMPanelContent::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, #0070f2 0%, #0051d5 100%);
+    border-radius: 4px;
+}
+
+.sapUiView[data-controller-name*="Activity"] .sapMPanelContent::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(135deg, #0051d5 0%, #003d99 100%);
 }
 
 /* Grid layout optimization */
@@ -673,16 +831,488 @@
     flex-direction: column;
 }
 
-/* Process Flow Node Styling - Enhanced */
+/* Process Flow Node Styling - Enhanced & Beautified with Colors */
 .sapSuitePFNode {
-    min-width: 150px;
+    min-width: 220px !important;
+    max-width: 300px !important;
+    width: auto !important;
     font-weight: 600;
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+    background: linear-gradient(135deg, #ffffff 0%, #f0f7ff 100%) !important;
+    border: 3px solid #0070f2 !important;
+    border-radius: 16px !important;
+    box-shadow: 0 6px 20px rgba(0, 112, 242, 0.15) !important;
+    padding: 1.25rem !important;
+    margin: 0.5rem !important;
+    transition: all 0.3s ease !important;
+    min-height: 180px !important;
+    position: relative !important;
 }
 
-/* Events Table Container */
-#activityDetailsTable {
-    max-height: 250px;
-    overflow-y: auto;
+.sapSuitePFNode::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 5px;
+    background: linear-gradient(90deg, #0070f2, #4caf50, #ff9800);
+    border-radius: 16px 16px 0 0;
+}
+
+.sapSuitePFNode:hover {
+    transform: translateY(-6px) scale(1.02) !important;
+    box-shadow: 0 12px 32px rgba(0, 112, 242, 0.25) !important;
+    border-color: #0051d5 !important;
+    background: linear-gradient(135deg, #ffffff 0%, #e3f2fd 100%) !important;
+}
+
+/* Process Flow Node - Show Icons and Full Text */
+.sapSuitePFNodeIcon {
+    display: inline-block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    width: 3rem !important;
+    height: 3rem !important;
+    font-size: 1.75rem !important;
+    margin: 0.5rem auto 0.75rem auto !important;
+    color: #ffffff !important;
+    line-height: 3rem !important;
+    background: linear-gradient(135deg, #4caf50 0%, #388e3c 100%) !important;
+    border-radius: 50% !important;
+    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4) !important;
+}
+
+/* Ensure icon container is visible */
+.sapSuitePFNode .sapSuitePFNodeIconContainer,
+.sapSuitePFNodeIconContainer {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    width: 100% !important;
+    text-align: center !important;
+    margin-bottom: 0.5rem !important;
+    padding: 0 !important;
+}
+
+/* Icon shape circle - make it visible */
+.sapSuitePFNodeIconShape {
+    display: inline-block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+/* ProcessFlow Node - Ensure icon is displayed */
+.sapSuitePFNode > div:first-child,
+.sapSuitePFNode .sapSuitePFNodeIconWrapper {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    text-align: center !important;
+}
+
+/* Make sure icon is not hidden by any parent */
+.sapSuitePFNode * .sapSuitePFNodeIcon,
+.sapSuitePFNode .sapUiIcon {
+    display: inline-block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+/* Process Flow Node State Text - Show Full Text (No Truncation, Wrap Below) - Beautiful Colors */
+.sapSuitePFNodeStateText {
+    white-space: normal !important;
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+    text-overflow: clip !important;
+    overflow: visible !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    display: block !important;
+    line-height: 1.6 !important;
+    hyphens: auto !important;
+    text-align: center !important;
+    padding: 0.75rem !important;
+    margin-top: 0.5rem !important;
+    font-size: 0.85rem !important;
+    font-weight: 500 !important;
+    color: #5d4037 !important;
+    background: linear-gradient(135deg, rgba(255, 152, 0, 0.1) 0%, rgba(255, 152, 0, 0.05) 100%) !important;
+    border-radius: 8px !important;
+    border-left: 4px solid #ff9800 !important;
+    box-shadow: 0 2px 8px rgba(255, 152, 0, 0.15) !important;
+    text-overflow: clip !important;
+    -webkit-line-clamp: none !important;
+    -webkit-box-orient: unset !important;
+    display: -webkit-box !important;
+    -webkit-box-orient: vertical !important;
+    -webkit-line-clamp: unset !important;
+    display: block !important;
+}
+
+/* Process Flow Node Text1 and Text2 - Show Full Text (Wrap Below) - Beautiful Colors */
+.sapSuitePFNodeText1 {
+    white-space: normal !important;
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+    text-overflow: clip !important;
+    overflow: visible !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    line-height: 1.6 !important;
+    hyphens: auto !important;
+    font-size: 0.95rem !important;
+    font-weight: 600 !important;
+    color: #1976d2 !important;
+    text-align: center !important;
+    margin: 0.75rem 0 0.5rem 0 !important;
+    padding: 0.75rem !important;
+    background: linear-gradient(135deg, rgba(33, 150, 243, 0.1) 0%, rgba(33, 150, 243, 0.05) 100%) !important;
+    border-radius: 8px !important;
+    border-left: 4px solid #2196f3 !important;
+    box-shadow: 0 2px 8px rgba(33, 150, 243, 0.15) !important;
+    text-overflow: clip !important;
+    -webkit-line-clamp: none !important;
+    display: block !important;
+}
+
+.sapSuitePFNodeText2 {
+    white-space: normal !important;
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+    text-overflow: clip !important;
+    overflow: visible !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    line-height: 1.6 !important;
+    hyphens: auto !important;
+    font-size: 0.9rem !important;
+    font-weight: 600 !important;
+    color: #2e7d32 !important;
+    text-align: center !important;
+    margin: 0.5rem 0 !important;
+    padding: 0.75rem !important;
+    background: linear-gradient(135deg, rgba(76, 175, 80, 0.12) 0%, rgba(76, 175, 80, 0.06) 100%) !important;
+    border-radius: 8px !important;
+    border-left: 4px solid #4caf50 !important;
+    box-shadow: 0 2px 8px rgba(76, 175, 80, 0.15) !important;
+    text-overflow: clip !important;
+    -webkit-line-clamp: none !important;
+    display: block !important;
+}
+
+/* Make TAT text red in ProcessFlow Text2 - will be applied via JavaScript */
+.sapSuitePFNodeText2 .tatText {
+    color: #dc2626 !important;
+    font-weight: 700 !important;
+}
+
+/* Process Flow Node Title - Show Full Text (Wrap Below) - Eye-Catching Red */
+.sapSuitePFNodeTitle {
+    white-space: normal !important;
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+    text-overflow: clip !important;
+    overflow: visible !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    line-height: 1.5 !important;
+    hyphens: auto !important;
+    font-size: 1.3rem !important;
+    font-weight: 800 !important;
+    color: #dc2626 !important;
+    text-align: center !important;
+    margin-bottom: 0.75rem !important;
+    padding: 0.75rem 0.5rem !important;
+    border-bottom: 4px solid #dc2626 !important;
+    text-overflow: clip !important;
+    -webkit-line-clamp: none !important;
+    display: block !important;
+    text-shadow: 0 2px 4px rgba(220, 38, 38, 0.3) !important;
+    background: linear-gradient(135deg, rgba(220, 38, 38, 0.1) 0%, rgba(255, 255, 255, 0) 100%) !important;
+    border-radius: 4px 4px 0 0 !important;
+    letter-spacing: 0.5px !important;
+}
+
+/* Ensure red color is applied everywhere */
+.sapSuitePFNode .sapSuitePFNodeTitle,
+.sapSuitePFNodeTitle {
+    color: #dc2626 !important;
+}
+
+/* Override any other color rules */
+.sapSuitePFNodeTitle * {
+    color: #dc2626 !important;
+}
+
+/* Remove ellipsis from all ProcessFlow text elements */
+.sapSuitePFNode * {
+    text-overflow: clip !important;
+}
+
+.sapSuitePFNodeTitle::after,
+.sapSuitePFNodeText1::after,
+.sapSuitePFNodeText2::after,
+.sapSuitePFNodeStateText::after {
+    content: none !important;
+}
+
+/* Process Flow Node Container - Allow Full Text Wrapping - Beautified */
+.sapSuitePFNodeContainer {
+    min-width: 200px !important;
+    max-width: 280px !important;
+    width: auto !important;
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+    padding: 0.5rem !important;
+}
+
+/* Highlighted/Focused Node - More Prominent with Beautiful Colors */
+.sapSuitePFNodeHighlighted,
+.sapSuitePFNodeFocused {
+    background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%) !important;
+    border: 4px solid #2196f3 !important;
+    box-shadow: 0 12px 32px rgba(33, 150, 243, 0.35) !important;
+    transform: scale(1.08) !important;
+    z-index: 10 !important;
+    animation: pulseHighlight 2s ease-in-out infinite !important;
+}
+
+@keyframes pulseHighlight {
+    0%, 100% {
+        box-shadow: 0 12px 32px rgba(33, 150, 243, 0.35);
+    }
+    50% {
+        box-shadow: 0 12px 32px rgba(33, 150, 243, 0.5);
+    }
+}
+
+.sapSuitePFNodeHighlighted .sapSuitePFNodeIcon,
+.sapSuitePFNodeFocused .sapSuitePFNodeIcon {
+    background: linear-gradient(135deg, #2196f3 0%, #1976d2 100%) !important;
+    box-shadow: 0 8px 20px rgba(33, 150, 243, 0.5) !important;
+    animation: iconPulse 2s ease-in-out infinite !important;
+}
+
+@keyframes iconPulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+    }
+}
+
+/* Process Flow Node Inner Content - Allow Wrapping */
+.sapSuitePFNode > * {
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+    white-space: normal !important;
+}
+
+/* ProcessFlow Connections - Beautiful Colors */
+.sapSuitePFConnection {
+    stroke: url(#gradientConnection) !important;
+    stroke-width: 4px !important;
+    fill: none !important;
+    opacity: 0.8 !important;
+    transition: all 0.3s ease !important;
+    filter: drop-shadow(0 2px 4px rgba(0, 112, 242, 0.3));
+}
+
+/* Fallback solid color if gradient not available */
+.sapSuitePFConnection {
+    stroke: #0070f2 !important;
+}
+
+.sapSuitePFNode:hover ~ .sapSuitePFConnection,
+.sapSuitePFNode:hover + .sapSuitePFConnection {
+    stroke-width: 5px !important;
+    opacity: 1 !important;
+    stroke: #4caf50 !important;
+    filter: drop-shadow(0 4px 8px rgba(76, 175, 80, 0.4));
+}
+
+/* ProcessFlow Lane Header - Beautiful Gradient */
+.sapSuitePFLaneHeader {
+    background: linear-gradient(135deg, #0070f2 0%, #4caf50 50%, #ff9800 100%) !important;
+    color: #ffffff !important;
+    font-weight: 800 !important;
+    font-size: 1.2rem !important;
+    padding: 1rem 1.5rem !important;
+    border-radius: 12px !important;
+    box-shadow: 0 6px 20px rgba(0, 112, 242, 0.3) !important;
+    margin-bottom: 1.5rem !important;
+    text-align: center !important;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+/* ProcessFlow Container - Better Spacing */
+.sapSuitePFContent {
+    padding: 1rem 0.5rem !important;
+}
+
+/* Add subtle animation to nodes */
+@keyframes nodeFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.sapSuitePFNode {
+    animation: nodeFadeIn 0.5s ease-out !important;
+}
+
+/* ProcessFlow Node - Force Icon Display */
+.sapSuitePFNode[sap-ui-icon],
+.sapSuitePFNode [sap-ui-icon] {
+    display: inline-block !important;
+    visibility: visible !important;
+}
+
+/* ProcessFlow Icon Display - Ensure it's visible */
+.sapSuitePFNode .sapUiIcon,
+.sapSuitePFNodeIcon .sapUiIcon,
+.sapSuitePFNodeIconContainer .sapUiIcon {
+    display: inline-block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    font-size: 1.5rem !important;
+    color: #107e3e !important;
+    width: 2.5rem !important;
+    height: 2.5rem !important;
+    line-height: 2.5rem !important;
+}
+
+/* ProcessFlow Node Structure - Icon should be at top */
+.sapSuitePFNode {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+}
+
+/* Icon Container - Prominent and Centered */
+.sapSuitePFNode > .sapSuitePFNodeIconContainer,
+.sapSuitePFNode > .sapSuitePFNodeIcon,
+.sapSuitePFNode .sapSuitePFNodeIconContainer {
+    order: -1 !important;
+    margin-bottom: 1rem !important;
+    margin-top: 0 !important;
+    width: 100% !important;
+    text-align: center !important;
+    display: block !important;
+    padding: 0.5rem 0 !important;
+}
+
+/* Make icon larger and more prominent with beautiful gradient background */
+.sapSuitePFNodeIcon,
+.sapSuitePFNode .sapSuitePFNodeIcon {
+    width: 4rem !important;
+    height: 4rem !important;
+    font-size: 2.5rem !important;
+    margin: 0 auto !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    color: #ffffff !important;
+    background: linear-gradient(135deg, #4caf50 0%, #388e3c 50%, #2e7d32 100%) !important;
+    border-radius: 50% !important;
+    box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4) !important;
+    line-height: 4rem !important;
+    border: 3px solid rgba(255, 255, 255, 0.3) !important;
+}
+
+/* Icon shape circle - make it larger with background */
+.sapSuitePFNodeIconShape {
+    width: 4rem !important;
+    height: 4rem !important;
+    font-size: 2.5rem !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: linear-gradient(135deg, #107e3e 0%, #0a5d2a 100%) !important;
+    border-radius: 50% !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 12px rgba(16, 126, 62, 0.3) !important;
+}
+
+/* Ensure all icon elements are visible */
+.sapSuitePFNode .sapUiIcon,
+.sapSuitePFNodeIcon .sapUiIcon {
+    width: 2.5rem !important;
+    height: 2.5rem !important;
+    font-size: 2.5rem !important;
+    color: #ffffff !important;
+    display: inline-block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    line-height: 2.5rem !important;
+}
+
+/* Events Details List - Icon Based - Beautiful Colors */
+.eventDetailItem {
+    border-bottom: 2px solid #fff3e0 !important;
+    padding: 1rem 0.5rem !important;
+    margin: 0.5rem 0 !important;
+    transition: all 0.3s ease !important;
+    border-radius: 12px !important;
+    background: linear-gradient(135deg, #ffffff 0%, #fffbf0 100%) !important;
+    border-left: 4px solid #ff9800 !important;
+    box-shadow: 0 2px 8px rgba(255, 152, 0, 0.1) !important;
+}
+
+.eventDetailItem:hover {
+    background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%) !important;
+    transform: translateX(4px) !important;
+    box-shadow: 0 4px 16px rgba(255, 152, 0, 0.2) !important;
+    border-left-color: #f57c00 !important;
+}
+
+.eventDetailItem:nth-child(even) {
+    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%) !important;
+    border-left-color: #ffb74d !important;
+}
+
+.eventDetailItem:last-child {
+    border-bottom: none !important;
+}
+
+.eventDetailItem:last-child .sapUiTinyMargin {
+    display: none !important;
+}
+
+/* Event Detail Icons - Colorful */
+.eventDetailItem .sapUiCoreIcon {
+    flex-shrink: 0 !important;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+}
+
+.eventDetailItem .sapUiCoreIcon[sap-icon="detail-view"] {
+    color: #2196f3 !important;
+}
+
+.eventDetailItem .sapUiCoreIcon[sap-icon="arrow-right"] {
+    color: #4caf50 !important;
+}
+
+.eventDetailItem .sapUiCoreIcon[sap-icon="time-entry-record"] {
+    color: #ff9800 !important;
+}
+
+.eventDetailItem .sapUiCoreIcon[sap-icon="calendar"] {
+    color: #9c27b0 !important;
+}
+
+.eventDetailItem .sapUiCoreIcon[sap-icon="employee"] {
+    color: #607d8b !important;
 }
 
 /* ScrollContainer for Activity Table - Similar to other views */

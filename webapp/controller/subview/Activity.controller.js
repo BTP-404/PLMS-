@@ -14,25 +14,36 @@ sap.ui.define([
 		icon: "sap-icon://order-status",
 		eventPrefixes: ["01"]
 	}, {
+		key: "referenceDocuments",
+		title: "Reference Documents",
+		icon: "sap-icon://documents",
+		eventPrefixes: ["02"]
+	}, {
 		key: "gateIn",
 		title: "Gate In",
 		icon: "sap-icon://visits",
 		eventPrefixes: ["03"]
 	}, {
-		key: "loading",
-		title: "Loading",
+		key: "loadingStart",
+		title: "Start Loading",
 		icon: "sap-icon://shipping-status",
 		eventPrefixes: ["04"]
+	}, {
+		key: "loadingEnd",
+		title: "End Loading",
+		icon: "sap-icon://shipping-status",
+		eventPrefixes: ["05"]
 	}, {
 		key: "gateOut",
 		title: "Gate Out",
 		icon: "sap-icon://outbox",
-		eventPrefixes: ["05"]
+		eventPrefixes: ["06"]
 	}];
 
 	return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Activity", {
 
 		onInit: function () {
+			var that = this;
 			this._oActivityModel = new JSONModel({
 				tatText: "—",
 				lastUpdatedText: "—",
@@ -92,10 +103,17 @@ sap.ui.define([
 
 		_setActivityData: function (aEvents) {
 			var that = this;
+			// Sort by EventID instead of date
 			var aSorted = (aEvents || []).slice().sort(function (a, b) {
-				return that._toDateObject(a) - that._toDateObject(b);
-			}).filter(function (oItem) {
-				return !!that._toDateObject(oItem);
+				var sEventIDA = (a.EventID || "").toString().padStart(2, "0");
+				var sEventIDB = (b.EventID || "").toString().padStart(2, "0");
+				// If EventIDs are equal, sort by Seqno
+				if (sEventIDA === sEventIDB) {
+					var sSeqnoA = (a.Seqno || "").toString().padStart(3, "0");
+					var sSeqnoB = (b.Seqno || "").toString().padStart(3, "0");
+					return sSeqnoA.localeCompare(sSeqnoB);
+				}
+				return sEventIDA.localeCompare(sEventIDB);
 			});
 
 			var aEnriched = aSorted.map(function (oItem, index) {
@@ -110,16 +128,24 @@ sap.ui.define([
 						sChangedTimestamp = that._formatDateTime(oChangedDate);
 					}
 				}
+				// Parse TurnAroundTime to milliseconds for calculation
+				var iTatMs = that._parseTurnAroundTime(oItem.TurnAroundTime || "");
 				return {
 					_nodeId: "node" + index,
 					eventKey: (oItem.EventID || "") + " / " + (oItem.Seqno || ""),
-					movementScenario: (oItem.MovementTypeDesc || "") + "-" + (oItem.MovementScenarioDesc || ""),
+					eventDescription: oItem.EventDescription || "",
+					movementTypeDesc: oItem.MovementTypeDesc || "",
+					movementScenarioDesc: oItem.MovementScenarioDesc || "",
+					movementScenario: (oItem.MovementTypeDesc || oItem.MovementType || "") + "-" + (oItem.MovementScenarioDesc || oItem.MovementScenario || ""),
 					displayTimestamp: that._formatDateTime(oDate),
 					createdBy: oItem.CreatedBy || "",
 					changedBy: oItem.ChangedBy || "",
 					changedTimestamp: sChangedTimestamp,
-					turnAroundTime: oItem.Turn_A_Time || "",
+					turnAroundTime: oItem.TurnAroundTime || "",
+					turnAroundTimeFormatted: that._formatTurnAroundTime(oItem.TurnAroundTime || ""),
+					turnAroundTimeMs: iTatMs,
 					remarks: oItem.Remarks || "",
+					stageTitle: that._getStageTitle(sStage) || "",
 					raw: oItem,
 					_date: oDate,
 					_stage: sStage,
@@ -131,7 +157,12 @@ sap.ui.define([
 			this._oActivityModel.setProperty("/events", aEnriched);
 			this._oActivityModel.setProperty("/eventsCount", aEnriched.length);
 			this._oActivityModel.setProperty("/nodes", this._buildProcessFlowNodes(aEnriched));
-			this._oActivityModel.setProperty("/tatText", this._calculateTat(aEnriched));
+			
+			// Calculate total TAT from individual event TATs
+			var sTotalTat = this._calculateTat(aEnriched);
+			this._oActivityModel.setProperty("/tatText", sTotalTat);
+			this._oActivityModel.setProperty("/totalTatText", sTotalTat);
+			
 			this._oActivityModel.setProperty("/lastUpdatedText", this._getLastUpdatedText(aEnriched));
 			this._oActivityModel.setProperty("/milestones", this._buildStageSummary(aEnriched));
 		},
@@ -148,44 +179,99 @@ sap.ui.define([
 				oStageCounts[sStage] = (oStageCounts[sStage] || 0) + 1;
 			});
 			var oStageIndices = {};
+			// Track all titles to ensure uniqueness - count BEFORE processing
+			var oTitleUsage = {};
+			// Pre-count all titles
+			aEvents.forEach(function(oItem) {
+				var sStageTitle = that._getStageTitle(oItem._stage);
+				if (sStageTitle) {
+					oTitleUsage[sStageTitle] = (oTitleUsage[sStageTitle] || 0) + 1;
+				}
+			});
+			// Reset counters for sequential numbering
+			var oTitleCounters = {};
 			
 			return aEvents.map(function (oItem, index) {
 				var sStageTitle = that._getStageTitle(oItem._stage);
-				// Make title more concise and readable - use stage title, fallback to eventKey
-				var sTitle = sStageTitle ? sStageTitle : oItem.eventKey;
 				
-				// Determine state based on position (last one is highlighted)
-				var sState = index === aEvents.length - 1 ? "Positive" : "Positive";
-				var bHighlighted = index === aEvents.length - 1;
-				var bFocused = index === aEvents.length - 1;
-				
-				// Build unique title - if multiple events from same stage, add sequence number
-				var sDisplayTitle = sTitle;
+				// Use stage title as main title (e.g., "Reporting", "Gate In", etc.)
+				var sDisplayTitle = "";
 				if (sStageTitle) {
 					var sStage = oItem._stage || "unknown";
 					oStageIndices[sStage] = (oStageIndices[sStage] || 0) + 1;
 					var iStageIndex = oStageIndices[sStage];
 					var iStageCount = oStageCounts[sStage] || 1;
 					
-					// If multiple events from same stage, add sequence number
-					if (iStageCount > 1) {
-						sDisplayTitle = sStageTitle + " #" + iStageIndex;
+					// Track sequential usage of this title
+					if (!oTitleCounters[sStageTitle]) {
+						oTitleCounters[sStageTitle] = 0;
+					}
+					oTitleCounters[sStageTitle]++;
+					var iTitleCount = oTitleCounters[sStageTitle];
+					var iTotalTitleUsage = oTitleUsage[sStageTitle] || 1;
+					
+					// If this title appears multiple times, always number them
+					if (iTotalTitleUsage > 1) {
+						sDisplayTitle = sStageTitle + " #" + iTitleCount;
 					} else {
 						sDisplayTitle = sStageTitle;
 					}
-				} else if (oItem.eventKey) {
-					// Fallback to eventKey if no stage title
-					sDisplayTitle = oItem.eventKey;
+				} else if (oItem.eventDescription) {
+					// Use EventDescription if no stage title
+					sDisplayTitle = oItem.eventDescription;
+				} else {
+					sDisplayTitle = oItem.stageTitle || "";
+				}
+				
+				// Determine state based on position (last one is highlighted)
+				var sState = index === aEvents.length - 1 ? "Positive" : "Positive";
+				var bHighlighted = index === aEvents.length - 1;
+				var bFocused = index === aEvents.length - 1;
+				
+				// Build full movement scenario text (don't truncate)
+				var sFullMovementScenario = oItem.movementScenario || "";
+				// Use EventDescription if available, otherwise use movementScenario
+				var sDescription = oItem.eventDescription || sFullMovementScenario || "";
+				
+				// Build text1 with Event Description (consistent format)
+				var sText1 = "";
+				if (oItem.eventDescription) {
+					sText1 = oItem.eventDescription;
+				} else if (sDescription) {
+					sText1 = sDescription;
+				}
+				
+				// Build text2 with MovementTypeDesc - MovementScenarioDesc format (consistent with Stage Summary)
+				var sText2 = "";
+				if (oItem.movementTypeDesc && oItem.movementScenarioDesc) {
+					sText2 = oItem.movementTypeDesc + " - " + oItem.movementScenarioDesc;
+				} else if (oItem.movementTypeDesc) {
+					sText2 = oItem.movementTypeDesc;
+				} else if (oItem.movementScenarioDesc) {
+					sText2 = oItem.movementScenarioDesc;
+				}
+				// Add TAT if available
+				if (oItem.turnAroundTimeFormatted && oItem.turnAroundTimeFormatted !== "—") {
+					sText2 += (sText2 ? " • TAT: " : "TAT: ") + oItem.turnAroundTimeFormatted;
+				}
+				
+				// Build stateText with timestamp and created by (consistent format)
+				var sStateText = "";
+				if (oItem.displayTimestamp) {
+					sStateText = oItem.displayTimestamp;
+				}
+				if (oItem.createdBy) {
+					sStateText += (sStateText ? " • " : "") + oItem.createdBy;
 				}
 				
 				return {
 					id: oItem._nodeId,
 					laneId: "lane1",
 					title: sDisplayTitle,
-					text1: oItem.displayTimestamp,
-					text2: oItem.remarks || oItem.movementScenario || "",
+					text1: sText1,
+					text2: sText2 || sDescription,
 					state: sState,
-					stateText: oItem.movementScenario || "",
+					stateText: sStateText || sFullMovementScenario,
 					icon: oItem._icon || "sap-icon://activities",
 					iconShape: "Circle",
 					children: index < aEvents.length - 1 ? [aEvents[index + 1]._nodeId] : [],
@@ -196,6 +282,27 @@ sap.ui.define([
 		},
 
 		_calculateTat: function (aEvents) {
+			if (!aEvents || aEvents.length === 0) {
+				return "—";
+			}
+			
+			// Calculate total TAT by summing individual event TATs
+			var iTotalTatMs = 0;
+			var bHasTat = false;
+			
+			aEvents.forEach(function(oEvent) {
+				if (oEvent.turnAroundTimeMs && !isNaN(oEvent.turnAroundTimeMs) && oEvent.turnAroundTimeMs > 0) {
+					iTotalTatMs += oEvent.turnAroundTimeMs;
+					bHasTat = true;
+				}
+			});
+			
+			// If we have individual TATs, use sum; otherwise calculate from dates
+			if (bHasTat && iTotalTatMs > 0) {
+				return this._formatDurationMs(iTotalTatMs);
+			}
+			
+			// Fallback to date difference calculation
 			if (aEvents.length < 2) {
 				return aEvents.length === 1 ? "0 min" : "—";
 			}
@@ -314,8 +421,23 @@ sap.ui.define([
 				var bHasEvents = !!oStart;
 				var bCompleted = bHasEvents && (iIndex === STAGE_CONFIG.length - 1 ? !!oLast : !!oNextStart);
 
+				// Calculate TAT from individual event TATs (consistent with total TAT calculation)
 				var iTatMs = null;
-				if (oStart) {
+				var iTotalTatMs = 0;
+				var bHasIndividualTat = false;
+				
+				// Sum individual event TATs for this stage
+				aStageEvents.forEach(function(oEvent) {
+					if (oEvent.turnAroundTimeMs && !isNaN(oEvent.turnAroundTimeMs) && oEvent.turnAroundTimeMs > 0) {
+						iTotalTatMs += oEvent.turnAroundTimeMs;
+						bHasIndividualTat = true;
+					}
+				});
+				
+				// Use sum of individual TATs if available, otherwise calculate from dates
+				if (bHasIndividualTat && iTotalTatMs > 0) {
+					iTatMs = iTotalTatMs;
+				} else if (oStart) {
 					var oTatEnd = bCompleted ? (oNextStart || oLast || oStart) : (oLast || null);
 					if (oTatEnd && oTatEnd._date && oStart._date && oTatEnd._date > oStart._date) {
 						iTatMs = oTatEnd._date - oStart._date;
@@ -337,16 +459,29 @@ sap.ui.define([
 					sInfoState = "Warning";
 				}
 
-				var sEventSummary = aStageEvents.length ?
-					(aStageEvents.length + " " + (aStageEvents.length === 1 ? "event" : "events")) :
-					"No events yet";
+				// Build consistent description with MovementTypeDesc - MovementScenarioDesc format
+				var sDescription = sStatus + " · " + sTimelineText;
+				if (aStageEvents.length > 0) {
+					var oFirstEvent = aStageEvents[0];
+					// Use consistent format: MovementTypeDesc - MovementScenarioDesc
+					if (oFirstEvent.movementTypeDesc && oFirstEvent.movementScenarioDesc) {
+						sDescription += " · " + oFirstEvent.movementTypeDesc + " - " + oFirstEvent.movementScenarioDesc;
+					} else if (oFirstEvent.movementTypeDesc) {
+						sDescription += " · " + oFirstEvent.movementTypeDesc;
+					} else if (oFirstEvent.movementScenarioDesc) {
+						sDescription += " · " + oFirstEvent.movementScenarioDesc;
+					}
+					sDescription += " · " + (aStageEvents.length + " " + (aStageEvents.length === 1 ? "event" : "events"));
+				} else {
+					sDescription += " · No events yet";
+				}
 
 				return {
 					key: oStage.key,
 					title: oStage.title,
 					icon: oStage.icon,
 					tatText: sTatText,
-					description: sStatus + " · " + sTimelineText + " · " + sEventSummary,
+					description: sDescription,
 					infoState: sInfoState
 				};
 			}, this);
@@ -363,6 +498,33 @@ sap.ui.define([
 				}
 			}
 			return null;
+		},
+
+		_parseTurnAroundTime: function (sTat) {
+			if (!sTat || typeof sTat !== "string") {
+				return 0;
+			}
+			// Parse format like "0Hours0Minutes34Sec" or "1Hours30Minutes15Sec"
+			var oMatch = sTat.match(/(\d+)Hours(\d+)Minutes(\d+)Sec/i);
+			if (oMatch) {
+				var iHours = parseInt(oMatch[1], 10) || 0;
+				var iMinutes = parseInt(oMatch[2], 10) || 0;
+				var iSeconds = parseInt(oMatch[3], 10) || 0;
+				return (iHours * 3600 + iMinutes * 60 + iSeconds) * 1000;
+			}
+			return 0;
+		},
+
+		_formatTurnAroundTime: function (sTat) {
+			if (!sTat || typeof sTat !== "string") {
+				return "—";
+			}
+			// Parse and format: "0Hours0Minutes34Sec" -> "34 sec"
+			var iMs = this._parseTurnAroundTime(sTat);
+			if (iMs === 0) {
+				return "0 min";
+			}
+			return this._formatDurationMs(iMs);
 		},
 
 		_formatDurationMs: function (iMs) {
