@@ -7,6 +7,27 @@
     <VBox class="sapUiSizeCompact sapUiTinyMargin">
 
         <!-- ========================================================= -->
+        <!-- Notification Banner for New Notes -->
+        <!-- ========================================================= -->
+        <Bar
+            id="idNewNoteNotification"
+            visible="false"
+            class="sapUiTinyMarginBottom newNoteNotificationBar"
+        >
+            <contentLeft>
+                <Text text="{notesModel>/notificationText}" class="sapUiSmallMarginBegin" />
+            </contentLeft>
+            <contentRight>
+                <Button
+                    text="Mark as Read"
+                    type="Emphasized"
+                    press=".onMarkAsRead"
+                    class="sapUiTinyMarginEnd"
+                />
+            </contentRight>
+        </Bar>
+
+        <!-- ========================================================= -->
         <!-- Add Note Section -->
         <!-- ========================================================= -->
         <Panel

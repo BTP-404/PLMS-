@@ -23,6 +23,7 @@ sap.ui.define([
 			this._oEventBus.subscribe("TripData", "Updated", this._refreshPageTitleModel, this);
 			this._oEventBus.subscribe("TripData", "Updated", this._updateLoadingUnloadingTabs, this);
 			this._oEventBus.subscribe("Stage", "TripCreated", this._onTripCreated, this);
+			this._oEventBus.subscribe("Notes", "UnreadCountChanged", this._updateNotesTabIndicator, this);
 		},
 		onAfterRendering: function() {
 			this._updateLoadingUnloadingTabs();
@@ -32,6 +33,7 @@ sap.ui.define([
 			this._oEventBus?.unsubscribe("TripData", "Updated", this._refreshPageTitleModel, this);
 			this._oEventBus?.unsubscribe("TripData", "Updated", this._updateLoadingUnloadingTabs, this);
 			this._oEventBus?.unsubscribe("Stage", "TripCreated", this._onTripCreated, this);
+			this._oEventBus?.unsubscribe("Notes", "UnreadCountChanged", this._updateNotesTabIndicator, this);
 		},
 
 	_onRouteMatched: function (oEvent) {
@@ -339,6 +341,36 @@ sap.ui.define([
 				// Default: show both tabs when no TripData (create mode)
 				oLoadingTab.setVisible(true);
 				oUnloadingTab.setVisible(true);
+			}
+		},
+
+		/** --------------------------------------------
+		 * UPDATE NOTES TAB BELL INDICATOR
+		 * --------------------------------------------*/
+		_updateNotesTabIndicator: function (sChannel, sEvent, oData) {
+			var iUnreadCount = (oData && oData.unreadCount) ? oData.unreadCount : 0;
+			var oNotesTab = this.byId("idNotesTab");
+			
+			if (!oNotesTab) {
+				// Control might not be rendered yet, try again after a short delay
+				setTimeout(function() {
+					this._updateNotesTabIndicator(sChannel, sEvent, oData);
+				}.bind(this), 100);
+				return;
+			}
+			
+			// Use $() to get the DOM element and manipulate classes directly
+			var oDomRef = oNotesTab.$();
+			if (oDomRef && oDomRef.length > 0) {
+				if (iUnreadCount > 0) {
+					oDomRef.addClass("notesTabWithBell");
+					console.log("Red mark added - Unread count:", iUnreadCount);
+				} else {
+					oDomRef.removeClass("notesTabWithBell");
+					console.log("Red mark removed - All notes read");
+				}
+			} else {
+				console.warn("Notes tab DOM element not found");
 			}
 		}
 

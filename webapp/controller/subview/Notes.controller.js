@@ -29,6 +29,18 @@ sap.ui.define(
                 this._eventBus = sap.ui.getCore().getEventBus();
                 this._eventBus.subscribe("TripData", "Updated", this._onTripDataUpdated, this);
                 this._syncTripContext();
+                
+                // Initialize notes model to track unread notes
+                var oNotesModel = new JSONModel({
+                    unreadNotes: [], // Array of note IDs (TripNumber + Seqno)
+                    unreadCount: 0,
+                    notificationText: ""
+                });
+                this.getView().setModel(oNotesModel, "notesModel");
+                
+                // Initialize notification banner update
+                this._updateNotificationBanner();
+                
                 this.loadNotes();
                 
                 // Track pending notes that haven't been confirmed from backend
@@ -136,6 +148,9 @@ sap.ui.define(
                         if (!oNoteData.Remarks) {
                             oNoteData.Remarks = sText;
                         }
+                        
+                        // Mark this note as unread
+                        this._markNoteAsUnread(oNoteData);
                         
                         // Set flag to prevent clearing
                         this._bJustAddedNote = true;
@@ -296,22 +311,41 @@ sap.ui.define(
 
                 aSortedNotes.forEach((note) => {
                     let sFormattedDate = this._formatDateTime(note.CreatedOn);
+                    
+                    // Check if note is unread
+                    var bIsUnread = this._isNoteUnread(note);
+                    
+                    var aNoteItems = [
+                        new sap.m.HBox({
+                            alignItems: "Start",
+                            justifyContent: "SpaceBetween",
+                            items: [
+                                new sap.m.Text({
+                                    text: note.Remarks,
+                                    wrapping: true
+                                }).addStyleClass("stickyNoteText"),
+                                bIsUnread ? new sap.m.ObjectStatus({
+                                    text: "NEW",
+                                    state: "Success"
+                                }).addStyleClass("sapUiTinyMarginBegin") : null
+                            ].filter(function(item) { return item !== null; })
+                        }),
+                        new sap.m.VBox({
+                            items: [
+                                new sap.m.Text({ text: "By: " + (note.CreatedBy || "") }),
+                                new sap.m.Text({ text: "On: " + sFormattedDate })
+                            ]
+                        }).addStyleClass("stickyNoteFooter")
+                    ];
+                    
                     let oNoteBox = new sap.m.VBox({
-                        items: [
-                            new sap.m.Text({
-                                text: note.Remarks,
-                                wrapping: true
-                            }).addStyleClass("stickyNoteText"),
-                            new sap.m.VBox({
-                                items: [
-                                    new sap.m.Text({ text: "By: " + (note.CreatedBy || "") }),
-                                    new sap.m.Text({ text: "On: " + sFormattedDate })
-                                ]
-                            }).addStyleClass("stickyNoteFooter")
-                        ]
+                        items: aNoteItems
                     }).addStyleClass("stickyNote");
                     oContainer.addItem(oNoteBox);
                 });
+                
+                // Update notification banner after rendering
+                this._updateNotificationBanner();
             },
 
             _extractResults: function (vData) {
@@ -328,6 +362,112 @@ sap.ui.define(
                     return null;
                 }
                 return [];
+            },
+
+            /** --------------------------------------------
+             * MARK NOTE AS UNREAD
+             * --------------------------------------------*/
+            _markNoteAsUnread: function (oNoteData) {
+                var sNoteId = this._getNoteId(oNoteData);
+                var oNotesModel = this.getView().getModel("notesModel");
+                var aUnreadNotes = oNotesModel.getProperty("/unreadNotes") || [];
+                
+                // Add to unread list if not already there
+                if (aUnreadNotes.indexOf(sNoteId) === -1) {
+                    aUnreadNotes.push(sNoteId);
+                    oNotesModel.setProperty("/unreadNotes", aUnreadNotes);
+                    oNotesModel.setProperty("/unreadCount", aUnreadNotes.length);
+                    this._updateNotificationBanner();
+                }
+            },
+
+            /** --------------------------------------------
+             * GET NOTE ID (TripNumber + Seqno)
+             * --------------------------------------------*/
+            _getNoteId: function (oNoteData) {
+                return (oNoteData.TripNumber || "") + "_" + (oNoteData.Seqno || "");
+            },
+
+            /** --------------------------------------------
+             * CHECK IF NOTE IS UNREAD
+             * --------------------------------------------*/
+            _isNoteUnread: function (oNoteData) {
+                var sNoteId = this._getNoteId(oNoteData);
+                var oNotesModel = this.getView().getModel("notesModel");
+                var aUnreadNotes = oNotesModel.getProperty("/unreadNotes") || [];
+                return aUnreadNotes.indexOf(sNoteId) !== -1;
+            },
+
+            /** --------------------------------------------
+             * UPDATE NOTIFICATION BANNER VISIBILITY
+             * --------------------------------------------*/
+            _updateNotificationBanner: function () {
+                var oNotesModel = this.getView().getModel("notesModel");
+                var iUnreadCount = oNotesModel.getProperty("/unreadCount") || 0;
+                var oNotificationBanner = this.byId("idNewNoteNotification");
+                
+                if (oNotificationBanner) {
+                    oNotificationBanner.setVisible(iUnreadCount > 0);
+                    
+                    // Update notification text
+                    var sNotificationText = "You have " + iUnreadCount + " new note" + (iUnreadCount > 1 ? "s" : "");
+                    oNotesModel.setProperty("/notificationText", sNotificationText);
+                }
+                
+                // Notify Stage controller to update Notes tab bell indicator
+                this._notifyNotesTabUpdate(iUnreadCount);
+            },
+
+            /** --------------------------------------------
+             * NOTIFY STAGE CONTROLLER ABOUT UNREAD COUNT
+             * --------------------------------------------*/
+            _notifyNotesTabUpdate: function (iUnreadCount) {
+                if (this._eventBus) {
+                    this._eventBus.publish("Notes", "UnreadCountChanged", {
+                        unreadCount: iUnreadCount
+                    });
+                }
+            },
+
+            /** --------------------------------------------
+             * MARK ALL NOTES AS READ
+             * --------------------------------------------*/
+            onMarkAsRead: function () {
+                var oNotesModel = this.getView().getModel("notesModel");
+                oNotesModel.setProperty("/unreadNotes", []);
+                oNotesModel.setProperty("/unreadCount", 0);
+                this._updateNotificationBanner();
+                
+                // Remove NEW badges from visible notes
+                var oContainer = this.byId("idNotesContainer");
+                if (oContainer) {
+                    var aItems = oContainer.getItems();
+                    var that = this;
+                    aItems.forEach(function(oNoteBox) {
+                        // The note box is a VBox, first item is HBox containing text and badge
+                        if (oNoteBox && oNoteBox.getItems) {
+                            var aNoteBoxItems = oNoteBox.getItems();
+                            if (aNoteBoxItems.length > 0) {
+                                var oHBox = aNoteBoxItems[0];
+                                if (oHBox && oHBox.getItems) {
+                                    var aHBoxItems = oHBox.getItems();
+                                    // Find and remove the ObjectStatus badge
+                                    for (var i = aHBoxItems.length - 1; i >= 0; i--) {
+                                        var oItem = aHBoxItems[i];
+                                        if (oItem && oItem.getMetadata && 
+                                            oItem.getMetadata().getName() === "sap.m.ObjectStatus" &&
+                                            oItem.getText() === "NEW") {
+                                            oHBox.removeItem(oItem);
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+                
+                sap.m.MessageToast.show("All notes marked as read");
             },
 
             /** --------------------------------------------
@@ -376,20 +516,35 @@ sap.ui.define(
                     return;
                 }
 
+                // Check if note is unread
+                var bIsUnread = this._isNoteUnread(oNoteData);
+                
                 // Create note UI element
+                var aNoteItems = [
+                    new sap.m.HBox({
+                        alignItems: "Start",
+                        justifyContent: "SpaceBetween",
+                        items: [
+                            new sap.m.Text({
+                                text: sNoteText,
+                                wrapping: true
+                            }).addStyleClass("stickyNoteText"),
+                            bIsUnread ? new sap.m.ObjectStatus({
+                                text: "NEW",
+                                state: "Success"
+                            }).addStyleClass("sapUiTinyMarginBegin") : null
+                        ].filter(function(item) { return item !== null; })
+                    }),
+                    new sap.m.VBox({
+                        items: [
+                            new sap.m.Text({ text: "By: " + (sCurrentUser || "") }),
+                            new sap.m.Text({ text: "On: " + sFormattedDate })
+                        ]
+                    }).addStyleClass("stickyNoteFooter")
+                ];
+
                 let oNoteBox = new sap.m.VBox({
-                    items: [
-                        new sap.m.Text({
-                            text: sNoteText,
-                            wrapping: true
-                        }).addStyleClass("stickyNoteText"),
-                        new sap.m.VBox({
-                            items: [
-                                new sap.m.Text({ text: "By: " + (sCurrentUser || "") }),
-                                new sap.m.Text({ text: "On: " + sFormattedDate })
-                            ]
-                        }).addStyleClass("stickyNoteFooter")
-                    ]
+                    items: aNoteItems
                 }).addStyleClass("stickyNote");
 
                 // Add to the beginning of the container (newest first)
