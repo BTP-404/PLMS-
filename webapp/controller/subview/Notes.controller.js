@@ -30,6 +30,11 @@ sap.ui.define(
                 this._eventBus.subscribe("TripData", "Updated", this._onTripDataUpdated, this);
                 this._syncTripContext();
                 this.loadNotes();
+                
+                // Track pending notes that haven't been confirmed from backend
+                this._aPendingNotes = [];
+                // Flag to prevent clearing immediate notes
+                this._bJustAddedNote = false;
             },
 
             onExit: function () {
@@ -55,12 +60,45 @@ sap.ui.define(
                         "$filter": `TripNumber eq '${sTripNumber}'`
                     },
                     success: function (oData) {
-                        this._renderNotes(oData.results || []);
+                        var aBackendNotes = oData.results || [];
+                        
+                        // Merge with pending notes that aren't in backend response yet
+                        if (this._aPendingNotes && this._aPendingNotes.length > 0) {
+                            var aMergedNotes = aBackendNotes.slice();
+                            var that = this;
+                            
+                            this._aPendingNotes.forEach(function(oPendingNote) {
+                                // Check if this pending note is already in backend response
+                                var bExists = aBackendNotes.some(function(oBackendNote) {
+                                    return oBackendNote.TripNumber === oPendingNote.TripNumber &&
+                                           oBackendNote.Seqno === oPendingNote.Seqno;
+                                });
+                                
+                                // If not in backend yet, add it to the list
+                                if (!bExists) {
+                                    aMergedNotes.push(oPendingNote);
+                                } else {
+                                    // Remove from pending since it's now confirmed from backend
+                                    that._aPendingNotes = that._aPendingNotes.filter(function(p) {
+                                        return !(p.TripNumber === oPendingNote.TripNumber && 
+                                                p.Seqno === oPendingNote.Seqno);
+                                    });
+                                }
+                            });
+                            
+                            this._renderNotes(aMergedNotes);
+                        } else {
+                            this._renderNotes(aBackendNotes);
+                        }
                     }.bind(this),
 
                     error: function (oError) {
                         console.error("NOTE LOAD ERROR:", oError);
-                    }
+                        // On error, still show pending notes if any
+                        if (this._aPendingNotes && this._aPendingNotes.length > 0) {
+                            this._renderNotes(this._aPendingNotes);
+                        }
+                    }.bind(this)
                 });
             },
 
@@ -88,12 +126,33 @@ sap.ui.define(
                 this.oModel.create("/Feeds", oPayload, {
                     headers: { "X-Requested-With": "X" },
 
-                    success: function () {
+                    success: function (oResponse) {
                         sap.m.MessageToast.show("Note saved successfully!");
                         oTextArea.setValue("");
 
-                        // Reload updated notes
-                        this.loadNotes();
+                        // Show note immediately with response data or payload
+                        var oNoteData = oResponse || oPayload;
+                        // Ensure we have the text from the original payload
+                        if (!oNoteData.Remarks) {
+                            oNoteData.Remarks = sText;
+                        }
+                        
+                        // Set flag to prevent clearing
+                        this._bJustAddedNote = true;
+                        
+                        // Add note immediately - don't reload to avoid clearing it
+                        this._addNoteImmediately(oNoteData);
+
+                        // Reset flag after a delay
+                        setTimeout(function() {
+                            this._bJustAddedNote = false;
+                        }.bind(this), 2000);
+
+                        // Don't reload immediately - let the note stay visible
+                        // The note will be refreshed when:
+                        // 1. User navigates away and comes back
+                        // 2. TripData is updated from another source
+                        // 3. User manually refreshes
 
                     }.bind(this),
 
@@ -155,7 +214,10 @@ sap.ui.define(
 
             _onTripDataUpdated: function () {
                 this._syncTripContext();
-                this.loadNotes();
+                // Don't reload if we just added a note (to prevent clearing it)
+                if (!this._bJustAddedNote) {
+                    this.loadNotes();
+                }
             },
 
             _renderNotesFromTripModel: function () {
@@ -167,6 +229,28 @@ sap.ui.define(
                 if (aNotes === null) {
                     return false;
                 }
+                
+                // Merge with pending notes if any
+                if (this._aPendingNotes && this._aPendingNotes.length > 0) {
+                    var aMergedNotes = (aNotes || []).slice();
+                    var that = this;
+                    
+                    this._aPendingNotes.forEach(function(oPendingNote) {
+                        // Check if this pending note is already in TripData
+                        var bExists = aNotes.some(function(oNote) {
+                            return oNote.TripNumber === oPendingNote.TripNumber &&
+                                   oNote.Seqno === oPendingNote.Seqno;
+                        });
+                        
+                        // If not in TripData yet, add it to the list
+                        if (!bExists) {
+                            aMergedNotes.push(oPendingNote);
+                        }
+                    });
+                    
+                    aNotes = aMergedNotes;
+                }
+                
                 if (!aNotes.length) {
                     this._renderNotes([]);
                     return true;
@@ -178,15 +262,39 @@ sap.ui.define(
             _renderNotes: function (aNotes) {
                 const oContainer = this.byId("idNotesContainer");
                 const oNoNotesText = this.byId("idNoNotesText");
+                
+                if (!oContainer) {
+                    return;
+                }
+                
+                // If we just added a note, don't clear - just return
+                // This prevents the immediate note from being removed
+                if (this._bJustAddedNote) {
+                    return;
+                }
+                
+                // Normal case - remove all and re-render
                 oContainer.removeAllItems();
 
                 if (!aNotes.length) {
-                    oNoNotesText.setVisible(true);
+                    if (oNoNotesText) {
+                        oNoNotesText.setVisible(true);
+                    }
                     return;
                 }
-                oNoNotesText.setVisible(false);
+                
+                if (oNoNotesText) {
+                    oNoNotesText.setVisible(false);
+                }
 
-                aNotes.forEach((note) => {
+                // Sort notes by CreatedOn descending (newest first)
+                var aSortedNotes = aNotes.slice().sort(function(a, b) {
+                    var oDateA = a.CreatedOn ? new Date(a.CreatedOn) : new Date(0);
+                    var oDateB = b.CreatedOn ? new Date(b.CreatedOn) : new Date(0);
+                    return oDateB - oDateA; // Descending order
+                });
+
+                aSortedNotes.forEach((note) => {
                     let sFormattedDate = this._formatDateTime(note.CreatedOn);
                     let oNoteBox = new sap.m.VBox({
                         items: [
@@ -220,6 +328,72 @@ sap.ui.define(
                     return null;
                 }
                 return [];
+            },
+
+            /** --------------------------------------------
+             * ADD NOTE IMMEDIATELY TO UI
+             * --------------------------------------------*/
+            _addNoteImmediately: function (oNoteData) {
+                const oContainer = this.byId("idNotesContainer");
+                const oNoNotesText = this.byId("idNoNotesText");
+                
+                if (!oContainer) {
+                    console.warn("Notes container not found");
+                    return;
+                }
+
+                // Hide "No notes" message if visible
+                if (oNoNotesText) {
+                    oNoNotesText.setVisible(false);
+                }
+
+                // Get current user (if available)
+                var sCurrentUser = "";
+                try {
+                    var oUserInfo = sap.ushell.Container.getService("UserInfo");
+                    if (oUserInfo) {
+                        sCurrentUser = oUserInfo.getId() || "";
+                    }
+                } catch (e) {
+                    // Fallback to CreatedBy from response or empty
+                    sCurrentUser = oNoteData.CreatedBy || "";
+                }
+
+                // Use CreatedOn from response if available, otherwise use current time
+                var oNoteDate = null;
+                if (oNoteData.CreatedOn) {
+                    oNoteDate = new Date(oNoteData.CreatedOn);
+                }
+                if (!oNoteDate || isNaN(oNoteDate.getTime())) {
+                    oNoteDate = new Date();
+                }
+                var sFormattedDate = this._formatDateTime(oNoteDate);
+
+                // Get note text
+                var sNoteText = oNoteData.Remarks || "";
+                if (!sNoteText) {
+                    console.warn("No note text to display");
+                    return;
+                }
+
+                // Create note UI element
+                let oNoteBox = new sap.m.VBox({
+                    items: [
+                        new sap.m.Text({
+                            text: sNoteText,
+                            wrapping: true
+                        }).addStyleClass("stickyNoteText"),
+                        new sap.m.VBox({
+                            items: [
+                                new sap.m.Text({ text: "By: " + (sCurrentUser || "") }),
+                                new sap.m.Text({ text: "On: " + sFormattedDate })
+                            ]
+                        }).addStyleClass("stickyNoteFooter")
+                    ]
+                }).addStyleClass("stickyNote");
+
+                // Add to the beginning of the container (newest first)
+                oContainer.insertItem(oNoteBox, 0);
             }
 
         });

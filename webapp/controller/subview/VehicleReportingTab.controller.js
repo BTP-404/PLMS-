@@ -986,7 +986,29 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
           this._openVH("VHMovementType");
         },
         onValueHelpVehicleType: function () {
-          this._openVH("VHVehicleType");
+          var oView = this.getView();
+
+          if (!this._mValueHelps) this._mValueHelps = {};
+
+          if (!this._mValueHelps.VHVehicleType) {
+            Fragment.load({
+              id: oView.getId(),
+              name: "com.incresolZ_INC_PLMS.fragments.VehicleReportingFrags.VHVehicleType",
+              controller: this,
+            }).then(
+              function (oDialog) {
+                this._mValueHelps.VHVehicleType = oDialog;
+                oView.addDependent(oDialog);
+
+                this._loadVehicleTypeData().then(() => {
+                  oDialog.open();
+                });
+              }.bind(this)
+            );
+          } else {
+            this._loadVehicleTypeData();
+            this._mValueHelps.VHVehicleType.open();
+          }
         },
         onValueHelpVehicleSize: function () {
           this._openVH("VHVehicleSize");
@@ -1051,6 +1073,72 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
               },
             });
           });
+        },
+
+        /**
+         * Load Vehicle Type from ConfigValues
+         */
+        _loadVehicleTypeData: function () {
+          const oModel = this.getView().getModel();
+          const that = this;
+
+          return new Promise(function (resolve) {
+            oModel.read("/ConfigValues", {
+              filters: [
+                new sap.ui.model.Filter(
+                  "ConfigGroup",
+                  sap.ui.model.FilterOperator.EQ,
+                  "VehicleType"
+                ),
+              ],
+              success: function (oData) {
+                const oJSON = new sap.ui.model.json.JSONModel(oData.results);
+                if (that._mValueHelps && that._mValueHelps.VHVehicleType) {
+                  that._mValueHelps.VHVehicleType.setModel(oJSON, "VHModel");
+                }
+                resolve();
+              },
+              error: function () {
+                sap.m.MessageBox.error("Failed to load Vehicle Type.");
+                resolve();
+              },
+            });
+          });
+        },
+
+        /**
+         * Search Vehicle Type
+         */
+        onSearchVehicleType: function (oEvent) {
+          var sValue = oEvent.getParameter("value");
+          var oList = this.byId("idVHVehicleTypeList");
+
+          if (!oList) return;
+
+          var oBinding = oList.getBinding("items");
+          var aFilters = [];
+
+          if (sValue) {
+            aFilters.push(
+              new sap.ui.model.Filter({
+                filters: [
+                  new sap.ui.model.Filter(
+                    "ConfigID",
+                    sap.ui.model.FilterOperator.Contains,
+                    sValue
+                  ),
+                  new sap.ui.model.Filter(
+                    "Description",
+                    sap.ui.model.FilterOperator.Contains,
+                    sValue
+                  ),
+                ],
+                and: false,
+              })
+            );
+          }
+
+          oBinding.filter(aFilters);
         },
 
         /**
@@ -1177,6 +1265,24 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
 
             case this.getView().getId() + "--idVHVehicleType":
               sField = "idVehicleType";
+              // Get selected item row
+              const oVehicleTypeRow =
+                oSelected.data("row") ||
+                (oSelected.getBindingContext("VHModel") &&
+                  oSelected.getBindingContext("VHModel").getObject());
+              if (oVehicleTypeRow) {
+                // Store ConfigID in TripData model (for backend)
+                const oTripDataModel = this.getView().getModel("TripData");
+                if (oTripDataModel) {
+                  oTripDataModel.setProperty("/VehicleType", oVehicleTypeRow.ConfigID);
+                  oTripDataModel.setProperty("/VehicleTypeDesc", oVehicleTypeRow.Description || "");
+                }
+                // Display Description in the input field
+                const oFieldCtrl = this.byId(sField);
+                if (oFieldCtrl) {
+                  oFieldCtrl.setValue(oVehicleTypeRow.Description || "");
+                }
+              }
               break;
 
             case this.getView().getId() + "--idVHVehicleSize":
@@ -1206,8 +1312,9 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
               break;
           }
 
-          if (sField) {
+          if (sField && sId !== this.getView().getId() + "--idVHVehicleType") {
             // safety: ensure control exists
+            // Skip VehicleType as it's handled in the switch case above
             const oFieldCtrl = this.byId(sField);
             if (oFieldCtrl && oSelected.getTitle) {
               oFieldCtrl.setValue(oSelected.getTitle());

@@ -626,6 +626,11 @@ sap.ui.define(
           });
         },
         _loadGateOutAttachments: function () {
+          // Ensure attachments model is initialized
+          if (!this._oGateOutAttachmentsModel) {
+            this._initGateOutAttachmentsModel();
+          }
+
           var oGlobalModel = sap.ui.getCore().getModel("globalData");
           var sTripNumber = oGlobalModel?.getProperty("/TripNumber") || "";
 

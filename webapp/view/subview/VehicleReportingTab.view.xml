@@ -106,9 +106,9 @@
                             <Input
                                 id="idVehicleType"
                                 width="100%"
-                                showValueHelp="false"
+                                showValueHelp="true"
                                 valueHelpRequest="onValueHelpVehicleType"
-                                value="{TripData>/VehicleType}"
+                                value="{TripData>/VehicleTypeDesc}"
                             />
                         </VBox>
                     </layout:content>

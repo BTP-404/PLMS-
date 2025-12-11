@@ -9,17 +9,19 @@
         resizable="true">
 
         <VBox class="sapUiSmallMargin">
-            <SearchField width="100%" liveChange="onSearchVH"/>
+            <SearchField width="100%" liveChange="onSearchVehicleType"/>
 
-            <List
+           <List
                 id="idVHVehicleTypeList"
                 mode="SingleSelectMaster"
-                items="{ path: '/VehicleTypeSet' }"
+                items="{ 
+                    path: 'VHModel>/' 
+                }"
                 selectionChange="onConfirmVH">
 
                 <StandardListItem
-                    title="{VehicleType}"
-                    description="{VehicleTypeDesc}"
+                    title="{VHModel>Description}"
+                    description="{VHModel>ConfigID}"
                     type="Active"/>
             </List>
         </VBox>
@@ -31,3 +33,4 @@
     </Dialog>
 
 </core:FragmentDefinition>
+

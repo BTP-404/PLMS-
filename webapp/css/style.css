@@ -1,4 +1,4 @@
-==================== HIDE UNNECESSARY HORIZONTAL SCROLLBARS ====================
+/* ==================== HIDE UNNECESSARY HORIZONTAL SCROLLBARS ==================== */
 
 /* Hide horizontal scrollbar by default, show only on hover or when scrolling */
 .sapMScrollContainer {
@@ -261,7 +261,8 @@
 
 /* ==================== ANALYSIS DASHBOARD STYLES ==================== */
 
-/* Process Flow Container - Eye-catching and Larger */
+/* Process Flow Container - Eye-catching and Larger - DISABLED */
+/*
 .activityProcessFlow {
     max-height: 400px;
     min-height: 350px;
@@ -313,8 +314,10 @@
     padding-left: 0.25rem !important;
     margin-left: 0 !important;
 }
+*/
 
-/* Desktop: Better spacing and alignment */
+/* Desktop: Better spacing and alignment - DISABLED */
+/*
 @media (min-width: 1025px) {
     .activityProcessFlow {
         min-height: 450px;
@@ -428,8 +431,10 @@
         padding-left: 0.15rem !important;
     }
 }
+*/
 
-/* Eye-catching Timeline Styling */
+/* Eye-catching Timeline Styling - DISABLED */
+/*
 .eyeCatchingTimeline {
     background: linear-gradient(135deg, #f0f7ff 0%, #ffffff 50%, #f0f7ff 100%);
     border: 2px solid #0070f2 !important;
@@ -538,11 +543,14 @@
 
 /* Process Flow Node State Text - More Visible */
 .eyeCatchingTimeline .sapSuitePFNodeStateText {
-    font-weight: 700 !important;
-    font-size: 0.85rem !important;
-    text-transform: uppercase !important;
-    letter-spacing: 0.5px !important;
+    font-weight: 600 !important;
+    font-size: 0.9rem !important;
+    /* Removed text-transform: uppercase to preserve original format like "O-09" */
+    letter-spacing: 0.3px !important;
+    color: #107e3e !important;
+    margin-top: 0.15rem !important;
 }
+*/
 
 /* Metric Card Styling */
 .metricCard {
@@ -706,7 +714,8 @@
     overflow-y: auto;
 }
 
-/* Process Flow Scrollbar Styling */
+/* Process Flow Scrollbar Styling - DISABLED */
+/*
 .eyeCatchingTimeline::-webkit-scrollbar {
     width: 12px;
     height: 12px;
@@ -745,11 +754,14 @@
         height: 6px;
     }
 }
+*/
 
 /* ==================== RESPONSIVE ADJUSTMENTS ==================== */
 
 /* Tablet and smaller desktop */
 @media (max-width: 1024px) {
+    /* ProcessFlow CSS disabled - DISABLED */
+    /*
     .activityProcessFlow {
         max-height: 350px;
         min-height: 300px;
@@ -759,6 +771,7 @@
         max-height: 350px;
         min-height: 300px;
     }
+    */
     
     #activityDetailsTable {
         max-height: 300px;
@@ -780,7 +793,8 @@
 
 /* Mobile devices */
 @media (max-width: 768px) {
-    /* Process Flow - Mobile */
+    /* Process Flow - Mobile - DISABLED */
+    /*
     .activityProcessFlow {
         max-height: 300px;
         min-height: 250px;
@@ -826,6 +840,7 @@
         font-size: 0.95rem !important;
         padding: 0.75rem !important;
     }
+    */
     
     /* Table - Mobile */
     #activityDetailsTable {
@@ -1017,6 +1032,8 @@
 
 /* Landscape Mobile - Better use of horizontal space */
 @media (max-width: 768px) and (orientation: landscape) {
+    /* ProcessFlow CSS disabled - DISABLED */
+    /*
     .activityProcessFlow,
     .eyeCatchingTimeline {
         max-height: 280px !important;
@@ -1028,6 +1045,7 @@
         min-width: 130px !important;
         min-height: 58px !important;
     }
+    */
     
     #activityDetailsTable {
         max-height: 220px;

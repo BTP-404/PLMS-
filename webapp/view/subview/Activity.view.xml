@@ -143,7 +143,6 @@
                                 wheelZoomable="false"
                                 foldedCorners="false"
                                 zoomLevel="Three"
-                                class="activityProcessFlow eyeCatchingTimeline"
                                 height="450px"
                                 nodes="{activityModel>/nodes}"
                                 lanes="{activityModel>/lanes}">

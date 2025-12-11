@@ -102,13 +102,23 @@ sap.ui.define([
 				var oDate = that._toDateObject(oItem);
 				var sStage = that._detectStage(oItem.EventID || "");
 				var sIcon = that._getStageIcon(sStage);
+				// Format changed date/time if available
+				var sChangedTimestamp = "";
+				if (oItem.ChangedDate && oItem.ChangedTime) {
+					var oChangedDate = that._toChangedDateObject(oItem);
+					if (oChangedDate) {
+						sChangedTimestamp = that._formatDateTime(oChangedDate);
+					}
+				}
 				return {
 					_nodeId: "node" + index,
 					eventKey: (oItem.EventID || "") + " / " + (oItem.Seqno || ""),
-					movementScenario: (oItem.MovementType || "") + "-" + (oItem.MovementScenario || ""),
+					movementScenario: (oItem.MovementTypeDesc || "") + "-" + (oItem.MovementScenarioDesc || ""),
 					displayTimestamp: that._formatDateTime(oDate),
 					createdBy: oItem.CreatedBy || "",
 					changedBy: oItem.ChangedBy || "",
+					changedTimestamp: sChangedTimestamp,
+					turnAroundTime: oItem.Turn_A_Time || "",
 					remarks: oItem.Remarks || "",
 					raw: oItem,
 					_date: oDate,
@@ -131,9 +141,17 @@ sap.ui.define([
 				return [];
 			}
 			var that = this;
+			// Count occurrences of each stage to make titles unique
+			var oStageCounts = {};
+			aEvents.forEach(function(oItem) {
+				var sStage = oItem._stage || "unknown";
+				oStageCounts[sStage] = (oStageCounts[sStage] || 0) + 1;
+			});
+			var oStageIndices = {};
+			
 			return aEvents.map(function (oItem, index) {
 				var sStageTitle = that._getStageTitle(oItem._stage);
-				// Make title more concise and readable
+				// Make title more concise and readable - use stage title, fallback to eventKey
 				var sTitle = sStageTitle ? sStageTitle : oItem.eventKey;
 				
 				// Determine state based on position (last one is highlighted)
@@ -141,14 +159,33 @@ sap.ui.define([
 				var bHighlighted = index === aEvents.length - 1;
 				var bFocused = index === aEvents.length - 1;
 				
+				// Build unique title - if multiple events from same stage, add sequence number
+				var sDisplayTitle = sTitle;
+				if (sStageTitle) {
+					var sStage = oItem._stage || "unknown";
+					oStageIndices[sStage] = (oStageIndices[sStage] || 0) + 1;
+					var iStageIndex = oStageIndices[sStage];
+					var iStageCount = oStageCounts[sStage] || 1;
+					
+					// If multiple events from same stage, add sequence number
+					if (iStageCount > 1) {
+						sDisplayTitle = sStageTitle + " #" + iStageIndex;
+					} else {
+						sDisplayTitle = sStageTitle;
+					}
+				} else if (oItem.eventKey) {
+					// Fallback to eventKey if no stage title
+					sDisplayTitle = oItem.eventKey;
+				}
+				
 				return {
 					id: oItem._nodeId,
 					laneId: "lane1",
-					title: sTitle,
+					title: sDisplayTitle,
 					text1: oItem.displayTimestamp,
 					text2: oItem.remarks || oItem.movementScenario || "",
 					state: sState,
-					stateText: oItem.movementScenario,
+					stateText: oItem.movementScenario || "",
 					icon: oItem._icon || "sap-icon://activities",
 					iconShape: "Circle",
 					children: index < aEvents.length - 1 ? [aEvents[index + 1]._nodeId] : [],
@@ -180,6 +217,18 @@ sap.ui.define([
 			}
 			var oDate = this._parseODataDate(oItem.CreatedDate);
 			var iTimeMs = this._parseODataTime(oItem.CreatedTime);
+			if (!oDate || iTimeMs === null) {
+				return null;
+			}
+			return new Date(oDate.getTime() + iTimeMs);
+		},
+
+		_toChangedDateObject: function (oItem) {
+			if (!oItem) {
+				return null;
+			}
+			var oDate = this._parseODataDate(oItem.ChangedDate);
+			var iTimeMs = this._parseODataTime(oItem.ChangedTime);
 			if (!oDate || iTimeMs === null) {
 				return null;
 			}
