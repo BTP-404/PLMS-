@@ -592,32 +592,32 @@
 /* Individual Metric Card Colors */
 .metricCard[header-text*="Total TAT"] {
     background: linear-gradient(135deg, #e3f2fd 0%, #ffffff 100%);
-    border-left: 4px solid #2196f3;
+    border-left: 4px solid #0070f2;
 }
 
 .metricCard[header-text*="Total TAT"]:hover {
     background: linear-gradient(135deg, #bbdefb 0%, #e3f2fd 100%);
-    box-shadow: 0 8px 24px rgba(33, 150, 243, 0.25);
+    box-shadow: 0 8px 24px rgba(0, 112, 242, 0.25);
 }
 
 .metricCard[header-text*="Total Events"] {
-    background: linear-gradient(135deg, #e8f5e9 0%, #ffffff 100%);
-    border-left: 4px solid #4caf50;
+    background: linear-gradient(135deg, #e3f2fd 0%, #ffffff 100%);
+    border-left: 4px solid #0070f2;
 }
 
 .metricCard[header-text*="Total Events"]:hover {
-    background: linear-gradient(135deg, #c8e6c9 0%, #e8f5e9 100%);
-    box-shadow: 0 8px 24px rgba(76, 175, 80, 0.25);
+    background: linear-gradient(135deg, #bbdefb 0%, #e3f2fd 100%);
+    box-shadow: 0 8px 24px rgba(0, 112, 242, 0.25);
 }
 
 .metricCard[header-text*="Last Event"] {
-    background: linear-gradient(135deg, #fff3e0 0%, #ffffff 100%);
-    border-left: 4px solid #ff9800;
+    background: linear-gradient(135deg, #e3f2fd 0%, #ffffff 100%);
+    border-left: 4px solid #0070f2;
 }
 
 .metricCard[header-text*="Last Event"]:hover {
-    background: linear-gradient(135deg, #ffe0b2 0%, #fff3e0 100%);
-    box-shadow: 0 8px 24px rgba(255, 152, 0, 0.25);
+    background: linear-gradient(135deg, #bbdefb 0%, #e3f2fd 100%);
+    box-shadow: 0 8px 24px rgba(0, 112, 242, 0.25);
 }
 
 .metricCardContent {
@@ -644,25 +644,61 @@
     max-width: 100%;
 }
 
-.metricCard[header-text*="Total TAT"] .metricValue {
-    background: linear-gradient(135deg, #1976d2 0%, #2196f3 100%);
+.metricCard[header-text*="Total TAT"] .metricValue,
+.tatValue {
+    background: linear-gradient(135deg, #0052cc 0%, #0070f2 50%, #1e88e5 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
+    font-weight: 900;
+    text-align: center;
+    font-size: 1.75rem;
+    line-height: 1.4;
+    margin: 0.25rem 0;
+    word-wrap: break-word;
+    max-width: 100%;
+    text-shadow: 0 2px 4px rgba(0, 112, 242, 0.1);
 }
 
-.metricCard[header-text*="Total Events"] .metricValue {
-    background: linear-gradient(135deg, #388e3c 0%, #4caf50 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+.eyeCatchyBlue {
+    background: linear-gradient(135deg, #0052cc 0%, #0070f2 50%, #1e88e5 100%) !important;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    background-clip: text !important;
+    font-weight: 900 !important;
+    text-shadow: 0 2px 4px rgba(0, 112, 242, 0.1) !important;
 }
 
-.metricCard[header-text*="Last Event"] .metricValue {
-    background: linear-gradient(135deg, #f57c00 0%, #ff9800 100%);
+.metricCard[header-text*="Total Events"] .metricValue,
+.eventsValue {
+    background: linear-gradient(135deg, #0052cc 0%, #0070f2 50%, #1e88e5 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
+    font-weight: 900;
+    text-align: center;
+    font-size: 1.75rem;
+    line-height: 1.4;
+    margin: 0.25rem 0;
+    word-wrap: break-word;
+    max-width: 100%;
+    text-shadow: 0 2px 4px rgba(0, 112, 242, 0.1);
+}
+
+.metricCard[header-text*="Last Event"] .metricValue,
+.lastEventValue {
+    background: linear-gradient(135deg, #0052cc 0%, #0070f2 50%, #1e88e5 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    font-weight: 900;
+    text-align: center;
+    font-size: 1.75rem;
+    line-height: 1.4;
+    margin: 0.25rem 0;
+    word-wrap: break-word;
+    max-width: 100%;
+    text-shadow: 0 2px 4px rgba(0, 112, 242, 0.1);
 }
 
 .metricValueText {
@@ -717,27 +753,153 @@
     background-clip: text;
 }
 
-/* Stage Summary List Items - Colorful */
-.sapMCLI {
-    border-bottom: 2px solid #e8f5e9;
+/* Stage Summary List Items - Beautiful Card Design */
+.stageSummaryItem {
+    border-left: 5px solid #e0e0e0;
+    border-bottom: 1px solid #e8e8e8;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    margin: 0.5rem 0.75rem;
+    border-radius: 12px;
+    background: #ffffff;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+    overflow: hidden;
+    position: relative;
+}
+
+.stageSummaryItem::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 5px;
+    background: linear-gradient(180deg, #4caf50 0%, #388e3c 100%);
+    transition: width 0.3s ease;
+}
+
+.stageSummaryItem:hover {
+    background: linear-gradient(135deg, #f1f8f4 0%, #ffffff 100%);
+    border-left-color: #4caf50;
+    transform: translateX(2px);
+    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.2);
+}
+
+.stageSummaryItem:hover::before {
+    width: 6px;
+}
+
+/* Status-based border colors */
+.stageSummaryItem[data-state="Success"]::before,
+.stageSummaryItem .sapMObjectStatus[state="Success"] ~ * {
+    background: linear-gradient(180deg, #4caf50 0%, #388e3c 100%);
+}
+
+.stageSummaryItem[data-state="Warning"]::before {
+    background: linear-gradient(180deg, #ff9800 0%, #f57c00 100%);
+}
+
+.stageSummaryItem[data-state="None"]::before {
+    background: linear-gradient(180deg, #9e9e9e 0%, #757575 100%);
+}
+
+/* Stage Summary Content */
+.stageSummaryContent {
+    padding: 0.75rem 0.5rem;
+    width: 100%;
+}
+
+/* Icon Container - Beautiful Background */
+.stageIconContainer {
+    width: 3.5rem;
+    height: 3.5rem;
+    min-width: 3.5rem;
+    min-height: 3.5rem;
+    background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 6px rgba(76, 175, 80, 0.15);
     transition: all 0.3s ease;
-    border-left: 4px solid transparent;
-    margin: 0.25rem 0;
-    border-radius: 8px;
-    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+}
+
+.stageSummaryItem:hover .stageIconContainer {
+    background: linear-gradient(135deg, #c8e6c9 0%, #a5d6a7 100%);
+    box-shadow: 0 4px 10px rgba(76, 175, 80, 0.25);
+    transform: scale(1.05);
+}
+
+/* Stage Icon Styling - Enhanced */
+.stageIcon {
+    color: #2e7d32 !important;
+    filter: drop-shadow(0 2px 4px rgba(46, 125, 50, 0.3));
+    font-size: 2.5rem !important;
+}
+
+/* Stage Title - Bold and Prominent */
+.stageTitle {
+    font-weight: 700 !important;
+    color: #1a1a1a !important;
+    font-size: 1rem !important;
+    line-height: 1.4;
+    margin-bottom: 0.5rem !important;
+}
+
+/* Stage Description - Clean Typography */
+.stageDescription {
+    color: #666666 !important;
+    font-size: 0.875rem !important;
+    line-height: 1.5;
+    word-wrap: break-word;
+}
+
+/* TAT Display - Prominent */
+.stageTAT {
+    font-weight: 700 !important;
+    font-size: 1rem !important;
+    min-width: 80px;
+    text-align: right;
+}
+
+.stageTAT .sapMObjectStatusText {
+    font-weight: 700 !important;
+    font-size: 1rem !important;
+}
+
+/* Success State - Green */
+.stageSummaryItem .sapMObjectStatus[state="Success"] .sapMObjectStatusText {
+    color: #2e7d32 !important;
+    font-weight: 700 !important;
+}
+
+/* Warning State - Orange */
+.stageSummaryItem .sapMObjectStatus[state="Warning"] .sapMObjectStatusText {
+    color: #f57c00 !important;
+    font-weight: 700 !important;
+}
+
+/* None State - Grey */
+.stageSummaryItem .sapMObjectStatus[state="None"] .sapMObjectStatusText {
+    color: #757575 !important;
+    font-weight: 600 !important;
+}
+
+/* Legacy support for existing classes */
+.sapMCLI {
+    border-bottom: 1px solid #e8e8e8;
+    transition: all 0.3s ease;
+    border-left: 5px solid #e0e0e0;
+    margin: 0.5rem 0.75rem;
+    border-radius: 12px;
+    background: #ffffff;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
 }
 
 .sapMCLI:hover {
-    background: linear-gradient(135deg, #e8f5e9 0%, #ffffff 100%);
+    background: linear-gradient(135deg, #f1f8f4 0%, #ffffff 100%);
     border-left-color: #4caf50;
-    transform: translateX(4px);
-    box-shadow: 0 2px 8px rgba(76, 175, 80, 0.15);
-}
-
-/* Stage Icon Styling - Colorful */
-.stageIcon {
-    color: #4caf50;
-    filter: drop-shadow(0 2px 4px rgba(76, 175, 80, 0.3));
+    transform: translateX(2px);
+    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.2);
 }
 
 /* Table Styling for Events */
@@ -1258,35 +1420,99 @@
 }
 
 /* Events Details List - Icon Based - Beautiful Colors */
+/* Event Details List Items - Beautiful Card Design (Like Stage Summary) */
 .eventDetailItem {
-    border-bottom: 2px solid #fff3e0 !important;
-    padding: 1rem 0.5rem !important;
-    margin: 0.5rem 0 !important;
-    transition: all 0.3s ease !important;
-    border-radius: 12px !important;
-    background: linear-gradient(135deg, #ffffff 0%, #fffbf0 100%) !important;
-    border-left: 4px solid #ff9800 !important;
-    box-shadow: 0 2px 8px rgba(255, 152, 0, 0.1) !important;
+    border-left: 5px solid #e0e0e0;
+    border-bottom: 1px solid #e8e8e8;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    margin: 0.5rem 0.75rem;
+    border-radius: 12px;
+    background: #ffffff;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+    overflow: hidden;
+    position: relative;
+}
+
+.eventDetailItem::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 5px;
+    background: linear-gradient(180deg, #ff9800 0%, #f57c00 100%);
+    transition: width 0.3s ease;
 }
 
 .eventDetailItem:hover {
-    background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%) !important;
-    transform: translateX(4px) !important;
-    box-shadow: 0 4px 16px rgba(255, 152, 0, 0.2) !important;
-    border-left-color: #f57c00 !important;
+    background: linear-gradient(135deg, #fff8f0 0%, #ffffff 100%);
+    border-left-color: #ff9800;
+    transform: translateX(2px);
+    box-shadow: 0 4px 12px rgba(255, 152, 0, 0.2);
 }
 
-.eventDetailItem:nth-child(even) {
-    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%) !important;
-    border-left-color: #ffb74d !important;
+.eventDetailItem:hover::before {
+    width: 6px;
 }
 
 .eventDetailItem:last-child {
     border-bottom: none !important;
 }
 
-.eventDetailItem:last-child .sapUiTinyMargin {
+.eventDetailItem:last-child .sapUiSmallMarginBottom {
     display: none !important;
+}
+
+/* Event Detail Content */
+.eventDetailContent {
+    padding: 0.75rem 0.5rem;
+    width: 100%;
+}
+
+/* Event Icon Container - Beautiful Background (Orange Theme) */
+.eventIconContainer {
+    width: 3.5rem;
+    height: 3.5rem;
+    min-width: 3.5rem;
+    min-height: 3.5rem;
+    background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 6px rgba(255, 152, 0, 0.15);
+    transition: all 0.3s ease;
+}
+
+.eventDetailItem:hover .eventIconContainer {
+    background: linear-gradient(135deg, #ffe0b2 0%, #ffcc80 100%);
+    box-shadow: 0 4px 10px rgba(255, 152, 0, 0.25);
+    transform: scale(1.05);
+}
+
+/* Event Icon Styling - Enhanced */
+.eventIcon {
+    color: #f57c00 !important;
+    filter: drop-shadow(0 2px 4px rgba(245, 124, 0, 0.3));
+    font-size: 2.5rem !important;
+}
+
+/* Event Title - Bold and Prominent */
+.eventTitle {
+    font-weight: 700 !important;
+    color: #1a1a1a !important;
+    font-size: 1rem !important;
+    line-height: 1.4;
+    margin-bottom: 0 !important;
+    margin-right: 0.5rem !important;
+}
+
+/* Event Description - Clean Typography */
+.eventDescription {
+    color: #666666 !important;
+    font-size: 0.875rem !important;
+    line-height: 1.5;
+    word-wrap: break-word;
 }
 
 /* Event Detail Icons - Colorful */
@@ -1315,22 +1541,73 @@
     color: #607d8b !important;
 }
 
-/* ScrollContainer for Activity Table - Similar to other views */
+/* ScrollContainer for Activity - Responsive like HomePage */
 .sapUiView[data-controller-name*="Activity"] .sapMScrollContainer {
-    width: 100%;
-    overflow-x: auto;
-    overflow-y: hidden;
+    width: 100% !important;
+    overflow-x: auto !important;
+    overflow-y: auto !important;
     -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin; /* Firefox */
+    -ms-overflow-style: auto; /* IE and Edge */
 }
 
-.sapUiView[data-controller-name*="Activity"] .sapMScrollContainer .sapMTable {
+/* Webkit browsers (Chrome, Safari, Edge) - Custom scrollbar */
+.sapUiView[data-controller-name*="Activity"] .sapMScrollContainer::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.sapUiView[data-controller-name*="Activity"] .sapMScrollContainer::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.sapUiView[data-controller-name*="Activity"] .sapMScrollContainer::-webkit-scrollbar-thumb {
+    background: #0070f2;
+    border-radius: 4px;
+}
+
+.sapUiView[data-controller-name*="Activity"] .sapMScrollContainer::-webkit-scrollbar-thumb:hover {
+    background: #0051d5;
+}
+
+/* Firefox scrollbar */
+.sapUiView[data-controller-name*="Activity"] .sapMScrollContainer:hover {
+    scrollbar-width: thin;
+    scrollbar-color: #0070f2 #f1f1f1;
+}
+
+/* Lists inside ScrollContainer - ensure proper width */
+.sapUiView[data-controller-name*="Activity"] .sapMScrollContainer .sapMList {
     min-width: 100%;
+    width: 100%;
 }
 
-/* Stage Summary List - Compact */
+/* Stage Summary List - Beautiful Container */
 .sapUiView[data-controller-name*="Activity"] .sapMPanel[header-text*="Stage Summary"] .sapMList {
-    max-height: 200px;
+    max-height: 500px;
     overflow-y: auto;
+    padding: 0.5rem 0;
+    background: transparent;
+}
+
+/* Custom scrollbar for Stage Summary */
+.sapUiView[data-controller-name*="Activity"] .sapMPanel[header-text*="Stage Summary"] .sapMList::-webkit-scrollbar {
+    width: 6px;
+}
+
+.sapUiView[data-controller-name*="Activity"] .sapMPanel[header-text*="Stage Summary"] .sapMList::-webkit-scrollbar-track {
+    background: #f5f5f5;
+    border-radius: 3px;
+}
+
+.sapUiView[data-controller-name*="Activity"] .sapMPanel[header-text*="Stage Summary"] .sapMList::-webkit-scrollbar-thumb {
+    background: #4caf50;
+    border-radius: 3px;
+}
+
+.sapUiView[data-controller-name*="Activity"] .sapMPanel[header-text*="Stage Summary"] .sapMList::-webkit-scrollbar-thumb:hover {
+    background: #388e3c;
 }
 
 /* Analysis View Container */
@@ -1512,8 +1789,43 @@
     }
     
     /* Stage Summary - Mobile */
+    .stageSummaryItem {
+        margin: 0.4rem 0.5rem;
+        border-radius: 10px;
+    }
+    
+    .stageSummaryContent {
+        padding: 0.6rem 0.4rem;
+    }
+    
+    .stageIconContainer {
+        width: 3rem;
+        height: 3rem;
+        min-width: 3rem;
+        min-height: 3rem;
+        border-radius: 10px;
+    }
+    
+    .stageIcon {
+        font-size: 2rem !important;
+    }
+    
+    .stageTitle {
+        font-size: 0.95rem !important;
+    }
+    
+    .stageDescription {
+        font-size: 0.8rem !important;
+    }
+    
+    .stageTAT {
+        font-size: 0.9rem !important;
+        min-width: 70px;
+    }
+    
     .sapUiView[data-controller-name*="Activity"] .sapMCLI {
         padding: 0.5rem;
+        margin: 0.4rem 0.5rem;
     }
     
     .sapUiView[data-controller-name*="Activity"] .sapMCLI .sapMHBox {
@@ -1522,6 +1834,47 @@
     
     .sapUiView[data-controller-name*="Activity"] .sapMCLI .sapUiCoreIcon {
         font-size: 1.75rem !important;
+    }
+    
+    /* ScrollContainer - Mobile */
+    .sapUiView[data-controller-name*="Activity"] .sapMScrollContainer {
+        height: auto !important;
+        max-height: 400px;
+    }
+    
+    /* Event Details List - Responsive */
+    #activityDetailsList {
+        width: 100%;
+    }
+    
+    .eventDetailItem {
+        min-width: 100%;
+        margin: 0.4rem 0.5rem;
+        border-radius: 10px;
+    }
+    
+    .eventDetailContent {
+        padding: 0.6rem 0.4rem;
+    }
+    
+    .eventIconContainer {
+        width: 3rem;
+        height: 3rem;
+        min-width: 3rem;
+        min-height: 3rem;
+        border-radius: 10px;
+    }
+    
+    .eventIcon {
+        font-size: 2rem !important;
+    }
+    
+    .eventTitle {
+        font-size: 0.95rem !important;
+    }
+    
+    .eventDescription {
+        font-size: 0.8rem !important;
     }
     
     /* Panel adjustments - Mobile */
@@ -1542,6 +1895,17 @@
 
 /* Small Mobile devices */
 @media (max-width: 480px) {
+    /* ScrollContainer - Small Mobile */
+    .sapUiView[data-controller-name*="Activity"] .sapMScrollContainer {
+        height: auto !important;
+        max-height: 350px;
+    }
+    
+    .sapUiView[data-controller-name*="Activity"] .sapMScrollContainer::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+    }
+    
     /* Process Flow - Small Mobile */
     .activityProcessFlow {
         max-height: 280px;
@@ -1628,8 +1992,43 @@
     }
     
     /* Stage Summary - Small Mobile */
+    .stageSummaryItem {
+        margin: 0.3rem 0.4rem;
+        border-radius: 8px;
+    }
+    
+    .stageSummaryContent {
+        padding: 0.5rem 0.3rem;
+    }
+    
+    .stageIconContainer {
+        width: 2.5rem;
+        height: 2.5rem;
+        min-width: 2.5rem;
+        min-height: 2.5rem;
+        border-radius: 8px;
+    }
+    
+    .stageIcon {
+        font-size: 1.75rem !important;
+    }
+    
+    .stageTitle {
+        font-size: 0.9rem !important;
+    }
+    
+    .stageDescription {
+        font-size: 0.75rem !important;
+    }
+    
+    .stageTAT {
+        font-size: 0.85rem !important;
+        min-width: 60px;
+    }
+    
     .sapUiView[data-controller-name*="Activity"] .sapMCLI {
         padding: 0.4rem;
+        margin: 0.3rem 0.4rem;
     }
     
     .sapUiView[data-controller-name*="Activity"] .sapMCLI .sapMHBox {
@@ -1638,6 +2037,36 @@
     
     .sapUiView[data-controller-name*="Activity"] .sapMCLI .sapUiCoreIcon {
         font-size: 1.5rem !important;
+    }
+    
+    /* Event Details - Small Mobile */
+    .eventDetailItem {
+        margin: 0.3rem 0.4rem;
+        border-radius: 8px;
+    }
+    
+    .eventDetailContent {
+        padding: 0.5rem 0.3rem;
+    }
+    
+    .eventIconContainer {
+        width: 2.5rem;
+        height: 2.5rem;
+        min-width: 2.5rem;
+        min-height: 2.5rem;
+        border-radius: 8px;
+    }
+    
+    .eventIcon {
+        font-size: 1.75rem !important;
+    }
+    
+    .eventTitle {
+        font-size: 0.9rem !important;
+    }
+    
+    .eventDescription {
+        font-size: 0.75rem !important;
     }
     
     /* Panel adjustments - Small Mobile */

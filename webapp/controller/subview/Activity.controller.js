@@ -66,16 +66,24 @@ sap.ui.define([
 			});
 
 			this._oEventBus = sap.ui.getCore().getEventBus();
-			this._oEventBus.subscribe("TripData", "Updated", this._loadActivityHistory, this);
+			// Store bound function reference for proper unsubscription
+			this._onTripDataUpdated = function() {
+				this._loadActivityHistory(true); // Pass true for delay
+			}.bind(this);
+			// Subscribe with delay flag for updates to allow backend processing time
+			this._oEventBus.subscribe("TripData", "Updated", this._onTripDataUpdated, this);
 
-			this._loadActivityHistory();
+			this._loadActivityHistory(false); // No delay on initial load
 		},
 
 		onExit: function () {
-			this._oEventBus?.unsubscribe("TripData", "Updated", this._loadActivityHistory, this);
+			// Unsubscribe from event bus using stored reference
+			if (this._oEventBus && this._onTripDataUpdated) {
+				this._oEventBus.unsubscribe("TripData", "Updated", this._onTripDataUpdated, this);
+			}
 		},
 
-		_loadActivityHistory: function () {
+		_loadActivityHistory: function (bDelay) {
 			var sTripNumber = sap.ui.getCore().getModel("globalData")?.getProperty("/TripNumber") || "";
 			var oView = this.getView();
 
@@ -84,21 +92,31 @@ sap.ui.define([
 				return;
 			}
 
-			oView.setBusy(true);
-			this._oService.read("/ActivityHistory", {
-				filters: [
-					new Filter("TripNumber", FilterOperator.EQ, sTripNumber)
-				],
-				success: function (oData) {
-					oView.setBusy(false);
-					this._setActivityData(oData.results || []);
-				}.bind(this),
-				error: function () {
-					oView.setBusy(false);
-					MessageToast.show("Unable to load activity history");
-					this._setActivityData([]);
-				}.bind(this)
-			});
+			// If delay is requested (for updates), wait a bit for backend to process
+			var fnLoad = function() {
+				oView.setBusy(true);
+				this._oService.read("/ActivityHistory", {
+					filters: [
+						new Filter("TripNumber", FilterOperator.EQ, sTripNumber)
+					],
+					success: function (oData) {
+						oView.setBusy(false);
+						this._setActivityData(oData.results || []);
+					}.bind(this),
+					error: function () {
+						oView.setBusy(false);
+						MessageToast.show("Unable to load activity history");
+						this._setActivityData([]);
+					}.bind(this)
+				});
+			}.bind(this);
+
+			if (bDelay) {
+				// Add delay to allow backend to update ActivityHistory
+				setTimeout(fnLoad, 500);
+			} else {
+				fnLoad();
+			}
 		},
 
 		_setActivityData: function (aEvents) {
@@ -162,13 +180,16 @@ sap.ui.define([
 			this._oActivityModel.setProperty("/eventsCount", aEnriched.length);
 			this._oActivityModel.setProperty("/nodes", this._buildProcessFlowNodes(aEnriched));
 			
-			// Calculate total TAT from individual event TATs
+			// Calculate total TAT from individual event TATs (force recalculation)
 			var sTotalTat = this._calculateTat(aEnriched);
 			this._oActivityModel.setProperty("/tatText", sTotalTat);
 			this._oActivityModel.setProperty("/totalTatText", sTotalTat);
 			
 			this._oActivityModel.setProperty("/lastUpdatedText", this._getLastUpdatedText(aEnriched));
 			this._oActivityModel.setProperty("/milestones", this._buildStageSummary(aEnriched));
+			
+			// Force UI refresh to ensure TAT is displayed correctly after updates
+			this._oActivityModel.refresh(true);
 		},
 
 		_buildProcessFlowNodes: function (aEvents) {
