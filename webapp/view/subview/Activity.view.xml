@@ -232,6 +232,14 @@
                                                             color="#107e3e"
                                                             class="sapUiTinyMarginEnd"/>
                                                         <Text 
+                                                            text="{activityModel>loadingUnloadingText}"
+                                                            class="sapUiSmallFontSize"
+                                                            wrapping="false"
+                                                            style="font-weight: 600;"/>
+                                                        <Text 
+                                                            text=" - "
+                                                            class="sapUiSmallFontSize sapUiTinyMarginBegin sapUiTinyMarginEnd"/>
+                                                        <Text 
                                                             text="{activityModel>movementTypeDesc}"
                                                             class="sapUiSmallFontSize"
                                                             wrapping="false"/>

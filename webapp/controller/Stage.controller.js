@@ -21,12 +21,16 @@ sap.ui.define([
 
 			this._oEventBus = sap.ui.getCore().getEventBus();
 			this._oEventBus.subscribe("TripData", "Updated", this._refreshPageTitleModel, this);
+			this._oEventBus.subscribe("TripData", "Updated", this._updateLoadingUnloadingTabs, this);
 			this._oEventBus.subscribe("Stage", "TripCreated", this._onTripCreated, this);
 		},
-		onAfterRendering: function() {},
+		onAfterRendering: function() {
+			this._updateLoadingUnloadingTabs();
+		},
 
 		onExit: function () {
 			this._oEventBus?.unsubscribe("TripData", "Updated", this._refreshPageTitleModel, this);
+			this._oEventBus?.unsubscribe("TripData", "Updated", this._updateLoadingUnloadingTabs, this);
 			this._oEventBus?.unsubscribe("Stage", "TripCreated", this._onTripCreated, this);
 		},
 
@@ -68,6 +72,7 @@ sap.ui.define([
 	
 			this.resetPageTitleModel();   // ← finally clears
 			this._setIconTabSelection("vehicleReporting");
+			this._updateLoadingUnloadingTabs();
 	
 			console.log("Stage (Create): pageTitleModel cleared");
 			return;
@@ -84,6 +89,7 @@ sap.ui.define([
 			sap.ui.getCore().getModel("globalData")?.setProperty("/TripNumber", sTripNumber);
 	
 			this._refreshPageTitleModel();
+			this._updateLoadingUnloadingTabs();
 	
 			console.log("StagewithParam (Update): refreshed pageTitleModel");
 		}
@@ -305,6 +311,35 @@ sap.ui.define([
 				});
 			}
 			return this._oTripService;
+		},
+
+		_updateLoadingUnloadingTabs: function () {
+			var oTripDataModel = sap.ui.getCore().getModel("TripData");
+			var oLoadingTab = this.byId("idLoadingMaterial");
+			var oUnloadingTab = this.byId("idUnloadingMaterial");
+
+			if (!oLoadingTab || !oUnloadingTab) {
+				return;
+			}
+
+			if (oTripDataModel) {
+				var sMovementTypeDesc = (oTripDataModel.getProperty("/MovementTypeDesc") || "").toUpperCase();
+				var bIsInward = sMovementTypeDesc.indexOf("INWARD") !== -1;
+
+				// If Inward, show Unloading and hide Loading
+				// Otherwise, show Loading and hide Unloading
+				if (bIsInward) {
+					oUnloadingTab.setVisible(true);
+					oLoadingTab.setVisible(false);
+				} else {
+					oLoadingTab.setVisible(true);
+					oUnloadingTab.setVisible(false);
+				}
+			} else {
+				// Default: show both tabs when no TripData (create mode)
+				oLoadingTab.setVisible(true);
+				oUnloadingTab.setVisible(true);
+			}
 		}
 
 	});

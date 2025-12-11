@@ -130,6 +130,9 @@ sap.ui.define([
 				}
 				// Parse TurnAroundTime to milliseconds for calculation
 				var iTatMs = that._parseTurnAroundTime(oItem.TurnAroundTime || "");
+				// Determine Loading/Unloading based on Movement Type
+				var sMovementTypeDesc = (oItem.MovementTypeDesc || "").toUpperCase();
+				var sLoadingUnloading = sMovementTypeDesc.indexOf("INWARD") !== -1 ? "Unloading" : "Loading";
 				return {
 					_nodeId: "node" + index,
 					eventKey: (oItem.EventID || "") + " / " + (oItem.Seqno || ""),
@@ -137,6 +140,7 @@ sap.ui.define([
 					movementTypeDesc: oItem.MovementTypeDesc || "",
 					movementScenarioDesc: oItem.MovementScenarioDesc || "",
 					movementScenario: (oItem.MovementTypeDesc || oItem.MovementType || "") + "-" + (oItem.MovementScenarioDesc || oItem.MovementScenario || ""),
+					loadingUnloadingText: sLoadingUnloading,
 					displayTimestamp: that._formatDateTime(oDate),
 					createdBy: oItem.CreatedBy || "",
 					changedBy: oItem.ChangedBy || "",
