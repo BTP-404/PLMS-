@@ -1,0 +1,23 @@
+<core:FragmentDefinition
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+>
+    <SelectDialog
+        id="idMaterialItemValueHelp"
+        title="Select Material Item"
+        class="sapUiSizeCompact"
+        search=".onMaterialItemValueHelpSearch"
+        confirm=".onMaterialItemValueHelpConfirm"
+        cancel=".onMaterialItemValueHelpCancel"
+        items="{materialItems>/items}"
+        growing="true"
+        growingThreshold="100"
+    >
+        <StandardListItem
+            title="{materialItems>RefDocItemNo}"
+            description="{materialItems>MaterialCode} - {materialItems>MaterialDescription}"
+            info="Qty: {materialItems>Quantity} {materialItems>UoM}"
+            type="Active"
+        />
+    </SelectDialog>
+</core:FragmentDefinition>

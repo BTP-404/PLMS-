@@ -67,18 +67,21 @@
                 id="idRefDocDate"
                 valueFormat="yyyy-MM-dd"
                 displayFormat="long"
+                enabled="false"
             />
 
             <Label text="Sending / Receiving Party Code" />
             <Input
                 id="idRefDocPartyCode"
                 valueLiveUpdate="true"
+                enabled="false"
             />
 
             <Label text="Sending / Receiving Party Name" />
             <Input
                 id="idRefDocPartyName"
                 valueLiveUpdate="true"
+                enabled="false"
             />
 
         </form:SimpleForm>

@@ -181,7 +181,7 @@ sap.ui.define(
 
         /* ===========================================================
          * UPDATED: onSaveReporting
-         * - added mobile validation for CREATE mode (exactly 10 digits)
+         * - added mobile validation for CREATE and UPDATE modes (minimum 10 characters)
          * - keeps existing required field validation and create/update flows
          * =========================================================== */
         onSaveReporting: function () {
@@ -194,22 +194,20 @@ sap.ui.define(
             return;
           }
 
-          // ADDED: Additional validation only for CREATE
-          if (this._mode === "CREATE") {
-            const sMobile = this.byId("idDriverContact")?.getValue?.() || "";
-            if (!this._isValidMobile(sMobile)) {
-              this.byId("idDriverContact").setValueState("Error");
-              this.byId("idDriverContact").setValueStateText(
-                "Enter valid 10-digit mobile number"
-              );
-              MessageBox.warning(
-                "Please enter a valid 10-digit mobile number."
-              );
-              return;
-            } else {
-              // clear any previous error state
-              this.byId("idDriverContact").setValueState("None");
-            }
+          // ADDED: Additional validation for CREATE and UPDATE modes
+          const sMobile = this.byId("idDriverContact")?.getValue?.() || "";
+          if (!this._isValidMobile(sMobile)) {
+            this.byId("idDriverContact").setValueState("Error");
+            this.byId("idDriverContact").setValueStateText(
+              "Driver contact must be exactly 10 digits"
+            );
+            MessageBox.warning(
+              "Please enter a valid driver contact number (exactly 10 digits)."
+            );
+            return;
+          } else {
+            // clear any previous error state
+            this.byId("idDriverContact").setValueState("None");
           }
 
           if (this._mode === "CREATE") {
@@ -526,7 +524,6 @@ sap.ui.define(
             "idMovementType",
             "idVehicleNumber",
             "idVehicleType",
-            "idVehicleSize",
             "idTransporterName",
             "idDriverName",
             "idDriverContact",
@@ -555,14 +552,47 @@ sap.ui.define(
         },
 
         /* ===========================================================
-         * ADDED: _isValidMobile
+         * UPDATED: _isValidMobile
          * - ensures only digits and exactly 10 characters
          * =========================================================== */
         _isValidMobile: function (sMobile) {
           if (!sMobile) return false;
           const s = (sMobile + "").trim();
+          // Check if it contains only digits and has exactly 10 characters
           const regex = /^[0-9]{10}$/;
           return regex.test(s);
+        },
+
+        /* ===========================================================
+         * ADDED: onDriverContactLiveChange
+         * - validates driver contact on live change (exactly 10 characters)
+         * =========================================================== */
+        onDriverContactLiveChange: function (oEvent) {
+          const sValue = oEvent.getParameter("value") || "";
+          const oInput = oEvent.getSource();
+          
+          if (!sValue || sValue.trim() === "") {
+            // Clear validation state if field is empty (required validation will handle it)
+            oInput.setValueState("None");
+            oInput.setValueStateText("");
+            return;
+          }
+          
+          // Validate on live change - check for exactly 10 digits
+          const sTrimmed = sValue.trim();
+          if (sTrimmed.length < 10) {
+            oInput.setValueState("Error");
+            oInput.setValueStateText("Driver contact must be exactly 10 digits");
+          } else if (sTrimmed.length > 10) {
+            oInput.setValueState("Error");
+            oInput.setValueStateText("Driver contact cannot be more than 10 digits");
+          } else if (!/^[0-9]{10}$/.test(sTrimmed)) {
+            oInput.setValueState("Error");
+            oInput.setValueStateText("Driver contact must contain only digits");
+          } else {
+            oInput.setValueState("None");
+            oInput.setValueStateText("");
+          }
         },
 
         /* ===========================================================
@@ -1271,6 +1301,15 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
                 (oSelected.getBindingContext("VHModel") &&
                   oSelected.getBindingContext("VHModel").getObject());
               if (oVehicleTypeRow) {
+                // Check if ConfigID is 99 for manual input
+                if (oVehicleTypeRow.ConfigID === "99") {
+                  // Close the dialog first
+                  oDialog.close();
+                  // Open manual input dialog for Vehicle Type
+                  this._openManualVehicleTypeInput();
+                  return; // Exit early to prevent normal processing
+                }
+                
                 // Store ConfigID in TripData model (for backend)
                 const oTripDataModel = this.getView().getModel("TripData");
                 if (oTripDataModel) {
@@ -1384,10 +1423,9 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
                 
                 oList.addItem(
                   new sap.m.StandardListItem({
-                    title: row.ShortText,
+                    title: row.LongText,
+                    description: row.ShortText,
                     icon: sIcon,
-                    // description: row.ShortText,
-                    // info: row.LongText,
                     type: "Active",
                   }).data("row", row)
                 );
@@ -1429,6 +1467,45 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
           }
 
           this.byId("idVHMovementScenario").close();
+        },
+
+        onMovementScenarioSuggest: function (oEvent) {
+          const sValue = oEvent.getParameter("suggestValue").toLowerCase();
+          const oModel = this.getView().getModel();
+          const that = this;
+
+          if (sValue.length >= 2) {
+            oModel.read("/OrderTypeSH", {
+              success: function (oData) {
+                const aFilteredData = oData.results.filter(function (item) {
+                  return (
+                    item.LongText.toLowerCase().includes(sValue) ||
+                    item.ShortText.toLowerCase().includes(sValue) ||
+                    item.MovementScenario.toLowerCase().includes(sValue)
+                  );
+                });
+
+                const oSuggestionModel = new sap.ui.model.json.JSONModel({
+                  MovementScenarioSuggestions: aFilteredData
+                });
+                that.getView().setModel(oSuggestionModel, "suggestions");
+                
+                // Update the binding path for suggestions
+                const oInput = that.byId("idMovementScenario");
+                oInput.bindAggregation("suggestionItems", {
+                  path: "suggestions>/MovementScenarioSuggestions",
+                  template: new sap.ui.core.Item({
+                    key: "{suggestions>ShortText}",
+                    text: "{suggestions>LongText}",
+                    additionalText: "{suggestions>ShortText}"
+                  })
+                });
+              },
+              error: function (error) {
+                console.error("Movement Scenario Suggestion Error:", error);
+              }
+            });
+          }
         },
 
         _fetchPlantsForCompany: function (sPlant) {
@@ -1722,6 +1799,123 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
           
           // Set Plant input (can show description for user)
           this.byId("idPlant").setValue(sPlantText);
+        },
+
+        /* ===========================================================
+         * Manual Vehicle Type Input Dialog
+         * Opens when user selects ConfigID 99 from Vehicle Type value help
+         * =========================================================== */
+        _openManualVehicleTypeInput: function () {
+          const that = this;
+          
+          if (!this._oManualVehicleTypeDialog) {
+            this._oManualVehicleTypeDialog = new sap.m.Dialog({
+              title: "Enter Vehicle Type Manually",
+              contentWidth: "400px",
+              contentHeight: "200px",
+              draggable: true,
+              resizable: true,
+              content: [
+                new sap.m.VBox({
+                  class: "sapUiMediumMargin",
+                  items: [
+                    new sap.m.Label({
+                      text: "Vehicle Type:",
+                      design: "Bold",
+                      required: true
+                    }),
+                    new sap.m.Input({
+                      id: this.createId("idManualVehicleTypeInput"),
+                      width: "100%",
+                      placeholder: "Enter vehicle type...",
+                      maxLength: 50,
+                      liveChange: function(oEvent) {
+                        const sValue = oEvent.getParameter("value");
+                        const oOkButton = that._oManualVehicleTypeDialog.getBeginButton();
+                        oOkButton.setEnabled(!!sValue && sValue.trim().length > 0);
+                      }
+                    })
+                  ]
+                })
+              ],
+              beginButton: new sap.m.Button({
+                text: "OK",
+                type: "Emphasized",
+                enabled: false,
+                press: function () {
+                  that._onConfirmManualVehicleType();
+                }
+              }),
+              endButton: new sap.m.Button({
+                text: "Cancel",
+                press: function () {
+                  that._oManualVehicleTypeDialog.close();
+                }
+              })
+            });
+            
+            this.getView().addDependent(this._oManualVehicleTypeDialog);
+          }
+          
+          // Clear previous input and reset button state
+          const oInput = this.byId("idManualVehicleTypeInput");
+          if (oInput) {
+            oInput.setValue("");
+            oInput.setValueState("None");
+          }
+          this._oManualVehicleTypeDialog.getBeginButton().setEnabled(false);
+          
+          this._oManualVehicleTypeDialog.open();
+        },
+
+        /* ===========================================================
+         * Confirm Manual Vehicle Type Input
+         * Validates and saves the manually entered vehicle type
+         * =========================================================== */
+        _onConfirmManualVehicleType: function () {
+          const oInput = this.byId("idManualVehicleTypeInput");
+          const sManualVehicleType = oInput.getValue().trim();
+          
+          if (!sManualVehicleType) {
+            oInput.setValueState("Error");
+            oInput.setValueStateText("Please enter a vehicle type");
+            return;
+          }
+          
+          // Store the manual vehicle type in TripData model
+          const oTripDataModel = this.getView().getModel("TripData");
+          if (oTripDataModel) {
+            // Use ConfigID 99 to indicate manual entry, but store the actual description
+            oTripDataModel.setProperty("/VehicleType", "99");
+            oTripDataModel.setProperty("/VehicleTypeDesc", sManualVehicleType);
+          }
+          
+          // Update the Vehicle Type input field with the manual entry
+          const oVehicleTypeField = this.byId("idVehicleType");
+          if (oVehicleTypeField) {
+            oVehicleTypeField.setValue(sManualVehicleType);
+          }
+          
+          // Clear value state and close dialog
+          oInput.setValueState("None");
+          this._oManualVehicleTypeDialog.close();
+          
+          sap.m.MessageToast.show("Manual vehicle type entered: " + sManualVehicleType);
+        },
+
+        /* ===========================================================
+         * Vehicle Type Live Change Handler
+         * Handles manual editing of Vehicle Type field
+         * =========================================================== */
+        onVehicleTypeLiveChange: function (oEvent) {
+          const sValue = oEvent.getParameter("value");
+          const oTripDataModel = this.getView().getModel("TripData");
+          
+          if (oTripDataModel) {
+            // If user is manually typing, set ConfigID to 99 and update description
+            oTripDataModel.setProperty("/VehicleType", "99");
+            oTripDataModel.setProperty("/VehicleTypeDesc", sValue);
+          }
         }
       }
     );

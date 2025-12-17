@@ -6,6 +6,7 @@ sap.ui.define(
     "sap/m/MessageBox",
     "sap/ui/model/json/JSONModel",
     "sap/ui/core/Fragment",
+    "sap/ndc/BarcodeScanner",
   ],
   function (
     Controller,
@@ -13,7 +14,8 @@ sap.ui.define(
     MessageToast,
     MessageBox,
     JSONModel,
-    Fragment
+    Fragment,
+    BarcodeScanner
   ) {
     "use strict";
 
@@ -44,6 +46,7 @@ sap.ui.define(
           // Initialize selected files array
           this._aSelectedFiles = [];
         },
+        
         _initGateInAttachmentsModel: function () {
           if (!this._oGateInAttachmentsModel) {
             this._oGateInAttachmentsModel = new JSONModel({ attachments: [] });
@@ -344,12 +347,17 @@ sap.ui.define(
                 ? "Gate In information created successfully!" 
                 : "Gate In information updated successfully!";
               
-              // Update TripData model with saved EntryGateNum
-              var oTripData = sap.ui.getCore().getModel("TripData");
-              if (oTripData) {
-                oTripData.setProperty("/EntryGateNum", sEntryGateNumber);
-                // Publish event to notify other views
-                this._eventBus.publish("TripData", "Updated");
+              // Reload complete TripData from backend to maintain data consistency
+              var sTripNumber = sap.ui.getCore().getModel("globalData").getProperty("/TripNumber");
+              if (sTripNumber) {
+                this._reloadTripDataAfterSave(sTripNumber, sEntryGateNumber);
+              } else {
+                // Fallback: just update the property if no trip number
+                var oTripData = sap.ui.getCore().getModel("TripData");
+                if (oTripData) {
+                  oTripData.setProperty("/EntryGateNum", sEntryGateNumber);
+                  this._eventBus.publish("TripData", "Updated");
+                }
               }
               
               // Upload attachments if any files were selected
@@ -478,11 +486,40 @@ sap.ui.define(
             var oPanel = this.getView().byId("gateInInfoPanel");
             if (!oPanel) return;
             
+            // Check if vehicle is reported yet
+            var oTripData = sap.ui.getCore().getModel("TripData");
+            var bVehicleReported = false;
+            if (oTripData) {
+              var sVehicleNumber = oTripData.getProperty("/VehicleNumber");
+              bVehicleReported = sVehicleNumber && sVehicleNumber.trim() !== "";
+            }
+            
             // Find all aggregated controls in the panel
             var aChildren = oPanel.findAggregatedObjects(true); // deep search
             
+            var that = this;
             aChildren.forEach(function(ctrl) {
-              // Ignore buttons
+              var sCtrlId = ctrl.getId();
+              
+              // Ignore Edit/Save buttons (they are handled separately)
+              if (sCtrlId && (sCtrlId.indexOf("btnEditGateInInfo") !== -1 || 
+                              sCtrlId.indexOf("btnSaveGateInInfo") !== -1)) {
+                return;
+              }
+              
+              // Keep Scanner Input and Scan Button always enabled if vehicle is not reported
+              if (!bVehicleReported && sCtrlId && 
+                  (sCtrlId.indexOf("idGateInScannerInput") !== -1 || 
+                   sCtrlId.indexOf("idGateInScanButton") !== -1)) {
+                if (ctrl.setEditable) {
+                  ctrl.setEditable(true);
+                } else if (ctrl.setEnabled) {
+                  ctrl.setEnabled(true);
+                }
+                return;
+              }
+              
+              // Ignore other buttons
               if (ctrl.isA && ctrl.isA("sap.m.Button")) return;
               
               // Try setEditable first (for Input, TextArea, etc.)
@@ -993,6 +1030,174 @@ sap.ui.define(
           document.body.appendChild(oLink);
           oLink.click();
           document.body.removeChild(oLink);
+        },
+
+        //---------------------------------------------
+        // SCANNER LOGIC
+        //---------------------------------------------
+        onScanSuccess: function () {
+          var that = this;
+          BarcodeScanner.scan(
+            function (oResult) {
+              console.log("Scan result:", oResult);
+              if (!oResult.cancelled) {
+                var sScannedCode = oResult.text;
+                // Parse code if it contains pipe separator (e.g., "GATE001|Entry Gate 1")
+                var sParsedCode = sScannedCode.split("|")[0];
+                that._processScannedCode(sParsedCode);
+              }
+            }.bind(this),
+            function (oError) {
+              console.error("Scan failed:", oError);
+              MessageToast.show("Scan failed: " + (oError.message || oError));
+              setTimeout(function() {
+                var oScannerInput = that.getView().byId("idGateInScannerInput");
+                if (oScannerInput) {
+                  oScannerInput.focus();
+                }
+              }, 200);
+            }.bind(this)
+          );
+        },
+
+        onScanLiveupdate: function (oEvent) {
+          var sText = oEvent.getParameter("newValue");
+          var oScannerInput = this.getView().byId("idGateInScannerInput");
+          if (oScannerInput) {
+            oScannerInput.setValue(sText);
+          }
+          // Process scanned code if value is entered
+          if (sText && sText.trim() !== "") {
+            var sParsedCode = sText.split("|")[0];
+            this._processScannedCode(sParsedCode);
+          }
+        },
+
+        _processScannedCode: function (sScannedCode) {
+          console.log("=== SCANNER DEBUG ===");
+          console.log("Processing scanned code:", sScannedCode);
+          
+          if (!sScannedCode || sScannedCode.trim() === "") {
+            console.log("Invalid scan code - empty");
+            MessageToast.show("Invalid scan code");
+            return;
+          }
+
+          // Try to parse scanned code as JSON first
+          var oScannedData = null;
+          try {
+            oScannedData = JSON.parse(sScannedCode);
+            console.log("Parsed JSON data:", oScannedData);
+          } catch (e) {
+            // If not JSON, try to parse as comma-separated key-value pairs
+            console.log("Scanned code is not JSON, trying to parse as key-value pairs");
+            oScannedData = this._parseKeyValueString(sScannedCode);
+            if (!oScannedData) {
+              console.log("Failed to parse scanned code");
+              MessageToast.show("Invalid barcode format");
+              this._clearAndRefocusScanner();
+              return;
+            }
+            console.log("Parsed key-value data:", oScannedData);
+          }
+
+          // Extract asnId and orgId from scanned data
+          var sAsnId = oScannedData.asnId;
+          var sOrgId = oScannedData.orgId;
+          
+          if (!sAsnId || !sOrgId) {
+            console.log("Missing asnId or orgId in scanned data");
+            console.log("Available keys:", Object.keys(oScannedData));
+            MessageToast.show("Invalid barcode: Missing asnId or orgId");
+            this._clearAndRefocusScanner();
+            return;
+          }
+
+          console.log("Extracted asnId:", sAsnId);
+          console.log("Extracted orgId:", sOrgId);
+
+          // Step 1: Get OAuth Token
+          this._getOAuthToken(sAsnId, sOrgId);
+        },
+
+        _parseKeyValueString: function (sString) {
+          try {
+            // Parse format like: "vendorCode=I0141,asnId=ASN5a8faad3,poNum=2000000294,orgId=a039ec0a-df8c-4b0b-abb5-7f41b2190fc6"
+            var oResult = {};
+            var aPairs = sString.split(',');
+            aPairs.forEach(function(sPair) {
+              var aKeyValue = sPair.split('=');
+              if (aKeyValue.length === 2) {
+                var sKey = aKeyValue[0].trim();
+                var sValue = aKeyValue[1].trim();
+                oResult[sKey] = sValue;
+              }
+            });
+            console.log("Converted to JSON object:", oResult);
+            return oResult;
+          } catch (e) {
+            console.error("Error parsing key-value string:", e);
+            return null;
+          }
+        },
+
+        _clearAndRefocusScanner: function () {
+          var oScannerInput = this.getView().byId("idGateInScannerInput");
+          if (oScannerInput) {
+            oScannerInput.setValue("");
+            setTimeout(function() {
+              oScannerInput.focus();
+            }, 100);
+          }
+        },
+
+        _getOAuthToken: function (sAsnId, sOrgId) {
+          console.log("Getting OAuth token for asnId:", sAsnId, "orgId:", sOrgId);
+          // Add your OAuth token logic here
+          // This is a placeholder - implement according to your authentication requirements
+          MessageToast.show("Scanner processed successfully! ASN ID: " + sAsnId);
+        },
+
+        _reloadTripDataAfterSave: function (sTripNumber, sEntryGateNumber) {
+          console.log("Reloading TripData after Gate-In save for trip:", sTripNumber);
+          
+          var oModel = this.oModel;
+          var that = this;
+          
+          // Read complete TripDetails with expanded data
+          oModel.read("/TripDetails('" + sTripNumber + "')", {
+            urlParameters: {
+              "$expand": "OrderDetails,ItemDetails"
+            },
+            success: function (oData) {
+              console.log("TripData reloaded successfully after Gate-In save");
+              
+              // Ensure EntryGateNum is set to the saved value
+              oData.EntryGateNum = sEntryGateNumber;
+              
+              // Update global TripData model
+              var oTripDataModel = new sap.ui.model.json.JSONModel(oData);
+              sap.ui.getCore().setModel(oTripDataModel, "TripData");
+              
+              // Update view model
+              that.getView().setModel(oTripDataModel, "TripData");
+              
+              // Publish event to notify other views with complete data
+              that._eventBus.publish("TripData", "Updated");
+              
+              console.log("TripData model updated with complete data including OrderDetails and ItemDetails");
+            },
+            error: function (oError) {
+              console.error("Failed to reload TripData after Gate-In save:", oError);
+              
+              // Fallback: just update the EntryGateNum property
+              var oTripData = sap.ui.getCore().getModel("TripData");
+              if (oTripData) {
+                oTripData.setProperty("/EntryGateNum", sEntryGateNumber);
+                that._eventBus.publish("TripData", "Updated");
+              }
+            }
+          });
         },
       }
     );

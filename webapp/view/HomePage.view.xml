@@ -165,7 +165,7 @@
                     headerText="Trip Details"
                     class="sapUiSizeCompact"
                     growing="true"
-                    growingScrollToLoad="true"
+                    growingScrollToLoad="false"
                     growingThreshold="25"
                     sticky="ColumnHeaders,HeaderToolbar"
                     width="auto"

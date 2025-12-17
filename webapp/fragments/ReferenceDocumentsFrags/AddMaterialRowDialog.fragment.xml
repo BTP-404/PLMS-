@@ -67,17 +67,18 @@
                 id="idMaterialRefDocItem"
                 valueLiveUpdate="true"
                 showValueHelp="true"
-                valueHelpRequest=".onMaterialValueHelp"
+                valueHelpRequest=".onMaterialItemValueHelp"
                 showSuggestion="true"
                 filterSuggests="true"
-                suggestionItemSelected=".onMaterialSuggestionSelected"
-                suggestionItems="{materialSuggestions>/items}"
+                suggestionItemSelected=".onMaterialItemSuggestionSelected"
+                change=".onMaterialRefDocItemChange"
+                suggestionItems="{materialItems>/items}"
             >
                 <suggestionItems>
                     <core:Item
-                        key="{materialSuggestions>RefDocItemNo}"
-                        text="{materialSuggestions>RefDocItemNo}"
-                        additionalText="{materialSuggestions>RefDocNo}"
+                        key="{materialItems>RefDocItemNo}"
+                        text="{materialItems>RefDocItemNo}"
+                        additionalText="{materialItems>MaterialCode} - {materialItems>MaterialDescription}"
                         templateShareable="false"
                     />
                 </suggestionItems>
@@ -87,27 +88,14 @@
             <Input
                 id="idMaterialCode"
                 valueLiveUpdate="true"
-                showValueHelp="true"
-                valueHelpRequest=".onMaterialValueHelp"
-                showSuggestion="true"
-                filterSuggests="true"
-                suggestionItemSelected=".onMaterialSuggestionSelected"
-                suggestionItems="{materialSuggestions>/items}"
-            >
-                <suggestionItems>
-                    <core:Item
-                        key="{materialSuggestions>MaterialCode}"
-                        text="{materialSuggestions>MaterialCode}"
-                        additionalText="{materialSuggestions>MaterialDescription}"
-                        templateShareable="false"
-                    />
-                </suggestionItems>
-            </Input>
+                editable="false"
+            />
 
             <Label text="Material Description" />
             <Input
                 id="idMaterialDesc"
                 valueLiveUpdate="true"
+                editable="false"
             />
 
             <Label text="Quantity" />
@@ -115,12 +103,14 @@
                 id="idMaterialQty"
                 type="Number"
                 valueLiveUpdate="true"
+                
             />
 
             <Label text="UoM" />
             <Input
                 id="idMaterialUoM"
                 valueLiveUpdate="true"
+                
             />
 
         </form:SimpleForm>

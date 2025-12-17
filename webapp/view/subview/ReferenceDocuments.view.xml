@@ -190,14 +190,14 @@
                             </headerToolbar>
 
                             <columns>
+                                <Column id="colMaterialCode" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                    <Text text="Material Code"/>
+                                </Column>
                                 <Column id="colMaterialRefDocNo" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
                                     <Text text="Ref Doc No"/>
                                 </Column>
                                 <Column id="colMaterialRefDocItemNo" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
                                     <Text text="Ref Doc Item No"/>
-                                </Column>
-                                <Column id="colMaterialCode" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
-                                    <Text text="Material Code"/>
                                 </Column>
                                 <Column id="colMaterialDescription" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
                                     <Text text="Material Description"/>
@@ -234,9 +234,9 @@
                             <items>
                                 <ColumnListItem>
                                     <cells>
+                                        <Text text="{refDocModel>materialCode}"/>
                                         <Text text="{refDocModel>refDocNo}"/>
                                         <Text text="{refDocModel>refDocItemNo}"/>
-                                        <Text text="{refDocModel>materialCode}"/>
                                         <Text text="{refDocModel>materialDescription}"/>
                                         <Text text="{refDocModel>qty}"/>
                                         <Text text="{refDocModel>uom}"/>

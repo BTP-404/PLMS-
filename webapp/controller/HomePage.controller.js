@@ -43,6 +43,13 @@ sap.ui.define(
           this._onExternalRefresh,
           this
         );
+
+        // Attach route matched event to automatically refresh table when navigating to HomePage
+        var oRouter = this.getOwnerComponent().getRouter();
+        if (oRouter) {
+          oRouter.getRoute("HomePage").attachPatternMatched(this._onRouteMatched, this);
+        }
+
         this.onRefresh();
       },
 
@@ -53,6 +60,12 @@ sap.ui.define(
           this._onExternalRefresh,
           this
         );
+
+        // Detach route matched event
+        var oRouter = this.getOwnerComponent().getRouter();
+        if (oRouter) {
+          oRouter.getRoute("HomePage").detachPatternMatched(this._onRouteMatched, this);
+        }
       },
 
       // --------------------------------------------
@@ -116,6 +129,17 @@ sap.ui.define(
 
       _onExternalRefresh: function () {
         this.onRefresh();
+      },
+
+      /**
+       * Event handler for route matched - automatically refreshes table when navigating to HomePage
+       * @private
+       */
+      _onRouteMatched: function () {
+        // Small delay to ensure view is fully rendered before refreshing
+        setTimeout(function() {
+          this.onRefresh();
+        }.bind(this), 100);
       },
 
       // --------------------------------------------

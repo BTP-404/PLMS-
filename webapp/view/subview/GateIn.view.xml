@@ -27,7 +27,44 @@
                 </OverflowToolbar>
             </headerToolbar>
 
-         
+            <VBox class="sapUiSizeCompact sapUiSmallPadding">
+                <!-- ========================= SCANNER ROW ========================= -->
+                <!-- Scanner Input and Button -->
+                <layout:Grid
+                    defaultSpan="L6 M8 S12"
+                    hSpacing="0.5rem"
+                    vSpacing="0.5rem"
+                    width="100%"
+                    class="sapUiTinyMarginBottom"
+                >
+                    <layout:content>
+                        <VBox width="100%">
+                            <Label
+                                text="Scanner Input"
+                                design="Bold"
+                                class="sapUiNoMarginBottom"
+                            />
+                            <HBox alignItems="Center" width="100%">
+                                <Input
+                                    id="idGateInScannerInput"
+                                    placeholder="Scan barcode or enter manually"
+                                    width="100%"
+                                    liveChange="onScanLiveupdate"
+                                    class="sapUiTinyMarginEnd"
+                                />
+                                <Button
+                                    id="idGateInScanButton"
+                                    text="Scan"
+                                    type="Emphasized"
+                                    icon="sap-icon://bar-code"
+                                    press="onScanSuccess"
+                                    class="sapUiTinyMarginBegin"
+                                />
+                            </HBox>
+                        </VBox>
+                    </layout:content>
+                </layout:Grid>
+
                 <!-- ========================= ROW 1 ========================= -->
                 <!-- Entry Gate + Delay Reason + Upload Attachments -->
                 <layout:Grid
@@ -197,7 +234,7 @@
                         class="sapUiTinyMarginBegin"
                     />
                 </HBox>
-           
+            </VBox>
         </Panel>
 
         <!-- ========================================================= -->
