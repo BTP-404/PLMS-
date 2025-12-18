@@ -138,13 +138,14 @@
                             <Input
                                 id="idVehicleSize"
                                 width="100%"
-                                showValueHelp="true"
+                                showValueHelp="false"
                                 valueHelpRequest="onValueHelpVehicleSize"
                                 showSuggestion="true"
                                 suggest="onVehicleSizeSuggest"
                                 suggestionItemSelected="onVehicleSizeSuggestionSelected"
                                 suggestionItems="{vehicleSizeSuggestions>/items}"
                                 value="{TripData>/VehicleSize}"
+                                editable="true"
                             >
                                 <suggestionItems>
                                     <core:Item
