@@ -22,16 +22,19 @@ sap.ui.define([
 			this._oEventBus = sap.ui.getCore().getEventBus();
 			this._oEventBus.subscribe("TripData", "Updated", this._refreshPageTitleModel, this);
 			this._oEventBus.subscribe("TripData", "Updated", this._updateLoadingUnloadingTabs, this);
+			this._oEventBus.subscribe("TripData", "Updated", this._updateCancelButtonVisibility, this);
 			this._oEventBus.subscribe("Stage", "TripCreated", this._onTripCreated, this);
 			this._oEventBus.subscribe("Notes", "UnreadCountChanged", this._updateNotesTabIndicator, this);
 		},
 		onAfterRendering: function() {
 			this._updateLoadingUnloadingTabs();
+			this._updateCancelButtonVisibility();
 		},
 
 		onExit: function () {
 			this._oEventBus?.unsubscribe("TripData", "Updated", this._refreshPageTitleModel, this);
 			this._oEventBus?.unsubscribe("TripData", "Updated", this._updateLoadingUnloadingTabs, this);
+			this._oEventBus?.unsubscribe("TripData", "Updated", this._updateCancelButtonVisibility, this);
 			this._oEventBus?.unsubscribe("Stage", "TripCreated", this._onTripCreated, this);
 			this._oEventBus?.unsubscribe("Notes", "UnreadCountChanged", this._updateNotesTabIndicator, this);
 		},
@@ -75,6 +78,7 @@ sap.ui.define([
 			this.resetPageTitleModel();   // ← finally clears
 			this._setIconTabSelection("vehicleReporting");
 			this._updateLoadingUnloadingTabs();
+			this._updateCancelButtonVisibility();
 	
 			console.log("Stage (Create): pageTitleModel cleared");
 			return;
@@ -92,6 +96,7 @@ sap.ui.define([
 	
 			this._refreshPageTitleModel();
 			this._updateLoadingUnloadingTabs();
+			this._updateCancelButtonVisibility();
 	
 			console.log("StagewithParam (Update): refreshed pageTitleModel");
 		}
@@ -342,6 +347,35 @@ sap.ui.define([
 				oLoadingTab.setVisible(true);
 				oUnloadingTab.setVisible(true);
 			}
+		},
+
+		/**
+		 * Update Cancel Button Visibility
+		 * Hide the cancel button if TripStatus is "Gate Out" or "Gate-Out"
+		 */
+		_updateCancelButtonVisibility: function () {
+			var oCancelButton = this.byId("btnCancelTrip");
+			
+			if (!oCancelButton) {
+				return;
+			}
+
+			var oTripDataModel = sap.ui.getCore().getModel("TripData");
+			
+			// Show button if in create mode (no trip data)
+			if (!oTripDataModel || this._bCreateMode) {
+				oCancelButton.setVisible(true);
+				return;
+			}
+
+			// Check if TripStatus is "Gate Out" or "Gate-Out" (case-insensitive, handles both space and hyphen)
+			var sTripStatus = (oTripDataModel.getProperty("/TripStatus") || "").trim();
+			var sLowerStatus = sTripStatus.toLowerCase();
+			// Check for both "gate out" (with space) and "gate-out" (with hyphen)
+			var bIsGateOut = sLowerStatus === "gate out" || sLowerStatus === "gate-out";
+
+			// Hide button if TripStatus is "Gate Out" or "Gate-Out"
+			oCancelButton.setVisible(!bIsGateOut);
 		},
 
 		/** --------------------------------------------
