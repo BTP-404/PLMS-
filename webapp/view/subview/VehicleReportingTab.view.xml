@@ -43,6 +43,7 @@
                                 value="{TripData>/MovementScenarioDesc}"
                                 showSuggestion="true"
                                 suggest="onMovementScenarioSuggest"
+                                suggestionItemSelected="onMovementScenarioSuggestionSelected"
                             />
                         </VBox>
                     </layout:content>

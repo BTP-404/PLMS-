@@ -43,31 +43,37 @@ sap.ui.define(
           }
         },
         onAfterRendering: function () {
-          this.loadExitGateNumber();
-          var oParentView = this.getView().getParent();
-          this.tripNumber =
-            oParentView.getModel("shared").getProperty("/tripNumber") ||
-            "0000000014";
-          console.log("Received Trip Number: ", this.tripNumber);
-          
-          // Set initial input state based on whether GateOut data exists
-          var oTripData = sap.ui.getCore().getModel("TripData");
-          if (oTripData) {
-            var sExistingExitGateNum = oTripData.getProperty("/ExitGateNum");
-            if (sExistingExitGateNum && sExistingExitGateNum.trim() !== "") {
-              // GateOut exists - disable inputs (display mode)
-              this._setInputsEnabled(false);
+          try {
+            this.loadExitGateNumber();
+            
+            // Get trip number from globalData model (safer approach)
+            var oGlobalModel = sap.ui.getCore().getModel("globalData");
+            this.tripNumber = oGlobalModel ? oGlobalModel.getProperty("/TripNumber") || "" : "";
+            console.log("Received Trip Number: ", this.tripNumber);
+            
+            // Set initial input state based on whether GateOut data exists
+            var oTripData = sap.ui.getCore().getModel("TripData");
+            if (oTripData) {
+              var sExistingExitGateNum = oTripData.getProperty("/ExitGateNum");
+              if (sExistingExitGateNum && sExistingExitGateNum.trim() !== "") {
+                // GateOut exists - disable inputs (display mode)
+                this._setInputsEnabled(false);
+              } else {
+                // First time - enable inputs (create mode)
+                this._setInputsEnabled(true);
+              }
             } else {
-              // First time - enable inputs (create mode)
+              // No TripData - enable inputs for new entry
               this._setInputsEnabled(true);
             }
-          } else {
-            // No TripData - enable inputs for new entry
+            
+            // Load saved attachments
+            this._loadGateOutAttachments();
+          } catch (oError) {
+            console.error("Error in GateOut onAfterRendering:", oError);
+            // Don't let errors break the view - set defaults
             this._setInputsEnabled(true);
           }
-          
-          // Load saved attachments
-          this._loadGateOutAttachments();
         },
         onExit: function () {
           this._eventBus?.unsubscribe("TripData", "Updated", this._onTripDataUpdate, this);

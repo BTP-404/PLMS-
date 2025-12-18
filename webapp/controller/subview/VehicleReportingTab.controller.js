@@ -1391,12 +1391,30 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
                 this._oMovementScenarioFrag = oDialog;
                 oView.addDependent(oDialog);
                 this._loadMovementScenarioData();
+                this._resetMovementScenarioSearch();
                 oDialog.open();
               }.bind(this)
             );
           } else {
             this._loadMovementScenarioData();
+            this._resetMovementScenarioSearch();
             this._oMovementScenarioFrag.open();
+          }
+        },
+
+        _resetMovementScenarioSearch: function () {
+          // Clear the search field
+          const oSearchField = this.byId("idSearchMovementScenario");
+          if (oSearchField) {
+            oSearchField.setValue("");
+          }
+
+          // Reset list visibility - show all items
+          const oList = this.byId("idVHMovementScenarioList");
+          if (oList) {
+            oList.getItems().forEach((item) => {
+              item.setVisible(true);
+            });
           }
         },
 
@@ -1459,7 +1477,12 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
           const oItem = oEvent.getParameter("listItem");
           const row = oItem.data("row");
           Mtype = row.MovementType;
-          this.byId("idMovementScenario").setValue(row.ShortText);
+          movementScenario = row.MovementScenario;
+          
+          // Set Movement Scenario value to Long Text
+          this.byId("idMovementScenario").setValue(row.LongText);
+          
+          // Set Movement Type value based on MovementType
           if (row.MovementType === "O") {
             this.byId("idMovementType").setValue("Outward");
           } else if (row.MovementType === "I") {
@@ -1470,41 +1493,79 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
         },
 
         onMovementScenarioSuggest: function (oEvent) {
-          const sValue = oEvent.getParameter("suggestValue").toLowerCase();
+          const sValue = (oEvent.getParameter("suggestValue") || "").trim();
+          const oInput = oEvent.getSource();
           const oModel = this.getView().getModel();
           const that = this;
 
-          if (sValue.length >= 2) {
-            oModel.read("/OrderTypeSH", {
-              success: function (oData) {
-                const aFilteredData = oData.results.filter(function (item) {
-                  return (
-                    item.LongText.toLowerCase().includes(sValue) ||
-                    item.ShortText.toLowerCase().includes(sValue) ||
-                    item.MovementScenario.toLowerCase().includes(sValue)
-                  );
-                });
+          // Clear suggestions if input is empty (similar to value help reset behavior)
+          if (!sValue || sValue.length < 2) {
+            oInput.destroySuggestionItems();
+            return;
+          }
 
-                const oSuggestionModel = new sap.ui.model.json.JSONModel({
-                  MovementScenarioSuggestions: aFilteredData
-                });
-                that.getView().setModel(oSuggestionModel, "suggestions");
-                
-                // Update the binding path for suggestions
-                const oInput = that.byId("idMovementScenario");
-                oInput.bindAggregation("suggestionItems", {
-                  path: "suggestions>/MovementScenarioSuggestions",
-                  template: new sap.ui.core.Item({
-                    key: "{suggestions>ShortText}",
-                    text: "{suggestions>LongText}",
-                    additionalText: "{suggestions>ShortText}"
-                  })
-                });
-              },
-              error: function (error) {
-                console.error("Movement Scenario Suggestion Error:", error);
-              }
-            });
+          const sLowerValue = sValue.toLowerCase();
+          oModel.read("/OrderTypeSH", {
+            success: function (oData) {
+              const aFilteredData = oData.results.filter(function (item) {
+                return (
+                  item.LongText.toLowerCase().includes(sLowerValue) ||
+                  item.ShortText.toLowerCase().includes(sLowerValue) ||
+                  item.MovementScenario.toLowerCase().includes(sLowerValue)
+                );
+              });
+
+              const oSuggestionModel = new sap.ui.model.json.JSONModel({
+                MovementScenarioSuggestions: aFilteredData
+              });
+              that.getView().setModel(oSuggestionModel, "suggestions");
+              
+              // Update the binding path for suggestions
+              oInput.bindAggregation("suggestionItems", {
+                path: "suggestions>/MovementScenarioSuggestions",
+                template: new sap.ui.core.Item({
+                  key: "{suggestions>ShortText}",
+                  text: "{suggestions>LongText}",
+                  additionalText: "{suggestions>ShortText}"
+                })
+              });
+            },
+            error: function (error) {
+              console.error("Movement Scenario Suggestion Error:", error);
+            }
+          });
+        },
+
+        onMovementScenarioSuggestionSelected: function (oEvent) {
+          const oItem = oEvent.getParameter("selectedItem");
+          if (!oItem) return;
+
+          // Get the selected item's key (ShortText)
+          const sSelectedKey = oItem.getKey();
+          
+          // Find the full row data from the suggestions model
+          const oSuggestionsModel = this.getView().getModel("suggestions");
+          if (!oSuggestionsModel) return;
+
+          const aSuggestions = oSuggestionsModel.getData().MovementScenarioSuggestions || [];
+          const oSelectedRow = aSuggestions.find(function (item) {
+            return item.ShortText === sSelectedKey;
+          });
+
+          if (oSelectedRow) {
+            // Update global variables
+            movementScenario = oSelectedRow.MovementScenario;
+            Mtype = oSelectedRow.MovementType;
+            
+            // Set Movement Scenario value to Long Text (same as value help behavior)
+            this.byId("idMovementScenario").setValue(oSelectedRow.LongText);
+            
+            // Set Movement Type value based on MovementType
+            if (oSelectedRow.MovementType === "O") {
+              this.byId("idMovementType").setValue("Outward");
+            } else if (oSelectedRow.MovementType === "I") {
+              this.byId("idMovementType").setValue("Inward");
+            }
           }
         },
 
@@ -1622,25 +1683,43 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
 
         onSuggest: function (oEvent) {
           const sValue = oEvent.getParameter("suggestValue");
-          const oBinding = oEvent.getSource().getBinding("suggestionItems");
+          const oInput = oEvent.getSource();
+          const oBinding = oInput.getBinding("suggestionItems");
 
-          oBinding.filter([
-            new sap.ui.model.Filter({
-              filters: [
-                new sap.ui.model.Filter(
-                  "VehicleNumber",
-                  sap.ui.model.FilterOperator.Contains,
-                  sValue
-                ),
-                new sap.ui.model.Filter(
-                  "TransporterName",
-                  sap.ui.model.FilterOperator.Contains,
-                  sValue
-                ),
-              ],
-              and: false,
-            }),
-          ]);
+          // Check if binding exists
+          if (!oBinding) {
+            // If binding doesn't exist, ensure VHModel is loaded
+            const oVHModel = this.getView().getModel("VHModel");
+            const aData = oVHModel ? oVHModel.getData() : null;
+            if (!oVHModel || !aData || (Array.isArray(aData) && aData.length === 0)) {
+              this._loadVehicleSuggestions();
+            }
+            return;
+          }
+
+          // Apply filter to the binding
+          if (sValue && sValue.trim().length > 0) {
+            oBinding.filter([
+              new sap.ui.model.Filter({
+                filters: [
+                  new sap.ui.model.Filter(
+                    "VehicleNumber",
+                    sap.ui.model.FilterOperator.Contains,
+                    sValue
+                  ),
+                  new sap.ui.model.Filter(
+                    "TransporterName",
+                    sap.ui.model.FilterOperator.Contains,
+                    sValue
+                  ),
+                ],
+                and: false,
+              }),
+            ]);
+          } else {
+            // Clear filter if search value is empty
+            oBinding.filter([]);
+          }
         },
 
         // =====================================================
@@ -1685,7 +1764,13 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
           this.byId("idVehicleNumber").setValue(sVehicleNumber);
 
           // Get VHModel data
-          const aVehicles = this.getView().getModel("VHModel").getData();
+          const oVHModel = this.getView().getModel("VHModel");
+          if (!oVHModel) {
+            console.error("VHModel not found");
+            return;
+          }
+
+          const aVehicles = oVHModel.getData();
 
           // Find selected vehicle object
           const oVehicle = aVehicles.find(
@@ -1699,10 +1784,74 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
           } else {
             console.error("Vehicle not found in VHModel");
           }
-        }
+
+          // Close the dialog
+          if (this._mValueHelps?.VehNo) {
+            this._mValueHelps.VehNo.close();
+          }
+        },
+
+        onSearchVHVehicleNumber: function (oEvent) {
+          const sValue = (oEvent.getParameter("value") || "").trim();
+          const oDialog = oEvent.getSource();
+          
+          // Get the binding from the SelectDialog's items aggregation
+          const oBinding = oDialog.getBinding("items");
+
+          if (!oBinding) {
+            console.error("Binding not found for Vehicle Number search");
+            return;
+          }
+
+          if (sValue && sValue.length > 0) {
+            // Use custom filter function for case-insensitive search with JSONModel
+            const sLowerValue = sValue.toLowerCase();
+            oBinding.filter([
+              new sap.ui.model.Filter({
+                test: function (oContext) {
+                  try {
+                    // Handle different JSONModel binding scenarios
+                    let oData;
+                    if (oContext && typeof oContext.getObject === "function") {
+                      oData = oContext.getObject();
+                    } else if (oContext && typeof oContext === "object") {
+                      // Sometimes the context itself is the data object
+                      oData = oContext;
+                    } else {
+                      return false;
+                    }
+                    
+                    if (!oData || typeof oData !== "object") {
+                      return false;
+                    }
+                    
+                    const sVehicleNumber = (oData.VehicleNumber || "").toLowerCase();
+                    const sTransporterName = (oData.TransporterName || "").toLowerCase();
+                    
+                    return sVehicleNumber.includes(sLowerValue) || 
+                           sTransporterName.includes(sLowerValue);
+                  } catch (e) {
+                    console.error("Error in Vehicle Number filter:", e);
+                    return false;
+                  }
+                }
+              })
+            ]);
+          } else {
+            // Clear filter if search value is empty
+            oBinding.filter([]);
+          }
+        },
+
+        onCancelVHVehicleNumber: function (oEvent) {
+          if (this._mValueHelps?.VehNo) {
+            this._mValueHelps.VehNo.close();
+          }
+        },
+
         /**
          * SUGGEST: Live suggestions while typing Plant
-         */,
+         */
         onPlantSuggest: function (oEvent) {
           const sValue = oEvent.getParameter("suggestValue") || "";
           const oInput = this.byId("idPlant");
