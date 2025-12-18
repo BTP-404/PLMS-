@@ -75,6 +75,9 @@ sap.ui.define(
           
           // Load saved attachments
           this._loadGateInAttachments();
+          
+          // Focus on scanner input when page loads
+          this._focusOnScannerInput();
         },
         onExit: function () {
           this._eventBus?.unsubscribe("TripData", "Updated", this._onTripDataUpdate, this);
@@ -1149,6 +1152,16 @@ sap.ui.define(
               oScannerInput.focus();
             }, 100);
           }
+        },
+
+        _focusOnScannerInput: function () {
+          var that = this;
+          setTimeout(function() {
+            var oScannerInput = that.getView().byId("idGateInScannerInput");
+            if (oScannerInput && oScannerInput.focus) {
+              oScannerInput.focus();
+            }
+          }, 200);
         },
 
         _getOAuthToken: function (sAsnId, sOrgId) {

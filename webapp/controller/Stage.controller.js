@@ -372,6 +372,34 @@ sap.ui.define([
 			} else {
 				console.warn("Notes tab DOM element not found");
 			}
+		},
+
+		onIconTabSelect: function (oEvent) {
+			var sSelectedKey = oEvent.getParameter("key");
+			
+			// If GateIn tab is selected, focus on scanner input
+			if (sSelectedKey === "gateIn") {
+				// Use setTimeout to ensure the view is rendered
+				setTimeout(function() {
+					// Get the GateIn view and focus on scanner input
+					var oIconTabBar = this.byId("iconTabBar");
+					if (oIconTabBar) {
+						var oGateInTab = oIconTabBar.getItems().find(function(oItem) {
+							return oItem.getKey() === "gateIn";
+						});
+						
+						if (oGateInTab && oGateInTab.getContent && oGateInTab.getContent().length > 0) {
+							var oGateInView = oGateInTab.getContent()[0];
+							if (oGateInView && oGateInView.byId) {
+								var oScannerInput = oGateInView.byId("idGateInScannerInput");
+								if (oScannerInput && oScannerInput.focus) {
+									oScannerInput.focus();
+								}
+							}
+						}
+					}
+				}.bind(this), 100);
+			}
 		}
 
 	});
