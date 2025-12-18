@@ -34,6 +34,9 @@ sap.ui.define(
         onInit: function () {
           this._initService();
           this._loadVehicleSuggestions();
+          this._loadVehicleTypeSuggestions();
+          this._loadVehicleSizeSuggestions();
+          this._loadCompanyCodeSuggestions();
           const oRouter = this.getOwnerComponent().getRouter();
           oRouter
             .getRoute("Stage")
@@ -1180,15 +1183,25 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
          * Search Vehicle Type
          */
         onSearchVehicleType: function (oEvent) {
-          var sValue = oEvent.getParameter("value");
+          var sValue = (oEvent.getParameter("value") || oEvent.getParameter("newValue") || "").trim();
+          
+          // Use the same approach as Plant search - direct byId access
           var oList = this.byId("idVHVehicleTypeList");
 
-          if (!oList) return;
+          if (!oList) {
+            return;
+          }
 
           var oBinding = oList.getBinding("items");
+          
+          if (!oBinding) {
+            return;
+          }
+
           var aFilters = [];
 
-          if (sValue) {
+          if (sValue && sValue.length > 0) {
+            // Use the same filter syntax as Plant search (which works)
             aFilters.push(
               new sap.ui.model.Filter({
                 filters: [
@@ -1757,6 +1770,92 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
           });
         },
 
+        /**
+         * Load Vehicle Type Suggestions
+         */
+        _loadVehicleTypeSuggestions: function () {
+          const oModel = this.getView().getModel();
+          const that = this;
+
+          oModel.read("/ConfigValues", {
+            filters: [
+              new sap.ui.model.Filter(
+                "ConfigGroup",
+                sap.ui.model.FilterOperator.EQ,
+                "VehicleType"
+              ),
+            ],
+            success: function (oData) {
+              const oJSON = new sap.ui.model.json.JSONModel({
+                items: oData.results || []
+              });
+              that.getView().setModel(oJSON, "vehicleTypeSuggestions");
+            },
+            error: function () {
+              // Silently fail, suggestions just won't work
+              that.getView().setModel(
+                new sap.ui.model.json.JSONModel({ items: [] }),
+                "vehicleTypeSuggestions"
+              );
+            },
+          });
+        },
+
+        /**
+         * Load Vehicle Size Suggestions
+         */
+        _loadVehicleSizeSuggestions: function () {
+          const oModel = this.getView().getModel();
+          const that = this;
+
+          oModel.read("/VehicleSizeSet", {
+            success: function (oData) {
+              const oJSON = new sap.ui.model.json.JSONModel({
+                items: oData.results || []
+              });
+              that.getView().setModel(oJSON, "vehicleSizeSuggestions");
+            },
+            error: function () {
+              // Silently fail, suggestions just won't work
+              that.getView().setModel(
+                new sap.ui.model.json.JSONModel({ items: [] }),
+                "vehicleSizeSuggestions"
+              );
+            },
+          });
+        },
+
+        /**
+         * Load Company Code Suggestions
+         */
+        _loadCompanyCodeSuggestions: function () {
+          const oModel = this.getView().getModel();
+          const that = this;
+
+          oModel.read("/ConfigValues", {
+            filters: [
+              new sap.ui.model.Filter(
+                "ConfigGroup",
+                sap.ui.model.FilterOperator.EQ,
+                "CompanyCode"
+              ),
+            ],
+            success: function (oData) {
+              const oJSON = new sap.ui.model.json.JSONModel({
+                items: oData.results || []
+              });
+              that.getView().setModel(oJSON, "companyCodeSuggestions");
+            },
+            error: function () {
+              // Silently fail, suggestions just won't work
+              that.getView().setModel(
+                new sap.ui.model.json.JSONModel({ items: [] }),
+                "companyCodeSuggestions"
+              );
+            },
+          });
+        },
+
         onSuggest: function (oEvent) {
           const sValue = oEvent.getParameter("suggestValue");
           const oInput = oEvent.getSource();
@@ -2140,6 +2239,196 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
             // If user is manually typing, set ConfigID to 99 and update description
             oTripDataModel.setProperty("/VehicleType", "99");
             oTripDataModel.setProperty("/VehicleTypeDesc", sValue);
+          }
+        },
+
+        /**
+         * Vehicle Type Suggestion Handler
+         */
+        onVehicleTypeSuggest: function (oEvent) {
+          const sValue = (oEvent.getParameter("suggestValue") || "").trim();
+          const oInput = oEvent.getSource();
+          const oBinding = oInput.getBinding("suggestionItems");
+
+          if (!oBinding) {
+            return;
+          }
+
+          if (sValue && sValue.length > 0) {
+            oBinding.filter([
+              new sap.ui.model.Filter({
+                filters: [
+                  new sap.ui.model.Filter(
+                    "ConfigID",
+                    sap.ui.model.FilterOperator.Contains,
+                    sValue
+                  ),
+                  new sap.ui.model.Filter(
+                    "Description",
+                    sap.ui.model.FilterOperator.Contains,
+                    sValue
+                  ),
+                ],
+                and: false,
+              }),
+            ]);
+          } else {
+            oBinding.filter([]);
+          }
+        },
+
+        /**
+         * Vehicle Type Suggestion Selected
+         */
+        onVehicleTypeSuggestionSelected: function (oEvent) {
+          const oItem = oEvent.getParameter("selectedItem");
+          if (!oItem) {
+            return;
+          }
+
+          const sConfigID = oItem.getKey();
+          const oSuggestionsModel = this.getView().getModel("vehicleTypeSuggestions");
+          if (!oSuggestionsModel) {
+            return;
+          }
+
+          const aItems = oSuggestionsModel.getData().items || [];
+          const oSelectedItem = aItems.find(function (item) {
+            return item.ConfigID === sConfigID;
+          });
+
+          if (oSelectedItem) {
+            // Check if ConfigID is 99 for manual input
+            if (oSelectedItem.ConfigID === "99") {
+              // Open manual input dialog
+              this._openManualVehicleTypeInput();
+              return;
+            }
+
+            // Store ConfigID in TripData model (for backend)
+            const oTripDataModel = this.getView().getModel("TripData");
+            if (oTripDataModel) {
+              oTripDataModel.setProperty("/VehicleType", oSelectedItem.ConfigID);
+              oTripDataModel.setProperty("/VehicleTypeDesc", oSelectedItem.Description || "");
+            }
+
+            // Set the description in the input field
+            this.byId("idVehicleType").setValue(oSelectedItem.Description || "");
+          }
+        },
+
+        /**
+         * Vehicle Size Suggestion Handler
+         */
+        onVehicleSizeSuggest: function (oEvent) {
+          const sValue = (oEvent.getParameter("suggestValue") || "").trim();
+          const oInput = oEvent.getSource();
+          const oBinding = oInput.getBinding("suggestionItems");
+
+          if (!oBinding) {
+            return;
+          }
+
+          if (sValue && sValue.length > 0) {
+            oBinding.filter([
+              new sap.ui.model.Filter({
+                filters: [
+                  new sap.ui.model.Filter(
+                    "VehicleSize",
+                    sap.ui.model.FilterOperator.Contains,
+                    sValue
+                  ),
+                  new sap.ui.model.Filter(
+                    "VehicleSizeDesc",
+                    sap.ui.model.FilterOperator.Contains,
+                    sValue
+                  ),
+                ],
+                and: false,
+              }),
+            ]);
+          } else {
+            oBinding.filter([]);
+          }
+        },
+
+        /**
+         * Vehicle Size Suggestion Selected
+         */
+        onVehicleSizeSuggestionSelected: function (oEvent) {
+          const oItem = oEvent.getParameter("selectedItem");
+          if (!oItem) {
+            return;
+          }
+
+          const sVehicleSize = oItem.getKey();
+          this.byId("idVehicleSize").setValue(sVehicleSize);
+        },
+
+        /**
+         * Company Code Suggestion Handler
+         */
+        onCompanyCodeSuggest: function (oEvent) {
+          const sValue = (oEvent.getParameter("suggestValue") || "").trim();
+          const oInput = oEvent.getSource();
+          const oBinding = oInput.getBinding("suggestionItems");
+
+          if (!oBinding) {
+            return;
+          }
+
+          if (sValue && sValue.length > 0) {
+            oBinding.filter([
+              new sap.ui.model.Filter({
+                filters: [
+                  new sap.ui.model.Filter(
+                    "ConfigID",
+                    sap.ui.model.FilterOperator.Contains,
+                    sValue
+                  ),
+                  new sap.ui.model.Filter(
+                    "Description",
+                    sap.ui.model.FilterOperator.Contains,
+                    sValue
+                  ),
+                ],
+                and: false,
+              }),
+            ]);
+          } else {
+            oBinding.filter([]);
+          }
+        },
+
+        /**
+         * Company Code Suggestion Selected
+         */
+        onCompanyCodeSuggestionSelected: function (oEvent) {
+          const oItem = oEvent.getParameter("selectedItem");
+          if (!oItem) {
+            return;
+          }
+
+          const sConfigID = oItem.getKey();
+          const oSuggestionsModel = this.getView().getModel("companyCodeSuggestions");
+          if (!oSuggestionsModel) {
+            return;
+          }
+
+          const aItems = oSuggestionsModel.getData().items || [];
+          const oSelectedItem = aItems.find(function (item) {
+            return item.ConfigID === sConfigID;
+          });
+
+          if (oSelectedItem) {
+            // Store code value in global variable (code only, no description)
+            CompanyCod = oSelectedItem.ConfigID;
+
+            // Build CompanyCode display value with description (for UI)
+            const sCompanyCodeDisplay = `${oSelectedItem.ConfigID}-${oSelectedItem.Description}`;
+
+            // Set selected value - show description in UI
+            this.byId("idCompanyCode").setValue(sCompanyCodeDisplay);
           }
         },
 

@@ -111,10 +111,22 @@
                                 width="100%"
                                 showValueHelp="true"
                                 valueHelpRequest="onValueHelpVehicleType"
+                                showSuggestion="true"
+                                suggest="onVehicleTypeSuggest"
+                                suggestionItemSelected="onVehicleTypeSuggestionSelected"
+                                suggestionItems="{vehicleTypeSuggestions>/items}"
                                 value="{TripData>/VehicleTypeDesc}"
                                 editable="true"
                                 liveChange="onVehicleTypeLiveChange"
-                            />
+                            >
+                                <suggestionItems>
+                                    <core:Item
+                                        key="{vehicleTypeSuggestions>ConfigID}"
+                                        text="{vehicleTypeSuggestions>Description}"
+                                        additionalText="{vehicleTypeSuggestions>ConfigID}"
+                                    />
+                                </suggestionItems>
+                            </Input>
                         </VBox>
                     </layout:content>
                     <layout:content>
@@ -126,10 +138,22 @@
                             <Input
                                 id="idVehicleSize"
                                 width="100%"
-                                showValueHelp="false"
+                                showValueHelp="true"
                                 valueHelpRequest="onValueHelpVehicleSize"
+                                showSuggestion="true"
+                                suggest="onVehicleSizeSuggest"
+                                suggestionItemSelected="onVehicleSizeSuggestionSelected"
+                                suggestionItems="{vehicleSizeSuggestions>/items}"
                                 value="{TripData>/VehicleSize}"
-                            />
+                            >
+                                <suggestionItems>
+                                    <core:Item
+                                        key="{vehicleSizeSuggestions>VehicleSize}"
+                                        text="{vehicleSizeSuggestions>VehicleSize}"
+                                        additionalText="{vehicleSizeSuggestions>VehicleSizeDesc}"
+                                    />
+                                </suggestionItems>
+                            </Input>
                         </VBox>
                     </layout:content>
                     <layout:content>
@@ -299,9 +323,21 @@
                                 width="100%"
                                 showValueHelp="true"
                                 valueHelpRequest="onValueHelpCompanyCode"
+                                showSuggestion="true"
+                                suggest="onCompanyCodeSuggest"
+                                suggestionItemSelected="onCompanyCodeSuggestionSelected"
+                                suggestionItems="{companyCodeSuggestions>/items}"
                                 value="{TripData>/CompanyCode}"
                                 enabled="false"
-                            />
+                            >
+                                <suggestionItems>
+                                    <core:Item
+                                        key="{companyCodeSuggestions>ConfigID}"
+                                        text="{companyCodeSuggestions>ConfigID}"
+                                        additionalText="{companyCodeSuggestions>Description}"
+                                    />
+                                </suggestionItems>
+                            </Input>
                         </VBox>
                     </layout:content>
                     <layout:content>

@@ -9,7 +9,7 @@
         resizable="true">
 
         <VBox class="sapUiSmallMargin">
-            <SearchField width="100%" liveChange="onSearchVehicleType"/>
+            <SearchField width="100%" liveChange="onSearchVehicleType" search="onSearchVehicleType"/>
 
            <List
                 id="idVHVehicleTypeList"
