@@ -3,6 +3,7 @@
         title="Select Delay Reason"
         confirm="onDelayReasonValueHelpConfirm"
         search="onDelayReasonValueHelpSearch"
+        liveChange="onDelayReasonValueHelpSearch"
         items="{
             path: 'delayData>/'
         }"

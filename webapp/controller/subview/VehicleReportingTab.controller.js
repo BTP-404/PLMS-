@@ -1013,7 +1013,27 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
         },
 
         onValueHelpMovementType: function () {
-          this._openVH("VHMovementType");
+          const oView = this.getView();
+
+          if (!this._mValueHelps) {
+            this._mValueHelps = {};
+          }
+
+          if (!this._mValueHelps.VHMovementType) {
+            Fragment.load({
+              id: oView.getId(),
+              name: "com.incresolZ_INC_PLMS.fragments.VehicleReportingFrags.VHMovementType",
+              controller: this,
+            }).then(
+              function (oDialog) {
+                this._mValueHelps.VHMovementType = oDialog;
+                oView.addDependent(oDialog);
+                oDialog.open();
+              }.bind(this)
+            );
+          } else {
+            this._mValueHelps.VHMovementType.open();
+          }
         },
         onValueHelpVehicleType: function () {
           var oView = this.getView();
@@ -1041,7 +1061,27 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
           }
         },
         onValueHelpVehicleSize: function () {
-          this._openVH("VHVehicleSize");
+          const oView = this.getView();
+
+          if (!this._mValueHelps) {
+            this._mValueHelps = {};
+          }
+
+          if (!this._mValueHelps.VHVehicleSize) {
+            Fragment.load({
+              id: oView.getId(),
+              name: "com.incresolZ_INC_PLMS.fragments.VehicleReportingFrags.VHVehicleSize",
+              controller: this,
+            }).then(
+              function (oDialog) {
+                this._mValueHelps.VHVehicleSize = oDialog;
+                oView.addDependent(oDialog);
+                oDialog.open();
+              }.bind(this)
+            );
+          } else {
+            this._mValueHelps.VHVehicleSize.open();
+          }
         },
 
         /* ===========================================================
@@ -1233,39 +1273,75 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
         },
 
         /* ===========================================================
-         * NO CHANGE: onSearchVH
+         * UPDATED: onSearchVH - handles search for MovementType and VehicleSize
          * =========================================================== */
         onSearchVH: function (oEvent) {
-          const sValue =
-            oEvent.getParameter("newValue") || oEvent.getParameter("query");
+          const sValue = (oEvent.getParameter("newValue") || oEvent.getParameter("value") || oEvent.getParameter("query") || "").trim();
           const oList = oEvent.getSource().getParent().getItems()[1];
+
+          if (!oList) {
+            return;
+          }
 
           let oBinding = oList.getBinding("items");
 
+          if (!oBinding) {
+            return;
+          }
+
           let aFilters = [];
-          if (sValue) {
-            aFilters = [
-              new sap.ui.model.Filter({
-                filters: [
-                  new sap.ui.model.Filter(
-                    "MovementType",
-                    sap.ui.model.FilterOperator.Contains,
-                    sValue
-                  ),
-                  new sap.ui.model.Filter(
-                    "MovementDesc",
-                    sap.ui.model.FilterOperator.Contains,
-                    sValue
-                  ),
-                  new sap.ui.model.Filter(
-                    "MovementCategory",
-                    sap.ui.model.FilterOperator.Contains,
-                    sValue
-                  ),
-                ],
-                and: false,
-              }),
-            ];
+          if (sValue && sValue.length > 0) {
+            // Get list ID to determine which fields to search
+            const sListId = oList.getId();
+            let sListName = "";
+            if (sListId.indexOf("VHMovementType") >= 0) {
+              sListName = "MovementType";
+            } else if (sListId.indexOf("VHVehicleSize") >= 0) {
+              sListName = "VehicleSize";
+            }
+
+            if (sListName === "MovementType") {
+              aFilters = [
+                new sap.ui.model.Filter({
+                  filters: [
+                    new sap.ui.model.Filter(
+                      "MovementType",
+                      sap.ui.model.FilterOperator.Contains,
+                      sValue
+                    ),
+                    new sap.ui.model.Filter(
+                      "MovementDesc",
+                      sap.ui.model.FilterOperator.Contains,
+                      sValue
+                    ),
+                    new sap.ui.model.Filter(
+                      "MovementCategory",
+                      sap.ui.model.FilterOperator.Contains,
+                      sValue
+                    ),
+                  ],
+                  and: false,
+                }),
+              ];
+            } else if (sListName === "VehicleSize") {
+              aFilters = [
+                new sap.ui.model.Filter({
+                  filters: [
+                    new sap.ui.model.Filter(
+                      "VehicleSize",
+                      sap.ui.model.FilterOperator.Contains,
+                      sValue
+                    ),
+                    new sap.ui.model.Filter(
+                      "VehicleSizeDesc",
+                      sap.ui.model.FilterOperator.Contains,
+                      sValue
+                    ),
+                  ],
+                  and: false,
+                }),
+              ];
+            }
           }
 
           oBinding.filter(aFilters);
@@ -2064,6 +2140,133 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
             // If user is manually typing, set ConfigID to 99 and update description
             oTripDataModel.setProperty("/VehicleType", "99");
             oTripDataModel.setProperty("/VehicleTypeDesc", sValue);
+          }
+        },
+
+        /* ===========================================================
+         * Company Code Value Help
+         * =========================================================== */
+        onValueHelpCompanyCode: function () {
+          const oView = this.getView();
+
+          if (!this._mValueHelps) {
+            this._mValueHelps = {};
+          }
+
+          if (!this._mValueHelps.VHCompanyCode) {
+            Fragment.load({
+              id: oView.getId(),
+              name: "com.incresolZ_INC_PLMS.fragments.VehicleReportingFrags.VHCompanyCode",
+              controller: this,
+            }).then(
+              function (oDialog) {
+                this._mValueHelps.VHCompanyCode = oDialog;
+                oView.addDependent(oDialog);
+
+                this._loadCompanyCodeData().then(() => {
+                  oDialog.open();
+                });
+              }.bind(this)
+            );
+          } else {
+            this._loadCompanyCodeData();
+            this._mValueHelps.VHCompanyCode.open();
+          }
+        },
+
+        /**
+         * Load Company Codes from ConfigValues
+         */
+        _loadCompanyCodeData: function () {
+          const oModel = this.getView().getModel();
+          const that = this;
+
+          return new Promise(function (resolve) {
+            oModel.read("/ConfigValues", {
+              filters: [
+                new sap.ui.model.Filter(
+                  "ConfigGroup",
+                  sap.ui.model.FilterOperator.EQ,
+                  "CompanyCode"
+                ),
+              ],
+              success: function (oData) {
+                const oJSON = new sap.ui.model.json.JSONModel(oData.results);
+                if (that._mValueHelps && that._mValueHelps.VHCompanyCode) {
+                  that._mValueHelps.VHCompanyCode.setModel(oJSON, "VHModel");
+                }
+                resolve();
+              },
+              error: function () {
+                sap.m.MessageBox.error("Failed to load Company Code.");
+                resolve();
+              },
+            });
+          });
+        },
+
+        /**
+         * Search Company Code
+         */
+        onSearchCompanyCode: function (oEvent) {
+          const sValue = (oEvent.getParameter("value") || "").trim();
+          const oList = this.byId("idVHCompanyCodeList");
+
+          if (!oList) {
+            return;
+          }
+
+          const oBinding = oList.getBinding("items");
+
+          if (!oBinding) {
+            return;
+          }
+
+          const aFilters = [];
+          if (sValue && sValue.length > 0) {
+            aFilters.push(
+              new sap.ui.model.Filter({
+                filters: [
+                  new sap.ui.model.Filter(
+                    "ConfigID",
+                    sap.ui.model.FilterOperator.Contains,
+                    sValue
+                  ),
+                  new sap.ui.model.Filter(
+                    "Description",
+                    sap.ui.model.FilterOperator.Contains,
+                    sValue
+                  ),
+                ],
+                and: false,
+              })
+            );
+          }
+
+          oBinding.filter(aFilters);
+        },
+
+        /**
+         * Select Company Code
+         */
+        onSelectCompanyCode: function (oEvent) {
+          const oItem = oEvent.getParameter("listItem");
+          if (!oItem) {
+            return;
+          }
+
+          const oData = oItem.getBindingContext("VHModel").getObject();
+          const sCompanyCodeDisplay = `${oData.ConfigID}-${oData.Description}`;
+
+          // Store code value in global variable (code only, no description)
+          CompanyCod = oData.ConfigID;
+
+          // Set selected value - show description in UI
+          this.byId("idCompanyCode").setValue(sCompanyCodeDisplay);
+
+          // Close dialog
+          if (this._mValueHelps && this._mValueHelps.VHCompanyCode) {
+            this._mValueHelps.VHCompanyCode.close();
           }
         }
       }

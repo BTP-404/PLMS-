@@ -180,28 +180,37 @@ sap.ui.define(
           // this._entryGateVH.close();
         },
         onEntryGateValueHelpSearch: function (oEvent) {
-          var sValue = oEvent.getParameter("value");
+          var sValue = oEvent.getParameter("value") || "";
           var oBinding = oEvent.getSource().getBinding("items");
 
-          var aFilters = [
-            new sap.ui.model.Filter(
-              "ConfigID",
-              sap.ui.model.FilterOperator.Contains,
-              sValue
-            ),
-            new sap.ui.model.Filter(
-              "Description",
-              sap.ui.model.FilterOperator.Contains,
-              sValue
-            ),
-          ];
+          if (!oBinding) {
+            return;
+          }
 
-          oBinding.filter(
-            new sap.ui.model.Filter({
-              filters: aFilters,
-              and: false,
-            })
-          );
+          var aFilters = [];
+          if (sValue && sValue.trim().length > 0) {
+            aFilters = [
+              new sap.ui.model.Filter(
+                "ConfigID",
+                sap.ui.model.FilterOperator.Contains,
+                sValue
+              ),
+              new sap.ui.model.Filter(
+                "Description",
+                sap.ui.model.FilterOperator.Contains,
+                sValue
+              ),
+            ];
+            oBinding.filter(
+              new sap.ui.model.Filter({
+                filters: aFilters,
+                and: false,
+              })
+            );
+          } else {
+            // Clear filter when search is empty
+            oBinding.filter([]);
+          }
         },
         onDelayReasonValueHelp: function (oEvent) {
           var oInput = oEvent.getSource();
@@ -253,25 +262,35 @@ sap.ui.define(
           // this._delayReasonVH.close();
         },
         onDelayReasonValueHelpSearch: function (oEvent) {
-          var sQuery = oEvent.getParameter("value");
+          var sQuery = (oEvent.getParameter("value") || "").trim();
+          var oBinding = oEvent.getSource().getBinding("items");
 
-          var oFilter = new sap.ui.model.Filter({
-            filters: [
-              new sap.ui.model.Filter(
-                "ConfigID",
-                sap.ui.model.FilterOperator.Contains,
-                sQuery
-              ),
-              new sap.ui.model.Filter(
-                "Description",
-                sap.ui.model.FilterOperator.Contains,
-                sQuery
-              ),
-            ],
-            and: false,
-          });
+          if (!oBinding) {
+            return;
+          }
 
-          oEvent.getSource().getBinding("items").filter(oFilter);
+          if (sQuery && sQuery.length > 0) {
+            var oFilter = new sap.ui.model.Filter({
+              filters: [
+                new sap.ui.model.Filter(
+                  "ConfigID",
+                  sap.ui.model.FilterOperator.Contains,
+                  sQuery
+                ),
+                new sap.ui.model.Filter(
+                  "Description",
+                  sap.ui.model.FilterOperator.Contains,
+                  sQuery
+                ),
+              ],
+              and: false,
+            });
+
+            oBinding.filter(oFilter);
+          } else {
+            // Clear filter when search is empty
+            oBinding.filter([]);
+          }
         },
         onSaveGateInInfo: function () {
           // Use the ODataModel created in onInit()

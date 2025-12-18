@@ -158,9 +158,16 @@ sap.ui.define(
         var oSelectDialog = new SelectDialog({
           title: sTitle,
           liveChange: function (oEvt) {
-            var sValue = oEvt.getParameter("value");
-            var aFilters = sValue
-              ? [
+            var sValue = (oEvt.getParameter("value") || "").trim();
+            var oBinding = oEvt.getSource().getBinding("items");
+            
+            if (!oBinding) {
+              return;
+            }
+            
+            var aFilters = [];
+            if (sValue && sValue.length > 0) {
+              aFilters = [
                 new Filter(
                   [
                     new Filter(sKeyField, FilterOperator.Contains, sValue),
@@ -168,9 +175,32 @@ sap.ui.define(
                   ],
                   false
                 ),
-              ]
-              : [];
-            oEvt.getSource().getBinding("items").filter(aFilters);
+              ];
+            }
+            oBinding.filter(aFilters);
+          },
+          search: function (oEvt) {
+            // Same logic as liveChange for consistency
+            var sValue = (oEvt.getParameter("value") || "").trim();
+            var oBinding = oEvt.getSource().getBinding("items");
+            
+            if (!oBinding) {
+              return;
+            }
+            
+            var aFilters = [];
+            if (sValue && sValue.length > 0) {
+              aFilters = [
+                new Filter(
+                  [
+                    new Filter(sKeyField, FilterOperator.Contains, sValue),
+                    new Filter(sDescField, FilterOperator.Contains, sValue),
+                  ],
+                  false
+                ),
+              ];
+            }
+            oBinding.filter(aFilters);
           },
           confirm: function (oEvt) {
             var oSelectedItem = oEvt.getParameter("selectedItem");

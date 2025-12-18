@@ -9,10 +9,10 @@
         resizable="true">
 
         <VBox class="sapUiSmallMargin">
-            <SearchField width="100%" liveChange="onSearchVH"/>
+            <SearchField width="100%" liveChange="onSearchPlant"/>
 
            <List
-                id="idVHCompanyCodeList"
+                id="idVHPlantList"
                 mode="SingleSelectMaster"
                 items="{ 
                     path: 'VHModel>/' 
