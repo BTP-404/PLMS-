@@ -32,6 +32,7 @@ sap.ui.define(
           this.getView().setModel(this.oModel);
           this._eventBus = sap.ui.getCore().getEventBus();
           this._eventBus.subscribe("TripData", "Updated", this._onTripDataUpdate, this);
+          this._eventBus.subscribe("Stage", "ClearAllTabs", this._clearAllData, this);
           this._onTripDataUpdate();
           
           // Initialize weighment required if not set (default to "No")
@@ -81,6 +82,35 @@ sap.ui.define(
         },
         onExit: function () {
           this._eventBus?.unsubscribe("TripData", "Updated", this._onTripDataUpdate, this);
+          this._eventBus?.unsubscribe("Stage", "ClearAllTabs", this._clearAllData, this);
+        },
+        
+        _clearAllData: function () {
+          // Clear attachments model
+          if (this._oGateInAttachmentsModel) {
+            this._oGateInAttachmentsModel.setData({ attachments: [] });
+          }
+          
+          // Clear selected files
+          this._aSelectedFiles = [];
+          
+          // Clear any file uploaders
+          var oFileUploader = this.byId("idGateInFileUploader");
+          if (oFileUploader) {
+            oFileUploader.clear();
+          }
+          
+          // Clear input fields by resetting TripData properties if model exists
+          var oTripData = this.getView().getModel("TripData");
+          if (oTripData) {
+            oTripData.setProperty("/EntryGateNum", "");
+            oTripData.setProperty("/EntryTime", "");
+            oTripData.setProperty("/DelayReason", "");
+            oTripData.setProperty("/WeighmentRequired", "N");
+            oTripData.setProperty("/GrossWeight", "");
+            oTripData.setProperty("/TareWeight", "");
+            oTripData.setProperty("/NetWeight", "");
+          }
         },
         _onTripDataUpdate: function () {
           var oTripData = sap.ui.getCore().getModel("TripData");

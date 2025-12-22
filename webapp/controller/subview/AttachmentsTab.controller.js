@@ -24,6 +24,7 @@ sap.ui.define([
 			// Subscribe to TripData updates
 			this._oEventBus = sap.ui.getCore().getEventBus();
 			this._oEventBus.subscribe("TripData", "Updated", this._loadAttachments, this);
+			this._oEventBus.subscribe("Stage", "ClearAllTabs", this._clearAllData, this);
 			
 			// Load attachments on init
 			this._loadAttachments();
@@ -31,6 +32,35 @@ sap.ui.define([
 
 		onExit: function () {
 			this._oEventBus?.unsubscribe("TripData", "Updated", this._loadAttachments, this);
+			this._oEventBus?.unsubscribe("Stage", "ClearAllTabs", this._clearAllData, this);
+		},
+		
+		_clearAllData: function () {
+			// Clear attachments model
+			if (this._oAttachmentsModel) {
+				this._oAttachmentsModel.setData({ attachments: [] });
+			}
+			
+			// Clear selected file
+			this._oSelectedFile = null;
+			
+			// Clear file uploader
+			var oFileUploader = this.byId("idAttachmentFileUploader");
+			if (oFileUploader) {
+				oFileUploader.clear();
+			}
+			
+			// Clear stage select
+			var oStageSelect = this.byId("idStageSelect");
+			if (oStageSelect) {
+				oStageSelect.setSelectedKey("");
+			}
+			
+			// Clear preview button
+			var oPreviewBtn = this.byId("idPreviewSelectedFile");
+			if (oPreviewBtn) {
+				oPreviewBtn.setEnabled(false);
+			}
 		},
 
 		_initAttachmentsModel: function () {

@@ -44,6 +44,17 @@ sap.ui.define(
           oRouter
             .getRoute("StagewithParam")
             .attachPatternMatched(this._onRouteMatched, this);
+          
+          // Subscribe to event to clear all data when reporting new vehicle
+          this._oEventBus = sap.ui.getCore().getEventBus();
+          this._oEventBus.subscribe("Stage", "ClearAllTabs", this._clearAllData, this);
+        },
+
+        onExit: function () {
+          // Unsubscribe from event bus to prevent memory leaks
+          if (this._oEventBus) {
+            this._oEventBus.unsubscribe("Stage", "ClearAllTabs", this._clearAllData, this);
+          }
         },
 
         /* ===========================================================
@@ -66,8 +77,9 @@ sap.ui.define(
           const oArgs = oEvent.getParameter("arguments") || {};
 
           if (sRoute === "Stage") {
-            // CREATE mode
+            // CREATE mode - clear all data first
             this._mode = "CREATE";
+            this._clearAllData();
             this._clearForm();
 
             // ADDED: make sure inputs are enabled in CREATE
@@ -426,6 +438,59 @@ sap.ui.define(
               MessageBox.error(sMessage);
             },
           });
+        },
+
+        /* ===========================================================
+         * ADDED: _clearAllData
+         * - comprehensive clearing of all models and UI state
+         * - called when navigating from home page to report new vehicle
+         * =========================================================== */
+        _clearAllData: function () {
+          // Clear form data
+          this._clearForm();
+          
+          // Clear all suggestion models
+          const oVHModel = new JSONModel([]);
+          this.getView().setModel(oVHModel, "VHModel");
+          
+          const oVehicleTypeSuggestions = new JSONModel({ items: [] });
+          this.getView().setModel(oVehicleTypeSuggestions, "vehicleTypeSuggestions");
+          
+          const oVehicleSizeSuggestions = new JSONModel({ items: [] });
+          this.getView().setModel(oVehicleSizeSuggestions, "vehicleSizeSuggestions");
+          
+          const oCompanyCodeSuggestions = new JSONModel({ items: [] });
+          this.getView().setModel(oCompanyCodeSuggestions, "companyCodeSuggestions");
+          
+          const oSuggestions = new JSONModel({ MovementScenarioSuggestions: [] });
+          this.getView().setModel(oSuggestions, "suggestions");
+          
+          // Clear driver photo preview visibility
+          this.byId("idPreviewDriverPhoto")?.setVisible(false);
+          this.byId("idDriverPhotoPreview")?.setVisible(false);
+          
+          // Clear file uploader if it exists
+          const oFileUploader = this.byId("idDriverPhotoUploader");
+          if (oFileUploader) {
+            oFileUploader.clear();
+          }
+          
+          // Reset global variables
+          movementScenario = undefined;
+          Mtype = undefined;
+          PlantCode = undefined;
+          CompanyCod = undefined;
+          movementType = undefined;
+          
+          // Clear value help dialog models if they exist
+          if (this._mValueHelps) {
+            Object.keys(this._mValueHelps).forEach(function(sKey) {
+              var oDialog = this._mValueHelps[sKey];
+              if (oDialog && oDialog.setModel) {
+                oDialog.setModel(null, "VHModel");
+              }
+            }.bind(this));
+          }
         },
 
         /* ===========================================================

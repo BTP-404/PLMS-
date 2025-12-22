@@ -28,6 +28,7 @@ sap.ui.define(
                 this.getView().setModel(this.oModel);
                 this._eventBus = sap.ui.getCore().getEventBus();
                 this._eventBus.subscribe("TripData", "Updated", this._onTripDataUpdated, this);
+                this._eventBus.subscribe("Stage", "ClearAllTabs", this._clearAllData, this);
                 this._syncTripContext();
                 
                 // Initialize notes model to track unread notes
@@ -51,6 +52,29 @@ sap.ui.define(
 
             onExit: function () {
                 this._eventBus?.unsubscribe("TripData", "Updated", this._onTripDataUpdated, this);
+                this._eventBus?.unsubscribe("Stage", "ClearAllTabs", this._clearAllData, this);
+            },
+            
+            _clearAllData: function () {
+                // Clear notes model
+                var oNotesModel = this.getView().getModel("notesModel");
+                if (oNotesModel) {
+                    oNotesModel.setData({
+                        unreadNotes: [],
+                        unreadCount: 0,
+                        notificationText: ""
+                    });
+                }
+                
+                // Clear pending notes
+                this._aPendingNotes = [];
+                this._bJustAddedNote = false;
+                
+                // Clear any notes list/table if exists
+                var oNotesList = this.byId("idNotesList");
+                if (oNotesList) {
+                    oNotesList.removeAllItems();
+                }
             },
 
             /** --------------------------------------------

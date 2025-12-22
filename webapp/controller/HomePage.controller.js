@@ -72,17 +72,24 @@ sap.ui.define(
       // NAVIGATION
       // --------------------------------------------
       onReportVehicle: function () {
-        // clear global data
+        // Clear global data
         var oGlobalModel = sap.ui.getCore().getModel("globalData");
         if (oGlobalModel) {
           oGlobalModel.setProperty("/TripNumber", "");
         }
 
+        // Clear global TripData model completely
         sap.ui.getCore().setModel(null, "TripData");
+        
+        // Publish event to clear all tabs data before navigation
+        sap.ui.getCore().getEventBus().publish("Stage", "ClearAllTabs");
+        
+        // Publish event to notify all subscribers that TripData is cleared
         sap.ui.getCore().getEventBus().publish("TripData", "Updated");
 
         // Notify Stage view to clear title model
         sap.ui.getCore().getEventBus().publish("Stage", "ResetPageTitle");
+        
         var oRouter = this.getOwnerComponent().getRouter();
         if (oRouter) {
           oRouter.navTo("Stage");

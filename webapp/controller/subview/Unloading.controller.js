@@ -54,6 +54,7 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Unloading", 
         this._eventBus = sap.ui.getCore().getEventBus();
         this._eventBus.subscribe("TripData", "Updated", this._onTripDataUpdated, this);
         this._eventBus.subscribe("TripData", "WeighmentRequiredChanged", this._onWeighmentRequiredChanged, this);
+        this._eventBus.subscribe("Stage", "ClearAllTabs", this._clearAllData, this);
         
         // Check initial weighment required state
         this._updateWeighmentEnabledState();
@@ -81,7 +82,22 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Unloading", 
     onExit: function () {
         this._eventBus?.unsubscribe("TripData", "Updated", this._onTripDataUpdated, this);
         this._eventBus?.unsubscribe("TripData", "WeighmentRequiredChanged", this._onWeighmentRequiredChanged, this);
+        this._eventBus?.unsubscribe("Stage", "ClearAllTabs", this._clearAllData, this);
         this._oUnloadingColumnVisibilityDialog?.destroy();
+    },
+    
+    _clearAllData: function () {
+        // Clear table model
+        var oTableModel = this.getView().getModel("tableModel");
+        if (oTableModel) {
+            oTableModel.setData({ materials: [] });
+        }
+        
+        // Clear unloading model
+        var oUnloadingModel = this.getView().getModel("unloadingModel");
+        if (oUnloadingModel) {
+            oUnloadingModel.setData({ weighmentEnabled: false });
+        }
     },
 
     _onTripDataUpdated: function () {

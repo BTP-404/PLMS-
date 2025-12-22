@@ -25,6 +25,7 @@ sap.ui.define([
 			this._oEventBus.subscribe("TripData", "Updated", this._updateCancelButtonVisibility, this);
 			this._oEventBus.subscribe("Stage", "TripCreated", this._onTripCreated, this);
 			this._oEventBus.subscribe("Notes", "UnreadCountChanged", this._updateNotesTabIndicator, this);
+			this._oEventBus.subscribe("Stage", "ClearAllTabs", this._onClearAllTabs, this);
 		},
 		onAfterRendering: function() {
 			this._updateLoadingUnloadingTabs();
@@ -37,6 +38,15 @@ sap.ui.define([
 			this._oEventBus?.unsubscribe("TripData", "Updated", this._updateCancelButtonVisibility, this);
 			this._oEventBus?.unsubscribe("Stage", "TripCreated", this._onTripCreated, this);
 			this._oEventBus?.unsubscribe("Notes", "UnreadCountChanged", this._updateNotesTabIndicator, this);
+			this._oEventBus?.unsubscribe("Stage", "ClearAllTabs", this._onClearAllTabs, this);
+		},
+		
+		_onClearAllTabs: function () {
+			// Clear page title header (Trip No, Vehicle No, Trip status)
+			this.resetPageTitleModel();
+			// Set create mode to ensure header stays clear
+			this._bCreateMode = true;
+			this._sCurrentTripNumber = "";
 		},
 
 	_onRouteMatched: function (oEvent) {

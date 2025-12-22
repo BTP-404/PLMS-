@@ -17,6 +17,7 @@
 		"start-variants-management": "fiori run --open \"preview.html?sap-ui-xx-viewCache=false&fiori-tools-rta-mode=true&sap-ui-rta-skip-flex-validation=true#preview-app\"",
 		"build": "ui5 build -a --clean-dest --include-task=generateCachebusterInfo",
 		"deploy": "npm run build && fiori deploy --config ui5-deploy.yaml",
+		"deploy-futaba": "npm run build && fiori deploy --config ui5-deploy-futaba.yaml",
 		"deploy-config": "fiori add deploy-config",
 		"start-mock": "fiori run --open \"test/flpSandboxMockServer.html?sap-ui-xx-viewCache=false#app-tile\"",
 		"undeploy": "npm run build && fiori undeploy --config ui5-deploy.yaml",

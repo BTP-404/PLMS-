@@ -72,6 +72,7 @@ sap.ui.define([
 			}.bind(this);
 			// Subscribe with delay flag for updates to allow backend processing time
 			this._oEventBus.subscribe("TripData", "Updated", this._onTripDataUpdated, this);
+			this._oEventBus.subscribe("Stage", "ClearAllTabs", this._clearAllData, this);
 
 			this._loadActivityHistory(false); // No delay on initial load
 		},
@@ -80,6 +81,28 @@ sap.ui.define([
 			// Unsubscribe from event bus using stored reference
 			if (this._oEventBus && this._onTripDataUpdated) {
 				this._oEventBus.unsubscribe("TripData", "Updated", this._onTripDataUpdated, this);
+				this._oEventBus.unsubscribe("Stage", "ClearAllTabs", this._clearAllData, this);
+			}
+		},
+		
+		_clearAllData: function () {
+			// Clear activity model
+			if (this._oActivityModel) {
+				this._oActivityModel.setData({
+					tatText: "—",
+					lastUpdatedText: "—",
+					eventsCount: 0,
+					milestones: [],
+					nodes: [],
+					lanes: [{
+						id: "lane1",
+						position: 0,
+						icon: "sap-icon://activities",
+						text: "Trip Activity",
+						state: "Positive"
+					}],
+					events: []
+				});
 			}
 		},
 

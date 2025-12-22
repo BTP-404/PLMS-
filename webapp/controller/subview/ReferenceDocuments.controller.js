@@ -29,6 +29,7 @@ sap.ui.define([
 		this._bIsRefDocEditMode = false; // Track if reference doc dialog is in edit mode
 		this._oEventBus = sap.ui.getCore().getEventBus();
 		this._oEventBus.subscribe("TripData", "Updated", this._onTripDataUpdated, this);
+		this._oEventBus.subscribe("Stage", "ClearAllTabs", this._clearAllData, this);
 		this._onTripDataUpdated(); // Initial load
 		this._initializeColumnVisibility();
 	},
@@ -47,7 +48,45 @@ sap.ui.define([
 			this._oMaterialColumnVisibilityDialog?.destroy();
 			if (this._oEventBus) {
 				this._oEventBus.unsubscribe("TripData", "Updated", this._onTripDataUpdated, this);
+				this._oEventBus.unsubscribe("Stage", "ClearAllTabs", this._clearAllData, this);
 			}
+		},
+		
+		_clearAllData: function () {
+			// Clear reference documents model
+			var oRefDocModel = this._ensureRefDocModel();
+			if (oRefDocModel) {
+				oRefDocModel.setData({
+					referenceDocuments: [],
+					materialDetails: [],
+					filteredMaterialDetails: []
+				});
+			}
+			
+			// Clear suggestion models
+			var oRefDocSuggestionModel = this._getRefDocSuggestionModel();
+			if (oRefDocSuggestionModel) {
+				oRefDocSuggestionModel.setData({ items: [] });
+			}
+			
+			var oMaterialSuggestionModel = this._getMaterialSuggestionModel();
+			if (oMaterialSuggestionModel) {
+				oMaterialSuggestionModel.setData({ items: [] });
+			}
+			
+			var oMaterialItemsModel = this._getMaterialItemsModel();
+			if (oMaterialItemsModel) {
+				oMaterialItemsModel.setData({ items: [] });
+			}
+			
+			// Reset selection and edit state
+			this._oSelectedRefDoc = null;
+			this._oEditingMaterial = null;
+			this._bIsEditMode = false;
+			this._oEditingRefDoc = null;
+			this._bIsRefDocEditMode = false;
+			this._sSelectedDocType = "";
+			this._sSelectedMaterialDocType = "";
 		},
 
 		// ============================================================
