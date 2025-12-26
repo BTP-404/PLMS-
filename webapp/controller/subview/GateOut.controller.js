@@ -49,7 +49,6 @@ sap.ui.define(
             // Get trip number from globalData model (safer approach)
             var oGlobalModel = sap.ui.getCore().getModel("globalData");
             this.tripNumber = oGlobalModel ? oGlobalModel.getProperty("/TripNumber") || "" : "";
-            console.log("Received Trip Number: ", this.tripNumber);
             
             // Set initial input state based on whether GateOut data exists
             var oTripData = sap.ui.getCore().getModel("TripData");
@@ -70,7 +69,6 @@ sap.ui.define(
             // Load saved attachments
             this._loadGateOutAttachments();
           } catch (oError) {
-            console.error("Error in GateOut onAfterRendering:", oError);
             // Don't let errors break the view - set defaults
             this._setInputsEnabled(true);
           }
@@ -105,7 +103,6 @@ sap.ui.define(
               ),
             ],
             success: function (oData) {
-              console.log("Exit Gate", oData.results);
               this._ExitGateData = oData.results;
             }.bind(this),
             error: function () {
@@ -273,7 +270,6 @@ sap.ui.define(
           var oModel = this.oModel;
 
           if (!oModel) {
-            console.error("OData model not loaded");
             MessageBox.error("OData model is not loaded.");
             return;
           }
@@ -356,7 +352,6 @@ sap.ui.define(
               }
             }.bind(this),
             error: function (oError) {
-              console.error("GateOut Error:", oError);
 
               var sErrorMessage = "Failed Gate Out ";
 
@@ -372,7 +367,6 @@ sap.ui.define(
                   }
                 }
               } catch (e) {
-                console.warn("Failed to parse OData error:", e);
               }
 
               MessageBox.error(sErrorMessage);
@@ -425,7 +419,6 @@ sap.ui.define(
             }
           } catch (e) {
             // Don't break if something unexpected happens
-            console.error("Error in _setInputsEnabled: " + e);
           }
         },
         onGateOutAttachmentChange: function (oEvent) {
@@ -618,7 +611,6 @@ sap.ui.define(
                 if (fnCallback) {
                   fnCallback(false);
                 }
-                console.error("Upload error:", oError);
               }
             }
           });
@@ -646,7 +638,6 @@ sap.ui.define(
               if (fnCallback) {
                 fnCallback(false);
               }
-              console.error("Update attachment error:", oError);
             }
           });
         },
@@ -787,7 +778,6 @@ sap.ui.define(
                 }.bind(this),
                 error: function () {
                   MessageToast.show("Failed to load attachment for preview");
-                  console.error("Preview error:", oError);
                 }
               });
             }.bind(this)
