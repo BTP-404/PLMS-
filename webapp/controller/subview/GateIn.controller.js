@@ -115,6 +115,14 @@ sap.ui.define(
         _onTripDataUpdate: function () {
           var oTripData = sap.ui.getCore().getModel("TripData");
           if (oTripData) {
+            // Map Weighment_Req (boolean) from backend to WeighmentRequired ("Y"/"N") for frontend
+            var vWeighmentReq = oTripData.getProperty("/Weighment_Req");
+            if (vWeighmentReq !== undefined && vWeighmentReq !== null) {
+              // Convert boolean to "Y"/"N" format for frontend
+              var sWeighmentRequired = (vWeighmentReq === true || vWeighmentReq === "X") ? "Y" : "N";
+              oTripData.setProperty("/WeighmentRequired", sWeighmentRequired);
+            }
+            
             this.getView().setModel(oTripData, "TripData");
             // Disable inputs if GateIn data already exists (display mode)
             var sExistingEntryGateNum = oTripData.getProperty("/EntryGateNum");
@@ -342,15 +350,32 @@ sap.ui.define(
           // Get weighment required value
           var oWeighmentRadioGroup = oView.byId("idWeighmentRequired");
           var sWeighmentRequired = "N"; // Default to No
+          var bWeighmentRequired = false; // Default to false (boolean)
           if (oWeighmentRadioGroup) {
             var iSelectedIndex = oWeighmentRadioGroup.getSelectedIndex();
+            console.log("=== Weighment Required Radio Button Debug ===");
+            console.log("Selected Index:", iSelectedIndex);
+            console.log("Selected Index Type:", typeof iSelectedIndex);
             sWeighmentRequired = iSelectedIndex === 0 ? "Y" : "N";
+            console.log("String Value (sWeighmentRequired):", sWeighmentRequired);
+            bWeighmentRequired = iSelectedIndex === 0; // Direct boolean assignment
+            console.log("Boolean Value (bWeighmentRequired):", bWeighmentRequired);
+            console.log("Boolean Value Type:", typeof bWeighmentRequired);
+            console.log("Boolean Value === true:", bWeighmentRequired === true);
+            console.log("Boolean Value === false:", bWeighmentRequired === false);
+          } else {
+            console.log("Radio Group not found!");
           }
 
           var sTripNumber = sap.ui
             .getCore()
             .getModel("globalData")
             .getProperty("/TripNumber") || "";
+          
+          // Format TripNumber to 10 digits with leading zeros (e.g., '0000000099')
+          if (sTripNumber) {
+            sTripNumber = String(sTripNumber).padStart(10, "0");
+          }
           
           // Ensure DelayReasons has a value (empty string if not selected)
           var sDelayReasons = sID || "";
@@ -381,6 +406,16 @@ sap.ui.define(
           var bModified = !bIsFirstTime;
 
           // Function Import Call with Custom Headers
+          console.log("=== GateIn Function Call Parameters ===");
+          console.log("TripNumber:", sTripNumber, "Type:", typeof sTripNumber);
+          console.log("EntryGateNumber:", sEntryGateNumber, "Type:", typeof sEntryGateNumber);
+          console.log("Modified:", bModified, "Type:", typeof bModified);
+          console.log("Remarks:", sRemarks || "", "Type:", typeof (sRemarks || ""));
+          console.log("DelayReasons:", sDelayReasons, "Type:", typeof sDelayReasons);
+          console.log("Weighment_Req:", bWeighmentRequired, "Type:", typeof bWeighmentRequired);
+          console.log("Weighment_Req === true:", bWeighmentRequired === true);
+          console.log("Weighment_Req === false:", bWeighmentRequired === false);
+          
           oModel.callFunction("/GateIn", {
             method: "POST",
             urlParameters: {
@@ -389,7 +424,7 @@ sap.ui.define(
               Modified: bModified,
               Remarks: sRemarks || "",
               DelayReasons: sDelayReasons,
-              // WeighmentRequired removed from payload - not sent to backend
+              Weighment_Req: bWeighmentRequired,
             },
             headers: {
               "X-Requested-With": "X",
@@ -532,6 +567,9 @@ sap.ui.define(
           // Enable inputs for edit mode
           this._setInputsEnabled(true);
           MessageToast.show("Edit mode activated");
+          
+          // Focus on scanner input when edit mode is activated
+          this._focusOnScannerInput();
         },
         _setInputsEnabled: function (bEnabled) {
           try {
@@ -1236,6 +1274,12 @@ sap.ui.define(
               
               // Ensure EntryGateNum is set to the saved value
               oData.EntryGateNum = sEntryGateNumber;
+              
+              // Map Weighment_Req (boolean) from backend to WeighmentRequired ("Y"/"N") for frontend
+              if (oData.Weighment_Req !== undefined) {
+                // Convert boolean to "Y"/"N" format for frontend
+                oData.WeighmentRequired = oData.Weighment_Req === true || oData.Weighment_Req === "X" ? "Y" : "N";
+              }
               
               // Update global TripData model
               var oTripDataModel = new sap.ui.model.json.JSONModel(oData);

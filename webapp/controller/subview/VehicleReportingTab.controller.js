@@ -111,6 +111,12 @@ sap.ui.define(
               "$expand": "OrderDetails,ItemDetails,Feeds"
             },
             success: function (oData) {
+              // Map Weighment_Req (boolean) from backend to WeighmentRequired ("Y"/"N") for frontend
+              if (oData.Weighment_Req !== undefined) {
+                // Convert boolean to "Y"/"N" format for frontend
+                oData.WeighmentRequired = oData.Weighment_Req === true || oData.Weighment_Req === "X" ? "Y" : "N";
+              }
+              
               // Create JSON model for trip data
               const oTripDataModel = new sap.ui.model.json.JSONModel(oData);
 
@@ -156,6 +162,12 @@ sap.ui.define(
               "$expand": "OrderDetails,ItemDetails,Feeds"
             },
             success: function (oData) {
+              // Map Weighment_Req (boolean) from backend to WeighmentRequired ("Y"/"N") for frontend
+              if (oData.Weighment_Req !== undefined) {
+                // Convert boolean to "Y"/"N" format for frontend
+                oData.WeighmentRequired = oData.Weighment_Req === true || oData.Weighment_Req === "X" ? "Y" : "N";
+              }
+              
               // Create JSON model for trip data
               const oTripDataModel = new sap.ui.model.json.JSONModel(oData);
 
