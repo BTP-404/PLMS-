@@ -172,7 +172,7 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Unloading", 
                         sMessage = oError.message.value || oError.message;
                     }
                 } catch (e) {
-                    // Error parsing response
+                    console.error("Error parsing response:", e);
                 }
 
                 MessageBox.error(sMessage);
@@ -211,6 +211,10 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Unloading", 
                 oView.setBusy(false);
                 MessageToast.show("Unloading ended.");
                 
+                // Optional: Log the RegisterEvent response if needed
+                if (oData) {
+                    console.log("EndUnloading response:", oData);
+                }
                 
                 // Reload TripData to get updated status fields
                 this._reloadTripDataAndUpdateButtons();
@@ -232,7 +236,7 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Unloading", 
                         sMessage = oError.message.value || oError.message;
                     }
                 } catch (e) {
-                    // Error parsing response
+                    console.error("Error parsing response:", e);
                 }
 
                 MessageBox.error(sMessage);
@@ -248,14 +252,19 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Unloading", 
     // BIND MATERIALS FROM REFERENCE DOCUMENTS
     // =====================================================================
     _bindMaterialsFromRefDocs: function () {
+        console.log("=== Unloading: Binding Materials from Reference Documents ===");
+        
         // Get materials from Reference Documents refDocModel
         var oRefDocModel = sap.ui.getCore().getModel("refDocModel");
+        console.log("refDocModel:", oRefDocModel);
         
         if (!oRefDocModel) {
+            console.log("refDocModel not found, trying TripData");
             // If refDocModel doesn't exist, try to get from TripData
             var oTripData = sap.ui.getCore().getModel("TripData");
             if (oTripData) {
                 var aItems = this._extractResults(oTripData.getProperty("/ItemDetails"));
+                console.log("Items from TripData:", aItems);
                 if (aItems && aItems.length > 0) {
                     this._applyMaterials(aItems);
                 } else {
@@ -277,10 +286,14 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Unloading", 
         
         // Get materialDetails from refDocModel
         var aMaterials = oRefDocModel.getProperty("/materialDetails") || [];
+        console.log("Materials from refDocModel:", aMaterials);
+        console.log("Materials count:", aMaterials.length);
         
         if (aMaterials && aMaterials.length > 0) {
+            console.log("Found materials, applying to table");
             this._applyMaterials(aMaterials);
         } else {
+            console.log("No materials found in refDocModel, clearing table");
             // Clear table if no materials
             var oModel = this.getView().getModel("tableModel");
             if (oModel) {
@@ -290,25 +303,43 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Unloading", 
     },
 
     _applyMaterials: function (aMaterials) {
+        console.log("=== Unloading: Applying Materials ===");
+        console.log("Input materials:", aMaterials);
+        
         var oModel = this.getView().getModel("tableModel");
         if (!oModel) {
+            console.log("tableModel not found, creating new one");
             oModel = new JSONModel({ materials: [] });
             this.getView().setModel(oModel, "tableModel");
         }
         
         var aMapped = (aMaterials || []).map(this._mapMaterialDetail, this);
+        console.log("Mapped materials:", aMapped);
+        console.log("Mapped count:", aMapped.length);
         
         // Update the model using setData to ensure proper refresh
         oModel.setData({ materials: aMapped });
         
+        // Verify the data was set
+        var aSetMaterials = oModel.getProperty("/materials");
+        console.log("Materials after setting:", aSetMaterials);
+        console.log("Materials count after setting:", aSetMaterials ? aSetMaterials.length : 0);
+        
         // Get table and verify binding
         var oTable = this.byId("idUnloadingMaterialTable");
+        console.log("Table control:", oTable);
         if (oTable) {
             var oBinding = oTable.getBinding("items");
+            console.log("Table binding:", oBinding);
             if (oBinding) {
                 // Refresh the binding
                 oBinding.refresh();
+                console.log("Binding refreshed");
+            } else {
+                console.error("Table binding not found!");
             }
+        } else {
+            console.error("Table control not found!");
         }
         
         // Also update bindings on the view
@@ -412,6 +443,7 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Unloading", 
             oView.setBusy(false);
         }.bind(this)).catch(function(oError) {
             oView.setBusy(false);
+            console.error("Error updating weights:", oError);
         });
     },
     
@@ -430,6 +462,8 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Unloading", 
         if (!sTripNumber || aMaterials.length === 0) {
             return;
         }
+        
+        console.log("_updateAllItemDetailsWithWeights - Updating", aMaterials.length, "materials");
         
         // Update each material that has weight values
         var aUpdatePromises = [];
@@ -475,6 +509,7 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Unloading", 
                 
                 // Show success message only if all updates succeeded
                 if (iFailureCount === 0 && iSuccessCount > 0) {
+                    console.log("All ItemDetails weight updates completed successfully");
                     MessageToast.show("Weight fields updated successfully");
                 } else if (iSuccessCount > 0 && iFailureCount > 0) {
                     // Some succeeded, some failed
@@ -497,6 +532,7 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Unloading", 
                 }
             }.bind(this));
         } else {
+            console.log("No materials with weight values to update");
             MessageToast.show("No weight values found to update");
             return Promise.resolve();
         }
@@ -522,6 +558,7 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Unloading", 
                 });
                 if (oFoundItem) {
                     sDocType = oFoundItem.DocType || "";
+                    console.log("Found DocType from TripData ItemDetails:", sDocType, "for RefDocNo:", sRefDocNo);
                 }
             }
         }
@@ -537,13 +574,28 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Unloading", 
                 });
                 if (oFoundRefDocMaterial) {
                     sDocType = oFoundRefDocMaterial.DocType || oFoundRefDocMaterial.docType || "";
+                    console.log("Found DocType from refDocModel:", sDocType, "for RefDocNo:", sRefDocNo);
                 }
             }
         }
         
         if (!sDocType || !sRefDocNo || !sRefDocItemNo || !sTripNumber) {
+            console.warn("Missing required fields for ItemDetails update:", {
+                DocType: sDocType,
+                RefDocNo: sRefDocNo,
+                RefDocItemNo: sRefDocItemNo,
+                TripNumber: sTripNumber,
+                Material: oMaterial
+            });
             return null;
         }
+        
+        console.log("_updateItemDetailWeight - Using fields:", {
+            DocType: sDocType,
+            RefDocNo: sRefDocNo,
+            RefDocItemNo: sRefDocItemNo,
+            TripNumber: sTripNumber
+        });
         
         // Escape OData values
         var sEscapedDocType = this._escapeODataValue(sDocType);
@@ -598,6 +650,8 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Unloading", 
                 }
                 // Note: LoadedQty/UnloadedQty are not in ItemDetails metadata, so not included in update payload
         
+        console.log("_updateItemDetailWeight - Update payload:", JSON.stringify(oUpdatePayload, null, 2));
+        
         // Update ItemDetails using the same pattern as Reference Documents
         return new Promise(function (resolve, reject) {
             this.oModel.update(sEntityPath, oUpdatePayload, {
@@ -606,9 +660,11 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Unloading", 
                     "X-Requested-With": "X"
                 },
                 success: function (oData) {
+                    console.log("ItemDetails weight update successful:", sEntityPath);
                     resolve(oData);
                 }.bind(this),
                 error: function (oError) {
+                    console.error("ItemDetails weight update failed:", sEntityPath, oError);
                     // Don't show individual error toasts - will show summary at end
                     // Reject the promise so Promise.allSettled can track failures
                     reject(oError);
@@ -648,6 +704,7 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Unloading", 
                 sErrorMessage = oError.message.value || oError.message;
             }
         } catch (e) {
+            console.error("Error parsing error response:", e);
             // Keep default message
         }
         return sErrorMessage;

@@ -154,6 +154,7 @@ sap.ui.define(
         _loadTripDetails: function (sTripNumber) {
           const oModel = this.getView().getModel();
           const that = this;
+          // console.log(oModel.getdata());
           this._setButtonStates(true, true); // Ensure visible/enabled before load
 
           oModel.read("/TripDetails('" + sTripNumber + "')", {
@@ -284,6 +285,9 @@ sap.ui.define(
           oData.CompanyCode = sCompanyCode;
           
           // Log for debugging
+          console.log("=== Trip Creation Payload ===");
+          console.log("Plant (code only):", oData.Plant);
+          console.log("CompanyCode (code only):", oData.CompanyCode);
           
           const that = this;
 
@@ -403,6 +407,10 @@ sap.ui.define(
           oUpdateData.CompanyCode = sCompanyCode;
 
           // Optional: log what we are sending to backend for debugging
+          console.log("=== TripDetails UPDATE payload ===");
+          console.log("Plant (code only):", oUpdateData.Plant);
+          console.log("CompanyCode (code only):", oUpdateData.CompanyCode);
+          console.log(JSON.stringify(oUpdateData, null, 2));
 
           // Only update TripDetails('<TripNumber>') – no deep update
           this.getView().setBusy(true);
@@ -438,6 +446,7 @@ sap.ui.define(
               } catch (e) {
                 // ignore parse errors, keep default message
               }
+              console.error("TripDetails UPDATE error:", oError);
               MessageBox.error(sMessage);
             },
           });
@@ -880,6 +889,7 @@ sap.ui.define(
         //           }
         //         } catch (e) {}
         //         MessageToast.show(sMessage);
+        //         console.error("Save driver photo error:", oError);
         //       }
         //     }.bind(this)
         //   });
@@ -911,6 +921,7 @@ sap.ui.define(
         //         }
         //       } catch (e) {}
         //       MessageToast.show(sMessage);
+        //       console.error("Update driver photo error:", oError);
         //     }.bind(this)
         //   });
         // },
@@ -978,6 +989,7 @@ sap.ui.define(
                           }
                       } catch (e) {}
                       MessageToast.show(sMessage);
+                      console.error("Save driver photo error:", oError);
                   }
               }.bind(this)
           });
@@ -1036,6 +1048,7 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
               }
           } catch (e) {}
           MessageToast.show(sMessage);
+          console.error("Update driver photo error:", oError);
       }.bind(this)
   });
 },
@@ -1603,6 +1616,7 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
               });
             },
             error: function (error) {
+              console.error("MovementScenario VH Load Error:", error);
               sap.m.MessageBox.error(
                 "Failed to load Movement Scenario value help."
               );
@@ -1683,6 +1697,7 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
               });
             },
             error: function (error) {
+              console.error("Movement Scenario Suggestion Error:", error);
             }
           });
         },
@@ -2003,6 +2018,7 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
           // Get VHModel data
           const oVHModel = this.getView().getModel("VHModel");
           if (!oVHModel) {
+            console.error("VHModel not found");
             return;
           }
 
@@ -2018,6 +2034,7 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
             this.byId("idVehicleSize").setValue(oVehicle.VehicleSize);
             this.byId("idTransporterName").setValue(oVehicle.TransporterName);
           } else {
+            console.error("Vehicle not found in VHModel");
           }
 
           // Close the dialog
@@ -2034,6 +2051,7 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
           const oBinding = oDialog.getBinding("items");
 
           if (!oBinding) {
+            console.error("Binding not found for Vehicle Number search");
             return;
           }
 
@@ -2065,6 +2083,7 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
                     return sVehicleNumber.includes(sLowerValue) || 
                            sTransporterName.includes(sLowerValue);
                   } catch (e) {
+                    console.error("Error in Vehicle Number filter:", e);
                     return false;
                   }
                 }

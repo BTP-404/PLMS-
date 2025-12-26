@@ -215,6 +215,7 @@ sap.ui.define([
 						}
 					} catch (e) {}
 					MessageToast.show(sMessage);
+					console.error("Upload error:", oError);
 				}
 			}.bind(this)
 		});
@@ -279,6 +280,7 @@ sap.ui.define([
 					}
 				} catch (e) {}
 				MessageToast.show(sMessage);
+				console.error("Update error:", oError);
 			}.bind(this)
 		});
 	},
@@ -436,6 +438,7 @@ sap.ui.define([
 				}.bind(this),
 				error: function (oError) {
 					MessageToast.show("Failed to load attachment for preview");
+					console.error("Preview error:", oError);
 				}.bind(this)
 			});
 		},
@@ -576,6 +579,7 @@ sap.ui.define([
 				MessageToast.show("Download started");
 			} catch (oError) {
 				MessageToast.show("Failed to download file");
+				console.error("Download error:", oError);
 			}
 		},
 
@@ -626,6 +630,7 @@ sap.ui.define([
 				}.bind(this),
 				error: function (oError) {
 					MessageToast.show("Failed to delete attachment");
+					console.error("Delete error:", oError);
 				}
 			});
 		}

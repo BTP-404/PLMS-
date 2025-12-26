@@ -69,8 +69,10 @@ sap.ui.define([
 		} catch (oError) {
 			// Error handling: determine route based on arguments as fallback
 			sRouteName = sTripNumber ? "StagewithParam" : "Stage";
+			console.warn("Could not get route name from event, using fallback:", sRouteName);
 		}
 	
+		console.log("Matched route:", sRouteName);
 	
 		// ============================
 		//   CASE 1 — CREATE MODE
@@ -88,6 +90,7 @@ sap.ui.define([
 			this._updateLoadingUnloadingTabs();
 			this._updateCancelButtonVisibility();
 	
+			console.log("Stage (Create): pageTitleModel cleared");
 			return;
 		}
 	
@@ -105,6 +108,7 @@ sap.ui.define([
 			this._updateLoadingUnloadingTabs();
 			this._updateCancelButtonVisibility();
 	
+			console.log("StagewithParam (Update): refreshed pageTitleModel");
 		}
 	}
 		
@@ -158,6 +162,7 @@ sap.ui.define([
 				tripStatus: ""
 			}, true);
 		
+			console.log("pageTitleModel reset complete");
 		}
 ,		
 
@@ -403,10 +408,13 @@ sap.ui.define([
 			if (oDomRef && oDomRef.length > 0) {
 				if (iUnreadCount > 0) {
 					oDomRef.addClass("notesTabWithBell");
+					console.log("Red mark added - Unread count:", iUnreadCount);
 				} else {
 					oDomRef.removeClass("notesTabWithBell");
+					console.log("Red mark removed - All notes read");
 				}
 			} else {
+				console.warn("Notes tab DOM element not found");
 			}
 		},
 

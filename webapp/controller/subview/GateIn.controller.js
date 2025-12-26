@@ -147,6 +147,7 @@ sap.ui.define(
               ),
             ],
             success: function (oData) {
+              console.log("Delay reasons", oData.results);
               this._delayReasonData = oData.results;
             }.bind(this),
             error: function () {
@@ -164,6 +165,7 @@ sap.ui.define(
               ),
             ],
             success: function (oData) {
+              console.log("Entry Gate", oData.results);
               this._entryGateData = oData.results;
             }.bind(this),
             error: function () {
@@ -334,6 +336,7 @@ sap.ui.define(
           var oModel = this.oModel;
 
           if (!oModel) {
+            console.error("OData model not found!");
             MessageBox.error("OData model is not loaded.");
             return;
           }
@@ -350,8 +353,18 @@ sap.ui.define(
           var bWeighmentRequired = false; // Default to false (boolean)
           if (oWeighmentRadioGroup) {
             var iSelectedIndex = oWeighmentRadioGroup.getSelectedIndex();
+            console.log("=== Weighment Required Radio Button Debug ===");
+            console.log("Selected Index:", iSelectedIndex);
+            console.log("Selected Index Type:", typeof iSelectedIndex);
             sWeighmentRequired = iSelectedIndex === 0 ? "Y" : "N";
+            console.log("String Value (sWeighmentRequired):", sWeighmentRequired);
             bWeighmentRequired = iSelectedIndex === 0; // Direct boolean assignment
+            console.log("Boolean Value (bWeighmentRequired):", bWeighmentRequired);
+            console.log("Boolean Value Type:", typeof bWeighmentRequired);
+            console.log("Boolean Value === true:", bWeighmentRequired === true);
+            console.log("Boolean Value === false:", bWeighmentRequired === false);
+          } else {
+            console.log("Radio Group not found!");
           }
 
           var sTripNumber = sap.ui
@@ -393,6 +406,16 @@ sap.ui.define(
           var bModified = !bIsFirstTime;
 
           // Function Import Call with Custom Headers
+          console.log("=== GateIn Function Call Parameters ===");
+          console.log("TripNumber:", sTripNumber, "Type:", typeof sTripNumber);
+          console.log("EntryGateNumber:", sEntryGateNumber, "Type:", typeof sEntryGateNumber);
+          console.log("Modified:", bModified, "Type:", typeof bModified);
+          console.log("Remarks:", sRemarks || "", "Type:", typeof (sRemarks || ""));
+          console.log("DelayReasons:", sDelayReasons, "Type:", typeof sDelayReasons);
+          console.log("Weighment_Req:", bWeighmentRequired, "Type:", typeof bWeighmentRequired);
+          console.log("Weighment_Req === true:", bWeighmentRequired === true);
+          console.log("Weighment_Req === false:", bWeighmentRequired === false);
+          
           oModel.callFunction("/GateIn", {
             method: "POST",
             urlParameters: {
@@ -618,6 +641,7 @@ sap.ui.define(
             }
           } catch (e) {
             // Don't break if something unexpected happens
+            console.error("Error in _setInputsEnabled: " + e);
           }
         },
         onGateInAttachmentChange: function (oEvent) {
@@ -820,6 +844,7 @@ sap.ui.define(
                 if (fnCallback) {
                   fnCallback(false);
                 }
+                console.error("Upload error:", oError);
               }
             }
           });
@@ -847,6 +872,7 @@ sap.ui.define(
               if (fnCallback) {
                 fnCallback(false);
               }
+              console.error("Update attachment error:", oError);
             }
           });
         },
@@ -992,6 +1018,7 @@ sap.ui.define(
                 }.bind(this),
                 error: function () {
                   MessageToast.show("Failed to load attachment for preview");
+                  console.error("Preview error:", oError);
                 }
               });
             }.bind(this)
@@ -1102,6 +1129,7 @@ sap.ui.define(
           var that = this;
           BarcodeScanner.scan(
             function (oResult) {
+              console.log("Scan result:", oResult);
               if (!oResult.cancelled) {
                 var sScannedCode = oResult.text;
                 // Parse code if it contains pipe separator (e.g., "GATE001|Entry Gate 1")
@@ -1110,6 +1138,7 @@ sap.ui.define(
               }
             }.bind(this),
             function (oError) {
+              console.error("Scan failed:", oError);
               MessageToast.show("Scan failed: " + (oError.message || oError));
               setTimeout(function() {
                 var oScannerInput = that.getView().byId("idGateInScannerInput");
@@ -1135,8 +1164,11 @@ sap.ui.define(
         },
 
         _processScannedCode: function (sScannedCode) {
+          console.log("=== SCANNER DEBUG ===");
+          console.log("Processing scanned code:", sScannedCode);
           
           if (!sScannedCode || sScannedCode.trim() === "") {
+            console.log("Invalid scan code - empty");
             MessageToast.show("Invalid scan code");
             return;
           }
@@ -1145,14 +1177,18 @@ sap.ui.define(
           var oScannedData = null;
           try {
             oScannedData = JSON.parse(sScannedCode);
+            console.log("Parsed JSON data:", oScannedData);
           } catch (e) {
             // If not JSON, try to parse as comma-separated key-value pairs
+            console.log("Scanned code is not JSON, trying to parse as key-value pairs");
             oScannedData = this._parseKeyValueString(sScannedCode);
             if (!oScannedData) {
+              console.log("Failed to parse scanned code");
               MessageToast.show("Invalid barcode format");
               this._clearAndRefocusScanner();
               return;
             }
+            console.log("Parsed key-value data:", oScannedData);
           }
 
           // Extract asnId and orgId from scanned data
@@ -1160,11 +1196,15 @@ sap.ui.define(
           var sOrgId = oScannedData.orgId;
           
           if (!sAsnId || !sOrgId) {
+            console.log("Missing asnId or orgId in scanned data");
+            console.log("Available keys:", Object.keys(oScannedData));
             MessageToast.show("Invalid barcode: Missing asnId or orgId");
             this._clearAndRefocusScanner();
             return;
           }
 
+          console.log("Extracted asnId:", sAsnId);
+          console.log("Extracted orgId:", sOrgId);
 
           // Step 1: Get OAuth Token
           this._getOAuthToken(sAsnId, sOrgId);
@@ -1183,8 +1223,10 @@ sap.ui.define(
                 oResult[sKey] = sValue;
               }
             });
+            console.log("Converted to JSON object:", oResult);
             return oResult;
           } catch (e) {
+            console.error("Error parsing key-value string:", e);
             return null;
           }
         },
@@ -1210,12 +1252,14 @@ sap.ui.define(
         },
 
         _getOAuthToken: function (sAsnId, sOrgId) {
+          console.log("Getting OAuth token for asnId:", sAsnId, "orgId:", sOrgId);
           // Add your OAuth token logic here
           // This is a placeholder - implement according to your authentication requirements
           MessageToast.show("Scanner processed successfully! ASN ID: " + sAsnId);
         },
 
         _reloadTripDataAfterSave: function (sTripNumber, sEntryGateNumber) {
+          console.log("Reloading TripData after Gate-In save for trip:", sTripNumber);
           
           var oModel = this.oModel;
           var that = this;
@@ -1226,6 +1270,7 @@ sap.ui.define(
               "$expand": "OrderDetails,ItemDetails"
             },
             success: function (oData) {
+              console.log("TripData reloaded successfully after Gate-In save");
               
               // Ensure EntryGateNum is set to the saved value
               oData.EntryGateNum = sEntryGateNumber;
@@ -1246,8 +1291,10 @@ sap.ui.define(
               // Publish event to notify other views with complete data
               that._eventBus.publish("TripData", "Updated");
               
+              console.log("TripData model updated with complete data including OrderDetails and ItemDetails");
             },
             error: function (oError) {
+              console.error("Failed to reload TripData after Gate-In save:", oError);
               
               // Fallback: just update the EntryGateNum property
               var oTripData = sap.ui.getCore().getModel("TripData");
