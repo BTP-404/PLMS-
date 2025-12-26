@@ -204,26 +204,37 @@
 
         <!-- ===================== BUTTONS AT BOTTOM ===================== -->
         <HBox justifyContent="End" class="sapUiSmallMarginTop sapUiSmallMarginEnd">
+            <!-- Update Weights Button (only visible when weighment is enabled) -->
+            <Button 
+                id="btnUpdateWeights" 
+                text="Update Weights" 
+                type="Emphasized" 
+                press="onUpdateWeights" 
+                icon="sap-icon://save"
+                visible="{loadingModel>/weighmentEnabled}"
+                class="sapUiTinyMarginEnd"
+            />
+            
             <!-- Start Loading Button -->
-                    <Button 
-                        id="btnStartLoading" 
-                        text="Start Loading" 
-                        type="Accept" 
-                        press="onStartLoading" 
-                        icon="sap-icon://cart-3"
-                        enabled="true" 
-                    />
+            <Button 
+                id="btnStartLoading" 
+                text="Start Loading" 
+                type="Accept" 
+                press="onStartLoading" 
+                icon="sap-icon://cart-3"
+                enabled="true" 
+            />
 
-                    <!-- End Loading Button -->
-                    <Button 
-                        id="btnEndLoading" 
-                        text="End Loading" 
-                        type="Reject" 
-                        press="onEndLoading" 
-                        icon="sap-icon://cart-5"
-                        enabled="false" 
-                        class="sapUiTinyMarginBegin"
-                    />
+            <!-- End Loading Button -->
+            <Button 
+                id="btnEndLoading" 
+                text="End Loading" 
+                type="Reject" 
+                press="onEndLoading" 
+                icon="sap-icon://cart-5"
+                enabled="false" 
+                class="sapUiTinyMarginBegin"
+            />
         </HBox>
 
     </VBox>

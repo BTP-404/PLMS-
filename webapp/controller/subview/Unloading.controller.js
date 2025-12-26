@@ -349,20 +349,23 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Unloading", 
 
     _mapMaterialDetail: function (oMaterial) {
         // Map from Reference Documents material format to Unloading table format
+        // Also handle ItemDetails format from StartUnloading response (uppercase properties)
         return {
-            RefDocNumber: oMaterial.refDocNo || "",
-            RefDocItemNumber: oMaterial.refDocItemNo || "",
-            MaterialCode: oMaterial.materialCode || "",
-            MaterialDescription: oMaterial.materialDescription || "",
-            Qty: oMaterial.qty || "",
-            UoM: oMaterial.uom || "",
-            UnloadedQty: "", // Empty for Reference Documents materials
-            GrossWt: "", // Empty for Reference Documents materials
-            TareWt: "", // Empty for Reference Documents materials
-            NetWt: "", // Calculated field
-            CreatedBy: oMaterial.createdBy || "",
-            CreatedOnDate: oMaterial.createdOnDate || "",
-            CreatedOnTime: oMaterial.createdOnTime || ""
+            DocType: oMaterial.DocType || oMaterial.docType || "",
+            TripNumber: oMaterial.TripNumber || oMaterial.tripNumber || "",
+            RefDocNumber: oMaterial.RefDocNo || oMaterial.refDocNo || "",
+            RefDocItemNumber: oMaterial.RefDocItemNo || oMaterial.refDocItemNo || "",
+            MaterialCode: oMaterial.MaterialCode || oMaterial.materialCode || "",
+            MaterialDescription: oMaterial.MaterialDescription || oMaterial.materialDescription || "",
+            Qty: oMaterial.Quantity || oMaterial.qty || "",
+            UoM: oMaterial.UoM || oMaterial.uom || "",
+            UnloadedQty: oMaterial.UnloadedQty || "", // May come from StartUnloading response
+            GrossWt: oMaterial.GrossWt || "", // May come from StartUnloading response
+            TareWt: oMaterial.TareWt || "", // May come from StartUnloading response
+            NetWt: oMaterial.NetWt || "", // Calculated field
+            CreatedBy: oMaterial.CreatedBy || oMaterial.createdBy || "",
+            CreatedOnDate: oMaterial.CreatedOnDate || oMaterial.createdOnDate || "",
+            CreatedOnTime: oMaterial.CreatedOnTime || oMaterial.createdOnTime || ""
         };
     },
 
@@ -427,6 +430,284 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Unloading", 
                 oBindingContext.getModel().setProperty(oBindingContext.getPath() + "/NetWt", fNetWt.toFixed(2));
             }
         }
+    },
+    
+    // =====================================================================
+    // UPDATE WEIGHTS BUTTON HANDLER
+    // =====================================================================
+    onUpdateWeights: function () {
+        var oView = this.getView();
+        oView.setBusy(true);
+        
+        this._updateAllItemDetailsWithWeights().then(function() {
+            oView.setBusy(false);
+        }.bind(this)).catch(function(oError) {
+            oView.setBusy(false);
+            console.error("Error updating weights:", oError);
+        });
+    },
+    
+    // =====================================================================
+    // UPDATE ALL ITEMDETAILS WITH WEIGHT FIELDS
+    // =====================================================================
+    _updateAllItemDetailsWithWeights: function () {
+        var oTableModel = this.getView().getModel("tableModel");
+        if (!oTableModel) {
+            return;
+        }
+        
+        var aMaterials = oTableModel.getProperty("/materials") || [];
+        var sTripNumber = sap.ui.getCore().getModel("globalData")?.getProperty("/TripNumber");
+        
+        if (!sTripNumber || aMaterials.length === 0) {
+            return;
+        }
+        
+        console.log("_updateAllItemDetailsWithWeights - Updating", aMaterials.length, "materials");
+        
+        // Update each material that has weight values
+        var aUpdatePromises = [];
+        var iTotalUpdates = 0;
+        aMaterials.forEach(function (oMaterial) {
+            // Check if material has weight values to update
+            var sGrossWt = oMaterial.GrossWt || "";
+            var sTareWt = oMaterial.TareWt || "";
+            var sUnloadedQty = oMaterial.UnloadedQty || "";
+            var sNetWt = oMaterial.NetWt || "";
+            
+            // Update if at least one weight field has a value
+            if (sGrossWt || sTareWt || sUnloadedQty || sNetWt) {
+                iTotalUpdates++;
+                var oUpdatePromise = this._updateItemDetailWeight(oMaterial, sTripNumber);
+                if (oUpdatePromise) {
+                    aUpdatePromises.push(oUpdatePromise);
+                }
+            }
+        }.bind(this));
+        
+        // Wait for all updates to complete
+        if (aUpdatePromises.length > 0) {
+            // Track success and failure counts
+            var iSuccessCount = 0;
+            var iFailureCount = 0;
+            var aErrorMessages = [];
+            
+            return Promise.allSettled(aUpdatePromises).then(function (aResults) {
+                aResults.forEach(function (oResult) {
+                    if (oResult.status === "fulfilled" && oResult.value !== null) {
+                        iSuccessCount++;
+                    } else {
+                        iFailureCount++;
+                        if (oResult.reason) {
+                            var sErrorMsg = this._extractErrorMessage(oResult.reason);
+                            if (sErrorMsg) {
+                                aErrorMessages.push(sErrorMsg);
+                            }
+                        }
+                    }
+                }.bind(this));
+                
+                // Show success message only if all updates succeeded
+                if (iFailureCount === 0 && iSuccessCount > 0) {
+                    console.log("All ItemDetails weight updates completed successfully");
+                    MessageToast.show("Weight fields updated successfully");
+                } else if (iSuccessCount > 0 && iFailureCount > 0) {
+                    // Some succeeded, some failed
+                    var sErrorMessage = iFailureCount + " of " + iTotalUpdates + " updates failed";
+                    if (aErrorMessages.length > 0) {
+                        sErrorMessage = aErrorMessages[0]; // Show first error message
+                    }
+                    MessageToast.show(sErrorMessage, {
+                        duration: 5000
+                    });
+                } else if (iFailureCount > 0) {
+                    // All failed
+                    var sErrorMessage = "All weight updates failed";
+                    if (aErrorMessages.length > 0) {
+                        sErrorMessage = aErrorMessages[0]; // Show first error message
+                    }
+                    MessageToast.show(sErrorMessage, {
+                        duration: 5000
+                    });
+                }
+            }.bind(this));
+        } else {
+            console.log("No materials with weight values to update");
+            MessageToast.show("No weight values found to update");
+            return Promise.resolve();
+        }
+    },
+    
+    // =====================================================================
+    // UPDATE SINGLE ITEMDETAIL WITH WEIGHT FIELDS
+    // =====================================================================
+    _updateItemDetailWeight: function (oMaterial, sTripNumber) {
+        // Get fields from material - handle both uppercase (from ItemDetails) and lowercase (from Reference Documents)
+        var sDocType = oMaterial.DocType || oMaterial.docType || "";
+        var sRefDocNo = oMaterial.RefDocNumber || oMaterial.RefDocNo || oMaterial.refDocNo || "";
+        var sRefDocItemNo = oMaterial.RefDocItemNumber || oMaterial.RefDocItemNo || oMaterial.refDocItemNo || "";
+        
+        // If DocType is missing, get it from TripData ItemDetails using RefDocNo and RefDocItemNo
+        if (!sDocType && sRefDocNo && sRefDocItemNo) {
+            var oTripData = sap.ui.getCore().getModel("TripData");
+            if (oTripData) {
+                var aItemDetails = this._extractResults(oTripData.getProperty("/ItemDetails")) || [];
+                var oFoundItem = aItemDetails.find(function(oItem) {
+                    return (oItem.RefDocNo === sRefDocNo || oItem.RefDocNo === oMaterial.RefDocNumber) && 
+                           (oItem.RefDocItemNo === sRefDocItemNo || oItem.RefDocItemNo === oMaterial.RefDocItemNumber);
+                });
+                if (oFoundItem) {
+                    sDocType = oFoundItem.DocType || "";
+                    console.log("Found DocType from TripData ItemDetails:", sDocType, "for RefDocNo:", sRefDocNo);
+                }
+            }
+        }
+        
+        // Also try to get from refDocModel if still missing
+        if (!sDocType && sRefDocNo) {
+            var oRefDocModel = sap.ui.getCore().getModel("refDocModel");
+            if (oRefDocModel) {
+                var aRefDocMaterials = oRefDocModel.getProperty("/materialDetails") || [];
+                var oFoundRefDocMaterial = aRefDocMaterials.find(function(oMat) {
+                    return (oMat.refDocNo === sRefDocNo || oMat.RefDocNo === sRefDocNo) && 
+                           (oMat.refDocItemNo === sRefDocItemNo || oMat.RefDocItemNo === sRefDocItemNo);
+                });
+                if (oFoundRefDocMaterial) {
+                    sDocType = oFoundRefDocMaterial.DocType || oFoundRefDocMaterial.docType || "";
+                    console.log("Found DocType from refDocModel:", sDocType, "for RefDocNo:", sRefDocNo);
+                }
+            }
+        }
+        
+        if (!sDocType || !sRefDocNo || !sRefDocItemNo || !sTripNumber) {
+            console.warn("Missing required fields for ItemDetails update:", {
+                DocType: sDocType,
+                RefDocNo: sRefDocNo,
+                RefDocItemNo: sRefDocItemNo,
+                TripNumber: sTripNumber,
+                Material: oMaterial
+            });
+            return null;
+        }
+        
+        console.log("_updateItemDetailWeight - Using fields:", {
+            DocType: sDocType,
+            RefDocNo: sRefDocNo,
+            RefDocItemNo: sRefDocItemNo,
+            TripNumber: sTripNumber
+        });
+        
+        // Escape OData values
+        var sEscapedDocType = this._escapeODataValue(sDocType);
+        var sEscapedTripNumber = this._escapeODataValue(sTripNumber);
+        var sEscapedRefDocNo = this._escapeODataValue(sRefDocNo);
+        var sEscapedRefDocItemNo = this._escapeODataValue(sRefDocItemNo);
+        
+        // Build OData entity key path
+        var sEntityPath = "/ItemDetails(DocType='" + sEscapedDocType +
+            "',TripNumber='" + sEscapedTripNumber +
+            "',RefDocNo='" + sEscapedRefDocNo +
+            "',RefDocItemNo='" + sEscapedRefDocItemNo + "')";
+        
+        // Get current ItemDetails from TripData ItemDetails collection (since GET_ENTITY is not supported)
+        var oTripData = sap.ui.getCore().getModel("TripData");
+        var oCurrentData = null;
+        
+        if (oTripData) {
+            var aItemDetails = this._extractResults(oTripData.getProperty("/ItemDetails")) || [];
+            oCurrentData = aItemDetails.find(function(oItem) {
+                return oItem.DocType === sDocType &&
+                       oItem.TripNumber === sTripNumber &&
+                       oItem.RefDocNo === sRefDocNo &&
+                       oItem.RefDocItemNo === sRefDocItemNo;
+            });
+        }
+        
+        // Build update payload with existing fields from TripData + weight fields from material
+        var oUpdatePayload = {
+            TripNumber: sTripNumber,
+            DocType: sDocType,
+            RefDocNo: sRefDocNo,
+            RefDocItemNo: sRefDocItemNo,
+            MaterialCode: (oCurrentData && oCurrentData.MaterialCode) || oMaterial.MaterialCode || "",
+            MaterialDescription: (oCurrentData && oCurrentData.MaterialDescription) || oMaterial.MaterialDescription || "",
+            Quantity: (oCurrentData && oCurrentData.Quantity) || parseFloat(oMaterial.Qty) || 0,
+            UoM: (oCurrentData && oCurrentData.UoM) || oMaterial.UoM || "",
+            IsDeleted: (oCurrentData && oCurrentData.IsDeleted) || "",
+            IsSplitActive: (oCurrentData && oCurrentData.IsSplitActive !== undefined) ? oCurrentData.IsSplitActive : false
+        };
+        
+                // Add weight fields if they have values - use correct property names from metadata
+                // Weight fields are String type in metadata
+                if (oMaterial.GrossWt) {
+                    oUpdatePayload.GrossWeight = String(parseFloat(oMaterial.GrossWt) || 0);
+                }
+                if (oMaterial.TareWt) {
+                    oUpdatePayload.TareWeight = String(parseFloat(oMaterial.TareWt) || 0);
+                }
+                if (oMaterial.NetWt) {
+                    oUpdatePayload.NetWeight = String(parseFloat(oMaterial.NetWt) || 0);
+                }
+                // Note: LoadedQty/UnloadedQty are not in ItemDetails metadata, so not included in update payload
+        
+        console.log("_updateItemDetailWeight - Update payload:", JSON.stringify(oUpdatePayload, null, 2));
+        
+        // Update ItemDetails using the same pattern as Reference Documents
+        return new Promise(function (resolve, reject) {
+            this.oModel.update(sEntityPath, oUpdatePayload, {
+                merge: false,
+                headers: {
+                    "X-Requested-With": "X"
+                },
+                success: function (oData) {
+                    console.log("ItemDetails weight update successful:", sEntityPath);
+                    resolve(oData);
+                }.bind(this),
+                error: function (oError) {
+                    console.error("ItemDetails weight update failed:", sEntityPath, oError);
+                    // Don't show individual error toasts - will show summary at end
+                    // Reject the promise so Promise.allSettled can track failures
+                    reject(oError);
+                }.bind(this)
+            });
+        }.bind(this));
+    },
+    
+    _escapeODataValue: function (sValue) {
+        // Escape single quotes in OData string values
+        return (sValue || "").replace(/'/g, "''");
+    },
+    
+    _extractErrorMessage: function (oError) {
+        var sErrorMessage = "Failed to update weight";
+        try {
+            if (oError && oError.responseText) {
+                var oResponse = JSON.parse(oError.responseText);
+                if (oResponse.error && oResponse.error.message) {
+                    // Handle both formats: {message: {value: "..."}} and {message: "..."}
+                    if (oResponse.error.message.value) {
+                        sErrorMessage = oResponse.error.message.value;
+                    } else if (typeof oResponse.error.message === "string") {
+                        sErrorMessage = oResponse.error.message;
+                    }
+                }
+                // Also check innererror for additional details
+                if (oResponse.error.innererror && oResponse.error.innererror.errordetails && 
+                    oResponse.error.innererror.errordetails.length > 0) {
+                    var sInnerMessage = oResponse.error.innererror.errordetails[0].message;
+                    if (sInnerMessage) {
+                        sErrorMessage = sInnerMessage;
+                    }
+                }
+            } else if (oError && oError.message) {
+                // Fallback to oError.message
+                sErrorMessage = oError.message.value || oError.message;
+            }
+        } catch (e) {
+            console.error("Error parsing error response:", e);
+            // Keep default message
+        }
+        return sErrorMessage;
     },
 
     // =====================================================================

@@ -204,26 +204,37 @@
 
         <!-- ===================== BUTTONS AT BOTTOM ===================== -->
         <HBox justifyContent="End" class="sapUiSmallMarginTop sapUiSmallMarginEnd">
+            <!-- Update Weights Button (only visible when weighment is enabled) -->
+            <Button 
+                id="btnUpdateWeights" 
+                text="Update Weights" 
+                type="Emphasized" 
+                press="onUpdateWeights" 
+                icon="sap-icon://save"
+                visible="{unloadingModel>/weighmentEnabled}"
+                class="sapUiTinyMarginEnd"
+            />
+            
             <!-- Start Unloading Button -->
-                    <Button 
-                        id="btnStartUnloading" 
-                        text="Start Unloading" 
-                        type="Accept" 
-                        press="onStartUnloading" 
-                        icon="sap-icon://unload"
-                        enabled="true" 
-                    />
+            <Button 
+                id="btnStartUnloading" 
+                text="Start Unloading" 
+                type="Accept" 
+                press="onStartUnloading" 
+                icon="sap-icon://unload"
+                enabled="true" 
+            />
 
-                    <!-- End Unloading Button -->
-                    <Button 
-                        id="btnEndUnloading" 
-                        text="End Unloading" 
-                        type="Reject" 
-                        press="onEndUnloading" 
-                        icon="sap-icon://cart-5"
-                        enabled="false" 
-                        class="sapUiTinyMarginBegin"
-                    />
+            <!-- End Unloading Button -->
+            <Button 
+                id="btnEndUnloading" 
+                text="End Unloading" 
+                type="Reject" 
+                press="onEndUnloading" 
+                icon="sap-icon://cart-5"
+                enabled="false" 
+                class="sapUiTinyMarginBegin"
+            />
         </HBox>
 
     </VBox>
