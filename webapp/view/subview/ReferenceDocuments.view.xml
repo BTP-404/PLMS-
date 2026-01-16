@@ -7,6 +7,36 @@
 
     <VBox class="sapUiSizeCompact sapUiSmallMargin">
 
+        <!-- ========================= SCANNER ROW ========================= -->
+        <!-- Scanner Input and Button - Only visible when Movement Type is Inward -->
+        <VBox 
+            id="idRefDocScannerVBox"
+            class="sapUiSmallMarginBottom"
+            visible="false">
+            <Label
+                text="Scanner Input"
+                design="Bold"
+                class="sapUiNoMarginBottom"
+            />
+            <HBox alignItems="Center" width="100%">
+                <Input
+                    id="idRefDocScannerInput"
+                    placeholder="Scan barcode or enter manually"
+                    width="100%"
+                    liveChange="onScanLiveupdate"
+                    class="sapUiTinyMarginEnd"
+                />
+                <Button
+                    id="idRefDocScanButton"
+                    text="Scan"
+                    type="Emphasized"
+                    icon="sap-icon://bar-code"
+                    press="onScanSuccess"
+                    class="sapUiTinyMarginBegin"
+                />
+            </HBox>
+        </VBox>
+
         <!-- ========================================================= -->
         <!-- =============== Reference Documents Panel =============== -->
         <!-- ========================================================= -->
@@ -181,11 +211,6 @@
                                         icon="sap-icon://action-settings"
                                         tooltip="Column Settings"
                                         press="onMaterialColumnSettings"/>
-                                    <Button
-                                        text="Add Material"
-                                        icon="sap-icon://add"
-                                        type="Emphasized"
-                                        press="onAddMaterialRow"/>
                                 </Toolbar>
                             </headerToolbar>
 

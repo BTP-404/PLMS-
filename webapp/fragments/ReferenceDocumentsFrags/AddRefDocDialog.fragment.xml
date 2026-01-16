@@ -84,6 +84,20 @@
                 enabled="false"
             />
 
+            <Label text="Sales Order Number" />
+            <Input
+                id="idRefDocSalesDoc"
+                valueLiveUpdate="true"
+                enabled="false"
+            />
+
+            <Label text="Sales Order Type" />
+            <Input
+                id="idRefDocSalesDoctype"
+                valueLiveUpdate="true"
+                enabled="false"
+            />
+
         </form:SimpleForm>
 
         <beginButton>

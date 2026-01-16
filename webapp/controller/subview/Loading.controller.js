@@ -174,6 +174,9 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Loading", {
                 
                 // Reload TripData to get updated status fields
                 this._reloadTripDataAndUpdateButtons();
+                
+                // Update weighment enabled state to ensure weight fields are enabled if weighment is required
+                this._updateWeighmentEnabledState();
             }.bind(this),
             error: function (oError) {
                 oView.setBusy(false);
@@ -192,7 +195,7 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Loading", {
                         sMessage = oError.message.value || oError.message;
                     }
                 } catch (e) {
-                    console.error("Error parsing response:", e);
+                    // Error parsing response
                 }
 
                 MessageBox.error(sMessage);
@@ -231,11 +234,6 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Loading", {
                 oView.setBusy(false);
                 MessageToast.show("Loading ended.");
                 
-                // Optional: Log the RegisterEvent response if needed
-                if (oData) {
-                    console.log("EndLoading response:", oData);
-                }
-                
                 // Reload TripData to get updated status fields
                 this._reloadTripDataAndUpdateButtons();
             }.bind(this),
@@ -256,7 +254,7 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Loading", {
                         sMessage = oError.message.value || oError.message;
                     }
                 } catch (e) {
-                    console.error("Error parsing response:", e);
+                    // Error parsing response
                 }
 
                 MessageBox.error(sMessage);
@@ -271,101 +269,57 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Loading", {
     // =====================================================================
     // BIND MATERIALS FROM REFERENCE DOCUMENTS
     // =====================================================================
-    _bindMaterialsFromRefDocs: function () {
-        console.log("=== Loading: Binding Materials from Reference Documents ===");
-        
-        // Get materials from Reference Documents refDocModel
-        var oRefDocModel = sap.ui.getCore().getModel("refDocModel");
-        console.log("refDocModel:", oRefDocModel);
-        
-        if (!oRefDocModel) {
-            console.log("refDocModel not found, trying TripData");
-            // If refDocModel doesn't exist, try to get from TripData
-            var oTripData = sap.ui.getCore().getModel("TripData");
-            if (oTripData) {
-                var aItems = this._extractResults(oTripData.getProperty("/ItemDetails"));
-                console.log("Items from TripData:", aItems);
-                if (aItems && aItems.length > 0) {
-                    this._applyMaterials(aItems);
-                } else {
-                    // Clear table if no items
-                    var oModel = this.getView().getModel("tableModel");
-                    if (oModel) {
-                        oModel.setProperty("/materials", []);
-                    }
-                }
-            } else {
-                // Clear table if no TripData
-                var oModel = this.getView().getModel("tableModel");
-                if (oModel) {
-                    oModel.setProperty("/materials", []);
-                }
+    _bindMaterialsFromRefDocs: function (bForceFromTripData) {
+        // Always prefer TripData ItemDetails for Loading view (has weight data)
+        // Only fallback to refDocModel if TripData ItemDetails is not available
+        var oTripData = sap.ui.getCore().getModel("TripData");
+        if (oTripData || bForceFromTripData) {
+            var aItems = this._extractResults(oTripData ? oTripData.getProperty("/ItemDetails") : null);
+            if (aItems && aItems.length > 0) {
+                this._applyMaterials(aItems);
+                return;
             }
-            return;
         }
         
-        // Get materialDetails from refDocModel
-        var aMaterials = oRefDocModel.getProperty("/materialDetails") || [];
-        console.log("Materials from refDocModel:", aMaterials);
-        console.log("Materials count:", aMaterials.length);
+        // Fallback to refDocModel if TripData ItemDetails is not available
+        var oRefDocModel = sap.ui.getCore().getModel("refDocModel");
         
-        if (aMaterials && aMaterials.length > 0) {
-            console.log("Found materials, applying to table");
-            this._applyMaterials(aMaterials);
-        } else {
-            console.log("No materials found in refDocModel, clearing table");
-            // Clear table if no materials
-            var oModel = this.getView().getModel("tableModel");
-            if (oModel) {
-                oModel.setProperty("/materials", []);
+        if (oRefDocModel) {
+            var aMaterials = oRefDocModel.getProperty("/materialDetails") || [];
+            
+            if (aMaterials && aMaterials.length > 0) {
+                this._applyMaterials(aMaterials);
+                return;
             }
+        }
+        
+        // Clear table if no materials found
+        var oModel = this.getView().getModel("tableModel");
+        if (oModel) {
+            oModel.setProperty("/materials", []);
         }
     },
 
     _applyMaterials: function (aMaterials) {
-        console.log("=== Loading: Applying Materials ===");
-        console.log("Input materials:", aMaterials);
-        
         var oModel = this.getView().getModel("tableModel");
         if (!oModel) {
-            console.log("tableModel not found, creating new one");
             oModel = new JSONModel({ materials: [] });
             this.getView().setModel(oModel, "tableModel");
         }
         
         var aMapped = (aMaterials || []).map(this._mapMaterialDetail, this);
-        console.log("Mapped materials:", aMapped);
-        console.log("Mapped count:", aMapped.length);
-        if (aMapped.length > 0) {
-            console.log("First mapped material (full):", JSON.stringify(aMapped[0], null, 2));
-            console.log("First mapped material properties:", Object.keys(aMapped[0]));
-            console.log("RefDocNumber:", aMapped[0].RefDocNumber);
-            console.log("MaterialCode:", aMapped[0].MaterialCode);
-        }
         
         // Update the model using setData to ensure proper refresh
         oModel.setData({ materials: aMapped });
         
-        // Verify the data was set
-        var aSetMaterials = oModel.getProperty("/materials");
-        console.log("Materials after setting:", aSetMaterials);
-        console.log("Materials count after setting:", aSetMaterials ? aSetMaterials.length : 0);
-        
         // Get table and verify binding
         var oTable = this.byId("idLoadingMaterialTable");
-        console.log("Table control:", oTable);
         if (oTable) {
             var oBinding = oTable.getBinding("items");
-            console.log("Table binding:", oBinding);
             if (oBinding) {
                 // Refresh the binding
                 oBinding.refresh();
-                console.log("Binding refreshed");
-            } else {
-                console.error("Table binding not found!");
             }
-        } else {
-            console.error("Table control not found!");
         }
         
         // Also update bindings on the view
@@ -376,6 +330,88 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Loading", {
     _mapMaterialDetail: function (oMaterial) {
         // Map from Reference Documents material format to Loading table format
         // Also handle ItemDetails format from StartLoading response (uppercase properties)
+        // Backend API returns: GrossWeight, TareWeight, NetWeight, LoadedWeight
+        // Frontend model uses: GrossWt, TareWt, NetWt, LoadedWeight
+        
+        // Helper function to clean and extract weight value
+        var fnCleanWeight = function(sValue) {
+            if (!sValue || sValue === null || sValue === undefined) {
+                return "";
+            }
+            // Convert to string and trim whitespace
+            var sCleaned = String(sValue).trim();
+            // Remove trailing minus sign if present (handle "34.000-" format)
+            if (sCleaned.endsWith("-")) {
+                sCleaned = sCleaned.slice(0, -1);
+            }
+            // Return empty string if result is empty or just whitespace
+            return sCleaned || "";
+        };
+        
+        // Map weight fields - handle both backend field names (GrossWeight, TareWeight) and frontend (GrossWt, TareWt)
+        // Use explicit null/undefined checks to handle 0 values correctly
+        var sGrossWt = "";
+        if (oMaterial.GrossWeight !== null && oMaterial.GrossWeight !== undefined) {
+            sGrossWt = fnCleanWeight(oMaterial.GrossWeight);
+        } else if (oMaterial.GrossWt !== null && oMaterial.GrossWt !== undefined) {
+            sGrossWt = fnCleanWeight(oMaterial.GrossWt);
+        }
+        
+        var sTareWt = "";
+        if (oMaterial.TareWeight !== null && oMaterial.TareWeight !== undefined) {
+            sTareWt = fnCleanWeight(oMaterial.TareWeight);
+        } else if (oMaterial.TareWt !== null && oMaterial.TareWt !== undefined) {
+            sTareWt = fnCleanWeight(oMaterial.TareWt);
+        }
+        
+        var sNetWt = "";
+        if (oMaterial.NetWeight !== null && oMaterial.NetWeight !== undefined) {
+            sNetWt = fnCleanWeight(oMaterial.NetWeight);
+        } else if (oMaterial.NetWt !== null && oMaterial.NetWt !== undefined) {
+            sNetWt = fnCleanWeight(oMaterial.NetWt);
+        }
+        
+        var sLoadedWeight = "";
+        if (oMaterial.LoadedWeight !== null && oMaterial.LoadedWeight !== undefined) {
+            sLoadedWeight = fnCleanWeight(oMaterial.LoadedWeight);
+        } else if (oMaterial.LoadedQty !== null && oMaterial.LoadedQty !== undefined) {
+            sLoadedWeight = fnCleanWeight(oMaterial.LoadedQty);
+        }
+        
+        // Calculate missing weights:
+        // 1. If NetWt and TareWt are present, calculate GrossWt = NetWt + TareWt
+        // 2. If GrossWt and TareWt are present, calculate NetWt = GrossWt - TareWt
+        // 3. If NetWt has trailing minus, recalculate it
+        
+        // Calculate GrossWt if NetWt and TareWt are present but GrossWt is not
+        if (sNetWt && sTareWt && !sGrossWt) {
+            var fNetWt = parseFloat(sNetWt);
+            var fTareWt = parseFloat(sTareWt);
+            if (!isNaN(fNetWt) && !isNaN(fTareWt)) {
+                var fGrossWt = fNetWt + fTareWt;
+                sGrossWt = fGrossWt.toFixed(3);
+            }
+        }
+        
+        // Calculate NetWt if GrossWt and TareWt are present but NetWt is not, or if NetWt has trailing minus
+        if (sGrossWt && sTareWt) {
+            var fGrossWt = parseFloat(sGrossWt);
+            var fTareWt = parseFloat(sTareWt);
+            if (!isNaN(fGrossWt) && !isNaN(fTareWt)) {
+                // Recalculate NetWt if it's missing or has trailing minus
+                if (!sNetWt || sNetWt.endsWith("-")) {
+                    var fNetWt = fGrossWt - fTareWt;
+                    sNetWt = fNetWt.toFixed(3); // Use 3 decimal places to match display format
+                }
+            }
+        }
+        
+        // Convert weight values to strings for display, preserving decimal places
+        sGrossWt = sGrossWt ? String(sGrossWt) : "";
+        sTareWt = sTareWt ? String(sTareWt) : "";
+        sNetWt = sNetWt ? String(sNetWt) : "";
+        sLoadedWeight = sLoadedWeight ? String(sLoadedWeight) : "";
+        
         return {
             DocType: oMaterial.DocType || oMaterial.docType || "",
             TripNumber: oMaterial.TripNumber || oMaterial.tripNumber || "",
@@ -385,10 +421,11 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Loading", {
             MaterialDescription: oMaterial.MaterialDescription || oMaterial.materialDescription || "",
             Qty: oMaterial.Quantity || oMaterial.qty || "",
             UoM: oMaterial.UoM || oMaterial.uom || "",
-            LoadedQty: oMaterial.LoadedQty || "", // May come from StartLoading response
-            GrossWt: oMaterial.GrossWt || "", // May come from StartLoading response
-            TareWt: oMaterial.TareWt || "", // May come from StartLoading response
-            NetWt: oMaterial.NetWt || "", // Calculated as GrossWt - TareWt
+            LoadedWeight: sLoadedWeight,
+            GrossWt: sGrossWt, // Map from backend GrossWeight to frontend GrossWt
+            TareWt: sTareWt, // Map from backend TareWeight to frontend TareWt
+            NetWt: sNetWt, // Map from backend NetWeight to frontend NetWt (or calculate if missing)
+            Remark: oMaterial.Remark || oMaterial.remark || "",
             CreatedBy: oMaterial.CreatedBy || oMaterial.createdBy || "",
             CreatedOnDate: oMaterial.CreatedOnDate || oMaterial.createdOnDate || "",
             CreatedOnTime: oMaterial.CreatedOnTime || oMaterial.createdOnTime || ""
@@ -530,11 +567,27 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Loading", {
 
         var aFilters = [];
         if (sValue) {
+            var sLowerValue = sValue.toLowerCase();
             aFilters.push(new Filter({
                 filters: [
-                    new Filter("DocumentNumber", FilterOperator.Contains, sValue),
-                    new Filter("DocType", FilterOperator.Contains, sValue),
-                    new Filter("Name", FilterOperator.Contains, sValue)
+                    new Filter({
+                        path: "DocumentNumber",
+                        operator: function(sDocNum) {
+                            return sDocNum && sDocNum.toString().toLowerCase().indexOf(sLowerValue) !== -1;
+                        }
+                    }),
+                    new Filter({
+                        path: "DocType",
+                        operator: function(sDocType) {
+                            return sDocType && sDocType.toString().toLowerCase().indexOf(sLowerValue) !== -1;
+                        }
+                    }),
+                    new Filter({
+                        path: "Name",
+                        operator: function(sName) {
+                            return sName && sName.toString().toLowerCase().indexOf(sLowerValue) !== -1;
+                        }
+                    })
                 ],
                 and: false
             }));
@@ -695,11 +748,27 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Loading", {
 
         var aFilters = [];
         if (sValue) {
+            var sLowerValue = sValue.toLowerCase();
             aFilters.push(new Filter({
                 filters: [
-                    new Filter("MaterialCode", FilterOperator.Contains, sValue),
-                    new Filter("MaterialDescription", FilterOperator.Contains, sValue),
-                    new Filter("RefDocItemNo", FilterOperator.Contains, sValue)
+                    new Filter({
+                        path: "MaterialCode",
+                        operator: function(sMatCode) {
+                            return sMatCode && sMatCode.toString().toLowerCase().indexOf(sLowerValue) !== -1;
+                        }
+                    }),
+                    new Filter({
+                        path: "MaterialDescription",
+                        operator: function(sMatDesc) {
+                            return sMatDesc && sMatDesc.toString().toLowerCase().indexOf(sLowerValue) !== -1;
+                        }
+                    }),
+                    new Filter({
+                        path: "RefDocItemNo",
+                        operator: function(sRefDocItemNo) {
+                            return sRefDocItemNo && sRefDocItemNo.toString().toLowerCase().indexOf(sLowerValue) !== -1;
+                        }
+                    })
                 ],
                 and: false
             }));
@@ -781,6 +850,19 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Loading", {
             return;
         }
         
+        // Zero validation - prevent zero values
+        if (sValue !== "" && sValue !== null && sValue !== undefined) {
+            var fValue = parseFloat(sValue);
+            if (!isNaN(fValue) && fValue === 0) {
+                oInput.setValueState("Error");
+                oInput.setValueStateText("Weight cannot be zero");
+                return;
+            } else {
+                oInput.setValueState("None");
+                oInput.setValueStateText("");
+            }
+        }
+        
         var oMaterial = oBindingContext.getObject();
         var sGrossWt = oMaterial.GrossWt || "";
         var sTareWt = oMaterial.TareWt || "";
@@ -789,7 +871,7 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Loading", {
         if (sGrossWt && sTareWt) {
             var fGrossWt = parseFloat(sGrossWt);
             var fTareWt = parseFloat(sTareWt);
-            if (!isNaN(fGrossWt) && !isNaN(fTareWt)) {
+            if (!isNaN(fGrossWt) && !isNaN(fTareWt) && fGrossWt !== 0 && fTareWt !== 0) {
                 var fNetWt = fGrossWt - fTareWt;
                 oBindingContext.getModel().setProperty(oBindingContext.getPath() + "/NetWt", fNetWt.toFixed(2));
             }
@@ -807,7 +889,6 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Loading", {
             oView.setBusy(false);
         }.bind(this)).catch(function(oError) {
             oView.setBusy(false);
-            console.error("Error updating weights:", oError);
         });
     },
     
@@ -827,20 +908,19 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Loading", {
             return;
         }
         
-        console.log("_updateAllItemDetailsWithWeights - Updating", aMaterials.length, "materials");
-        
         // Update each material that has weight values
         var aUpdatePromises = [];
         var iTotalUpdates = 0;
         aMaterials.forEach(function (oMaterial) {
-            // Check if material has weight values to update
+            // Check if material has weight values or remark to update
             var sGrossWt = oMaterial.GrossWt || "";
             var sTareWt = oMaterial.TareWt || "";
-            var sLoadedQty = oMaterial.LoadedQty || "";
+            var sLoadedWeight = oMaterial.LoadedWeight || "";
             var sNetWt = oMaterial.NetWt || "";
+            var sRemark = oMaterial.Remark || "";
             
-            // Update if at least one weight field has a value
-            if (sGrossWt || sTareWt || sLoadedQty || sNetWt) {
+            // Update if at least one weight field or remark has a value
+            if (sGrossWt || sTareWt || sLoadedWeight || sNetWt || sRemark) {
                 iTotalUpdates++;
                 var oUpdatePromise = this._updateItemDetailWeight(oMaterial, sTripNumber);
                 if (oUpdatePromise) {
@@ -873,8 +953,12 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Loading", {
                 
                 // Show success message only if all updates succeeded
                 if (iFailureCount === 0 && iSuccessCount > 0) {
-                    console.log("All ItemDetails weight updates completed successfully");
                     MessageToast.show("Weight fields updated successfully");
+                    // Reload TripData to fetch updated weights from backend
+                    // Use setTimeout to ensure the reload happens after the current promise chain
+                    setTimeout(function() {
+                        this._reloadTripDataAndRefreshMaterials();
+                    }.bind(this), 100);
                 } else if (iSuccessCount > 0 && iFailureCount > 0) {
                     // Some succeeded, some failed
                     var sErrorMessage = iFailureCount + " of " + iTotalUpdates + " updates failed";
@@ -896,7 +980,6 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Loading", {
                 }
             }.bind(this));
         } else {
-            console.log("No materials with weight values to update");
             MessageToast.show("No weight values found to update");
             return Promise.resolve();
         }
@@ -922,7 +1005,6 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Loading", {
                 });
                 if (oFoundItem) {
                     sDocType = oFoundItem.DocType || "";
-                    console.log("Found DocType from TripData ItemDetails:", sDocType, "for RefDocNo:", sRefDocNo);
                 }
             }
         }
@@ -938,28 +1020,13 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Loading", {
                 });
                 if (oFoundRefDocMaterial) {
                     sDocType = oFoundRefDocMaterial.DocType || oFoundRefDocMaterial.docType || "";
-                    console.log("Found DocType from refDocModel:", sDocType, "for RefDocNo:", sRefDocNo);
                 }
             }
         }
         
         if (!sDocType || !sRefDocNo || !sRefDocItemNo || !sTripNumber) {
-            console.warn("Missing required fields for ItemDetails update:", {
-                DocType: sDocType,
-                RefDocNo: sRefDocNo,
-                RefDocItemNo: sRefDocItemNo,
-                TripNumber: sTripNumber,
-                Material: oMaterial
-            });
             return null;
         }
-        
-        console.log("_updateItemDetailWeight - Using fields:", {
-            DocType: sDocType,
-            RefDocNo: sRefDocNo,
-            RefDocItemNo: sRefDocItemNo,
-            TripNumber: sTripNumber
-        });
         
         // Escape OData values
         var sEscapedDocType = this._escapeODataValue(sDocType);
@@ -1012,9 +1079,14 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Loading", {
                 if (oMaterial.NetWt) {
                     oUpdatePayload.NetWeight = String(parseFloat(oMaterial.NetWt) || 0);
                 }
-                // Note: LoadedQty/UnloadedQty are not in ItemDetails metadata, so not included in update payload
-        
-        console.log("_updateItemDetailWeight - Update payload:", JSON.stringify(oUpdatePayload, null, 2));
+                // Add Loaded Weight to payload
+                if (oMaterial.LoadedWeight) {
+                    oUpdatePayload.LoadedWeight = String(parseFloat(oMaterial.LoadedWeight) || 0);
+                }
+                // Add Remarks to payload
+                if (oMaterial.Remark !== undefined && oMaterial.Remark !== null) {
+                    oUpdatePayload.Remarks = String(oMaterial.Remark || "");
+                }
         
         // Update ItemDetails using the same pattern as Reference Documents
         return new Promise(function (resolve, reject) {
@@ -1024,11 +1096,9 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Loading", {
                     "X-Requested-With": "X"
                 },
                 success: function (oData) {
-                    console.log("ItemDetails weight update successful:", sEntityPath);
                     resolve(oData);
                 }.bind(this),
                 error: function (oError) {
-                    console.error("ItemDetails weight update failed:", sEntityPath, oError);
                     // Don't show individual error toasts - will show summary at end
                     // Reject the promise so Promise.allSettled can track failures
                     reject(oError);
@@ -1071,7 +1141,6 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Loading", {
                 sErrorMessage = oError.message.value || oError.message;
             }
         } catch (e) {
-            console.error("Error parsing error response:", e);
             // Keep default message
         }
         return sErrorMessage;
@@ -1089,10 +1158,11 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Loading", {
             { id: "colLoadingMaterialDescription", label: "Material Description", visible: true },
             { id: "colLoadingQty", label: "Qty", visible: true },
             { id: "colLoadingUoM", label: "UoM", visible: true },
-            { id: "colLoadingLoadedQty", label: "Loaded Qty / Net Wt", visible: true },
+            { id: "colLoadingLoadedWeight", label: "Loaded Weight / Net Wt", visible: true },
             { id: "colLoadingGrossWt", label: "Gross Wt", visible: true },
             { id: "colLoadingTareWt", label: "Tare Wt", visible: true },
             { id: "colLoadingNetWt", label: "Net Wt", visible: true },
+            { id: "colLoadingRemark", label: "Remark", visible: true },
             { id: "colLoadingCreatedBy", label: "Created By", visible: false },
             { id: "colLoadingCreatedOnDate", label: "Created On Date", visible: false },
             { id: "colLoadingCreatedOnTime", label: "Created On Time", visible: false }
@@ -1158,10 +1228,11 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Loading", {
             { id: "colLoadingMaterialDescription", label: "Material Description", visible: true },
             { id: "colLoadingQty", label: "Qty", visible: true },
             { id: "colLoadingUoM", label: "UoM", visible: true },
-            { id: "colLoadingLoadedQty", label: "Loaded Qty / Net Wt", visible: true },
+            { id: "colLoadingLoadedWeight", label: "Loaded Weight / Net Wt", visible: true },
             { id: "colLoadingGrossWt", label: "Gross Wt", visible: true },
             { id: "colLoadingTareWt", label: "Tare Wt", visible: true },
             { id: "colLoadingNetWt", label: "Net Wt", visible: true },
+            { id: "colLoadingRemark", label: "Remark", visible: true },
             { id: "colLoadingCreatedBy", label: "Created By", visible: false },
             { id: "colLoadingCreatedOnDate", label: "Created On Date", visible: false },
             { id: "colLoadingCreatedOnTime", label: "Created On Time", visible: false }
@@ -1204,21 +1275,24 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Loading", {
         }
         
         // Logic:
-        // 1. If started but not completed: Start disabled, End enabled
-        // 2. If both started and completed: Both enabled
-        // 3. If neither started: Start enabled, End disabled
+        // 1. If started but not completed: Start disabled, End enabled, button text = "Start Loading"
+        // 2. If both started and completed: Start enabled, End enabled, button text = "Restart Loading"
+        // 3. If neither started: Start enabled, End disabled, button text = "Start Loading"
         
         if (bStartStarted && !bEndCompleted) {
             // Started but not completed
             oBtnStart.setEnabled(false);
+            oBtnStart.setText("Start Loading");
             oBtnEnd.setEnabled(true);
         } else if (bStartStarted && bEndCompleted) {
-            // Both started and completed
+            // Both started and completed - change button text to "Restart Loading"
             oBtnStart.setEnabled(true);
+            oBtnStart.setText("Restart Loading");
             oBtnEnd.setEnabled(true);
         } else {
             // Neither started (default)
             oBtnStart.setEnabled(true);
+            oBtnStart.setText("Start Loading");
             oBtnEnd.setEnabled(false);
         }
     },
@@ -1244,6 +1318,47 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Loading", {
             }.bind(this),
             error: function () {
                 // Silently fail - button states will remain as set
+            }
+        });
+    },
+    
+    // =====================================================================
+    // RELOAD TRIPDATA AND REFRESH MATERIALS (for weight updates)
+    // =====================================================================
+    _reloadTripDataAndRefreshMaterials: function () {
+        var sTripNumber = sap.ui.getCore().getModel("globalData")?.getProperty("/TripNumber");
+        if (!sTripNumber) {
+            return;
+        }
+        
+        var oView = this.getView();
+        oView.setBusy(true);
+        
+        this.oModel.read("/TripDetails('" + sTripNumber + "')", {
+            urlParameters: {
+                "$expand": "OrderDetails,ItemDetails,Feeds"
+            },
+            success: function (oData) {
+                var oTripDataModel = new sap.ui.model.json.JSONModel(oData);
+                sap.ui.getCore().setModel(oTripDataModel, "TripData");
+                this.getView().setModel(oTripDataModel, "TripData");
+                
+                // Refresh materials directly from TripData ItemDetails to show updated weights
+                this._bindMaterialsFromRefDocs(true);
+                
+                // Update weighment enabled state
+                this._updateWeighmentEnabledState();
+                // Update button states based on TripDetails status
+                this._updateLoadingButtonStates();
+                
+                // Publish event for other subscribers
+                sap.ui.getCore().getEventBus().publish("TripData", "Updated");
+                
+                oView.setBusy(false);
+            }.bind(this),
+            error: function () {
+                oView.setBusy(false);
+                // Silently fail - materials will remain as they were
             }
         });
     }

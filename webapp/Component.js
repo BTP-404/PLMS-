@@ -19,6 +19,7 @@ sap.ui.define([
 		init: function() {
 			// call the base component's init function
 			UIComponent.prototype.init.apply(this, arguments);
+			
 			// set the device model
 			this.setModel(models.createDeviceModel(), "device");
 			// initialize the router

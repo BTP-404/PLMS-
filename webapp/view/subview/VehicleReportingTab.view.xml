@@ -194,8 +194,12 @@
                             <DatePicker
                                 id="idLRDate"
                                 width="100%"
-                                value="{TripData>/LR_Date}"
-                                displayFormat="long"
+                                value="{
+                                    path: 'TripData>/LR_Date',
+                                    formatter: '.formatLRDate'
+                                }"
+                                displayFormat="dd/MM/yyyy"
+                                valueFormat="yyyy-MM-dd"
                             />
                         </VBox>
                     </layout:content>

@@ -129,7 +129,7 @@ sap.ui.define(
                     }.bind(this),
 
                     error: function (oError) {
-                        console.error("NOTE LOAD ERROR:", oError);
+                        // NOTE LOAD ERROR
                         // On error, still show pending notes if any
                         if (this._aPendingNotes && this._aPendingNotes.length > 0) {
                             this._renderNotes(this._aPendingNotes);
@@ -197,7 +197,7 @@ sap.ui.define(
 
                     error: function (oError) {
                         sap.m.MessageToast.show("Failed to save note.");
-                        console.error("SAVE ERROR:", oError);
+                        // SAVE ERROR
                     }
                 });
             },
@@ -502,7 +502,7 @@ sap.ui.define(
                 const oNoNotesText = this.byId("idNoNotesText");
                 
                 if (!oContainer) {
-                    console.warn("Notes container not found");
+                    // Notes container not found
                     return;
                 }
 
@@ -536,7 +536,7 @@ sap.ui.define(
                 // Get note text
                 var sNoteText = oNoteData.Remarks || "";
                 if (!sNoteText) {
-                    console.warn("No note text to display");
+                    // No note text to display
                     return;
                 }
 

@@ -284,11 +284,6 @@ sap.ui.define(
           }
           oData.CompanyCode = sCompanyCode;
           
-          // Log for debugging
-          console.log("=== Trip Creation Payload ===");
-          console.log("Plant (code only):", oData.Plant);
-          console.log("CompanyCode (code only):", oData.CompanyCode);
-          
           const that = this;
 
           // ADDED: show busy while creating (non-invasive)
@@ -386,6 +381,23 @@ sap.ui.define(
           // Remove metadata
           delete oUpdateData.__metadata;
 
+          // Remove WeighmentRequired and Weighment_Req from update payload
+          // Weighment is managed separately (e.g., in GateIn screen), not in Vehicle Reporting update
+          delete oUpdateData.WeighmentRequired;
+          delete oUpdateData.Weighment_Req;
+
+          // Set MovementScenario and MovementType from global variables (same as create)
+          oUpdateData.MovementScenario = movementScenario;
+          oUpdateData.MovementType = Mtype;
+          
+          // Handle LR_Date format (same as create)
+          var oDate = this.byId("idLRDate").getDateValue(); // JS Date object
+          if (oDate) {
+            oUpdateData.LR_Date = oDate.toISOString().split(".")[0];
+          } else {
+            oUpdateData.LR_Date = null;
+          }
+
           // Extract only the code part from Plant (remove description if present)
           // Priority: PlantCode variable > input field value > model data
           var sPlantInput = this.byId("idPlant")?.getValue() || "";
@@ -405,12 +417,6 @@ sap.ui.define(
             sCompanyCode = sCompanyCode.split("-")[0].trim();
           }
           oUpdateData.CompanyCode = sCompanyCode;
-
-          // Optional: log what we are sending to backend for debugging
-          console.log("=== TripDetails UPDATE payload ===");
-          console.log("Plant (code only):", oUpdateData.Plant);
-          console.log("CompanyCode (code only):", oUpdateData.CompanyCode);
-          console.log(JSON.stringify(oUpdateData, null, 2));
 
           // Only update TripDetails('<TripNumber>') – no deep update
           this.getView().setBusy(true);
@@ -446,7 +452,6 @@ sap.ui.define(
               } catch (e) {
                 // ignore parse errors, keep default message
               }
-              console.error("TripDetails UPDATE error:", oError);
               MessageBox.error(sMessage);
             },
           });
@@ -738,6 +743,57 @@ sap.ui.define(
           return sStr.replace(/^0+/, "") || "0";
         },
 
+        /**
+         * Format LR Date to show only date, month, and year (no time)
+         */
+        formatLRDate: function (vDate) {
+          if (!vDate) {
+            return "";
+          }
+          
+          var oDate;
+          
+          // Handle Date object
+          if (vDate instanceof Date) {
+            oDate = vDate;
+          }
+          // Handle string date (e.g., "2023-12-31T10:30:00" or "2023-12-31")
+          else if (typeof vDate === "string") {
+            // If string contains time, extract only date part
+            if (vDate.indexOf("T") > 0) {
+              vDate = vDate.split("T")[0];
+            }
+            // If string contains space (e.g., "2023-12-31 10:30:00")
+            if (vDate.indexOf(" ") > 0) {
+              vDate = vDate.split(" ")[0];
+            }
+            oDate = new Date(vDate);
+          }
+          // Handle OData date format (/Date(...)/)
+          else if (typeof vDate === "string" && vDate.indexOf("/Date") === 0) {
+            var iTimestamp = parseInt(vDate.replace(/\D/g, ""), 10);
+            if (!isNaN(iTimestamp)) {
+              oDate = new Date(iTimestamp);
+            } else {
+              return "";
+            }
+          }
+          else {
+            return "";
+          }
+          
+          // Check if date is valid
+          if (!oDate || isNaN(oDate.getTime())) {
+            return "";
+          }
+          
+          // Format as YYYY-MM-DD (date only, no time)
+          var sYear = oDate.getFullYear();
+          var sMonth = String(oDate.getMonth() + 1).padStart(2, "0");
+          var sDay = String(oDate.getDate()).padStart(2, "0");
+          return sYear + "-" + sMonth + "-" + sDay;
+        },
+
         /* ===========================================================
          * NO CHANGE: _collectFormData
          * - returns the TripData model data (same as before)
@@ -989,7 +1045,7 @@ sap.ui.define(
                           }
                       } catch (e) {}
                       MessageToast.show(sMessage);
-                      console.error("Save driver photo error:", oError);
+                      // Save driver photo error
                   }
               }.bind(this)
           });
@@ -1048,7 +1104,7 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
               }
           } catch (e) {}
           MessageToast.show(sMessage);
-          console.error("Update driver photo error:", oError);
+          // Update driver photo error
       }.bind(this)
   });
 },
@@ -1194,22 +1250,54 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
         },
 
         /**
+         * Helper function to get TripNumber from globalData or TripData model
+         */
+        _getTripNumber: function () {
+          var oGlobalModel = sap.ui.getCore().getModel("globalData");
+          var sTripNumber = "";
+          if (oGlobalModel) {
+            sTripNumber = oGlobalModel.getProperty("/TripNumber") || "";
+          }
+          if (!sTripNumber) {
+            var oTripDataModel = this.getView().getModel("TripData");
+            if (oTripDataModel) {
+              sTripNumber = oTripDataModel.getProperty("/TripNumber") || "";
+            }
+          }
+          return sTripNumber;
+        },
+
+        /**
          * Load Plants from ConfigValues
          * NO CHANGE
          */
         _loadPlants: function () {
           const oModel = this.getView().getModel();
           const that = this;
+          const sTripNumber = this._getTripNumber();
+
+          var aFilters = [
+            new sap.ui.model.Filter(
+              "ConfigGroup",
+              sap.ui.model.FilterOperator.EQ,
+              "Plant"
+            ),
+          ];
+
+          // Add TripNumber filter if available
+          if (sTripNumber) {
+            aFilters.push(
+              new sap.ui.model.Filter(
+                "TripNumber",
+                sap.ui.model.FilterOperator.EQ,
+                sTripNumber
+              )
+            );
+          }
 
           return new Promise(function (resolve) {
             oModel.read("/ConfigValues", {
-              filters: [
-                new sap.ui.model.Filter(
-                  "ConfigGroup",
-                  sap.ui.model.FilterOperator.EQ,
-                  "Plant"
-                ),
-              ],
+              filters: aFilters,
               success: function (oData) {
                 PlantCode = oData.results[0].ConfigID;
                 CompanyCod = oData.results[0].ParentConfig;
@@ -1231,16 +1319,30 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
         _loadVehicleTypeData: function () {
           const oModel = this.getView().getModel();
           const that = this;
+          const sTripNumber = this._getTripNumber();
+
+          var aFilters = [
+            new sap.ui.model.Filter(
+              "ConfigGroup",
+              sap.ui.model.FilterOperator.EQ,
+              "VehicleType"
+            ),
+          ];
+
+          // Add TripNumber filter if available
+          if (sTripNumber) {
+            aFilters.push(
+              new sap.ui.model.Filter(
+                "TripNumber",
+                sap.ui.model.FilterOperator.EQ,
+                sTripNumber
+              )
+            );
+          }
 
           return new Promise(function (resolve) {
             oModel.read("/ConfigValues", {
-              filters: [
-                new sap.ui.model.Filter(
-                  "ConfigGroup",
-                  sap.ui.model.FilterOperator.EQ,
-                  "VehicleType"
-                ),
-              ],
+              filters: aFilters,
               success: function (oData) {
                 const oJSON = new sap.ui.model.json.JSONModel(oData.results);
                 if (that._mValueHelps && that._mValueHelps.VHVehicleType) {
@@ -1616,7 +1718,7 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
               });
             },
             error: function (error) {
-              console.error("MovementScenario VH Load Error:", error);
+              // MovementScenario VH Load Error
               sap.m.MessageBox.error(
                 "Failed to load Movement Scenario value help."
               );
@@ -1697,7 +1799,7 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
               });
             },
             error: function (error) {
-              console.error("Movement Scenario Suggestion Error:", error);
+              // Movement Scenario Suggestion Error
             }
           });
         },
@@ -1738,20 +1840,34 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
         _fetchPlantsForCompany: function (sPlant) {
           const oModel = this.getView().getModel();
           const that = this;
+          const sTripNumber = this._getTripNumber();
+
+          var aFilters = [
+            new sap.ui.model.Filter(
+              "ConfigGroup",
+              sap.ui.model.FilterOperator.EQ,
+              "Plant"
+            ),
+            new sap.ui.model.Filter(
+              "ParentConfig",
+              sap.ui.model.FilterOperator.EQ,
+              sPlant
+            ),
+          ];
+
+          // Add TripNumber filter if available
+          if (sTripNumber) {
+            aFilters.push(
+              new sap.ui.model.Filter(
+                "TripNumber",
+                sap.ui.model.FilterOperator.EQ,
+                sTripNumber
+              )
+            );
+          }
 
           oModel.read("/ConfigValues", {
-            filters: [
-              new sap.ui.model.Filter(
-                "ConfigGroup",
-                sap.ui.model.FilterOperator.EQ,
-                "Plant"
-              ),
-              new sap.ui.model.Filter(
-                "ParentConfig",
-                sap.ui.model.FilterOperator.EQ,
-                sPlant
-              ),
-            ],
+            filters: aFilters,
 
             success: function (oData) {
               if (oData.results.length === 1) {
@@ -1853,15 +1969,29 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
         _loadVehicleTypeSuggestions: function () {
           const oModel = this.getView().getModel();
           const that = this;
+          const sTripNumber = this._getTripNumber();
+
+          var aFilters = [
+            new sap.ui.model.Filter(
+              "ConfigGroup",
+              sap.ui.model.FilterOperator.EQ,
+              "VehicleType"
+            ),
+          ];
+
+          // Add TripNumber filter if available
+          if (sTripNumber) {
+            aFilters.push(
+              new sap.ui.model.Filter(
+                "TripNumber",
+                sap.ui.model.FilterOperator.EQ,
+                sTripNumber
+              )
+            );
+          }
 
           oModel.read("/ConfigValues", {
-            filters: [
-              new sap.ui.model.Filter(
-                "ConfigGroup",
-                sap.ui.model.FilterOperator.EQ,
-                "VehicleType"
-              ),
-            ],
+            filters: aFilters,
             success: function (oData) {
               const oJSON = new sap.ui.model.json.JSONModel({
                 items: oData.results || []
@@ -1908,15 +2038,29 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
         _loadCompanyCodeSuggestions: function () {
           const oModel = this.getView().getModel();
           const that = this;
+          const sTripNumber = this._getTripNumber();
+
+          var aFilters = [
+            new sap.ui.model.Filter(
+              "ConfigGroup",
+              sap.ui.model.FilterOperator.EQ,
+              "CompanyCode"
+            ),
+          ];
+
+          // Add TripNumber filter if available
+          if (sTripNumber) {
+            aFilters.push(
+              new sap.ui.model.Filter(
+                "TripNumber",
+                sap.ui.model.FilterOperator.EQ,
+                sTripNumber
+              )
+            );
+          }
 
           oModel.read("/ConfigValues", {
-            filters: [
-              new sap.ui.model.Filter(
-                "ConfigGroup",
-                sap.ui.model.FilterOperator.EQ,
-                "CompanyCode"
-              ),
-            ],
+            filters: aFilters,
             success: function (oData) {
               const oJSON = new sap.ui.model.json.JSONModel({
                 items: oData.results || []
@@ -2018,7 +2162,7 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
           // Get VHModel data
           const oVHModel = this.getView().getModel("VHModel");
           if (!oVHModel) {
-            console.error("VHModel not found");
+            // VHModel not found
             return;
           }
 
@@ -2034,7 +2178,7 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
             this.byId("idVehicleSize").setValue(oVehicle.VehicleSize);
             this.byId("idTransporterName").setValue(oVehicle.TransporterName);
           } else {
-            console.error("Vehicle not found in VHModel");
+            // Vehicle not found in VHModel
           }
 
           // Close the dialog
@@ -2051,7 +2195,7 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
           const oBinding = oDialog.getBinding("items");
 
           if (!oBinding) {
-            console.error("Binding not found for Vehicle Number search");
+            // Binding not found for Vehicle Number search
             return;
           }
 
@@ -2083,7 +2227,7 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
                     return sVehicleNumber.includes(sLowerValue) || 
                            sTransporterName.includes(sLowerValue);
                   } catch (e) {
-                    console.error("Error in Vehicle Number filter:", e);
+                    // Error in Vehicle Number filter
                     return false;
                   }
                 }
@@ -2115,11 +2259,21 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
           }
 
           // Read matching plants from ConfigValues
+          const sTripNumber = this._getTripNumber();
+          var aFilters = [
+            new Filter("ConfigGroup", FilterOperator.EQ, "Plant"),
+            new Filter("ConfigID", FilterOperator.Contains, sValue),
+          ];
+
+          // Add TripNumber filter if available
+          if (sTripNumber) {
+            aFilters.push(
+              new Filter("TripNumber", FilterOperator.EQ, sTripNumber)
+            );
+          }
+
           oModel.read("/ConfigValues", {
-            filters: [
-              new Filter("ConfigGroup", FilterOperator.EQ, "Plant"),
-              new Filter("ConfigID", FilterOperator.Contains, sValue),
-            ],
+            filters: aFilters,
             success: function (oData) {
               oInput.destroySuggestionItems();
               oData.results.forEach((plant) => {
@@ -2170,11 +2324,21 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
           const that = this;
           if (sCompanyCode) {
             const oModel = this.getView().getModel();
+            const sTripNumber = this._getTripNumber();
+            var aFilters = [
+              new sap.ui.model.Filter("ConfigGroup", sap.ui.model.FilterOperator.EQ, "CompanyCode"),
+              new sap.ui.model.Filter("ConfigID", sap.ui.model.FilterOperator.EQ, sCompanyCode)
+            ];
+
+            // Add TripNumber filter if available
+            if (sTripNumber) {
+              aFilters.push(
+                new sap.ui.model.Filter("TripNumber", sap.ui.model.FilterOperator.EQ, sTripNumber)
+              );
+            }
+
             oModel.read("/ConfigValues", {
-              filters: [
-                new sap.ui.model.Filter("ConfigGroup", sap.ui.model.FilterOperator.EQ, "CompanyCode"),
-                new sap.ui.model.Filter("ConfigID", sap.ui.model.FilterOperator.EQ, sCompanyCode)
-              ],
+              filters: aFilters,
               success: function (oData) {
                 if (oData.results && oData.results.length > 0) {
                   const oCompanyCode = oData.results[0];
@@ -2546,16 +2710,30 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
         _loadCompanyCodeData: function () {
           const oModel = this.getView().getModel();
           const that = this;
+          const sTripNumber = this._getTripNumber();
+
+          var aFilters = [
+            new sap.ui.model.Filter(
+              "ConfigGroup",
+              sap.ui.model.FilterOperator.EQ,
+              "CompanyCode"
+            ),
+          ];
+
+          // Add TripNumber filter if available
+          if (sTripNumber) {
+            aFilters.push(
+              new sap.ui.model.Filter(
+                "TripNumber",
+                sap.ui.model.FilterOperator.EQ,
+                sTripNumber
+              )
+            );
+          }
 
           return new Promise(function (resolve) {
             oModel.read("/ConfigValues", {
-              filters: [
-                new sap.ui.model.Filter(
-                  "ConfigGroup",
-                  sap.ui.model.FilterOperator.EQ,
-                  "CompanyCode"
-                ),
-              ],
+              filters: aFilters,
               success: function (oData) {
                 const oJSON = new sap.ui.model.json.JSONModel(oData.results);
                 if (that._mValueHelps && that._mValueHelps.VHCompanyCode) {
@@ -2633,6 +2811,125 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
           // Close dialog
           if (this._mValueHelps && this._mValueHelps.VHCompanyCode) {
             this._mValueHelps.VHCompanyCode.close();
+          }
+        },
+
+        /**
+         * Load TripNumber from ConfigValues
+         */
+        _loadTripNumberData: function () {
+          const oModel = this.getView().getModel();
+          const that = this;
+          const sTripNumber = this._getTripNumber();
+
+          var aFilters = [
+            new sap.ui.model.Filter(
+              "ConfigGroup",
+              sap.ui.model.FilterOperator.EQ,
+              "TripNumber"
+            ),
+          ];
+
+          // Add TripNumber filter if available
+          if (sTripNumber) {
+            aFilters.push(
+              new sap.ui.model.Filter(
+                "TripNumber",
+                sap.ui.model.FilterOperator.EQ,
+                sTripNumber
+              )
+            );
+          }
+
+          return new Promise(function (resolve) {
+            oModel.read("/ConfigValues", {
+              filters: aFilters,
+              success: function (oData) {
+                const oJSON = new sap.ui.model.json.JSONModel(oData.results);
+                if (that._mValueHelps && that._mValueHelps.VHTripNumber) {
+                  that._mValueHelps.VHTripNumber.setModel(oJSON, "VHModel");
+                }
+                resolve();
+              },
+              error: function () {
+                sap.m.MessageBox.error("Failed to load Trip Number.");
+                resolve();
+              },
+            });
+          });
+        },
+
+        /**
+         * Search TripNumber
+         */
+        onSearchTripNumber: function (oEvent) {
+          const sValue = (oEvent.getParameter("value") || "").trim();
+          const oList = this.byId("idVHTripNumberList");
+
+          if (!oList) {
+            return;
+          }
+
+          const oBinding = oList.getBinding("items");
+
+          if (!oBinding) {
+            return;
+          }
+
+          const aFilters = [];
+          if (sValue && sValue.length > 0) {
+            aFilters.push(
+              new sap.ui.model.Filter({
+                filters: [
+                  new sap.ui.model.Filter(
+                    "ConfigID",
+                    sap.ui.model.FilterOperator.Contains,
+                    sValue
+                  ),
+                  new sap.ui.model.Filter(
+                    "Description",
+                    sap.ui.model.FilterOperator.Contains,
+                    sValue
+                  ),
+                ],
+                and: false,
+              })
+            );
+          }
+
+          oBinding.filter(aFilters);
+        },
+
+        /**
+         * Select TripNumber
+         */
+        onSelectTripNumber: function (oEvent) {
+          const oItem = oEvent.getParameter("listItem");
+          if (!oItem) {
+            return;
+          }
+
+          const oData = oItem.getBindingContext("VHModel").getObject();
+          const sTripNumberDisplay = `${oData.ConfigID}-${oData.Description}`;
+
+          // Set selected value - show description in UI
+          this.byId("idRelatedTripNumber").setValue(sTripNumberDisplay);
+
+          // Update TripData model with TripNumber
+          const oTripDataModel = this.getView().getModel("TripData");
+          if (oTripDataModel) {
+            oTripDataModel.setProperty("/TripNumber", oData.ConfigID);
+          }
+
+          // Update global model
+          var oGlobalModel = sap.ui.getCore().getModel("globalData");
+          if (oGlobalModel) {
+            oGlobalModel.setProperty("/TripNumber", oData.ConfigID);
+          }
+
+          // Close dialog
+          if (this._mValueHelps && this._mValueHelps.VHTripNumber) {
+            this._mValueHelps.VHTripNumber.close();
           }
         }
       }

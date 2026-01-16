@@ -49,7 +49,6 @@ sap.ui.define(
             // Get trip number from globalData model (safer approach)
             var oGlobalModel = sap.ui.getCore().getModel("globalData");
             this.tripNumber = oGlobalModel ? oGlobalModel.getProperty("/TripNumber") || "" : "";
-            console.log("Received Trip Number: ", this.tripNumber);
             
             // Set initial input state based on whether GateOut data exists
             var oTripData = sap.ui.getCore().getModel("TripData");
@@ -70,7 +69,7 @@ sap.ui.define(
             // Load saved attachments
             this._loadGateOutAttachments();
           } catch (oError) {
-            console.error("Error in GateOut onAfterRendering:", oError);
+            // Error in GateOut onAfterRendering
             // Don't let errors break the view - set defaults
             this._setInputsEnabled(true);
           }
@@ -95,17 +94,44 @@ sap.ui.define(
           // Reload attachments when trip data updates
           this._loadGateOutAttachments();
         },
+        _getTripNumber: function () {
+          var oGlobalModel = sap.ui.getCore().getModel("globalData");
+          var sTripNumber = "";
+          if (oGlobalModel) {
+            sTripNumber = oGlobalModel.getProperty("/TripNumber") || "";
+          }
+          if (!sTripNumber) {
+            var oTripDataModel = this.getView().getModel("TripData");
+            if (oTripDataModel) {
+              sTripNumber = oTripDataModel.getProperty("/TripNumber") || "";
+            }
+          }
+          return sTripNumber;
+        },
         loadExitGateNumber: function () {
-          this.oModel.read("/ConfigValues", {
-            filters: [
+          var sTripNumber = this._getTripNumber();
+          var aFilters = [
+            new sap.ui.model.Filter(
+              "ConfigGroup",
+              sap.ui.model.FilterOperator.EQ,
+              "ExitGate"
+            ),
+          ];
+
+          // Add TripNumber filter if available
+          if (sTripNumber) {
+            aFilters.push(
               new sap.ui.model.Filter(
-                "ConfigGroup",
+                "TripNumber",
                 sap.ui.model.FilterOperator.EQ,
-                "ExitGate"
-              ),
-            ],
+                sTripNumber
+              )
+            );
+          }
+
+          this.oModel.read("/ConfigValues", {
+            filters: aFilters,
             success: function (oData) {
-              console.log("Exit Gate", oData.results);
               this._ExitGateData = oData.results;
             }.bind(this),
             error: function () {
@@ -164,17 +190,20 @@ sap.ui.define(
           }
 
           if (sValue && sValue.length > 0) {
+            var sLowerValue = sValue.toLowerCase();
             var aFilters = [
-              new sap.ui.model.Filter(
-                "ConfigID",
-                sap.ui.model.FilterOperator.Contains,
-                sValue
-              ),
-              new sap.ui.model.Filter(
-                "Description",
-                sap.ui.model.FilterOperator.Contains,
-                sValue
-              ),
+              new sap.ui.model.Filter({
+                path: "ConfigID",
+                operator: function(sConfigID) {
+                  return sConfigID && sConfigID.toString().toLowerCase().indexOf(sLowerValue) !== -1;
+                }
+              }),
+              new sap.ui.model.Filter({
+                path: "Description",
+                operator: function(sDescription) {
+                  return sDescription && sDescription.toString().toLowerCase().indexOf(sLowerValue) !== -1;
+                }
+              }),
             ];
 
             oBinding.filter(
@@ -246,18 +275,21 @@ sap.ui.define(
           }
 
           if (sQuery && sQuery.length > 0) {
+            var sLowerQuery = sQuery.toLowerCase();
             var oFilter = new sap.ui.model.Filter({
               filters: [
-                new sap.ui.model.Filter(
-                  "ConfigID",
-                  sap.ui.model.FilterOperator.Contains,
-                  sQuery
-                ),
-                new sap.ui.model.Filter(
-                  "Description",
-                  sap.ui.model.FilterOperator.Contains,
-                  sQuery
-                ),
+                new sap.ui.model.Filter({
+                  path: "ConfigID",
+                  operator: function(sConfigID) {
+                    return sConfigID && sConfigID.toString().toLowerCase().indexOf(sLowerQuery) !== -1;
+                  }
+                }),
+                new sap.ui.model.Filter({
+                  path: "Description",
+                  operator: function(sDescription) {
+                    return sDescription && sDescription.toString().toLowerCase().indexOf(sLowerQuery) !== -1;
+                  }
+                }),
               ],
               and: false,
             });
@@ -273,7 +305,7 @@ sap.ui.define(
           var oModel = this.oModel;
 
           if (!oModel) {
-            console.error("OData model not loaded");
+            // OData model not loaded
             MessageBox.error("OData model is not loaded.");
             return;
           }
@@ -356,7 +388,7 @@ sap.ui.define(
               }
             }.bind(this),
             error: function (oError) {
-              console.error("GateOut Error:", oError);
+              // GateOut Error
 
               var sErrorMessage = "Failed Gate Out ";
 
@@ -372,7 +404,7 @@ sap.ui.define(
                   }
                 }
               } catch (e) {
-                console.warn("Failed to parse OData error:", e);
+                // Failed to parse OData error
               }
 
               MessageBox.error(sErrorMessage);
@@ -425,7 +457,7 @@ sap.ui.define(
             }
           } catch (e) {
             // Don't break if something unexpected happens
-            console.error("Error in _setInputsEnabled: " + e);
+            // Error in _setInputsEnabled
           }
         },
         onGateOutAttachmentChange: function (oEvent) {
@@ -618,7 +650,7 @@ sap.ui.define(
                 if (fnCallback) {
                   fnCallback(false);
                 }
-                console.error("Upload error:", oError);
+                // Upload error
               }
             }
           });
@@ -646,7 +678,7 @@ sap.ui.define(
               if (fnCallback) {
                 fnCallback(false);
               }
-              console.error("Update attachment error:", oError);
+              // Update attachment error
             }
           });
         },
@@ -787,7 +819,7 @@ sap.ui.define(
                 }.bind(this),
                 error: function () {
                   MessageToast.show("Failed to load attachment for preview");
-                  console.error("Preview error:", oError);
+                  // Preview error
                 }
               });
             }.bind(this)

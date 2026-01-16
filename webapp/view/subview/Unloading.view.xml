@@ -99,18 +99,19 @@
                                     <Text text="UoM" />
                                 </Column>
                                 <Column
-                                    id="colUnloadingUnloadedQty"
+                                    id="colUnloadingUnloadedWeight"
                                     demandPopin="true"
                                     minScreenWidth="Desktop"
                                     popinDisplay="Inline"
                                 >
-                                    <Text text="Unloaded Qty / Net Wt" />
+                                    <Text text="Unloaded Quantity " />
                                 </Column>
                                 <Column
                                     id="colUnloadingGrossWt"
                                     demandPopin="true"
                                     minScreenWidth="Desktop"
                                     popinDisplay="Inline"
+                                    visible="{unloadingModel>/weighmentEnabled}"
                                 >
                                     <Text text="Gross Wt" />
                                 </Column>
@@ -119,6 +120,7 @@
                                     demandPopin="true"
                                     minScreenWidth="Desktop"
                                     popinDisplay="Inline"
+                                    visible="{unloadingModel>/weighmentEnabled}"
                                 >
                                     <Text text="Tare Wt" />
                                 </Column>
@@ -127,8 +129,17 @@
                                     demandPopin="true"
                                     minScreenWidth="Desktop"
                                     popinDisplay="Inline"
+                                    visible="{unloadingModel>/weighmentEnabled}"
                                 >
                                     <Text text="Net Wt" />
+                                </Column>
+                                <Column
+                                    id="colUnloadingRemark"
+                                    demandPopin="true"
+                                    minScreenWidth="Desktop"
+                                    popinDisplay="Inline"
+                                >
+                                    <Text text="Remark" />
                                 </Column>
                                 <Column
                                     id="colUnloadingCreatedBy"
@@ -165,9 +176,9 @@
                                         <Text text="{tableModel>Qty}"/>
                                         <Text text="{tableModel>UoM}"/>
                                         <Input
-                                            value="{tableModel>UnloadedQty}"
+                                            value="{tableModel>UnloadedWeight}"
                                             enabled="{unloadingModel>/weighmentEnabled}"
-                                            placeholder="Enter Unloaded Qty"
+                                            placeholder="Enter Unloaded Weight"
                                             width="100%"
                                             type="Number"
                                             change="onWeightFieldChange"
@@ -189,6 +200,12 @@
                                             change="onWeightFieldChange"
                                         />
                                         <Text text="{tableModel>NetWt}"/>
+                                        <Input
+                                            value="{tableModel>Remark}"
+                                            placeholder=""
+                                            width="100%"
+                                            maxLength="255"
+                                        />
                                         <Text text="{tableModel>CreatedBy}"/>
                                         <Text text="{tableModel>CreatedOnDate}"/>
                                         <Text text="{tableModel>CreatedOnTime}"/>
@@ -207,7 +224,7 @@
             <!-- Update Weights Button (only visible when weighment is enabled) -->
             <Button 
                 id="btnUpdateWeights" 
-                text="Update Weights" 
+                text="Save" 
                 type="Emphasized" 
                 press="onUpdateWeights" 
                 icon="sap-icon://save"

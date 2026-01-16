@@ -6,7 +6,6 @@ sap.ui.define(
     "sap/m/MessageBox",
     "sap/ui/model/json/JSONModel",
     "sap/ui/core/Fragment",
-    "sap/ndc/BarcodeScanner",
   ],
   function (
     Controller,
@@ -14,8 +13,7 @@ sap.ui.define(
     MessageToast,
     MessageBox,
     JSONModel,
-    Fragment,
-    BarcodeScanner
+    Fragment
   ) {
     "use strict";
 
@@ -137,17 +135,44 @@ sap.ui.define(
           // Reload attachments when trip data updates
           this._loadGateInAttachments();
         },
+        _getTripNumber: function () {
+          var oGlobalModel = sap.ui.getCore().getModel("globalData");
+          var sTripNumber = "";
+          if (oGlobalModel) {
+            sTripNumber = oGlobalModel.getProperty("/TripNumber") || "";
+          }
+          if (!sTripNumber) {
+            var oTripDataModel = this.getView().getModel("TripData");
+            if (oTripDataModel) {
+              sTripNumber = oTripDataModel.getProperty("/TripNumber") || "";
+            }
+          }
+          return sTripNumber;
+        },
         loadDelayReason: function () {
-          this.oModel.read("/ConfigValues", {
-            filters: [
+          var sTripNumber = this._getTripNumber();
+          var aFilters = [
+            new sap.ui.model.Filter(
+              "ConfigGroup",
+              sap.ui.model.FilterOperator.EQ,
+              "Delayed_Reasons"
+            ),
+          ];
+
+          // Add TripNumber filter if available
+          if (sTripNumber) {
+            aFilters.push(
               new sap.ui.model.Filter(
-                "ConfigGroup",
+                "TripNumber",
                 sap.ui.model.FilterOperator.EQ,
-                "Delayed_Reasons"
-              ),
-            ],
+                sTripNumber
+              )
+            );
+          }
+
+          this.oModel.read("/ConfigValues", {
+            filters: aFilters,
             success: function (oData) {
-              console.log("Delay reasons", oData.results);
               this._delayReasonData = oData.results;
             }.bind(this),
             error: function () {
@@ -156,16 +181,29 @@ sap.ui.define(
           });
         },
         loadGateNumber: function () {
-          this.oModel.read("/ConfigValues", {
-            filters: [
+          var sTripNumber = this._getTripNumber();
+          var aFilters = [
+            new sap.ui.model.Filter(
+              "ConfigGroup",
+              sap.ui.model.FilterOperator.EQ,
+              "EntryGate"
+            ),
+          ];
+
+          // Add TripNumber filter if available
+          if (sTripNumber) {
+            aFilters.push(
               new sap.ui.model.Filter(
-                "ConfigGroup",
+                "TripNumber",
                 sap.ui.model.FilterOperator.EQ,
-                "EntryGate"
-              ),
-            ],
+                sTripNumber
+              )
+            );
+          }
+
+          this.oModel.read("/ConfigValues", {
+            filters: aFilters,
             success: function (oData) {
-              console.log("Entry Gate", oData.results);
               this._entryGateData = oData.results;
             }.bind(this),
             error: function () {
@@ -227,17 +265,20 @@ sap.ui.define(
 
           var aFilters = [];
           if (sValue && sValue.trim().length > 0) {
+            var sLowerValue = sValue.toLowerCase();
             aFilters = [
-              new sap.ui.model.Filter(
-                "ConfigID",
-                sap.ui.model.FilterOperator.Contains,
-                sValue
-              ),
-              new sap.ui.model.Filter(
-                "Description",
-                sap.ui.model.FilterOperator.Contains,
-                sValue
-              ),
+              new sap.ui.model.Filter({
+                path: "ConfigID",
+                operator: function(sConfigID) {
+                  return sConfigID && sConfigID.toString().toLowerCase().indexOf(sLowerValue) !== -1;
+                }
+              }),
+              new sap.ui.model.Filter({
+                path: "Description",
+                operator: function(sDescription) {
+                  return sDescription && sDescription.toString().toLowerCase().indexOf(sLowerValue) !== -1;
+                }
+              }),
             ];
             oBinding.filter(
               new sap.ui.model.Filter({
@@ -308,18 +349,21 @@ sap.ui.define(
           }
 
           if (sQuery && sQuery.length > 0) {
+            var sLowerQuery = sQuery.toLowerCase();
             var oFilter = new sap.ui.model.Filter({
               filters: [
-                new sap.ui.model.Filter(
-                  "ConfigID",
-                  sap.ui.model.FilterOperator.Contains,
-                  sQuery
-                ),
-                new sap.ui.model.Filter(
-                  "Description",
-                  sap.ui.model.FilterOperator.Contains,
-                  sQuery
-                ),
+                new sap.ui.model.Filter({
+                  path: "ConfigID",
+                  operator: function(sConfigID) {
+                    return sConfigID && sConfigID.toString().toLowerCase().indexOf(sLowerQuery) !== -1;
+                  }
+                }),
+                new sap.ui.model.Filter({
+                  path: "Description",
+                  operator: function(sDescription) {
+                    return sDescription && sDescription.toString().toLowerCase().indexOf(sLowerQuery) !== -1;
+                  }
+                }),
               ],
               and: false,
             });
@@ -336,7 +380,6 @@ sap.ui.define(
           var oModel = this.oModel;
 
           if (!oModel) {
-            console.error("OData model not found!");
             MessageBox.error("OData model is not loaded.");
             return;
           }
@@ -353,18 +396,8 @@ sap.ui.define(
           var bWeighmentRequired = false; // Default to false (boolean)
           if (oWeighmentRadioGroup) {
             var iSelectedIndex = oWeighmentRadioGroup.getSelectedIndex();
-            console.log("=== Weighment Required Radio Button Debug ===");
-            console.log("Selected Index:", iSelectedIndex);
-            console.log("Selected Index Type:", typeof iSelectedIndex);
             sWeighmentRequired = iSelectedIndex === 0 ? "Y" : "N";
-            console.log("String Value (sWeighmentRequired):", sWeighmentRequired);
             bWeighmentRequired = iSelectedIndex === 0; // Direct boolean assignment
-            console.log("Boolean Value (bWeighmentRequired):", bWeighmentRequired);
-            console.log("Boolean Value Type:", typeof bWeighmentRequired);
-            console.log("Boolean Value === true:", bWeighmentRequired === true);
-            console.log("Boolean Value === false:", bWeighmentRequired === false);
-          } else {
-            console.log("Radio Group not found!");
           }
 
           var sTripNumber = sap.ui
@@ -406,15 +439,6 @@ sap.ui.define(
           var bModified = !bIsFirstTime;
 
           // Function Import Call with Custom Headers
-          console.log("=== GateIn Function Call Parameters ===");
-          console.log("TripNumber:", sTripNumber, "Type:", typeof sTripNumber);
-          console.log("EntryGateNumber:", sEntryGateNumber, "Type:", typeof sEntryGateNumber);
-          console.log("Modified:", bModified, "Type:", typeof bModified);
-          console.log("Remarks:", sRemarks || "", "Type:", typeof (sRemarks || ""));
-          console.log("DelayReasons:", sDelayReasons, "Type:", typeof sDelayReasons);
-          console.log("Weighment_Req:", bWeighmentRequired, "Type:", typeof bWeighmentRequired);
-          console.log("Weighment_Req === true:", bWeighmentRequired === true);
-          console.log("Weighment_Req === false:", bWeighmentRequired === false);
           
           oModel.callFunction("/GateIn", {
             method: "POST",
@@ -597,10 +621,8 @@ sap.ui.define(
                 return;
               }
               
-              // Keep Scanner Input and Scan Button always enabled if vehicle is not reported
-              if (!bVehicleReported && sCtrlId && 
-                  (sCtrlId.indexOf("idGateInScannerInput") !== -1 || 
-                   sCtrlId.indexOf("idGateInScanButton") !== -1)) {
+              // Keep controls enabled if vehicle is not reported
+              if (!bVehicleReported && sCtrlId) {
                 if (ctrl.setEditable) {
                   ctrl.setEditable(true);
                 } else if (ctrl.setEnabled) {
@@ -641,7 +663,6 @@ sap.ui.define(
             }
           } catch (e) {
             // Don't break if something unexpected happens
-            console.error("Error in _setInputsEnabled: " + e);
           }
         },
         onGateInAttachmentChange: function (oEvent) {
@@ -844,7 +865,7 @@ sap.ui.define(
                 if (fnCallback) {
                   fnCallback(false);
                 }
-                console.error("Upload error:", oError);
+                // Upload error
               }
             }
           });
@@ -872,7 +893,7 @@ sap.ui.define(
               if (fnCallback) {
                 fnCallback(false);
               }
-              console.error("Update attachment error:", oError);
+              // Update attachment error
             }
           });
         },
@@ -1018,7 +1039,7 @@ sap.ui.define(
                 }.bind(this),
                 error: function () {
                   MessageToast.show("Failed to load attachment for preview");
-                  console.error("Preview error:", oError);
+                  // Preview error
                 }
               });
             }.bind(this)
@@ -1122,144 +1143,7 @@ sap.ui.define(
           document.body.removeChild(oLink);
         },
 
-        //---------------------------------------------
-        // SCANNER LOGIC
-        //---------------------------------------------
-        onScanSuccess: function () {
-          var that = this;
-          BarcodeScanner.scan(
-            function (oResult) {
-              console.log("Scan result:", oResult);
-              if (!oResult.cancelled) {
-                var sScannedCode = oResult.text;
-                // Parse code if it contains pipe separator (e.g., "GATE001|Entry Gate 1")
-                var sParsedCode = sScannedCode.split("|")[0];
-                that._processScannedCode(sParsedCode);
-              }
-            }.bind(this),
-            function (oError) {
-              console.error("Scan failed:", oError);
-              MessageToast.show("Scan failed: " + (oError.message || oError));
-              setTimeout(function() {
-                var oScannerInput = that.getView().byId("idGateInScannerInput");
-                if (oScannerInput) {
-                  oScannerInput.focus();
-                }
-              }, 200);
-            }.bind(this)
-          );
-        },
-
-        onScanLiveupdate: function (oEvent) {
-          var sText = oEvent.getParameter("newValue");
-          var oScannerInput = this.getView().byId("idGateInScannerInput");
-          if (oScannerInput) {
-            oScannerInput.setValue(sText);
-          }
-          // Process scanned code if value is entered
-          if (sText && sText.trim() !== "") {
-            var sParsedCode = sText.split("|")[0];
-            this._processScannedCode(sParsedCode);
-          }
-        },
-
-        _processScannedCode: function (sScannedCode) {
-          console.log("=== SCANNER DEBUG ===");
-          console.log("Processing scanned code:", sScannedCode);
-          
-          if (!sScannedCode || sScannedCode.trim() === "") {
-            console.log("Invalid scan code - empty");
-            MessageToast.show("Invalid scan code");
-            return;
-          }
-
-          // Try to parse scanned code as JSON first
-          var oScannedData = null;
-          try {
-            oScannedData = JSON.parse(sScannedCode);
-            console.log("Parsed JSON data:", oScannedData);
-          } catch (e) {
-            // If not JSON, try to parse as comma-separated key-value pairs
-            console.log("Scanned code is not JSON, trying to parse as key-value pairs");
-            oScannedData = this._parseKeyValueString(sScannedCode);
-            if (!oScannedData) {
-              console.log("Failed to parse scanned code");
-              MessageToast.show("Invalid barcode format");
-              this._clearAndRefocusScanner();
-              return;
-            }
-            console.log("Parsed key-value data:", oScannedData);
-          }
-
-          // Extract asnId and orgId from scanned data
-          var sAsnId = oScannedData.asnId;
-          var sOrgId = oScannedData.orgId;
-          
-          if (!sAsnId || !sOrgId) {
-            console.log("Missing asnId or orgId in scanned data");
-            console.log("Available keys:", Object.keys(oScannedData));
-            MessageToast.show("Invalid barcode: Missing asnId or orgId");
-            this._clearAndRefocusScanner();
-            return;
-          }
-
-          console.log("Extracted asnId:", sAsnId);
-          console.log("Extracted orgId:", sOrgId);
-
-          // Step 1: Get OAuth Token
-          this._getOAuthToken(sAsnId, sOrgId);
-        },
-
-        _parseKeyValueString: function (sString) {
-          try {
-            // Parse format like: "vendorCode=I0141,asnId=ASN5a8faad3,poNum=2000000294,orgId=a039ec0a-df8c-4b0b-abb5-7f41b2190fc6"
-            var oResult = {};
-            var aPairs = sString.split(',');
-            aPairs.forEach(function(sPair) {
-              var aKeyValue = sPair.split('=');
-              if (aKeyValue.length === 2) {
-                var sKey = aKeyValue[0].trim();
-                var sValue = aKeyValue[1].trim();
-                oResult[sKey] = sValue;
-              }
-            });
-            console.log("Converted to JSON object:", oResult);
-            return oResult;
-          } catch (e) {
-            console.error("Error parsing key-value string:", e);
-            return null;
-          }
-        },
-
-        _clearAndRefocusScanner: function () {
-          var oScannerInput = this.getView().byId("idGateInScannerInput");
-          if (oScannerInput) {
-            oScannerInput.setValue("");
-            setTimeout(function() {
-              oScannerInput.focus();
-            }, 100);
-          }
-        },
-
-        _focusOnScannerInput: function () {
-          var that = this;
-          setTimeout(function() {
-            var oScannerInput = that.getView().byId("idGateInScannerInput");
-            if (oScannerInput && oScannerInput.focus) {
-              oScannerInput.focus();
-            }
-          }, 200);
-        },
-
-        _getOAuthToken: function (sAsnId, sOrgId) {
-          console.log("Getting OAuth token for asnId:", sAsnId, "orgId:", sOrgId);
-          // Add your OAuth token logic here
-          // This is a placeholder - implement according to your authentication requirements
-          MessageToast.show("Scanner processed successfully! ASN ID: " + sAsnId);
-        },
-
         _reloadTripDataAfterSave: function (sTripNumber, sEntryGateNumber) {
-          console.log("Reloading TripData after Gate-In save for trip:", sTripNumber);
           
           var oModel = this.oModel;
           var that = this;
@@ -1270,7 +1154,6 @@ sap.ui.define(
               "$expand": "OrderDetails,ItemDetails"
             },
             success: function (oData) {
-              console.log("TripData reloaded successfully after Gate-In save");
               
               // Ensure EntryGateNum is set to the saved value
               oData.EntryGateNum = sEntryGateNumber;
@@ -1291,10 +1174,9 @@ sap.ui.define(
               // Publish event to notify other views with complete data
               that._eventBus.publish("TripData", "Updated");
               
-              console.log("TripData model updated with complete data including OrderDetails and ItemDetails");
             },
             error: function (oError) {
-              console.error("Failed to reload TripData after Gate-In save:", oError);
+              // Failed to reload TripData after Gate-In save
               
               // Fallback: just update the EntryGateNum property
               var oTripData = sap.ui.getCore().getModel("TripData");

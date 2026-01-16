@@ -79,8 +79,8 @@
                 <core:Item key="TON" text="TON"/>
             </Select>
 
-            <Label text="Loaded Qty / Net Wt"/>
-            <Input id="idDialogLoadedQty" valueLiveUpdate="true" />
+            <Label text="Loaded Weight / Net Wt"/>
+            <Input id="idDialogLoadedWeight" valueLiveUpdate="true" />
 
             <Label text="Gross Wt"/>
             <Input id="idDialogGrossWt" valueLiveUpdate="true" />

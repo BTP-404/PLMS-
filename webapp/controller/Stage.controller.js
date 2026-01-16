@@ -69,10 +69,7 @@ sap.ui.define([
 		} catch (oError) {
 			// Error handling: determine route based on arguments as fallback
 			sRouteName = sTripNumber ? "StagewithParam" : "Stage";
-			console.warn("Could not get route name from event, using fallback:", sRouteName);
 		}
-	
-		console.log("Matched route:", sRouteName);
 	
 		// ============================
 		//   CASE 1 — CREATE MODE
@@ -90,7 +87,6 @@ sap.ui.define([
 			this._updateLoadingUnloadingTabs();
 			this._updateCancelButtonVisibility();
 	
-			console.log("Stage (Create): pageTitleModel cleared");
 			return;
 		}
 	
@@ -107,8 +103,6 @@ sap.ui.define([
 			this._refreshPageTitleModel();
 			this._updateLoadingUnloadingTabs();
 			this._updateCancelButtonVisibility();
-	
-			console.log("StagewithParam (Update): refreshed pageTitleModel");
 		}
 	}
 		
@@ -161,8 +155,6 @@ sap.ui.define([
 				vehicleNumber: "",
 				tripStatus: ""
 			}, true);
-		
-			console.log("pageTitleModel reset complete");
 		}
 ,		
 
@@ -408,34 +400,30 @@ sap.ui.define([
 			if (oDomRef && oDomRef.length > 0) {
 				if (iUnreadCount > 0) {
 					oDomRef.addClass("notesTabWithBell");
-					console.log("Red mark added - Unread count:", iUnreadCount);
 				} else {
 					oDomRef.removeClass("notesTabWithBell");
-					console.log("Red mark removed - All notes read");
 				}
-			} else {
-				console.warn("Notes tab DOM element not found");
 			}
 		},
 
 		onIconTabSelect: function (oEvent) {
 			var sSelectedKey = oEvent.getParameter("key");
 			
-			// If GateIn tab is selected, focus on scanner input
-			if (sSelectedKey === "gateIn") {
+			// If ReferenceDocuments tab is selected, focus on scanner input
+			if (sSelectedKey === "referenceDocuments") {
 				// Use setTimeout to ensure the view is rendered
 				setTimeout(function() {
-					// Get the GateIn view and focus on scanner input
+					// Get the ReferenceDocuments view and focus on scanner input
 					var oIconTabBar = this.byId("iconTabBar");
 					if (oIconTabBar) {
-						var oGateInTab = oIconTabBar.getItems().find(function(oItem) {
-							return oItem.getKey() === "gateIn";
+						var oRefDocTab = oIconTabBar.getItems().find(function(oItem) {
+							return oItem.getKey() === "referenceDocuments";
 						});
 						
-						if (oGateInTab && oGateInTab.getContent && oGateInTab.getContent().length > 0) {
-							var oGateInView = oGateInTab.getContent()[0];
-							if (oGateInView && oGateInView.byId) {
-								var oScannerInput = oGateInView.byId("idGateInScannerInput");
+						if (oRefDocTab && oRefDocTab.getContent && oRefDocTab.getContent().length > 0) {
+							var oRefDocView = oRefDocTab.getContent()[0];
+							if (oRefDocView && oRefDocView.byId) {
+								var oScannerInput = oRefDocView.byId("idRefDocScannerInput");
 								if (oScannerInput && oScannerInput.focus) {
 									oScannerInput.focus();
 								}

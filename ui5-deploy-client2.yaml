@@ -14,14 +14,12 @@ builder:
       afterTask: generateCachebusterInfo
       configuration:
         target:
-          url: https://figs4dapp:8443
-          client: '100'
+          url: https://s4hana2022.incresol.com:44300
+          client: '200'
         app:
           name: YIGP_PLMS
           description: Plant Logistics Management System
           package: YIGP_PLMS
-          transport: FHDK907502
+          transport: S4HK901133
         exclude:
           - /test/
-        
-

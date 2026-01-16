@@ -99,18 +99,19 @@
                                     <Text text="UoM" />
                                 </Column>
                                 <Column
-                                    id="colLoadingLoadedQty"
+                                    id="colLoadingLoadedWeight"
                                     demandPopin="true"
                                     minScreenWidth="Desktop"
                                     popinDisplay="Inline"
                                 >
-                                    <Text text="Loaded Qty / Net Wt" />
+                                    <Text text="Loaded Quantity" />
                                 </Column>
                                 <Column
                                     id="colLoadingGrossWt"
                                     demandPopin="true"
                                     minScreenWidth="Desktop"
                                     popinDisplay="Inline"
+                                    visible="{loadingModel>/weighmentEnabled}"
                                 >
                                     <Text text="Gross Wt" />
                                 </Column>
@@ -119,6 +120,7 @@
                                     demandPopin="true"
                                     minScreenWidth="Desktop"
                                     popinDisplay="Inline"
+                                    visible="{loadingModel>/weighmentEnabled}"
                                 >
                                     <Text text="Tare Wt" />
                                 </Column>
@@ -127,8 +129,17 @@
                                     demandPopin="true"
                                     minScreenWidth="Desktop"
                                     popinDisplay="Inline"
+                                    visible="{loadingModel>/weighmentEnabled}"
                                 >
                                     <Text text="Net Wt" />
+                                </Column>
+                                <Column
+                                    id="colLoadingRemark"
+                                    demandPopin="true"
+                                    minScreenWidth="Desktop"
+                                    popinDisplay="Inline"
+                                >
+                                    <Text text="Remark" />
                                 </Column>
                                 <Column
                                     id="colLoadingCreatedBy"
@@ -165,9 +176,9 @@
                                         <Text text="{tableModel>Qty}"/>
                                         <Text text="{tableModel>UoM}"/>
                                         <Input
-                                            value="{tableModel>LoadedQty}"
+                                            value="{tableModel>LoadedWeight}"
                                             enabled="{loadingModel>/weighmentEnabled}"
-                                            placeholder="Enter Loaded Qty"
+                                            placeholder="Enter Loaded Weight"
                                             width="100%"
                                             type="Number"
                                             change="onWeightFieldChange"
@@ -189,6 +200,12 @@
                                             change="onWeightFieldChange"
                                         />
                                         <Text text="{tableModel>NetWt}"/>
+                                        <Input
+                                            value="{tableModel>Remark}"
+                                            placeholder="Remark"
+                                            width="100%"
+                                            maxLength="255"
+                                        />
                                         <Text text="{tableModel>CreatedBy}"/>
                                         <Text text="{tableModel>CreatedOnDate}"/>
                                         <Text text="{tableModel>CreatedOnTime}"/>
@@ -207,7 +224,7 @@
             <!-- Update Weights Button (only visible when weighment is enabled) -->
             <Button 
                 id="btnUpdateWeights" 
-                text="Update Weights" 
+                text="Save" 
                 type="Emphasized" 
                 press="onUpdateWeights" 
                 icon="sap-icon://save"
@@ -215,7 +232,7 @@
                 class="sapUiTinyMarginEnd"
             />
             
-            <!-- Start Loading Button -->
+            <!-- Start Loading / Restart Loading Button -->
             <Button 
                 id="btnStartLoading" 
                 text="Start Loading" 
