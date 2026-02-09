@@ -8,6 +8,36 @@
     displayBlock="true"
 >
     <VBox class="sapUiSizeCompact sapUiSmallMargin">
+        <!-- ========================= SCANNER ROW ========================= -->
+        <!-- Scanner Input and Button - Only visible for specific Movement Scenarios -->
+        <VBox 
+            id="idReportingScannerVBox"
+            class="sapUiSmallMarginBottom"
+            visible="false">
+            <Label
+                text="Scanner Input"
+                design="Bold"
+                class="sapUiNoMarginBottom"
+            />
+            <HBox alignItems="Center" width="100%">
+                <Input
+                    id="idReportingScannerInput"
+                    placeholder="Scan barcode (ASN) or enter PO number"
+                    width="100%"
+                    liveChange="onScanLiveupdate"
+                    class="sapUiTinyMarginEnd"
+                />
+                <Button
+                    id="idReportingScanButton"
+                    text="Scan"
+                    type="Emphasized"
+                    icon="sap-icon://bar-code"
+                    press="onScanSuccess"
+                    class="sapUiTinyMarginBegin"
+                />
+            </HBox>
+        </VBox>
+
         <Panel
             id="reportingDetailsPanel"
             expandable="true"
@@ -294,25 +324,21 @@
                                 design="Bold"
                                 required="true"
                             />
-                           <Input
-    id="idPlant"
-    width="100%"
-    showValueHelp="true"
-    valueHelpRequest="onValueHelpPlant"
-    showSuggestion="true"
-    suggest="onPlantSuggest"
-    suggestionItems="{
-        path: 'VHModel>/'
-    }"
-    value="{TripData>/Plant}"
-    suggestionItemSelected="onPlantSuggestionSelected"
->
-    <core:ListItem
-        key="{VHModel>ConfigID}"
-        text="{VHModel>ConfigID}"
-        additionalText="{VHModel>Description}"
-    />
-</Input>
+                           <Select
+                               id="idPlant"
+                               width="100%"
+                               forceSelection="false"
+                               items="{
+                                   path: 'PlantModel>/'
+                               }"
+                               change="onPlantChange">
+                               <core:Item
+                                   key="{PlantModel>ConfigID}"
+                                   text="{PlantModel>ConfigID}"
+                                   additionalText="{PlantModel>Description}"
+                                   
+                               />
+                           </Select>
 
                         </VBox>
                     </layout:content>

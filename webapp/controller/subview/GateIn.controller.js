@@ -31,7 +31,16 @@ sap.ui.define(
           this._eventBus = sap.ui.getCore().getEventBus();
           this._eventBus.subscribe("TripData", "Updated", this._onTripDataUpdate, this);
           this._eventBus.subscribe("Stage", "ClearAllTabs", this._clearAllData, this);
-          this._onTripDataUpdate();
+          this._eventBus.subscribe("UserRoles", "Loaded", this._applyGateInAuthorization, this);
+          
+          // Race condition fix: Check if UserRoles already loaded
+          var oUserRoles = sap.ui.getCore().getModel("UserRoles");
+          if (oUserRoles) {
+            // Apply immediately if already loaded
+            setTimeout(function() {
+              this._applyGateInAuthorization();
+            }.bind(this), 0);
+          }
           
           // Initialize weighment required if not set (default to "No")
           var oTripData = sap.ui.getCore().getModel("TripData");
@@ -59,7 +68,8 @@ sap.ui.define(
           // Set initial input state based on whether GateIn data exists
           var oTripData = sap.ui.getCore().getModel("TripData");
           if (oTripData) {
-            var sExistingEntryGateNum = oTripData.getProperty("/EntryGateNum");
+            var sExistingEntryGateNum = oTripData.getProperty("/EntryGateNum") ||
+              oTripData.getProperty("/EntryGateNumber") || "";
             if (sExistingEntryGateNum && sExistingEntryGateNum.trim() !== "") {
               // GateIn exists - disable inputs (display mode)
               this._setInputsEnabled(false);
@@ -72,15 +82,15 @@ sap.ui.define(
             this._setInputsEnabled(true);
           }
           
-          // Load saved attachments
-          this._loadGateInAttachments();
+          // Apply authorization to buttons
+          this._applyGateInAuthorization();
           
-          // Focus on scanner input when page loads
-          this._focusOnScannerInput();
+          // Removed: this._loadGateInAttachments(); - will be loaded via event subscription when TripData is available
         },
         onExit: function () {
           this._eventBus?.unsubscribe("TripData", "Updated", this._onTripDataUpdate, this);
           this._eventBus?.unsubscribe("Stage", "ClearAllTabs", this._clearAllData, this);
+          this._eventBus?.unsubscribe("UserRoles", "Loaded", this._applyGateInAuthorization, this);
         },
         
         _clearAllData: function () {
@@ -120,20 +130,27 @@ sap.ui.define(
               var sWeighmentRequired = (vWeighmentReq === true || vWeighmentReq === "X") ? "Y" : "N";
               oTripData.setProperty("/WeighmentRequired", sWeighmentRequired);
             }
+            // Map EntryGateNumber to EntryGateNum if backend returns different property name
+            var sEntryGate = oTripData.getProperty("/EntryGateNumber");
+            var sEntryGateNum = oTripData.getProperty("/EntryGateNum");
+            if (sEntryGate && (!sEntryGateNum || (typeof sEntryGateNum === "string" && sEntryGateNum.trim() === ""))) {
+              oTripData.setProperty("/EntryGateNum", sEntryGate);
+            }
             
             this.getView().setModel(oTripData, "TripData");
             // Disable inputs if GateIn data already exists (display mode)
-            var sExistingEntryGateNum = oTripData.getProperty("/EntryGateNum");
+            var sExistingEntryGateNum = oTripData.getProperty("/EntryGateNum") ||
+              oTripData.getProperty("/EntryGateNumber") || "";
             if (sExistingEntryGateNum && sExistingEntryGateNum.trim() !== "") {
               this._setInputsEnabled(false);
             } else {
               // First time - enable inputs
               this._setInputsEnabled(true);
             }
+            
+            // Re-apply authorization when TripData changes (plant might have changed)
+            this._applyGateInAuthorization();
           }
-          
-          // Reload attachments when trip data updates
-          this._loadGateInAttachments();
         },
         _getTripNumber: function () {
           var oGlobalModel = sap.ui.getCore().getModel("globalData");
@@ -375,6 +392,37 @@ sap.ui.define(
           }
         },
         onSaveGateInInfo: function () {
+          // Check authorization
+          var oTripData = sap.ui.getCore().getModel("TripData");
+          var bIsFirstTime = false;
+          if (oTripData) {
+            var sExistingEntryGateNum = oTripData.getProperty("/EntryGateNum") ||
+              oTripData.getProperty("/EntryGateNumber") || "";
+            bIsFirstTime = !sExistingEntryGateNum || (typeof sExistingEntryGateNum === "string" && sExistingEntryGateNum.trim() === "");
+          } else {
+            bIsFirstTime = true;
+          }
+          
+          var oUserRoles = sap.ui.getCore().getModel("UserRoles");
+          var bAuthorized = false;
+          if (bIsFirstTime) {
+            // Check AddGatein for first time
+            var sAddGatein = oUserRoles ? (oUserRoles.getProperty("/AddGatein") || "") : "";
+            bAuthorized = sAddGatein === "X";
+            if (!bAuthorized) {
+              MessageBox.warning("You are not authorized to add Gate In information.");
+              return;
+            }
+          } else {
+            // Check EditGatein for update
+            var sEditGatein = oUserRoles ? (oUserRoles.getProperty("/EditGatein") || "") : "";
+            bAuthorized = sEditGatein === "X";
+            if (!bAuthorized) {
+              MessageBox.warning("You are not authorized to edit Gate In information.");
+              return;
+            }
+          }
+          
           // Use the ODataModel created in onInit()
           
           var oModel = this.oModel;
@@ -424,12 +472,13 @@ sap.ui.define(
           }
 
           // Determine if this is first time (create) or update
-          // Check if EntryGateNum already exists in TripData
+          // Check if EntryGateNum/EntryGateNumber already exists in TripData
           var bIsFirstTime = false;
           if (oTripData) {
-            var sExistingEntryGateNum = oTripData.getProperty("/EntryGateNum");
-            // If EntryGateNum is empty, null, or undefined, it's the first time
-            bIsFirstTime = !sExistingEntryGateNum || sExistingEntryGateNum.trim() === "";
+            var sExistingEntryGateNum = oTripData.getProperty("/EntryGateNum") ||
+              oTripData.getProperty("/EntryGateNumber") || "";
+            // If EntryGateNum is empty, null, or undefined, it's the first time (create)
+            bIsFirstTime = !sExistingEntryGateNum || (typeof sExistingEntryGateNum === "string" && sExistingEntryGateNum.trim() === "");
           } else {
             // If TripData doesn't exist, assume it's first time
             bIsFirstTime = true;
@@ -480,15 +529,15 @@ sap.ui.define(
                     MessageBox.success(sMessage);
                     MessageBox.warning("Some attachments failed to upload.");
                   }
-                  
+                  this._eventBus.publish("Stage", "GateSaveSuccess", { tabKey: "gateIn" });
                   // Disable inputs after successful save
                   this._setInputsEnabled(false);
-                  
                   // Reload attachments list
                   this._loadGateInAttachments();
                 });
               } else {
                 MessageBox.success(sMessage);
+                this._eventBus.publish("Stage", "GateSaveSuccess", { tabKey: "gateIn" });
                 // Disable inputs after successful save
                 this._setInputsEnabled(false);
               }
@@ -588,12 +637,17 @@ sap.ui.define(
           }
         },
         onEditGateInInfo: function () {
+          // Check authorization
+          var oUserRoles = sap.ui.getCore().getModel("UserRoles");
+          var sEditGatein = oUserRoles ? (oUserRoles.getProperty("/EditGatein") || "") : "";
+          if (sEditGatein !== "X") {
+            MessageBox.warning("You are not authorized to edit Gate In information.");
+            return;
+          }
+          
           // Enable inputs for edit mode
           this._setInputsEnabled(true);
           MessageToast.show("Edit mode activated");
-          
-          // Focus on scanner input when edit mode is activated
-          this._focusOnScannerInput();
         },
         _setInputsEnabled: function (bEnabled) {
           try {
@@ -1187,6 +1241,56 @@ sap.ui.define(
             }
           });
         },
+
+        /**
+         * Apply authorization to GateIn buttons based on UserRoles
+         */
+        _applyGateInAuthorization: function () {
+          var oUserRoles = sap.ui.getCore().getModel("UserRoles");
+          if (!oUserRoles) {
+            // If UserRoles not loaded, disable buttons by default
+            var oEditBtn = this.getView().byId("btnEditGateInInfo");
+            var oSaveBtn = this.getView().byId("btnSaveGateInInfo");
+            if (oEditBtn) { oEditBtn.setEnabled(false); }
+            if (oSaveBtn) { oSaveBtn.setEnabled(false); }
+            return;
+          }
+
+          var oTripData = sap.ui.getCore().getModel("TripData");
+          var bIsFirstTime = false;
+          if (oTripData) {
+            var sExistingEntryGateNum = oTripData.getProperty("/EntryGateNum") ||
+              oTripData.getProperty("/EntryGateNumber") || "";
+            bIsFirstTime = !sExistingEntryGateNum || (typeof sExistingEntryGateNum === "string" && sExistingEntryGateNum.trim() === "");
+          } else {
+            bIsFirstTime = true;
+          }
+
+          var oEditBtn = this.getView().byId("btnEditGateInInfo");
+          var oSaveBtn = this.getView().byId("btnSaveGateInInfo");
+
+          if (bIsFirstTime) {
+            // First time - check AddGatein
+            var sAddGatein = oUserRoles.getProperty("/AddGatein") || "";
+            if (oSaveBtn) {
+              oSaveBtn.setEnabled(sAddGatein === "X");
+            }
+            if (oEditBtn) {
+              oEditBtn.setVisible(false); // Hide edit button on first time
+              oEditBtn.setEnabled(false);
+            }
+          } else {
+            // Update mode - check EditGatein
+            var sEditGatein = oUserRoles.getProperty("/EditGatein") || "";
+            if (oEditBtn) {
+              oEditBtn.setVisible(true);
+              oEditBtn.setEnabled(sEditGatein === "X");
+            }
+            if (oSaveBtn) {
+              oSaveBtn.setEnabled(sEditGatein === "X");
+            }
+          }
+        }
       }
     );
   }

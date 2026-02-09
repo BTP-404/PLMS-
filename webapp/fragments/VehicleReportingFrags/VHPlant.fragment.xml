@@ -4,7 +4,6 @@
         id="idVHPlant"
         title="Select Plant"
         contentWidth="40%"
-        contentHeight="60%"
         draggable="true"
         resizable="true">
 

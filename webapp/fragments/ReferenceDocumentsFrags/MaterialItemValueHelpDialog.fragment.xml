@@ -11,8 +11,6 @@
         confirm=".onMaterialItemValueHelpConfirm"
         cancel=".onMaterialItemValueHelpCancel"
         items="{materialItems>/items}"
-        growing="true"
-        growingThreshold="100"
     >
         <StandardListItem
             title="{materialItems>RefDocItemNo}"

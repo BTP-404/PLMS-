@@ -23,6 +23,7 @@
         <!-- ==================== TITLE ACTIONS ==================== -->
         <semantic:titleCustomTextActions>
             <Button
+                id="btnReportVehicle"
                 text="Report Vehicle"
                 icon="sap-icon://add"
                 press=".onReportVehicle"
@@ -55,7 +56,6 @@
                         <Input
                             width="100%"
                             showValueHelp="true"
-                            liveChange=".onInputLiveChange"
                             showSuggestion="true"
                             suggest=".onSuggest"
                             filterSuggests="false"
@@ -82,7 +82,6 @@
                         <Input
                             width="100%"
                             showValueHelp="true"
-                            liveChange=".onInputLiveChange"
                             showSuggestion="true"
                             suggest=".onSuggest"
                             filterSuggests="false"
@@ -111,7 +110,6 @@
                             width="100%"
                             valueFormat="yyyy-MM-dd"
                             displayFormat="medium"
-                            change=".onInputLiveChange"
                         >
                             <customData>
                                 <core:CustomData
@@ -122,29 +120,37 @@
                         </DatePicker>
                     </VBox>
                 </layout:content>
-                <!-- Report Date To -->
-                <layout:content>
-                    <VBox>
-                        <Label
-                            design="Bold"
-                            text="Report Date To:"
-                        />
-                        <DatePicker
-                           id="ReportDateTo"
-                            width="100%"
-                            valueFormat="yyyy-MM-dd"
-                            displayFormat="medium"
-                            change=".onInputLiveChange"
-                        >
-                            <customData>
-                                <core:CustomData
-                                    key="field"
-                                    value="reportDateTo"
-                                />
-                            </customData>
-                        </DatePicker>
-                    </VBox>
-                </layout:content>
+                <!-- Report Date To + Go -->
+             <!-- Report Date To + Go -->
+<layout:content>
+    <VBox>
+        <Label design="Bold" text="Report Date To:" />
+        <HBox
+            alignItems="Center"
+            width="100%"
+        >
+            <DatePicker
+                id="ReportDateTo"
+                width="100%"
+                valueFormat="yyyy-MM-dd"
+                displayFormat="medium"
+            >
+                <layoutData>
+                    <FlexItemData growFactor="1" />
+                </layoutData>
+            </DatePicker>
+
+            <Button
+                text="Go"
+                type="Emphasized"
+                width="3rem"
+                press=".onGoPress"
+                class="sapUiTinyMarginBegin"
+            />
+        </HBox>
+    </VBox>
+</layout:content>
+
             </layout:Grid>
         </semantic:headerContent>
         <!-- ==================== CONTENT AREA ==================== -->
@@ -189,7 +195,7 @@
                         <Column
                             id="colTripNumber"
                             demandPopin="true"
-                            minScreenWidth="Desktop"
+                            minScreenWidth="Tablet"
                             popinDisplay="Inline"
                         >
                             <Text text="Trip Number" />
@@ -197,7 +203,7 @@
                         <Column
                             id="colVehicleNumber"
                             demandPopin="true"
-                            minScreenWidth="Desktop"
+                            minScreenWidth="Tablet"
                             popinDisplay="Inline"
                         >
                             <Text text="Vehicle Number" />
@@ -205,7 +211,7 @@
                         <Column
                             id="colTripStatus"
                             demandPopin="true"
-                            minScreenWidth="Desktop"
+                            minScreenWidth="Tablet"
                             popinDisplay="Inline"
                         >
                             <Text text="Trip Status" />
@@ -277,14 +283,19 @@
                         <Column
                             id="colPlant"
                             demandPopin="true"
-                            minScreenWidth="Desktop"
+                            minScreenWidth="Tablet"
                             popinDisplay="Inline"
                         >
                             <Text text="Plant" />
                         </Column>
                     </columns>
                     <items>
-                        <ColumnListItem vAlign="Middle">
+                        <ColumnListItem 
+                            vAlign="Middle"
+                            class="{
+                                path: 'TripStatus',
+                                formatter: '.getTripStatusClass'
+                            }">
                             <cells>
                                 <Text
                                     text="{

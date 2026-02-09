@@ -57,7 +57,9 @@ sap.ui.define([
 					text: "Trip Activity",
 					state: "Positive"
 				}],
-				events: []
+				events: [],
+				timelineCards: [],
+				timelineViewMode: "processflow" // "processflow" or "cards"
 			});
 			this.getView().setModel(this._oActivityModel, "activityModel");
 
@@ -74,7 +76,7 @@ sap.ui.define([
 			this._oEventBus.subscribe("TripData", "Updated", this._onTripDataUpdated, this);
 			this._oEventBus.subscribe("Stage", "ClearAllTabs", this._clearAllData, this);
 
-			this._loadActivityHistory(false); // No delay on initial load
+			// Removed direct call - will be triggered by event subscription when TripData is available
 		},
 
 		onExit: function () {
@@ -108,38 +110,40 @@ sap.ui.define([
 
 		_loadActivityHistory: function (bDelay) {
 			var sTripNumber = sap.ui.getCore().getModel("globalData")?.getProperty("/TripNumber") || "";
-			var oView = this.getView();
 
 			if (!sTripNumber) {
 				this._setActivityData([]);
 				return;
 			}
 
-			// If delay is requested (for updates), wait a bit for backend to process
-			var fnLoad = function() {
-				oView.setBusy(true);
-				this._oService.read("/ActivityHistory", {
-					filters: [
-						new Filter("TripNumber", FilterOperator.EQ, sTripNumber)
-					],
-					success: function (oData) {
-						oView.setBusy(false);
-						this._setActivityData(oData.results || []);
-					}.bind(this),
-					error: function () {
-						oView.setBusy(false);
-						MessageToast.show("Unable to load activity history");
-						this._setActivityData([]);
-					}.bind(this)
-				});
-			}.bind(this);
-
-			if (bDelay) {
-				// Add delay to allow backend to update ActivityHistory
-				setTimeout(fnLoad, 500);
+			// Get ActivityHistory from TripData (loaded via $expand)
+			var oTripData = sap.ui.getCore().getModel("TripData");
+			if (oTripData) {
+				var vActivityHistory = oTripData.getProperty("/ActivityHistory");
+				var aActivityHistory = this._extractActivityHistoryResults(vActivityHistory);
+				this._setActivityData(aActivityHistory);
 			} else {
-				fnLoad();
+				this._setActivityData([]);
 			}
+		},
+
+		_extractActivityHistoryResults: function (vData) {
+			if (!vData) {
+				return [];
+			}
+			if (Array.isArray(vData)) {
+				return vData;
+			}
+			if (vData && typeof vData === "object") {
+				if (Array.isArray(vData.results)) {
+					return vData.results;
+				}
+				// Check if it's a deferred object (OData v2)
+				if (vData.__deferred) {
+					return [];
+				}
+			}
+			return [];
 		},
 
 		_setActivityData: function (aEvents) {
@@ -202,6 +206,7 @@ sap.ui.define([
 			this._oActivityModel.setProperty("/events", aEnriched);
 			this._oActivityModel.setProperty("/eventsCount", aEnriched.length);
 			this._oActivityModel.setProperty("/nodes", this._buildProcessFlowNodes(aEnriched));
+			this._oActivityModel.setProperty("/timelineCards", this._buildTimelineCards(aEnriched));
 			
 			// Calculate total TAT from individual event TATs (force recalculation)
 			var sTotalTat = this._calculateTat(aEnriched);
@@ -548,30 +553,57 @@ sap.ui.define([
 			return null;
 		},
 
+		/**
+		 * Parse backend TurnAroundTime string into milliseconds.
+		 *
+		 * Supported examples:
+		 *  - "2Days 2Hours 22Minutes 53Sec"
+		 *  - "2Day 2Hour 22Minute 53Sec"
+		 *  - "0Hours0Minutes34Sec"
+		 *  - "0Hours 0Minutes 34Sec"
+		 */
 		_parseTurnAroundTime: function (sTat) {
 			if (!sTat || typeof sTat !== "string") {
 				return 0;
 			}
-			// Parse format like "0Hours0Minutes34Sec" or "1Hours30Minutes15Sec"
-			var oMatch = sTat.match(/(\d+)Hours(\d+)Minutes(\d+)Sec/i);
-			if (oMatch) {
-				var iHours = parseInt(oMatch[1], 10) || 0;
-				var iMinutes = parseInt(oMatch[2], 10) || 0;
-				var iSeconds = parseInt(oMatch[3], 10) || 0;
-				return (iHours * 3600 + iMinutes * 60 + iSeconds) * 1000;
+
+			// Normalise whitespace
+			sTat = sTat.trim().replace(/\s+/g, " ");
+
+			// Match optional Days, Hours, Minutes, Seconds (singular/plural, with/without spaces)
+			var oMatch = sTat.match(/(?:(\d+)\s*Day[s]?)?\s*(?:(\d+)\s*Hour[s]?)?\s*(?:(\d+)\s*Minute[s]?)?\s*(?:(\d+)\s*Sec[s]?)?/i);
+			if (!oMatch) {
+				return 0;
 			}
-			return 0;
+
+			var iDays = parseInt(oMatch[1], 10) || 0;
+			var iHours = parseInt(oMatch[2], 10) || 0;
+			var iMinutes = parseInt(oMatch[3], 10) || 0;
+			var iSeconds = parseInt(oMatch[4], 10) || 0;
+
+			var iTotalSeconds = (iDays * 24 * 3600) +
+				(iHours * 3600) +
+				(iMinutes * 60) +
+				iSeconds;
+
+			if (!iTotalSeconds || isNaN(iTotalSeconds) || iTotalSeconds < 0) {
+				return 0;
+			}
+
+			return iTotalSeconds * 1000;
 		},
 
 		_formatTurnAroundTime: function (sTat) {
 			if (!sTat || typeof sTat !== "string") {
 				return "—";
 			}
-			// Parse and format: "0Hours0Minutes34Sec" -> "34 sec"
+
 			var iMs = this._parseTurnAroundTime(sTat);
-			if (iMs === 0) {
-				return "0 min";
+			if (!iMs) {
+				// If parsing fails or results in 0, show dash instead of "0 min"
+				return "—";
 			}
+
 			return this._formatDurationMs(iMs);
 		},
 
@@ -624,6 +656,90 @@ sap.ui.define([
 				return oStage.key === sStageKey;
 			});
 			return oMatch ? oMatch.title : null;
+		},
+
+		/**
+		 * Build timeline cards for horizontal card-based timeline view
+		 */
+		_buildTimelineCards: function (aEvents) {
+			if (!aEvents.length) {
+				return [];
+			}
+			var that = this;
+			// Count occurrences of each stage to make titles unique
+			var oTitleCounters = {};
+			
+			return aEvents.map(function (oItem, index) {
+				var sStageTitle = that._getStageTitle(oItem._stage);
+				var sDisplayTitle = "";
+				
+				if (sStageTitle) {
+					if (!oTitleCounters[sStageTitle]) {
+						oTitleCounters[sStageTitle] = 0;
+					}
+					oTitleCounters[sStageTitle]++;
+					var iTitleCount = oTitleCounters[sStageTitle];
+					
+					// Check if this title appears multiple times
+					var iTotalUsage = aEvents.filter(function(e) {
+						return that._getStageTitle(e._stage) === sStageTitle;
+					}).length;
+					
+					if (iTotalUsage > 1) {
+						sDisplayTitle = sStageTitle + " #" + iTitleCount;
+					} else {
+						sDisplayTitle = sStageTitle;
+					}
+				} else {
+					sDisplayTitle = oItem.eventDescription || oItem.stageTitle || "Unknown";
+				}
+				
+				return {
+					id: "card" + index,
+					title: sDisplayTitle,
+					timestamp: oItem.displayTimestamp || "",
+					icon: oItem._icon || "sap-icon://activities",
+					iconColor: "#107e3e",
+					description: oItem.eventDescription || "",
+					movementType: oItem.movementTypeDesc || "",
+					movementScenario: oItem.movementScenarioDesc || "",
+					createdBy: oItem.createdBy || "",
+					tat: oItem.turnAroundTimeFormatted || "",
+					isCompleted: true,
+					isLast: index === aEvents.length - 1
+				};
+			});
+		},
+
+		/**
+		 * Toggle between ProcessFlow and Card timeline views
+		 */
+		onToggleTimelineView: function (oEvent) {
+			var oButton = oEvent.getSource();
+			var sCurrentMode = this._oActivityModel.getProperty("/timelineViewMode");
+			var sNewMode = sCurrentMode === "processflow" ? "cards" : "processflow";
+			
+			this._oActivityModel.setProperty("/timelineViewMode", sNewMode);
+			
+			// Update button icon and tooltip
+			if (sNewMode === "cards") {
+				oButton.setIcon("sap-icon://process");
+				oButton.setTooltip("Switch to Process Flow View");
+			} else {
+				oButton.setIcon("sap-icon://horizontal-grip");
+				oButton.setTooltip("Switch to Card Timeline View");
+			}
+			
+			// Toggle visibility of timeline containers
+			var oProcessFlow = this.byId("activityProcessFlow");
+			var oCardTimeline = this.byId("cardTimelineContainer");
+			
+			if (oProcessFlow) {
+				oProcessFlow.setVisible(sNewMode === "processflow");
+			}
+			if (oCardTimeline) {
+				oCardTimeline.setVisible(sNewMode === "cards");
+			}
 		}
 	});
 });

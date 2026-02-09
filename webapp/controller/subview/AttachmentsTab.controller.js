@@ -26,8 +26,7 @@ sap.ui.define([
 			this._oEventBus.subscribe("TripData", "Updated", this._loadAttachments, this);
 			this._oEventBus.subscribe("Stage", "ClearAllTabs", this._clearAllData, this);
 			
-			// Load attachments on init
-			this._loadAttachments();
+			// Removed direct call - will be triggered by event subscription when TripData is available
 		},
 
 		onExit: function () {
@@ -351,29 +350,8 @@ sap.ui.define([
 				return;
 			}
 
-			var oService = this._getAttachmentsService();
-			var sPath = "/Attachments('" + sTripNumber + "')";
-			
-			oService.read(sPath, {
-				success: function (oData) {
-					var aAttachments = [];
-					if (oData && oData.FileName) {
-						// Single attachment (slug-based, one per trip)
-						aAttachments.push({
-							tripNumber: oData.TripNumber || sTripNumber,
-							fileName: oData.FileName || "",
-							contentType: oData.ContentType || ""
-						});
-					}
-					this._oAttachmentsModel.setProperty("/attachments", aAttachments);
-					this._renderAttachmentsList();
-				}.bind(this),
-				error: function (oError) {
-					// No attachment found for this trip
-					this._oAttachmentsModel.setProperty("/attachments", []);
-					this._renderAttachmentsList();
-				}.bind(this)
-			});
+			this._oAttachmentsModel.setProperty("/attachments", []);
+			this._renderAttachmentsList();
 		},
 
 		_renderAttachmentsList: function () {

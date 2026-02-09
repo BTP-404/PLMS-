@@ -8,6 +8,7 @@ sap.ui.define(
     "sap/ui/core/Fragment",
     "sap/ui/model/Filter",
     "sap/ui/model/FilterOperator",
+    "sap/ndc/BarcodeScanner"
   ],
   function (
     Controller,
@@ -17,7 +18,8 @@ sap.ui.define(
     JSONModel,
     Fragment,
     Filter,
-    FilterOperator
+    FilterOperator,
+    BarcodeScanner
   ) {
     "use strict";
     var movementScenario;
@@ -37,6 +39,11 @@ sap.ui.define(
           this._loadVehicleTypeSuggestions();
           this._loadVehicleSizeSuggestions();
           this._loadCompanyCodeSuggestions();
+          
+          // Initialize empty PlantModel to ensure binding works
+          const oEmptyPlantModel = new sap.ui.model.json.JSONModel([]);
+          this.getView().setModel(oEmptyPlantModel, "PlantModel");
+          
           const oRouter = this.getOwnerComponent().getRouter();
           oRouter
             .getRoute("Stage")
@@ -48,13 +55,35 @@ sap.ui.define(
           // Subscribe to event to clear all data when reporting new vehicle
           this._oEventBus = sap.ui.getCore().getEventBus();
           this._oEventBus.subscribe("Stage", "ClearAllTabs", this._clearAllData, this);
+          this._oEventBus.subscribe("UserRoles", "Loaded", this._applyReportingAuthorization, this);
+          this._oEventBus.subscribe("TripData", "Updated", this._onTripDataUpdated, this);
+          
+          // Race condition fix: Check if UserRoles already loaded
+          var oUserRoles = sap.ui.getCore().getModel("UserRoles");
+          if (oUserRoles) {
+            setTimeout(function() {
+              this._applyReportingAuthorization();
+            }.bind(this), 0);
+          }
         },
 
         onExit: function () {
           // Unsubscribe from event bus to prevent memory leaks
           if (this._oEventBus) {
             this._oEventBus.unsubscribe("Stage", "ClearAllTabs", this._clearAllData, this);
+            this._oEventBus.unsubscribe("UserRoles", "Loaded", this._applyReportingAuthorization, this);
+            this._oEventBus.unsubscribe("TripData", "Updated", this._onTripDataUpdated, this);
           }
+        },
+
+        onAfterRendering: function () {
+          // Apply authorization when view is rendered
+          // Use setTimeout to ensure buttons exist
+          setTimeout(function() {
+            this._applyReportingAuthorization();
+            // Also update scanner visibility when view is rendered
+            this._updateScannerVisibility();
+          }.bind(this), 200);
         },
 
         /* ===========================================================
@@ -79,6 +108,22 @@ sap.ui.define(
           if (sRoute === "Stage") {
             // CREATE mode - clear all data first
             this._mode = "CREATE";
+            
+            // Get current user for logging
+            var sUser = "";
+            try {
+              sUser = sap.ushell.Container.getUser().getId();
+            } catch (oError) {
+              sUser = "Unknown";
+            }
+            
+            // Get user roles for logging
+            var oUserRoles = sap.ui.getCore().getModel("UserRoles");
+            var sAddReporting = "";
+            if (oUserRoles) {
+              sAddReporting = oUserRoles.getProperty("/AddReporting") || "";
+            }
+            
             this._clearAllData();
             this._clearForm();
 
@@ -88,12 +133,36 @@ sap.ui.define(
             this._setButtonStates(true, true); // both visible and enabled
             this.getView().byId("changeHistoryPanel").setVisible(false);
             MessageToast.show("New Vehicle Reporting ");
+            // Load plants after route is matched (TripNumber might be available from globalData)
+            this._loadPlants().then(function() {
+              // Ensure Plant Select is cleared after plants are loaded (mode is CREATE)
+              this._setPlantSelectValue();
+            }.bind(this));
+            
+            // Apply authorization after route is matched (with delay to ensure buttons exist)
+            setTimeout(function() {
+              this._applyReportingAuthorization();
+              // Update scanner visibility when route is matched
+              this._updateScannerVisibility();
+            }.bind(this), 300);
           } else if (sRoute === "StagewithParam") {
             // DISPLAY mode
             this._mode = "DISPLAY";
             const sTripNumber = oArgs.tripNo;
             this.getView().byId("changeHistoryPanel").setVisible(true);
-            this._loadTripDetails(sTripNumber);
+            
+            // Load plants first, then load trip details (so Plant Select can be populated)
+            this._loadPlants().then(function() {
+              // After plants are loaded, load trip details
+              this._loadTripDetails(sTripNumber);
+            }.bind(this));
+            
+            // Apply authorization after route is matched (with delay to ensure buttons exist)
+            setTimeout(function() {
+              this._applyReportingAuthorization();
+              // Update scanner visibility when trip details are loaded
+              this._updateScannerVisibility();
+            }.bind(this), 300);
           }
         },
 
@@ -108,7 +177,7 @@ sap.ui.define(
 
           oModel.read("/TripDetails('" + sTripNumber + "')", {
             urlParameters: {
-              "$expand": "OrderDetails,ItemDetails,Feeds"
+              "$expand": "OrderDetails,ItemDetails,Feeds,ActivityHistory"
             },
             success: function (oData) {
               // Map Weighment_Req (boolean) from backend to WeighmentRequired ("Y"/"N") for frontend
@@ -134,9 +203,6 @@ sap.ui.define(
 
               // Also bind to this view
               that.getView().setModel(oTripDataModel, "TripData");
-
-              // Load driver photo from Attachments entity separately
-              that._loadDriverPhotoFromAttachments(sTripNumber);
             },
             error: function () {
               // Even if loading fails, try to update header with trip number
@@ -154,12 +220,11 @@ sap.ui.define(
         _loadTripDetails: function (sTripNumber) {
           const oModel = this.getView().getModel();
           const that = this;
-          // console.log(oModel.getdata());
           this._setButtonStates(true, true); // Ensure visible/enabled before load
 
           oModel.read("/TripDetails('" + sTripNumber + "')", {
             urlParameters: {
-              "$expand": "OrderDetails,ItemDetails,Feeds"
+              "$expand": "OrderDetails,ItemDetails,Feeds,ActivityHistory"
             },
             success: function (oData) {
               // Map Weighment_Req (boolean) from backend to WeighmentRequired ("Y"/"N") for frontend
@@ -178,17 +243,42 @@ sap.ui.define(
               // Also bind to this view (optional)
               that.getView().setModel(oTripDataModel, "TripData");
 
-              // Load driver photo from Attachments entity separately
-              that._loadDriverPhotoFromAttachments(sTripNumber);
+              // Set Company Code from TripData in DISPLAY mode (set immediately)
+              const sCompanyCode = oData.CompanyCode || "";
+              const oCompanyCodeInput = that.byId("idCompanyCode");
+              if (oCompanyCodeInput && sCompanyCode) {
+                oCompanyCodeInput.setValue(sCompanyCode);
+              }
+              
+              // Set Plant Select value from TripData in DISPLAY mode only
+              // Wait a bit to ensure PlantModel is loaded (since plants load first)
+              if (that._mode === "DISPLAY") {
+                setTimeout(function() {
+                  that._setPlantSelectValue();
+                }, 300); // Longer delay to ensure PlantModel is ready
+              }
 
               // UPDATED: call inputs helper to properly disable inputs
               that._setInputsEnabled(false); // UPDATED (was _setFormEditable(false))
               that._setButtonStates(true, true); // Re-enable after load
               MessageToast.show("Trip data loaded for: " + sTripNumber);
+              
+              // Apply authorization after trip details are loaded (with delay to ensure UserRoles are matched)
+              // TripData Updated event will trigger UserRoles reload in Stage controller
+              setTimeout(function() {
+                that._applyReportingAuthorization();
+                // Update scanner visibility after trip data is loaded
+                that._updateScannerVisibility();
+              }, 500);
             },
             error: function () {
               that._setButtonStates(true, true); // Still re-enable even on error
               MessageBox.error("Failed to load trip data for " + sTripNumber);
+              
+              // Apply authorization even on error
+              setTimeout(function() {
+                that._applyReportingAuthorization();
+              }, 500);
             },
           });
         },
@@ -197,11 +287,43 @@ sap.ui.define(
          * UPDATED: onEditReporting
          * - originally called _setFormEditable(false) which disabled inputs.
          * - corrected so Edit enables inputs.
+         * - clears Plant Select when entering edit mode
          * =========================================================== */
         onEditReporting: function () {
+          // Check authorization
+          var oUserRoles = sap.ui.getCore().getModel("UserRoles");
+          var sEditReporting = oUserRoles ? (oUserRoles.getProperty("/EditReporting") || "") : "";
+          if (sEditReporting !== "X") {
+            MessageBox.warning("You are not authorized to edit Reporting information.");
+            return;
+          }
+          
+          // Get Plant value from TripData BEFORE enabling inputs (preserve it)
+          const oTripDataModel = this.getView().getModel("TripData");
+          const sPreservedPlant = oTripDataModel ? (oTripDataModel.getProperty("/Plant") || "") : "";
+          
+          // Set mode to EDIT
+          this._mode = "EDIT";
+          
           // UPDATED: enable inputs for edit
           this._setInputsEnabled(true); // ADDED
           this._setFormEditable(true); // keep compatibility
+          
+          // Preserve Plant value - set it after a small delay to ensure Select control is ready
+          const that = this;
+          setTimeout(function() {
+            if (sPreservedPlant) {
+              const oPlantSelect = that.byId("idPlant");
+              if (oPlantSelect) {
+                oPlantSelect.setSelectedKey(sPreservedPlant);
+              }
+            } else {
+              // If no preserved value, try to set from TripData
+              that._setPlantSelectValue();
+            }
+          }, 100); // Small delay to ensure Select control is ready after enabling
+          
+          // Company Code is already bound to TripData model, so it will preserve its value automatically
 
           MessageToast.show("Edit mode activated");
         },
@@ -212,6 +334,38 @@ sap.ui.define(
          * - keeps existing required field validation and create/update flows
          * =========================================================== */
         onSaveReporting: function () {
+          // Get current user for logging
+          var sUser = "";
+          try {
+            sUser = sap.ushell.Container.getUser().getId();
+          } catch (oError) {
+            sUser = "Unknown";
+          }
+          
+          // Check authorization
+          var oUserRoles = sap.ui.getCore().getModel("UserRoles");
+          var bAuthorized = false;
+          
+          if (this._mode === "CREATE") {
+            // Check AddReporting for create mode
+            var sAddReporting = oUserRoles ? (oUserRoles.getProperty("/AddReporting") || "") : "";
+            bAuthorized = sAddReporting === "X";
+            
+            if (!bAuthorized) {
+              MessageBox.warning("You are not authorized to add Reporting information.");
+              return;
+            }
+          } else {
+            // Check EditReporting for update mode
+            var sEditReporting = oUserRoles ? (oUserRoles.getProperty("/EditReporting") || "") : "";
+            bAuthorized = sEditReporting === "X";
+            
+            if (!bAuthorized) {
+              MessageBox.warning("You are not authorized to edit Reporting information.");
+              return;
+            }
+          }
+          
           const oModel = this.getView().getModel();
 
           if (!this._validateRequiredFields()) {
@@ -239,7 +393,7 @@ sap.ui.define(
 
           if (this._mode === "CREATE") {
             this._createTrip(oModel);
-          } else if (this._mode === "DISPLAY") {
+          } else if (this._mode === "EDIT") {
             this._updateTrip(oModel);
           }
         },
@@ -265,8 +419,17 @@ sap.ui.define(
             oData.LR_Date =  null;
           }
           // Extract only the code part from Plant (remove description if present)
-          // Priority: PlantCode variable > input field value > model data
-          var sPlantInput = this.byId("idPlant")?.getValue() || "";
+          // Priority: PlantCode variable > UI control value > model data
+          var oPlantCtrl = this.byId("idPlant");
+          var sPlantInput = "";
+          if (oPlantCtrl) {
+            // For Select controls use selectedKey (preferred), otherwise fall back to getValue if available
+            if (typeof oPlantCtrl.getSelectedKey === "function") {
+              sPlantInput = oPlantCtrl.getSelectedKey() || "";
+            } else if (typeof oPlantCtrl.getValue === "function") {
+              sPlantInput = oPlantCtrl.getValue() || "";
+            }
+          }
           var sPlant = PlantCode || sPlantInput || oData.Plant || "";
           // If Plant contains a dash, extract only the part before the dash
           if (sPlant && sPlant.indexOf("-") > 0) {
@@ -320,6 +483,12 @@ sap.ui.define(
               
               // Load full trip details to populate TripData model and update header
               that._loadTripDetailsForHeader(sTripNumber);
+              
+              // Clear MovementType from globalData (TripData model will have it now)
+              if (oGlobalModel) {
+                oGlobalModel.setProperty("/MovementType", "");
+                oGlobalModel.setProperty("/MovementTypeDesc", "");
+              }
               
               this._clearForm();
               that._setFormEditable(false);
@@ -399,8 +568,17 @@ sap.ui.define(
           }
 
           // Extract only the code part from Plant (remove description if present)
-          // Priority: PlantCode variable > input field value > model data
-          var sPlantInput = this.byId("idPlant")?.getValue() || "";
+          // Priority: PlantCode variable > UI control value > model data
+          var oPlantCtrl = this.byId("idPlant");
+          var sPlantInput = "";
+          if (oPlantCtrl) {
+            // For Select controls use selectedKey (preferred), otherwise fall back to getValue if available
+            if (typeof oPlantCtrl.getSelectedKey === "function") {
+              sPlantInput = oPlantCtrl.getSelectedKey() || "";
+            } else if (typeof oPlantCtrl.getValue === "function") {
+              sPlantInput = oPlantCtrl.getValue() || "";
+            }
+          }
           var sPlant = PlantCode || sPlantInput || oUpdateData.Plant || "";
           // If Plant contains a dash, extract only the part before the dash
           if (sPlant && sPlant.indexOf("-") > 0) {
@@ -533,6 +711,17 @@ sap.ui.define(
             AdditionalInfo: "",
           });
           this.getView().setModel(oTripData, "TripData");
+          
+          // Explicitly clear Plant Select and Company Code controls
+          const oPlantSelect = this.byId("idPlant");
+          if (oPlantSelect) {
+            oPlantSelect.setSelectedKey("");
+          }
+          
+          const oCompanyCodeInput = this.byId("idCompanyCode");
+          if (oCompanyCodeInput) {
+            oCompanyCodeInput.setValue("");
+          }
         },
 
         /* ===========================================================
@@ -580,11 +769,8 @@ sap.ui.define(
               }
             });
 
-            // Ensure Save/Edit buttons remain enabled
-            if (this.byId("btnEditReporting"))
-              this.byId("btnEditReporting").setEnabled(true);
-            if (this.byId("btnSaveReporting"))
-              this.byId("btnSaveReporting").setEnabled(true);
+            // Note: Button authorization is handled separately via _applyReportingAuthorization()
+            // Don't force enable buttons here - let authorization control them
           } catch (e) {
             // don't break if something unexpected happens
             jQuery.sap.log.error("Error in _setInputsEnabled: " + e);
@@ -592,11 +778,25 @@ sap.ui.define(
         },
 
         /* ===========================================================
-         * NO CHANGE: _setButtonStates (kept behavior)
+         * UPDATED: _setButtonStates - Hide Edit button in CREATE mode
          * =========================================================== */
         _setButtonStates: function (bEditEnabled, bSaveEnabled) {
-          this.byId("btnEditReporting").setEnabled(true);
-          this.byId("btnSaveReporting").setEnabled(true);
+          var oEditButton = this.byId("btnEditReporting");
+          var oSaveButton = this.byId("btnSaveReporting");
+          
+          if (oEditButton) {
+            // Hide Edit button in CREATE mode, show in DISPLAY mode
+            if (this._mode === "CREATE") {
+              oEditButton.setVisible(false);
+            } else {
+              oEditButton.setVisible(true);
+              oEditButton.setEnabled(bEditEnabled !== false);
+            }
+          }
+          
+          if (oSaveButton) {
+            oSaveButton.setEnabled(bSaveEnabled !== false);
+          }
         },
 
         /* ===========================================================
@@ -945,7 +1145,6 @@ sap.ui.define(
         //           }
         //         } catch (e) {}
         //         MessageToast.show(sMessage);
-        //         console.error("Save driver photo error:", oError);
         //       }
         //     }.bind(this)
         //   });
@@ -977,12 +1176,10 @@ sap.ui.define(
         //         }
         //       } catch (e) {}
         //       MessageToast.show(sMessage);
-        //       console.error("Update driver photo error:", oError);
         //     }.bind(this)
         //   });
         // },
         _saveDriverPhotoToAttachments: function (sTripNumber, sDriverPhoto, sDriverName) {
-          debugger;
           // Convert data URL to base64 string if needed
           var sBase64Data = sDriverPhoto;
           var sContentType = "image/jpeg"; // Default content type
@@ -1220,34 +1417,6 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
           }
         },
 
-        /* ===========================================================
-         * NO CHANGE: onValueHelpPlant (keeps your fragment logic)
-         * =========================================================== */
-        onValueHelpPlant: function () {
-          var oView = this.getView();
-
-          if (!this._mValueHelps) this._mValueHelps = {};
-
-          if (!this._mValueHelps.VHPlant) {
-            Fragment.load({
-              id: oView.getId(),
-              name: "com.incresolZ_INC_PLMS.fragments.VehicleReportingFrags.VHPlant",
-              controller: this,
-            }).then(
-              function (oDialog) {
-                this._mValueHelps.VHPlant = oDialog;
-                oView.addDependent(oDialog);
-
-                this._loadPlants().then(() => {
-                  oDialog.open();
-                });
-              }.bind(this)
-            );
-          } else {
-            this._loadPlants();
-            this._mValueHelps.VHPlant.open();
-          }
-        },
 
         /**
          * Helper function to get TripNumber from globalData or TripData model
@@ -1268,8 +1437,7 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
         },
 
         /**
-         * Load Plants from ConfigValues
-         * NO CHANGE
+         * Load Plants from ConfigValues for Select dropdown
          */
         _loadPlants: function () {
           const oModel = this.getView().getModel();
@@ -1299,18 +1467,182 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
             oModel.read("/ConfigValues", {
               filters: aFilters,
               success: function (oData) {
-                PlantCode = oData.results[0].ConfigID;
-                CompanyCod = oData.results[0].ParentConfig;
-                const oJSON = new sap.ui.model.json.JSONModel(oData.results);
-                that._mValueHelps.VHPlant.setModel(oJSON, "VHModel");
+                // Always set PlantModel, even if empty, to ensure binding works
+                const aResults = oData.results || [];
+                const oJSON = new sap.ui.model.json.JSONModel(aResults);
+                that.getView().setModel(oJSON, "PlantModel");
+                
+                // Ensure Plant Select is handled based on mode
+                setTimeout(function() {
+                  that._setPlantSelectValue();
+                }, 100);
                 resolve();
               },
-              error: function () {
+              error: function (oError) {
+                // Set empty model on error to prevent binding issues
+                const oJSON = new sap.ui.model.json.JSONModel([]);
+                that.getView().setModel(oJSON, "PlantModel");
                 sap.m.MessageBox.error("Failed to load Plant.");
                 resolve();
               },
             });
           });
+        },
+
+        /**
+         * Helper function to set Plant Select value based on current mode
+         * Only sets value in DISPLAY mode, clears in CREATE/EDIT mode
+         */
+        _setPlantSelectValue: function () {
+          const oPlantSelect = this.byId("idPlant");
+          if (!oPlantSelect) {
+            return;
+          }
+          
+          if (this._mode === "CREATE") {
+            // Clear in CREATE mode only
+            oPlantSelect.setSelectedKey("");
+          } else if (this._mode === "EDIT" || this._mode === "DISPLAY") {
+            // Set value from TripData in both EDIT and DISPLAY modes (preserve existing value)
+            const oTripDataModel = this.getView().getModel("TripData");
+            if (oTripDataModel) {
+              const sPlant = oTripDataModel.getProperty("/Plant") || "";
+              if (sPlant) {
+                oPlantSelect.setSelectedKey(sPlant);
+              } else {
+                oPlantSelect.setSelectedKey("");
+              }
+            } else {
+              oPlantSelect.setSelectedKey("");
+            }
+          }
+        },
+
+        /**
+         * Handle Plant Select change
+         * Sets plant value and fetches company code
+         */
+        onPlantChange: function (oEvent) {
+          const oSelect = oEvent.getSource();
+          const sSelectedKey = oSelect.getSelectedKey();
+          
+          if (!sSelectedKey) {
+            // User cleared the selection, clear Company Code too
+            const oCompanyCodeInput = this.byId("idCompanyCode");
+            if (oCompanyCodeInput) {
+              oCompanyCodeInput.setValue("");
+            }
+            const oTripDataModel = this.getView().getModel("TripData");
+            if (oTripDataModel) {
+              oTripDataModel.setProperty("/CompanyCode", "");
+            }
+            return;
+          }
+
+          // Get selected item data
+          const oSelectedItem = oSelect.getSelectedItem();
+          if (!oSelectedItem) {
+            return;
+          }
+
+          // Get the full data from binding context
+          const oBindingContext = oSelectedItem.getBindingContext("PlantModel");
+          if (!oBindingContext) {
+            return;
+          }
+
+          const oData = oBindingContext.getObject();
+          
+          // Store code values in global variables (code only, no description)
+          PlantCode = oData.ConfigID;
+          CompanyCod = oData.ParentConfig || "";
+          
+          // Build CompanyCode display value with description (for UI)
+          var sCompanyCodeDisplay = oData.ParentConfig || "";
+          if (!sCompanyCodeDisplay) {
+            // No ParentConfig available, clear Company Code
+            const oCompanyCodeInput = this.byId("idCompanyCode");
+            if (oCompanyCodeInput) {
+              oCompanyCodeInput.setValue("");
+            }
+            const oTripDataModel = this.getView().getModel("TripData");
+            if (oTripDataModel) {
+              oTripDataModel.setProperty("/CompanyCode", "");
+            }
+            return;
+          }
+          
+          if (oData.Val01) {
+            sCompanyCodeDisplay = `${oData.ParentConfig}-${oData.Val01}`;
+          } else {
+            // Fetch CompanyCode description if Val01 is not available
+            const that = this;
+            const oModel = this.getView().getModel();
+            const sTripNumber = this._getTripNumber();
+            var aFilters = [
+              new sap.ui.model.Filter("ConfigGroup", sap.ui.model.FilterOperator.EQ, "CompanyCode"),
+              new sap.ui.model.Filter("ConfigID", sap.ui.model.FilterOperator.EQ, oData.ParentConfig)
+            ];
+
+            // Add TripNumber filter if available
+            if (sTripNumber) {
+              aFilters.push(
+                new sap.ui.model.Filter("TripNumber", sap.ui.model.FilterOperator.EQ, sTripNumber)
+              );
+            }
+
+            oModel.read("/ConfigValues", {
+              filters: aFilters,
+              success: function (oData) {
+                if (oData.results && oData.results.length > 0) {
+                  const oCompanyCode = oData.results[0];
+                  sCompanyCodeDisplay = oCompanyCode.ConfigID || sCompanyCodeDisplay;
+                  if (oCompanyCode.Description) {
+                    sCompanyCodeDisplay = `${oCompanyCode.ConfigID}-${oCompanyCode.Description}`;
+                  }
+                  
+                  // Set company code in the UI
+                  const oCompanyCodeInput = that.byId("idCompanyCode");
+                  if (oCompanyCodeInput) {
+                    oCompanyCodeInput.setValue(sCompanyCodeDisplay);
+                  }
+                  
+                  // Update TripData model with Company Code
+                  const oTripDataModel = that.getView().getModel("TripData");
+                  if (oTripDataModel) {
+                    oTripDataModel.setProperty("/CompanyCode", sCompanyCodeDisplay);
+                  }
+                }
+              },
+              error: function () {
+                // If fetch fails, just use the code
+                const oCompanyCodeInput = that.byId("idCompanyCode");
+                if (oCompanyCodeInput) {
+                  oCompanyCodeInput.setValue(sCompanyCodeDisplay);
+                }
+                
+                // Update TripData model with Company Code
+                const oTripDataModel = that.getView().getModel("TripData");
+                if (oTripDataModel) {
+                  oTripDataModel.setProperty("/CompanyCode", sCompanyCodeDisplay);
+                }
+              },
+            });
+            return; // Exit early since we're fetching company code
+          }
+          
+          // Set company code in the UI
+          const oCompanyCodeInput = this.byId("idCompanyCode");
+          if (oCompanyCodeInput) {
+            oCompanyCodeInput.setValue(sCompanyCodeDisplay);
+          }
+
+          // Update TripData model
+          const oTripDataModel = this.getView().getModel("TripData");
+          if (oTripDataModel) {
+            oTripDataModel.setProperty("/Plant", sSelectedKey);
+            oTripDataModel.setProperty("/CompanyCode", sCompanyCodeDisplay);
+          }
         },
 
         /**
@@ -1404,65 +1736,6 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
         },
 
         /**
-         * NO CHANGE: onSearchPlant
-         */
-        onSearchPlant: function (oEvent) {
-          var sValue = oEvent.getParameter("value");
-          var oList = this.byId("idVHPlantList");
-
-          var oBinding = oList.getBinding("items");
-          var aFilters = [];
-
-          if (sValue) {
-            aFilters.push(
-              new sap.ui.model.Filter({
-                filters: [
-                  new sap.ui.model.Filter(
-                    "ConfigID",
-                    sap.ui.model.FilterOperator.Contains,
-                    sValue
-                  ),
-                  new sap.ui.model.Filter(
-                    "Description",
-                    sap.ui.model.FilterOperator.Contains,
-                    sValue
-                  ),
-                ],
-                and: false,
-              })
-            );
-          }
-
-          oBinding.filter(aFilters);
-        },
-
-        /**
-         * NO CHANGE: onSelectPlant
-         * - sets idPlant and idCompanyCode as before
-         */
-        onSelectPlant: function (oEvent) {
-          var oItem = oEvent.getParameter("listItem");
-          var oData = oItem.getBindingContext("VHModel").getObject();
-          var plant = `${oData.ConfigID}-${oData.Description}`;
-          
-          // Store code values in global variables (code only, no description)
-          PlantCode = oData.ConfigID;
-          CompanyCod = oData.ParentConfig || "";
-          
-          // Build CompanyCode display value with description (for UI)
-          // Check if Val01 contains the CompanyCode description
-          var sCompanyCodeDisplay = oData.ParentConfig || "";
-          if (oData.Val01) {
-            sCompanyCodeDisplay = `${oData.ParentConfig}-${oData.Val01}`;
-          }
-          
-          // Set selected values - show descriptions in UI
-          this.byId("idPlant").setValue(plant);
-          this.byId("idCompanyCode").setValue(sCompanyCodeDisplay);
-
-          // Close dialog
-          this._mValueHelps.VHPlant.close();
-        },
 
         /* ===========================================================
          * UPDATED: onSearchVH - handles search for MovementType and VehicleSize
@@ -1594,28 +1867,6 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
 
             case this.getView().getId() + "--idVHVehicleSize":
               sField = "idVehicleSize";
-              break;
-
-            case this.getView().getId() + "--idVHPlant":
-              sField = "idPlant";
-
-              // Get selected item row
-              const oCompanyRow =
-                oSelected.data("row") ||
-                (oSelected.getBindingContext("VHModel") &&
-                  oSelected.getBindingContext("VHModel").getObject());
-              const sPlant =
-                (oCompanyRow && oCompanyRow.ConfigID) || oSelected.getTitle();
-
-              // Set company code
-              this.byId("idCompanyCode").setValue(sPlant);
-
-              // Auto-fetch plants
-              this._fetchPlantsForCompany(sPlant);
-              break;
-
-            case this.getView().getId() + "--idVHPlant":
-              sField = "idPlant";
               break;
           }
 
@@ -1751,13 +2002,38 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
           this.byId("idMovementScenario").setValue(row.LongText);
           
           // Set Movement Type value based on MovementType
+          var sMovementTypeDesc = "";
           if (row.MovementType === "O") {
             this.byId("idMovementType").setValue("Outward");
+            sMovementTypeDesc = "Outward";
           } else if (row.MovementType === "I") {
             this.byId("idMovementType").setValue("Inward");
+            sMovementTypeDesc = "Inward";
           }
 
+          // Store MovementType in global model for tab visibility during trip creation
+          var oGlobalModel = sap.ui.getCore().getModel("globalData");
+          if (!oGlobalModel) {
+            oGlobalModel = new sap.ui.model.json.JSONModel({
+              TripNumber: "",
+              MovementType: "",
+              MovementTypeDesc: ""
+            });
+            sap.ui.getCore().setModel(oGlobalModel, "globalData");
+          }
+          oGlobalModel.setProperty("/MovementType", row.MovementType);
+          oGlobalModel.setProperty("/MovementTypeDesc", sMovementTypeDesc);
+          
+          // Publish event to update tabs immediately
+          var oEventBus = sap.ui.getCore().getEventBus();
+          oEventBus.publish("TripData", "MovementTypeChanged", {
+            movementType: row.MovementType
+          });
+
           this.byId("idVHMovementScenario").close();
+          
+          // Update scanner visibility immediately when Movement Scenario is selected
+          this._updateScannerVisibility();
         },
 
         onMovementScenarioSuggest: function (oEvent) {
@@ -1834,6 +2110,9 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
             } else if (oSelectedRow.MovementType === "I") {
               this.byId("idMovementType").setValue("Inward");
             }
+            
+            // Update scanner visibility immediately
+            this._updateScannerVisibility();
           }
         },
 
@@ -2062,13 +2341,14 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
           oModel.read("/ConfigValues", {
             filters: aFilters,
             success: function (oData) {
+              const aResults = oData.results || [];
               const oJSON = new sap.ui.model.json.JSONModel({
-                items: oData.results || []
+                items: aResults
               });
               that.getView().setModel(oJSON, "companyCodeSuggestions");
             },
-            error: function () {
-              // Silently fail, suggestions just won't work
+            error: function (oError) {
+              // Set empty model on error to prevent binding issues
               that.getView().setModel(
                 new sap.ui.model.json.JSONModel({ items: [] }),
                 "companyCodeSuggestions"
@@ -2145,9 +2425,63 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
         // SET THE 3 AUTO FIELDS
         // =====================================================
         _setVehicleAutoFields: function (oVehicle) {
-          this.byId("idVehicleType").setValue(oVehicle.VehicleType);
-          this.byId("idVehicleSize").setValue(oVehicle.VehicleSize);
-          this.byId("idTransporterName").setValue(oVehicle.TransporterName);
+          // Set Transporter Name (direct value)
+          if (oVehicle.TransporterName) {
+            this.byId("idTransporterName").setValue(oVehicle.TransporterName);
+          }
+          
+          // Set Vehicle Size (direct value)
+          if (oVehicle.VehicleSize) {
+            this.byId("idVehicleSize").setValue(oVehicle.VehicleSize);
+          }
+          
+          // Set Vehicle Type - need to get description if VehicleType is a code
+          if (oVehicle.VehicleType) {
+            // Check if VehicleTypeDesc is available in the vehicle object
+            if (oVehicle.VehicleTypeDesc) {
+              // Use description directly if available
+              this.byId("idVehicleType").setValue(oVehicle.VehicleTypeDesc);
+              // Update TripData model
+              const oTripDataModel = this.getView().getModel("TripData");
+              if (oTripDataModel) {
+                oTripDataModel.setProperty("/VehicleType", oVehicle.VehicleType);
+                oTripDataModel.setProperty("/VehicleTypeDesc", oVehicle.VehicleTypeDesc);
+              }
+            } else {
+              // Look up description from vehicle type suggestions
+              const oVehicleTypeModel = this.getView().getModel("vehicleTypeSuggestions");
+              if (oVehicleTypeModel) {
+                const aVehicleTypes = oVehicleTypeModel.getProperty("/items") || [];
+                const oVehicleType = aVehicleTypes.find(function(item) {
+                  return item.ConfigID === oVehicle.VehicleType;
+                });
+                
+                if (oVehicleType && oVehicleType.Description) {
+                  this.byId("idVehicleType").setValue(oVehicleType.Description);
+                  // Update TripData model
+                  const oTripDataModel = this.getView().getModel("TripData");
+                  if (oTripDataModel) {
+                    oTripDataModel.setProperty("/VehicleType", oVehicle.VehicleType);
+                    oTripDataModel.setProperty("/VehicleTypeDesc", oVehicleType.Description);
+                  }
+                } else {
+                  // Fallback: set the code if description not found
+                  this.byId("idVehicleType").setValue(oVehicle.VehicleType);
+                  const oTripDataModel = this.getView().getModel("TripData");
+                  if (oTripDataModel) {
+                    oTripDataModel.setProperty("/VehicleType", oVehicle.VehicleType);
+                  }
+                }
+              } else {
+                // Fallback: set the code if model not available
+                this.byId("idVehicleType").setValue(oVehicle.VehicleType);
+                const oTripDataModel = this.getView().getModel("TripData");
+                if (oTripDataModel) {
+                  oTripDataModel.setProperty("/VehicleType", oVehicle.VehicleType);
+                }
+              }
+            }
+          }
         },
         onConfirmVHVehicleNumber: function (oEvent) {
           const oItem = oEvent.getParameter("selectedItem");
@@ -2243,127 +2577,6 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
           if (this._mValueHelps?.VehNo) {
             this._mValueHelps.VehNo.close();
           }
-        },
-
-        /**
-         * SUGGEST: Live suggestions while typing Plant
-         */
-        onPlantSuggest: function (oEvent) {
-          const sValue = oEvent.getParameter("suggestValue") || "";
-          const oInput = this.byId("idPlant");
-          const oModel = this.getView().getModel();
-
-          if (!sValue) {
-            oInput.destroySuggestionItems();
-            return;
-          }
-
-          // Read matching plants from ConfigValues
-          const sTripNumber = this._getTripNumber();
-          var aFilters = [
-            new Filter("ConfigGroup", FilterOperator.EQ, "Plant"),
-            new Filter("ConfigID", FilterOperator.Contains, sValue),
-          ];
-
-          // Add TripNumber filter if available
-          if (sTripNumber) {
-            aFilters.push(
-              new Filter("TripNumber", FilterOperator.EQ, sTripNumber)
-            );
-          }
-
-          oModel.read("/ConfigValues", {
-            filters: aFilters,
-            success: function (oData) {
-              oInput.destroySuggestionItems();
-              oData.results.forEach((plant) => {
-                oInput.addSuggestionItem(
-                  new sap.ui.core.Item({
-                    key: plant.ConfigID,
-                    text: plant.ConfigID + " - " + plant.Description,
-                    customData: [
-                      new sap.ui.core.CustomData({
-                        key: "CompanyCode",
-                        value: plant.ParentConfig,
-                      }),
-                    ],
-                  })
-                );
-              });
-            },
-            error: function () {
-              MessageBox.error("Failed to fetch plants for suggestion");
-            },
-          });
-        },
-
-        /**
-         * When user selects a Plant from suggestions
-         * - Set plant value
-         * - Fetch and set company code automatically
-         */
-        onPlantSuggestionSelected: function (oEvent) {
-          const oItem = oEvent.getParameter("selectedItem");
-          if (!oItem) return;
-
-          // Extract plant code from key (key contains just the code)
-          const sPlantKey = oItem.getKey() || "";
-          const sPlantText = oItem.getText() || ""; // Contains "Code - Description"
-          
-          // Store code values in global variables (code only, no description)
-          PlantCode = sPlantKey;
-          
-          // Fetch Company Code from customData (should already be code only)
-          const sCompanyCode =
-            oItem.data("CompanyCode") ||
-            oItem.getCustomData()[0]?.getValue() ||
-            "";
-          CompanyCod = sCompanyCode;
-          
-          // Fetch CompanyCode description to display in UI
-          const that = this;
-          if (sCompanyCode) {
-            const oModel = this.getView().getModel();
-            const sTripNumber = this._getTripNumber();
-            var aFilters = [
-              new sap.ui.model.Filter("ConfigGroup", sap.ui.model.FilterOperator.EQ, "CompanyCode"),
-              new sap.ui.model.Filter("ConfigID", sap.ui.model.FilterOperator.EQ, sCompanyCode)
-            ];
-
-            // Add TripNumber filter if available
-            if (sTripNumber) {
-              aFilters.push(
-                new sap.ui.model.Filter("TripNumber", sap.ui.model.FilterOperator.EQ, sTripNumber)
-              );
-            }
-
-            oModel.read("/ConfigValues", {
-              filters: aFilters,
-              success: function (oData) {
-                if (oData.results && oData.results.length > 0) {
-                  const oCompanyCode = oData.results[0];
-                  // Build CompanyCode display value with description (for UI)
-                  var sCompanyCodeDisplay = oCompanyCode.ConfigID || sCompanyCode;
-                  if (oCompanyCode.Description) {
-                    sCompanyCodeDisplay = `${oCompanyCode.ConfigID}-${oCompanyCode.Description}`;
-                  }
-                  that.byId("idCompanyCode").setValue(sCompanyCodeDisplay);
-                } else {
-                  // Fallback: just show code if description not found
-                  that.byId("idCompanyCode").setValue(sCompanyCode);
-                }
-              },
-              error: function () {
-                // Fallback: just show code if error fetching description
-                that.byId("idCompanyCode").setValue(sCompanyCode);
-              }
-            });
-          } else {
-            this.byId("idCompanyCode").setValue("");
-          }
-          
-          // Set Plant input (can show description for user)
-          this.byId("idPlant").setValue(sPlantText);
         },
 
         /* ===========================================================
@@ -2898,6 +3111,388 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
           }
 
           oBinding.filter(aFilters);
+        },
+
+        /**
+         * Apply authorization to Reporting buttons based on UserRoles
+         * Note: Save button is no longer controlled by user roles - it's always enabled when needed
+         */
+        _applyReportingAuthorization: function () {
+          var oUserRoles = sap.ui.getCore().getModel("UserRoles");
+          var oEditBtn = this.byId("btnEditReporting");
+          var oSaveBtn = this.byId("btnSaveReporting");
+
+          // Get current user for logging
+          var sUser = "";
+          try {
+            sUser = sap.ushell.Container.getUser().getId();
+          } catch (oError) {
+            sUser = "Unknown";
+          }
+
+          if (this._mode === "CREATE") {
+            // Get AddReporting role for logging
+            var sAddReporting = "";
+            if (oUserRoles) {
+              sAddReporting = oUserRoles.getProperty("/AddReporting") || "";
+            }
+            
+            // Create mode - hide edit button, save button is always enabled (not role-dependent)
+            if (oEditBtn) {
+              oEditBtn.setVisible(false);
+              oEditBtn.setEnabled(false);
+            }
+            // Save button is not controlled by roles - always enabled when in create mode
+            if (oSaveBtn) {
+              oSaveBtn.setEnabled(true);
+            }
+          } else {
+            // Display/Update mode - check EditReporting for edit button only
+            if (oUserRoles) {
+              var sEditReporting = oUserRoles.getProperty("/EditReporting") || "";
+              
+              if (oEditBtn) {
+                oEditBtn.setVisible(true);
+                oEditBtn.setEnabled(sEditReporting === "X");
+              }
+            } else {
+              // If UserRoles not loaded, disable edit button by default
+              if (oEditBtn) {
+                oEditBtn.setVisible(true);
+                oEditBtn.setEnabled(false);
+              }
+            }
+            // Save button is not controlled by roles - always enabled when in update mode
+            if (oSaveBtn) {
+              oSaveBtn.setEnabled(true);
+            }
+          }
+        },
+
+        /**
+         * Handle TripData updates to refresh scanner visibility
+         */
+        _onTripDataUpdated: function () {
+          // Update scanner visibility when TripData changes
+          // This ensures scanner shows/hides correctly when trip is loaded
+          this._updateScannerVisibility();
+          
+          // Also update scanner visibility based on Movement Scenario from TripData
+          var oTripData = sap.ui.getCore().getModel("TripData");
+          if (oTripData) {
+            var sMovementScenarioDesc = oTripData.getProperty("/MovementScenarioDesc") || "";
+            if (sMovementScenarioDesc) {
+              // Update the input field if it's not already set
+              var oMovementScenarioInput = this.byId("idMovementScenario");
+              if (oMovementScenarioInput && !oMovementScenarioInput.getValue()) {
+                oMovementScenarioInput.setValue(sMovementScenarioDesc);
+              }
+              // Update scanner visibility
+              this._updateScannerVisibility();
+            }
+          }
+        },
+
+        //---------------------------------------------
+        // SCANNER LOGIC
+        //---------------------------------------------
+        onScanSuccess: function () {
+          var that = this;
+          BarcodeScanner.scan(
+            function (oResult) {
+              if (!oResult.cancelled) {
+                var sScannedCode = oResult.text;
+                // Parse code if it contains pipe separator (e.g., "GATE001|Entry Gate 1")
+                var sParsedCode = sScannedCode.split("|")[0];
+                that._processScannedCode(sParsedCode);
+              }
+            }.bind(this),
+            function (oError) {
+              // Scan failed
+              MessageToast.show("Scan failed: " + (oError.message || oError));
+              setTimeout(function() {
+                var oScannerInput = that.getView().byId("idReportingScannerInput");
+                if (oScannerInput) {
+                  oScannerInput.focus();
+                }
+              }, 200);
+            }.bind(this)
+          );
+        },
+
+        onScanLiveupdate: function (oEvent) {
+          var sText = oEvent.getParameter("newValue");
+          var oScannerInput = this.getView().byId("idReportingScannerInput");
+          if (oScannerInput) {
+            oScannerInput.setValue(sText);
+          }
+          
+          // Clear any existing timeout
+          if (this._scanTimeout) {
+            clearTimeout(this._scanTimeout);
+          }
+          
+          // Process scanned code after user stops typing (500ms delay)
+          // This prevents processing on every keystroke for manual PO entry
+          if (sText && sText.trim() !== "") {
+            var that = this;
+            this._scanTimeout = setTimeout(function() {
+              var sParsedCode = sText.split("|")[0];
+              that._processScannedCode(sParsedCode);
+            }, 500); // Wait 500ms after user stops typing
+          }
+        },
+
+        _processScannedCode: function (sScannedCode) {
+          if (!sScannedCode || sScannedCode.trim() === "") {
+            MessageToast.show("Invalid scan code");
+            return;
+          }
+
+          // Try to parse scanned code as JSON first
+          var oScannedData = null;
+          try {
+            oScannedData = JSON.parse(sScannedCode);
+          } catch (e) {
+            // If not JSON, try to parse as comma-separated key-value pairs
+            oScannedData = this._parseKeyValueString(sScannedCode);
+          }
+
+          // Check if ASN data is available (has asnId and orgId)
+          var sAsnId = oScannedData ? oScannedData.asnId : null;
+          var sOrgId = oScannedData ? oScannedData.orgId : null;
+          
+          if (sAsnId && sOrgId) {
+            // ASN is available - use ASN flow
+            this._postAsnDetails(sAsnId, sOrgId);
+          } else {
+            // ASN is not available - treat input as PO number
+            var sPoNumber = sScannedCode.trim();
+            
+            // Validate PO number (basic validation - adjust as needed)
+            if (sPoNumber && sPoNumber.length > 0) {
+              this._postAsnDetails(null, null, sPoNumber);
+            } else {
+              MessageToast.show("Please enter a valid PO number");
+              this._clearAndRefocusScanner();
+            }
+          }
+        },
+
+        _parseKeyValueString: function (sString) {
+          try {
+            // Parse format like: "vendorCode=I0141,asnId=ASN5a8faad3,poNum=2000000294,orgId=a039ec0a-df8c-4b0b-abb5-7f41b2190fc6"
+            var oResult = {};
+            var aPairs = sString.split(',');
+            aPairs.forEach(function(sPair) {
+              var aKeyValue = sPair.split('=');
+              if (aKeyValue.length === 2) {
+                var sKey = aKeyValue[0].trim();
+                var sValue = aKeyValue[1].trim();
+                oResult[sKey] = sValue;
+              }
+            });
+            return oResult;
+          } catch (e) {
+            return null;
+          }
+        },
+
+        _clearAndRefocusScanner: function () {
+          var oScannerInput = this.getView().byId("idReportingScannerInput");
+          if (oScannerInput) {
+            oScannerInput.setValue("");
+            setTimeout(function() {
+              oScannerInput.focus();
+            }, 100);
+          }
+        },
+
+        _postAsnDetails: function (sAsnId, sOrgId, sPoNumber) {
+          var that = this;
+          var oPayload = {};
+          
+          // Build payload based on what's available
+          if (sAsnId && sOrgId) {
+            // ASN flow - include AsnId and OrgId
+            oPayload = {
+              AsnId: sAsnId,
+              OrgId: sOrgId
+            };
+          } else if (sPoNumber) {
+            // PO Number flow - include PoNumber
+            oPayload = {
+              PoNumber: sPoNumber
+            };
+          } else {
+            MessageToast.show("Invalid input: Please provide either ASN details or PO number");
+            this._clearAndRefocusScanner();
+            return;
+          }
+
+          var oModel = this.getView().getModel();
+          oModel.create("/AsnDetails", oPayload, {
+            headers: {
+              "X-Requested-With": "X"
+            },
+            success: function (oResponse) {
+              // Hide the form panel since reporting is done through scanner
+              var oReportingPanel = that.getView().byId("reportingDetailsPanel");
+              if (oReportingPanel) {
+                oReportingPanel.setVisible(false);
+              }
+              
+              // Get TripNumber from response or TripData model
+              var sTripNumber = oResponse.TripNumber || 
+                               (sap.ui.getCore().getModel("TripData")?.getProperty("/TripNumber"));
+              
+              // Format trip number (remove leading zeros)
+              var sFormattedTripNumber = sTripNumber ? String(sTripNumber).replace(/^0+/, "") || "0" : "";
+              
+              // Show MessageBox with trip creation information
+              var sMessage = sTripNumber 
+                ? "Trip created with Trip Number: " + sFormattedTripNumber
+                : "Trip created successfully";
+              
+              MessageBox.information(sMessage, {
+                title: "Trip Created",
+                actions: [MessageBox.Action.OK],
+                onClose: function (oAction) {
+                  // Navigate to HomePage when OK is clicked
+                  var oRouter = that.getOwnerComponent().getRouter();
+                  if (oRouter) {
+                    oRouter.navTo("HomePage");
+                  } else {
+                    window.location.hash = "#/";
+                  }
+                }
+              });
+            },
+            error: function (oError) {
+              var sErrorMessage = sAsnId 
+                ? "Failed to post ASN Details"
+                : "Failed to post PO Number";
+              
+              try {
+                var oResponse = JSON.parse(oError.responseText);
+                if (
+                  oResponse.error &&
+                  oResponse.error.message &&
+                  oResponse.error.message.value
+                ) {
+                  sErrorMessage = oResponse.error.message.value;
+                } else if (oResponse.error && oResponse.error.message) {
+                  sErrorMessage = oResponse.error.message;
+                }
+              } catch (e) {
+                if (oError.message && oError.message.value) {
+                  sErrorMessage = oError.message.value;
+                } else if (oError.message) {
+                  sErrorMessage += ": " + oError.message;
+                }
+              }
+              
+              MessageBox.error(sErrorMessage);
+              that._clearAndRefocusScanner();
+            }
+          });
+        },
+
+        _updateScannerVisibility: function () {
+          var oScannerVBox = this.getView().byId("idReportingScannerVBox");
+          
+          if (!oScannerVBox) {
+            return;
+          }
+
+          // Get the form panel and save button
+          var oReportingPanel = this.getView().byId("reportingDetailsPanel");
+          var oSaveButton = this.getView().byId("btnSaveReporting");
+
+          // Check if there's data in Reporting Screen (TripData model)
+          var oTripData = sap.ui.getCore().getModel("TripData");
+          var bHasData = false;
+          
+          if (oTripData) {
+            var sTripNumber = oTripData.getProperty("/TripNumber") || "";
+            var sVehicleNumber = oTripData.getProperty("/VehicleNumber") || "";
+            var sMovementScenarioDesc = oTripData.getProperty("/MovementScenarioDesc") || "";
+            var sMovementTypeDesc = oTripData.getProperty("/MovementTypeDesc") || "";
+            
+            // If any key field has data, consider that data exists
+            if (sTripNumber || sVehicleNumber || sMovementScenarioDesc || sMovementTypeDesc) {
+              bHasData = true;
+            }
+          }
+          
+          // If there's data, hide the scanner and show the form and save button
+          if (bHasData) {
+            oScannerVBox.setVisible(false);
+            if (oReportingPanel) {
+              oReportingPanel.setVisible(true);
+            }
+            if (oSaveButton) {
+              oSaveButton.setVisible(true);
+            }
+            return;
+          }
+
+          // Get selected Movement Scenario LongText from input field
+          var oMovementScenarioInput = this.byId("idMovementScenario");
+          var sMovementScenario = "";
+          
+          if (oMovementScenarioInput) {
+            sMovementScenario = oMovementScenarioInput.getValue() || "";
+          }
+          
+          // If not found in input, try to get from TripData
+          if (!sMovementScenario) {
+            if (oTripData) {
+              sMovementScenario = oTripData.getProperty("/MovementScenarioDesc") || "";
+            }
+          }
+          
+          // Check if it matches any of the three specific scenarios
+          var aAllowedScenarios = [
+            "Inward w.r.t  Supplier Portal Direct Purchase Order ASN",
+            "Inward w.r.t  Supplier Portal Scheduling Agreement Schedule Line ASN",
+            "Inward w.r.t. Job Work Purchase Order (Supplier Portal Vendor)"
+          ];
+          
+          var bShowScanner = false;
+          if (sMovementScenario) {
+            // Trim and compare (case-insensitive for safety)
+            var sTrimmedScenario = sMovementScenario.trim();
+            for (var i = 0; i < aAllowedScenarios.length; i++) {
+              if (sTrimmedScenario === aAllowedScenarios[i].trim()) {
+                bShowScanner = true;
+                break;
+              }
+            }
+          }
+
+          // Update scanner visibility
+          oScannerVBox.setVisible(bShowScanner);
+          
+          // Update form panel visibility - hide form when scanner is visible
+          if (oReportingPanel) {
+            oReportingPanel.setVisible(!bShowScanner);
+          }
+          
+          // Update save button visibility - hide save button when scanner is visible
+          if (oSaveButton) {
+            oSaveButton.setVisible(!bShowScanner);
+          }
+          
+          // If scanner is visible, focus on input after a short delay
+          if (bShowScanner) {
+            setTimeout(function() {
+              var oScannerInput = this.getView().byId("idReportingScannerInput");
+              if (oScannerInput) {
+                oScannerInput.focus();
+              }
+            }.bind(this), 300);
+          }
         },
 
         /**

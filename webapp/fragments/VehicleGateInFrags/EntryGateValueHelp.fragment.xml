@@ -3,7 +3,6 @@
         id="entryGateDialog"
         title="Select Entry Gate"
         contentWidth="25rem"
-        contentHeight="18rem"
         items="{
             path: 'helpModel>/'
         }"

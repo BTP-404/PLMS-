@@ -4,7 +4,6 @@
         id="idVHVehicleType"
         title="Select Vehicle Type"
         contentWidth="40%"
-        contentHeight="60%"
         draggable="true"
         resizable="true">
 

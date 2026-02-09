@@ -6,7 +6,6 @@
         id="idVHMovementType"
         title="Select Movement Type"
         contentWidth="40%"
-        contentHeight="60%"
         draggable="true"
         resizable="true">
 

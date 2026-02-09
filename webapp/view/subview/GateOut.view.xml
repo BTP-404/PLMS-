@@ -183,64 +183,6 @@
         </Panel>
 
         <!-- ========================================================= -->
-        <!-- ================= Saved Attachments Panel =============== -->
-        <!-- ========================================================= -->
-        <Panel
-            id="gateOutAttachmentsPanel"
-            expandable="true"
-            expanded="true"
-            class="sapUiNoContentPadding sapUiTinyMarginTop"
-        >
-            <headerToolbar>
-                <OverflowToolbar>
-                    <Title text="Gate Out Attachments" />
-                </OverflowToolbar>
-            </headerToolbar>
-
-            <VBox class="sapUiSizeCompact sapUiSmallPadding">
-                <List
-                    id="idGateOutAttachmentsList"
-                    mode="None"
-                    noDataText="No attachments uploaded yet."
-                    items="{gateOutAttachmentsModel>/attachments}"
-                    class="sapUiSizeCompact"
-                >
-                    <items>
-                        <CustomListItem>
-                            <HBox alignItems="Center" class="sapUiSmallMarginBegin sapUiSmallMarginEnd sapUiTinyMarginTop sapUiTinyMarginBottom">
-                                <core:Icon
-                                    src="sap-icon://attachment"
-                                    size="1.5rem"
-                                    class="sapUiTinyMarginEnd"
-                                    color="#0070f2"
-                                />
-                                <VBox class="sapUiTinyMarginBegin" flex="1">
-                                    <Text
-                                        text="{gateOutAttachmentsModel>fileName}"
-                                        class="sapUiTinyMarginBottom"
-                                        wrapping="true"
-                                    />
-                                    <Text
-                                        text="{gateOutAttachmentsModel>contentType}"
-                                        class="sapUiSmallFontSize"
-                                        wrapping="true"
-                                    />
-                                </VBox>
-                                <Button
-                                    text="Preview"
-                                    type="Emphasized"
-                                    icon="sap-icon://show"
-                                    press="onPreviewGateOutAttachment"
-                                    class="sapUiTinyMarginBegin"
-                                />
-                            </HBox>
-                        </CustomListItem>
-                    </items>
-                </List>
-            </VBox>
-        </Panel>
-
-        <!-- ========================================================= -->
         <!-- ================= Change History Panel ================== -->
         <!-- ========================================================= -->
         <!-- <Panel

@@ -28,7 +28,15 @@ sap.ui.define(
           this.getView().setModel(this.oModel);
           this._eventBus = sap.ui.getCore().getEventBus();
           this._eventBus.subscribe("TripData", "Updated", this._onTripDataUpdate, this);
-          this._onTripDataUpdate();
+          this._eventBus.subscribe("UserRoles", "Loaded", this._applyGateOutAuthorization, this);
+          
+          // Race condition fix: Check if UserRoles already loaded
+          var oUserRoles = sap.ui.getCore().getModel("UserRoles");
+          if (oUserRoles) {
+            setTimeout(function() {
+              this._applyGateOutAuthorization();
+            }.bind(this), 0);
+          }
           
           // Initialize attachments model
           this._initGateOutAttachmentsModel();
@@ -66,8 +74,10 @@ sap.ui.define(
               this._setInputsEnabled(true);
             }
             
-            // Load saved attachments
-            this._loadGateOutAttachments();
+            // Apply authorization to buttons
+            this._applyGateOutAuthorization();
+            
+            // Removed: this._loadGateOutAttachments(); - will be loaded via event subscription when TripData is available
           } catch (oError) {
             // Error in GateOut onAfterRendering
             // Don't let errors break the view - set defaults
@@ -76,6 +86,7 @@ sap.ui.define(
         },
         onExit: function () {
           this._eventBus?.unsubscribe("TripData", "Updated", this._onTripDataUpdate, this);
+          this._eventBus?.unsubscribe("UserRoles", "Loaded", this._applyGateOutAuthorization, this);
         },
         _onTripDataUpdate: function () {
           var oTripData = sap.ui.getCore().getModel("TripData");
@@ -89,10 +100,10 @@ sap.ui.define(
               // First time - enable inputs
               this._setInputsEnabled(true);
             }
+            
+            // Re-apply authorization when TripData changes (plant might have changed)
+            this._applyGateOutAuthorization();
           }
-          
-          // Reload attachments when trip data updates
-          this._loadGateOutAttachments();
         },
         _getTripNumber: function () {
           var oGlobalModel = sap.ui.getCore().getModel("globalData");
@@ -301,6 +312,36 @@ sap.ui.define(
           }
         },
         onSaveGateOut: function () {
+          // Check authorization
+          var oTripData = sap.ui.getCore().getModel("TripData");
+          var bIsFirstTime = false;
+          if (oTripData) {
+            var sExistingExitGateNum = oTripData.getProperty("/ExitGateNum");
+            bIsFirstTime = !sExistingExitGateNum || sExistingExitGateNum.trim() === "";
+          } else {
+            bIsFirstTime = true;
+          }
+          
+          var oUserRoles = sap.ui.getCore().getModel("UserRoles");
+          var bAuthorized = false;
+          if (bIsFirstTime) {
+            // Check AddGateout for first time
+            var sAddGateout = oUserRoles ? (oUserRoles.getProperty("/AddGateout") || "") : "";
+            bAuthorized = sAddGateout === "X";
+            if (!bAuthorized) {
+              MessageBox.warning("You are not authorized to add Gate Out information.");
+              return;
+            }
+          } else {
+            // Check EditGateout for update
+            var sEditGateout = oUserRoles ? (oUserRoles.getProperty("/EditGateout") || "") : "";
+            bAuthorized = sEditGateout === "X";
+            if (!bAuthorized) {
+              MessageBox.warning("You are not authorized to edit Gate Out information.");
+              return;
+            }
+          }
+          
           // Use the ODataModel created in onInit()
           var oModel = this.oModel;
 
@@ -374,15 +415,15 @@ sap.ui.define(
                     MessageBox.success(sMessage);
                     MessageBox.warning("Some attachments failed to upload.");
                   }
-                  
+                  this._eventBus.publish("Stage", "GateSaveSuccess", { tabKey: "gateout" });
                   // Disable inputs after successful save
                   this._setInputsEnabled(false);
-                  
                   // Reload attachments list
                   this._loadGateOutAttachments();
                 });
               } else {
                 MessageBox.success(sMessage);
+                this._eventBus.publish("Stage", "GateSaveSuccess", { tabKey: "gateout" });
                 // Disable inputs after successful save
                 this._setInputsEnabled(false);
               }
@@ -412,6 +453,14 @@ sap.ui.define(
           });
         },
         onEditGateOut: function () {
+          // Check authorization
+          var oUserRoles = sap.ui.getCore().getModel("UserRoles");
+          var sEditGateout = oUserRoles ? (oUserRoles.getProperty("/EditGateout") || "") : "";
+          if (sEditGateout !== "X") {
+            MessageBox.warning("You are not authorized to edit Gate Out information.");
+            return;
+          }
+          
           // Enable inputs for edit mode
           this._setInputsEnabled(true);
           MessageToast.show("Edit mode activated");
@@ -913,6 +962,55 @@ sap.ui.define(
           oLink.click();
           document.body.removeChild(oLink);
         },
+
+        /**
+         * Apply authorization to GateOut buttons based on UserRoles
+         */
+        _applyGateOutAuthorization: function () {
+          var oUserRoles = sap.ui.getCore().getModel("UserRoles");
+          if (!oUserRoles) {
+            // If UserRoles not loaded, disable buttons by default
+            var oEditBtn = this.getView().byId("btnEditGateOut");
+            var oSaveBtn = this.getView().byId("btnSaveGateOut");
+            if (oEditBtn) { oEditBtn.setEnabled(false); }
+            if (oSaveBtn) { oSaveBtn.setEnabled(false); }
+            return;
+          }
+
+          var oTripData = sap.ui.getCore().getModel("TripData");
+          var bIsFirstTime = false;
+          if (oTripData) {
+            var sExistingExitGateNum = oTripData.getProperty("/ExitGateNum");
+            bIsFirstTime = !sExistingExitGateNum || sExistingExitGateNum.trim() === "";
+          } else {
+            bIsFirstTime = true;
+          }
+
+          var oEditBtn = this.getView().byId("btnEditGateOut");
+          var oSaveBtn = this.getView().byId("btnSaveGateOut");
+
+          if (bIsFirstTime) {
+            // First time - check AddGateout
+            var sAddGateout = oUserRoles.getProperty("/AddGateout") || "";
+            if (oSaveBtn) {
+              oSaveBtn.setEnabled(sAddGateout === "X");
+            }
+            if (oEditBtn) {
+              oEditBtn.setVisible(false); // Hide edit button on first time
+              oEditBtn.setEnabled(false);
+            }
+          } else {
+            // Update mode - check EditGateout
+            var sEditGateout = oUserRoles.getProperty("/EditGateout") || "";
+            if (oEditBtn) {
+              oEditBtn.setVisible(true);
+              oEditBtn.setEnabled(sEditGateout === "X");
+            }
+            if (oSaveBtn) {
+              oSaveBtn.setEnabled(sEditGateout === "X");
+            }
+          }
+        }
       }
     );
   }

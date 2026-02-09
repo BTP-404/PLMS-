@@ -9,8 +9,7 @@ sap.ui.define([
 	"sap/ui/model/Filter",
 	"sap/ui/model/FilterOperator",
 	"sap/ui/model/odata/v2/ODataModel",
-	"sap/ndc/BarcodeScanner"
-], function (Controller, JSONModel, Fragment, MessageToast, MessageBox, SelectDialog, StandardListItem, Filter, FilterOperator, ODataModel, BarcodeScanner) {
+], function (Controller, JSONModel, Fragment, MessageToast, MessageBox, SelectDialog, StandardListItem, Filter, FilterOperator, ODataModel) {
 	"use strict";
 
 	return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.ReferenceDocuments", {
@@ -31,12 +30,24 @@ sap.ui.define([
 		this._oEventBus = sap.ui.getCore().getEventBus();
 		this._oEventBus.subscribe("TripData", "Updated", this._onTripDataUpdated, this);
 		this._oEventBus.subscribe("Stage", "ClearAllTabs", this._clearAllData, this);
-		this._onTripDataUpdated(); // Initial load
+		this._oEventBus.subscribe("UserRoles", "Loaded", this._applyRefDocAuthorization, this);
+		
+		// Race condition fix: Check if UserRoles already loaded
+		var oUserRoles = sap.ui.getCore().getModel("UserRoles");
+		if (oUserRoles) {
+			setTimeout(function() {
+				this._applyRefDocAuthorization();
+			}.bind(this), 0);
+		}
+		// this._onTripDataUpdated(); // Initial load
 		this._initializeColumnVisibility();
-		// Update scanner visibility after view is rendered
+		// Apply authorization after view is rendered
 		this.getView().addDelegate({
 			onAfterRendering: function() {
-				this._updateScannerVisibility();
+				// Apply authorization after view is rendered
+				setTimeout(function() {
+					this._applyRefDocAuthorization();
+				}.bind(this), 100);
 			}.bind(this)
 		}, this);
 	},
@@ -53,9 +64,12 @@ sap.ui.define([
 			this._oMaterialDocTypeVH?.destroy();
 			this._oRefDocColumnVisibilityDialog?.destroy();
 			this._oMaterialColumnVisibilityDialog?.destroy();
+			this._oSelectMaterialsDialog?.destroy();
+			this._oSupportingDocDialog?.destroy();
 			if (this._oEventBus) {
 				this._oEventBus.unsubscribe("TripData", "Updated", this._onTripDataUpdated, this);
 				this._oEventBus.unsubscribe("Stage", "ClearAllTabs", this._clearAllData, this);
+				this._oEventBus.unsubscribe("UserRoles", "Loaded", this._applyRefDocAuthorization, this);
 			}
 		},
 		
@@ -66,7 +80,8 @@ sap.ui.define([
 				oRefDocModel.setData({
 					referenceDocuments: [],
 					materialDetails: [],
-					filteredMaterialDetails: []
+					filteredMaterialDetails: [],
+					supportingDocs: []
 				});
 			}
 			
@@ -141,10 +156,30 @@ sap.ui.define([
 		// Reference Documents Dialog Handlers
 		// ============================================================
 		onAddRefDocRow: function () {
+			// Check authorization
+			var oUserRoles = sap.ui.getCore().getModel("UserRoles");
+			var sAddRef = oUserRoles ? (oUserRoles.getProperty("/AddRef") || "") : "";
+			if (sAddRef !== "X") {
+				MessageBox.warning("You are not authorized to add Reference Documents.");
+				return;
+			}
+			
 			this._resetRefDocDialog();
 			this._openAddRefDocDialog();
 		},
 
+
+		onDocTypeChange: function (oEvent) {
+			var sSelectedKey = oEvent.getParameter("selectedItem")?.getKey();
+			if (sSelectedKey) {
+				this._sSelectedDocType = sSelectedKey;
+				this._loadRefDocSuggestions(sSelectedKey);
+			} else {
+				// Handle case when selection is cleared
+				this._sSelectedDocType = "";
+				this._loadRefDocSuggestions("");
+			}
+		},
 
 		onDocTypeSuggestionSelected: function (oEvent) {
 			var oItem = oEvent.getParameter("selectedItem");
@@ -191,11 +226,77 @@ sap.ui.define([
 		},
 
 		onRefDocValueHelp: function () {
-			var sDocType = this._sSelectedDocType || this.byId("idRefDocType")?.getValue().trim();
+			var oSelect = this.byId("idRefDocType");
+			var sDocType = this._sSelectedDocType || (oSelect?.getSelectedItem()?.getKey() || oSelect?.getValue()?.trim());
 			if (!sDocType) {
 				return MessageToast.show("Select a Doc Type first");
 			}
 			this._openRefDocValueHelpDialog(sDocType);
+		},
+
+		onSelectMaterials: function () {
+			var oSelect = this.byId("idRefDocType");
+			var sDocType = this._sSelectedDocType || (oSelect?.getSelectedItem()?.getKey() || oSelect?.getValue()?.trim());
+			var sDocNumber = this.byId("idRefDocNumber")?.getValue()?.trim();
+			
+			if (!sDocType) {
+				return MessageToast.show("Please select a Doc Type first");
+			}
+			if (!sDocNumber) {
+				return MessageToast.show("Please enter a Document Number first");
+			}
+			
+			this._openSelectMaterialsDialog(sDocType, sDocNumber);
+		},
+
+		onSelectMaterialsFromTable: function (oEvent) {
+			var oSource = oEvent.getSource();
+			var oBindingContext = oSource.getBindingContext("refDocModel");
+			
+			if (!oBindingContext) {
+				return MessageToast.show("Unable to get document information");
+			}
+			
+			var oDocument = oBindingContext.getObject();
+			var sDocType = oDocument.docType || "";
+			var sDocNumber = oDocument.documentNumber || "";
+			
+			if (!sDocType) {
+				return MessageToast.show("Document Type is missing");
+			}
+			if (!sDocNumber) {
+				return MessageToast.show("Document Number is missing");
+			}
+			
+			this._openSelectMaterialsDialog(sDocType, sDocNumber);
+		},
+
+		onAddSelectedMaterials: function () {
+			var oTable = this.byId("idMaterialsSelectionTable");
+			if (!oTable) {
+				return;
+			}
+			
+			var aSelectedItems = oTable.getSelectedItems();
+			if (!aSelectedItems || aSelectedItems.length === 0) {
+				return MessageToast.show("Please select at least one material");
+			}
+			
+			var aSelectedMaterials = aSelectedItems.map(function(oItem) {
+				return oItem.getBindingContext("materialsSelectionModel").getObject();
+			});
+			
+			if (aSelectedMaterials.length === 0) {
+				return MessageToast.show("No materials selected");
+			}
+			
+			this._saveMaterialsOneByOne(aSelectedMaterials);
+		},
+
+		onCloseSelectMaterialsDialog: function () {
+			if (this._oSelectMaterialsDialog) {
+				this._oSelectMaterialsDialog.close();
+			}
 		},
 
 		onSaveRefDocDialog: function () {
@@ -260,6 +361,14 @@ sap.ui.define([
 		},
 
 		onEditRefDocRow: function (oEvent) {
+			// Check authorization
+			var oUserRoles = sap.ui.getCore().getModel("UserRoles");
+			var sEditRef = oUserRoles ? (oUserRoles.getProperty("/EditRef") || "") : "";
+			if (sEditRef !== "X") {
+				MessageBox.warning("You are not authorized to edit Reference Documents.");
+				return;
+			}
+			
 			var oButton = oEvent.getSource();
 			// Get the table row - button -> cell -> row
 			var oCell = oButton.getParent();
@@ -299,6 +408,14 @@ sap.ui.define([
 		},
 
 		onDeleteRefDocRow: function (oEvent) {
+			// Check authorization
+			var oUserRoles = sap.ui.getCore().getModel("UserRoles");
+			var sDelRef = oUserRoles ? (oUserRoles.getProperty("/DelRef") || "") : "";
+			if (sDelRef !== "X") {
+				MessageBox.warning("You are not authorized to delete Reference Documents.");
+				return;
+			}
+			
 			var oItem = oEvent.getSource().getParent();
 			var oCtx = oItem.getBindingContext("refDocModel");
 			if (!oCtx) {
@@ -642,7 +759,8 @@ sap.ui.define([
 					materialDetails: [],
 					filteredMaterialDetails: [],
 					materialDocTypes: [],
-					materialRefDocNumbers: []
+					materialRefDocNumbers: [],
+					supportingDocs: []  // New array for supporting documents
 				});
 				this.getView().setModel(oModel, "refDocModel");
 				// Also expose globally so other subviews (e.g. Loading) can reuse materials
@@ -656,43 +774,98 @@ sap.ui.define([
 		},
 
 		_openAddRefDocDialog: function () {
+			var that = this;
 			return new Promise(function (resolve, reject) {
-				if (!this._oAddRefDocDialog) {
-					Fragment.load({
-						id: this.getView().getId(),
-						name: "com.incresolZ_INC_PLMS.fragments.ReferenceDocumentsFrags.AddRefDocDialog",
-						controller: this
-					}).then(function (oDialog) {
-						if (!oDialog) {
-							reject(new Error("Fragment loaded but dialog is null"));
-							return;
-						}
-						this._oAddRefDocDialog = oDialog;
-						this.getView().addDependent(oDialog);
-						// Set dialog mode after dialog is loaded (important for first time)
-						this._setRefDocDialogMode(this._bIsRefDocEditMode ? "edit" : "add");
+				// Ensure doc types are loaded before opening dialog
+				that._loadDocTypes().then(function () {
+					if (!that._oAddRefDocDialog) {
+						Fragment.load({
+							id: that.getView().getId(),
+							name: "com.incresolZ_INC_PLMS.fragments.ReferenceDocumentsFrags.AddRefDocDialog",
+							controller: that
+						}).then(function (oDialog) {
+							if (!oDialog) {
+								reject(new Error("Fragment loaded but dialog is null"));
+								return;
+							}
+							that._oAddRefDocDialog = oDialog;
+							that.getView().addDependent(oDialog);
+							// Ensure docTypeModel is set on the dialog - this is critical for the binding to work
+							var oDocTypeModel = that._getDocTypeModel();
+							oDialog.setModel(oDocTypeModel, "docTypeModel");
+							// Set dialog mode after dialog is loaded (important for first time)
+							that._setRefDocDialogMode(that._bIsRefDocEditMode ? "edit" : "add");
+							// Populate dialog if in edit mode
+							if (that._bIsRefDocEditMode && that._oEditingRefDoc) {
+								that._populateRefDocDialog(that._oEditingRefDoc);
+							}
+							that._loadRefDocSuggestions(that._sSelectedDocType);
+							oDialog.open();
+							// Ensure Select binding is refreshed after dialog opens
+							setTimeout(function() {
+								var oSelect = that.byId("idRefDocType");
+								if (oSelect) {
+									var oBinding = oSelect.getBinding("items");
+									if (oBinding) {
+										oBinding.refresh();
+									}
+								}
+							}, 100);
+							resolve(oDialog);
+						}.bind(that))
+						.catch(function (oError) {
+							reject(oError);
+						});
+					} else {
+						// Ensure docTypeModel is set on the dialog when reopening
+						var oDocTypeModel = that._getDocTypeModel();
+						that._oAddRefDocDialog.setModel(oDocTypeModel, "docTypeModel");
+						// Set dialog mode when reopening (in case mode changed)
+						that._setRefDocDialogMode(that._bIsRefDocEditMode ? "edit" : "add");
 						// Populate dialog if in edit mode
-						if (this._bIsRefDocEditMode && this._oEditingRefDoc) {
-							this._populateRefDocDialog(this._oEditingRefDoc);
+						if (that._bIsRefDocEditMode && that._oEditingRefDoc) {
+							that._populateRefDocDialog(that._oEditingRefDoc);
 						}
-						this._loadRefDocSuggestions(this._sSelectedDocType);
-						oDialog.open();
-						resolve(oDialog);
-					}.bind(this))
-					.catch(function (oError) {
-						reject(oError);
-					});
-				} else {
-					// Set dialog mode when reopening (in case mode changed)
-					this._setRefDocDialogMode(this._bIsRefDocEditMode ? "edit" : "add");
-					// Populate dialog if in edit mode
-					if (this._bIsRefDocEditMode && this._oEditingRefDoc) {
-						this._populateRefDocDialog(this._oEditingRefDoc);
+						that._loadRefDocSuggestions(that._sSelectedDocType);
+						that._oAddRefDocDialog.open();
+						resolve(that._oAddRefDocDialog);
 					}
-					this._loadRefDocSuggestions(this._sSelectedDocType);
-					this._oAddRefDocDialog.open();
-					resolve(this._oAddRefDocDialog);
-				}
+				}).catch(function (oError) {
+					// Even if loading fails, still try to open dialog with existing model
+					if (!that._oAddRefDocDialog) {
+						Fragment.load({
+							id: that.getView().getId(),
+							name: "com.incresolZ_INC_PLMS.fragments.ReferenceDocumentsFrags.AddRefDocDialog",
+							controller: that
+						}).then(function (oDialog) {
+							if (!oDialog) {
+								reject(new Error("Fragment loaded but dialog is null"));
+								return;
+							}
+							that._oAddRefDocDialog = oDialog;
+							that.getView().addDependent(oDialog);
+							var oDocTypeModel = that._getDocTypeModel();
+							oDialog.setModel(oDocTypeModel, "docTypeModel");
+							that._setRefDocDialogMode(that._bIsRefDocEditMode ? "edit" : "add");
+							if (that._bIsRefDocEditMode && that._oEditingRefDoc) {
+								that._populateRefDocDialog(that._oEditingRefDoc);
+							}
+							that._loadRefDocSuggestions(that._sSelectedDocType);
+							oDialog.open();
+							resolve(oDialog);
+						}.bind(that));
+					} else {
+						var oDocTypeModel = that._getDocTypeModel();
+						that._oAddRefDocDialog.setModel(oDocTypeModel, "docTypeModel");
+						that._setRefDocDialogMode(that._bIsRefDocEditMode ? "edit" : "add");
+						if (that._bIsRefDocEditMode && that._oEditingRefDoc) {
+							that._populateRefDocDialog(that._oEditingRefDoc);
+						}
+						that._loadRefDocSuggestions(that._sSelectedDocType);
+						that._oAddRefDocDialog.open();
+						resolve(that._oAddRefDocDialog);
+					}
+				});
 			}.bind(this));
 		},
 
@@ -749,9 +922,202 @@ sap.ui.define([
 			this._oAddMaterialDialog?.close();
 		},
 
+		_openSelectMaterialsDialog: function (sDocType, sDocNumber) {
+			var that = this;
+			return new Promise(function (resolve, reject) {
+				if (!this._oSelectMaterialsDialog) {
+					Fragment.load({
+						id: this.getView().getId(),
+						name: "com.incresolZ_INC_PLMS.fragments.ReferenceDocumentsFrags.SelectMaterialsDialog",
+						controller: this
+					}).then(function (oDialog) {
+						if (!oDialog) {
+							reject(new Error("Fragment loaded but dialog is null"));
+							return;
+						}
+						this._oSelectMaterialsDialog = oDialog;
+						this.getView().addDependent(oDialog);
+						// Load materials for this document
+						this._loadMaterialsForDocument(sDocType, sDocNumber, oDialog);
+						oDialog.open();
+						resolve(oDialog);
+					}.bind(this))
+					.catch(function (oError) {
+						reject(oError);
+					});
+				} else {
+					// Reload materials when reopening
+					this._loadMaterialsForDocument(sDocType, sDocNumber, this._oSelectMaterialsDialog);
+					this._oSelectMaterialsDialog.open();
+					resolve(this._oSelectMaterialsDialog);
+				}
+			}.bind(this));
+		},
+
+		_loadMaterialsForDocument: function (sDocType, sDocNumber, oDialog) {
+			var that = this;
+			// Fetch ItemDetails for this document
+			// Force network call when selecting materials (bypass cache)
+			this._fetchItemDetailsByRefDocNo(sDocType, sDocNumber, true)
+				.then(function (aMaterials) {
+					// Create or get model for materials selection
+					var oModel = oDialog.getModel("materialsSelectionModel");
+					if (!oModel) {
+						oModel = new JSONModel({ items: [], selectedCount: 0 });
+						oDialog.setModel(oModel, "materialsSelectionModel");
+					}
+					// Set materials data
+					oModel.setProperty("/items", aMaterials || []);
+					oModel.setProperty("/selectedCount", 0);
+					
+					// Clear selection
+					var oTable = that.byId("idMaterialsSelectionTable");
+					if (oTable) {
+						oTable.removeSelections();
+					}
+					
+					// Update selected count when selection changes
+					if (oTable) {
+						oTable.attachSelectionChange(function(oEvent) {
+							var aSelectedItems = oTable.getSelectedItems();
+							oModel.setProperty("/selectedCount", aSelectedItems.length);
+						});
+					}
+				})
+				.catch(function (oError) {
+					var sErrorMsg = that._extractErrorMessage(oError) || "Unknown error";
+					MessageToast.show("Unable to load materials: " + sErrorMsg);
+					var oModel = oDialog.getModel("materialsSelectionModel");
+					if (!oModel) {
+						oModel = new JSONModel({ items: [], selectedCount: 0 });
+						oDialog.setModel(oModel, "materialsSelectionModel");
+					}
+					oModel.setProperty("/items", []);
+					oModel.setProperty("/selectedCount", 0);
+				});
+		},
+
+		_saveMaterialsOneByOne: function (aMaterials) {
+			var that = this;
+			var oGlobalModel = sap.ui.getCore().getModel("globalData");
+			var sTripNumber = oGlobalModel?.getProperty("/TripNumber") || "";
+			
+			if (!sTripNumber) {
+				return MessageToast.show("Trip Number missing. Please open a trip first.");
+			}
+			
+			var iTotal = aMaterials.length;
+			var iSuccess = 0;
+			var iFailed = 0;
+			var aErrors = [];
+			
+			// Disable the button during processing
+			var oAddButton = this.byId("idAddSelectedMaterialsBtn");
+			if (oAddButton) {
+				oAddButton.setEnabled(false);
+				oAddButton.setText("Adding...");
+			}
+			
+			// Process materials sequentially
+			var iIndex = 0;
+			var processNext = function() {
+				if (iIndex >= aMaterials.length) {
+					// All done
+					if (oAddButton) {
+						oAddButton.setEnabled(true);
+						oAddButton.setText("Add Selected Materials");
+					}
+					
+					var sMessage = "";
+					if (iSuccess > 0 && iFailed === 0) {
+						sMessage = "Successfully added " + iSuccess + " material(s)";
+						MessageToast.show(sMessage);
+						// Refresh material table
+						that._refreshMaterialsTable();
+						// Close dialog
+						that.onCloseSelectMaterialsDialog();
+					} else if (iSuccess > 0 && iFailed > 0) {
+						sMessage = "Added " + iSuccess + " material(s), " + iFailed + " failed";
+						MessageToast.show(sMessage);
+						that._refreshMaterialsTable();
+					} else {
+						sMessage = "Failed to add materials: " + (aErrors.length > 0 ? aErrors[0] : "Unknown error");
+						MessageToast.show(sMessage);
+					}
+					return;
+				}
+				
+				var oMaterial = aMaterials[iIndex];
+				var oPayload = {
+					TripNumber: sTripNumber,
+					DocType: oMaterial.DocType || "",
+					RefDocNo: oMaterial.RefDocNo || "",
+					RefDocItemNo: oMaterial.RefDocItemNo || "",
+					MaterialCode: oMaterial.MaterialCode || "",
+					MaterialDescription: oMaterial.MaterialDescription || oMaterial.MaterialCode || "",
+					Quantity: oMaterial.Quantity !== null && oMaterial.Quantity !== undefined ? String(oMaterial.Quantity) : "0",
+					UoM: oMaterial.UoM || "",
+					IsDeleted: "",
+					IsSplitActive: false
+				};
+				
+				that._saveMaterialDetail(oPayload)
+					.then(function (oResponse) {
+						iSuccess++;
+						iIndex++;
+						processNext();
+					})
+					.catch(function (oError) {
+						iFailed++;
+						var sErrorMsg = that._extractErrorMessage(oError) || "Unknown error";
+						aErrors.push(sErrorMsg);
+						iIndex++;
+						processNext();
+					});
+			};
+			
+			processNext();
+		},
+
+	_refreshMaterialsTable: function () {
+		// Refresh the material details table by reloading ItemDetails for the current TripNumber
+		var oGlobalModel = sap.ui.getCore().getModel("globalData");
+		var sTripNumber = oGlobalModel?.getProperty("/TripNumber") || "";
+		
+		if (!sTripNumber) {
+			return;
+		}
+		
+		var that = this;
+		// Always fetch fresh data from server after adding materials to ensure latest data
+		// This ensures newly added materials are immediately visible in the table
+		var oService = this._getItemDetailsService();
+		oService.read("/ItemDetails", {
+			filters: [
+				new Filter("TripNumber", FilterOperator.EQ, sTripNumber),
+				new Filter("IsDeleted", FilterOperator.NE, "X")
+			],
+			success: function (oData) {
+				var aItemDetails = oData.results || [];
+				// Update material table with all ItemDetails for this TripNumber
+				that._setMaterialDetailsFromService(aItemDetails);
+				// _setMaterialDetailsFromService already calls _filterMaterialDetails() 
+				// to filter by selected reference document if any
+			},
+			error: function (oError) {
+				// Silently fail - material table will show existing data
+			}
+		});
+	},
+
 		_resetRefDocDialog: function () {
+			// Reset Select for Doc Type
+			var oDocTypeSelect = this.byId("idRefDocType");
+			if (oDocTypeSelect) {
+				oDocTypeSelect.setSelectedKey(null);
+			}
+			// Reset other Input fields
 			[
-				"idRefDocType",
 				"idRefDocNumber",
 				"idRefDocPartyCode",
 				"idRefDocPartyName",
@@ -788,7 +1154,10 @@ sap.ui.define([
 				return;
 			}
 
-			this.byId("idRefDocType")?.setValue(oRefDoc.docType || "");
+			var oDocTypeSelect = this.byId("idRefDocType");
+			if (oDocTypeSelect) {
+				oDocTypeSelect.setSelectedKey(oRefDoc.docType || "");
+			}
 			this._sSelectedDocType = oRefDoc.docType || "";
 			this.byId("idRefDocNumber")?.setValue(oRefDoc.documentNumber || "");
 			this.byId("idRefDocDate")?.setValue(oRefDoc.documentDate || "");
@@ -916,13 +1285,25 @@ sap.ui.define([
 			}.bind(this));
 		},
 
-		_onMaterialValueHelpSearch: function (oEvent) {
-			var sValue = oEvent.getParameter("value") || "";
-			var oBinding = oEvent.getSource().getBinding("items");
+	_onMaterialValueHelpSearch: function (oEvent) {
+		var sValue = oEvent.getParameter("value") || "";
+		var oSearchField = oEvent.getSource();
+		// Get the parent SelectDialog
+		var oSelectDialog = oSearchField.getParent();
+		// If parent is not a SelectDialog, traverse up
+		while (oSelectDialog && !oSelectDialog.isA("sap.m.SelectDialog")) {
+			oSelectDialog = oSelectDialog.getParent();
+		}
+		
+		if (!oSelectDialog) {
+			return;
+		}
+		
+		var oBinding = oSelectDialog.getBinding("items");
 
-			if (!oBinding) {
-				return;
-			}
+		if (!oBinding) {
+			return;
+		}
 
 			var aFilters = [];
 			if (sValue) {
@@ -1015,13 +1396,25 @@ sap.ui.define([
 			}.bind(this));
 		},
 
-		_onMaterialRefDocNoValueHelpSearch: function (oEvent) {
-			var sValue = oEvent.getParameter("value") || "";
-			var oBinding = oEvent.getSource().getBinding("items");
+	_onMaterialRefDocNoValueHelpSearch: function (oEvent) {
+		var sValue = oEvent.getParameter("value") || "";
+		var oSearchField = oEvent.getSource();
+		// Get the parent SelectDialog
+		var oSelectDialog = oSearchField.getParent();
+		// If parent is not a SelectDialog, traverse up
+		while (oSelectDialog && !oSelectDialog.isA("sap.m.SelectDialog")) {
+			oSelectDialog = oSelectDialog.getParent();
+		}
+		
+		if (!oSelectDialog) {
+			return;
+		}
+		
+		var oBinding = oSelectDialog.getBinding("items");
 
-			if (!oBinding) {
-				return;
-			}
+		if (!oBinding) {
+			return;
+		}
 
 			var aFilters = [];
 			if (sValue) {
@@ -1092,9 +1485,51 @@ sap.ui.define([
 			}
 		},
 
-		_fetchItemDetailsByRefDocNo: function (sDocType, sRefDocNo) {
-			return new Promise(function (resolve, reject) {
-				var oService = this._getItemDetailsService();
+	_fetchItemDetailsByRefDocNo: function (sDocType, sRefDocNo, bForceNetworkCall) {
+		return new Promise(function (resolve, reject) {
+			// Only check cache if bForceNetworkCall is false or undefined
+			if (!bForceNetworkCall) {
+				// FIRST: ALWAYS check if ItemDetails is already available from TripData $expand
+				// If so, filter from that data instead of making a separate call
+				// This prevents duplicate calls even if _loadAllMaterialsForAllRefDocs is called
+				var oTripData = sap.ui.getCore().getModel("TripData");
+				if (oTripData) {
+					var vItemDetails = oTripData.getProperty("/ItemDetails");
+					if (vItemDetails) {
+						var aAllItemDetails = null; // Initialize as null, not empty array
+						
+						// Handle different data structures from OData $expand
+						if (Array.isArray(vItemDetails)) {
+							aAllItemDetails = vItemDetails;
+						} else if (vItemDetails && typeof vItemDetails === "object" && vItemDetails.results) {
+							if (Array.isArray(vItemDetails.results)) {
+								aAllItemDetails = vItemDetails.results;
+							}
+						}
+						
+						// If we successfully extracted ItemDetails data from TripData, use it
+						// This means data was loaded via $expand, so NO separate OData call needed
+						if (aAllItemDetails !== null && Array.isArray(aAllItemDetails)) {
+							// Filter by DocType and RefDocNo from the already-loaded data
+							var aFiltered = aAllItemDetails.filter(function(oItem) {
+								return oItem && 
+									   typeof oItem === "object" &&
+									   oItem.DocType === sDocType && 
+									   oItem.RefDocNo === sRefDocNo && 
+									   oItem.IsDeleted !== "X";
+							});
+							// Return filtered results - NO OData call needed
+							// Even if filtered array is empty, return it because data was already loaded
+							resolve(aFiltered);
+							return; // CRITICAL: Exit early to prevent OData call
+						}
+					}
+				}
+			}
+
+			// Always make network call when bForceNetworkCall is true
+			// Fallback: Make separate call only if data is not available from TripData
+			var oService = this._getItemDetailsService();
 				var oGlobalModel = sap.ui.getCore().getModel("globalData");
 				var sTripNumber = oGlobalModel?.getProperty("/TripNumber") || "";
 
@@ -1176,13 +1611,25 @@ sap.ui.define([
 			}.bind(this));
 		},
 
-		_onItemDetailsValueHelpSearch: function (oEvent) {
-			var sValue = oEvent.getParameter("value") || "";
-			var oBinding = oEvent.getSource().getBinding("items");
+	_onItemDetailsValueHelpSearch: function (oEvent) {
+		var sValue = oEvent.getParameter("value") || "";
+		var oSearchField = oEvent.getSource();
+		// Get the parent SelectDialog
+		var oSelectDialog = oSearchField.getParent();
+		// If parent is not a SelectDialog, traverse up
+		while (oSelectDialog && !oSelectDialog.isA("sap.m.SelectDialog")) {
+			oSelectDialog = oSelectDialog.getParent();
+		}
+		
+		if (!oSelectDialog) {
+			return;
+		}
+		
+		var oBinding = oSelectDialog.getBinding("items");
 
-			if (!oBinding) {
-				return;
-			}
+		if (!oBinding) {
+			return;
+		}
 
 			var aFilters = [];
 			if (sValue) {
@@ -1329,13 +1776,25 @@ sap.ui.define([
 			}.bind(this));
 		},
 
-		_onRefDocValueHelpSearch: function (oEvent) {
-			var sValue = oEvent.getParameter("value") || "";
-			var oBinding = oEvent.getSource().getBinding("items");
+	_onRefDocValueHelpSearch: function (oEvent) {
+		var sValue = oEvent.getParameter("value") || "";
+		var oSearchField = oEvent.getSource();
+		// Get the parent SelectDialog
+		var oSelectDialog = oSearchField.getParent();
+		// If parent is not a SelectDialog, traverse up
+		while (oSelectDialog && !oSelectDialog.isA("sap.m.SelectDialog")) {
+			oSelectDialog = oSelectDialog.getParent();
+		}
+		
+		if (!oSelectDialog) {
+			return;
+		}
+		
+		var oBinding = oSelectDialog.getBinding("items");
 
-			if (!oBinding) {
-				return;
-			}
+		if (!oBinding) {
+			return;
+		}
 
 			var aFilters = [];
 			if (sValue) {
@@ -1392,7 +1851,10 @@ sap.ui.define([
 				return;
 			}
 
-			this.byId("idRefDocType")?.setValue(oDoc.DocType || "");
+			var oDocTypeSelect = this.byId("idRefDocType");
+			if (oDocTypeSelect) {
+				oDocTypeSelect.setSelectedKey(oDoc.DocType || "");
+			}
 			this._sSelectedDocType = oDoc.DocType || this._sSelectedDocType;
 			this.byId("idRefDocNumber")?.setValue(oDoc.DocumentNumber || "");
 			this.byId("idRefDocDate")?.setValue(this._formatODataDate(oDoc.DocumentDate));
@@ -1713,13 +2175,25 @@ sap.ui.define([
 			}.bind(this));
 		},
 
-		onMaterialItemValueHelpSearch: function (oEvent) {
-			var sValue = oEvent.getParameter("value") || "";
-			var oBinding = oEvent.getSource().getBinding("items");
+	onMaterialItemValueHelpSearch: function (oEvent) {
+		var sValue = oEvent.getParameter("value") || "";
+		var oSearchField = oEvent.getSource();
+		// Get the parent SelectDialog
+		var oSelectDialog = oSearchField.getParent();
+		// If parent is not a SelectDialog, traverse up
+		while (oSelectDialog && !oSelectDialog.isA("sap.m.SelectDialog")) {
+			oSelectDialog = oSelectDialog.getParent();
+		}
+		
+		if (!oSelectDialog) {
+			return;
+		}
+		
+		var oBinding = oSelectDialog.getBinding("items");
 
-			if (!oBinding) {
-				return;
-			}
+		if (!oBinding) {
+			return;
+		}
 
 			var aFilters = [];
 			if (sValue) {
@@ -1777,7 +2251,8 @@ sap.ui.define([
 			var oGlobalModel = sap.ui.getCore().getModel("globalData");
 			var sTripNumber = oGlobalModel?.getProperty("/TripNumber") || "";
 
-			var sDocType = this.byId("idRefDocType")?.getValue().trim() || "";
+			var oDocTypeSelect = this.byId("idRefDocType");
+			var sDocType = (oDocTypeSelect?.getSelectedItem()?.getKey() || oDocTypeSelect?.getValue() || "").trim();
 			var sDocNumber = this.byId("idRefDocNumber")?.getValue().trim() || "";
 			var sPartyCode = this.byId("idRefDocPartyCode")?.getValue().trim() || "";
 			var sPartyName = this.byId("idRefDocPartyName")?.getValue().trim() || "";
@@ -1953,15 +2428,22 @@ sap.ui.define([
 				"',DocumentNumber='" + sDocumentNumber + "')";
 
 			var oService = this._getOrderDetailsService();
+			var that = this;
+			
 			return new Promise(function (resolve, reject) {
 				oService.remove(sEntityPath, {
 					headers: {
 						"X-Requested-With": "X"
 					},
 					success: function (oData) {
+						// Immediately update local model (don't wait for refresh)
+						that._removeLocalReferenceDoc(oRefDoc);
+						
 						MessageToast.show("Reference document deleted");
-						// Refresh both tables from service
-						this._refreshBothTables();
+						
+						// Optionally refresh from backend to ensure sync (but UI already updated)
+						// that._refreshBothTables();
+						
 						resolve(oData);
 					}.bind(this),
 					error: function (oError) {
@@ -1971,6 +2453,45 @@ sap.ui.define([
 					}.bind(this)
 				});
 			}.bind(this));
+		},
+
+		_removeLocalReferenceDoc: function (oRefDoc) {
+			var oModel = this._ensureRefDocModel();
+			var aRefDocs = oModel.getProperty("/referenceDocs") || [];
+			
+			// Remove the reference document
+			var aFiltered = aRefDocs.filter(function (oDoc) {
+				return !(oDoc.tripNumber === oRefDoc.tripNumber &&
+						 oDoc.docType === oRefDoc.docType &&
+						 oDoc.documentNumber === oRefDoc.documentNumber);
+			});
+			
+			oModel.setProperty("/referenceDocs", aFiltered, true);
+			
+			// Also remove related materials
+			var aMaterials = oModel.getProperty("/materialDetails") || [];
+			var aFilteredMaterials = aMaterials.filter(function (oMat) {
+				return !(oMat.tripNumber === oRefDoc.tripNumber &&
+						 oMat.docType === oRefDoc.docType &&
+						 oMat.refDocNo === oRefDoc.documentNumber);
+			});
+			
+			oModel.setProperty("/materialDetails", aFilteredMaterials, true);
+			
+			// Update filtered materials
+			this._filterMaterialDetails();
+			
+			// Update dropdowns
+			this._loadMaterialDocTypesFromRefDocs();
+			this._loadMaterialRefDocNumbersFromRefDocs();
+			
+			// Clear selection if deleted ref doc was selected
+			if (this._oSelectedRefDoc && 
+				this._oSelectedRefDoc.tripNumber === oRefDoc.tripNumber &&
+				this._oSelectedRefDoc.docType === oRefDoc.docType &&
+				this._oSelectedRefDoc.documentNumber === oRefDoc.documentNumber) {
+				this._oSelectedRefDoc = null;
+			}
 		},
 
 		_updateLocalReferenceDoc: function (oPayload, oOriginalRefDoc) {
@@ -1985,22 +2506,37 @@ sap.ui.define([
 			});
 
 			if (iIndex >= 0) {
-				// Update the reference document
+				// Update the reference document with all fields from backend response
 				aRefDocs[iIndex] = Object.assign({}, aRefDocs[iIndex], {
+					// Keep uppercase versions for backend compatibility
+					TripNumber: oPayload.TripNumber || aRefDocs[iIndex].TripNumber || aRefDocs[iIndex].tripNumber,
+					DocType: oPayload.DocType || aRefDocs[iIndex].DocType || aRefDocs[iIndex].docType,
+					DocumentNumber: oPayload.DocumentNumber || aRefDocs[iIndex].DocumentNumber || aRefDocs[iIndex].documentNumber,
+					// Lowercase versions for UI binding
+					tripNumber: oPayload.TripNumber || aRefDocs[iIndex].tripNumber,
 					docType: oPayload.DocType || aRefDocs[iIndex].docType,
 					documentNumber: oPayload.DocumentNumber || aRefDocs[iIndex].documentNumber,
 					documentDate: this._formatODataDate(oPayload.DocumentDate) || aRefDocs[iIndex].documentDate,
 					partyCode: oPayload.Vendor || oPayload.Customer || aRefDocs[iIndex].partyCode,
 					partyName: oPayload.Name || aRefDocs[iIndex].partyName,
-					changedBy: oPayload.ChangedBy || "",
-					changedOnDate: this._formatODataDate(oPayload.ChangedOn),
-					changedOnTime: this._formatODataTime(oPayload.ChangedTime)
+					salesDoc: oPayload.SalesDoc || aRefDocs[iIndex].salesDoc || "",
+					salesDoctype: oPayload.SalesDoctype || aRefDocs[iIndex].salesDoctype || "",
+					changedBy: oPayload.ChangedBy || aRefDocs[iIndex].changedBy || "",
+					changedOnDate: this._formatODataDate(oPayload.ChangedOnDate || oPayload.ChangedOn) || aRefDocs[iIndex].changedOnDate,
+					changedOnTime: this._formatODataTime(oPayload.ChangedTime) || aRefDocs[iIndex].changedOnTime
 				});
 
-				oModel.setProperty("/referenceDocs", aRefDocs);
+				// Force model refresh by setting the entire array
+				oModel.setProperty("/referenceDocs", aRefDocs, true); // true = force refresh
+				
 				// Update Material Doc Types and Document Numbers when Reference Documents are updated
 				this._loadMaterialDocTypesFromRefDocs();
 				this._loadMaterialRefDocNumbersFromRefDocs();
+				
+				// Refresh filtered materials if a ref doc is selected
+				if (this._oSelectedRefDoc) {
+					this._filterMaterialDetails();
+				}
 			}
 		},
 
@@ -2008,7 +2544,8 @@ sap.ui.define([
 			var oModel = this._ensureRefDocModel();
 			var aRefDocs = oModel.getProperty("/referenceDocs") || [];
 
-			var sDialogDocType = this.byId("idRefDocType")?.getValue() || "";
+			var oDocTypeSelect = this.byId("idRefDocType");
+			var sDialogDocType = (oDocTypeSelect?.getSelectedItem()?.getKey() || oDocTypeSelect?.getValue() || "");
 			var sDialogDocNumber = this.byId("idRefDocNumber")?.getValue() || "";
 			var sDialogPartyCode = this.byId("idRefDocPartyCode")?.getValue() || "";
 			var sDialogPartyName = this.byId("idRefDocPartyName")?.getValue() || "";
@@ -2026,7 +2563,8 @@ sap.ui.define([
 				salesDoc: oPayload.SalesDoc || sDialogSalesDoc || "",
 				salesDoctype: oPayload.SalesDoctype || sDialogSalesDoctype || ""
 			});
-			oModel.setProperty("/referenceDocs", aRefDocs);
+			// Force model refresh by setting the entire array
+			oModel.setProperty("/referenceDocs", aRefDocs, true); // true = force refresh
 		},
 
 
@@ -2129,15 +2667,22 @@ sap.ui.define([
 				"',RefDocItemNo='" + sRefDocItemNo + "')";
 
 			var oService = this._getItemDetailsService();
+			var that = this;
+			
 			return new Promise(function (resolve, reject) {
 				oService.remove(sEntityPath, {
 					headers: {
 						"X-Requested-With": "X"
 					},
 					success: function (oData) {
+						// Immediately update local model
+						that._removeLocalMaterialDetail(oMaterial);
+						
 						MessageToast.show("Material row deleted");
-						// Refresh both tables from service
-						this._refreshBothTables();
+						
+						// Optionally refresh from backend (but UI already updated)
+						// that._refreshBothTables();
+						
 						resolve(oData);
 					}.bind(this),
 					error: function (oError) {
@@ -2147,6 +2692,24 @@ sap.ui.define([
 					}.bind(this)
 				});
 			}.bind(this));
+		},
+
+		_removeLocalMaterialDetail: function (oMaterial) {
+			var oModel = this._ensureRefDocModel();
+			var aMaterials = oModel.getProperty("/materialDetails") || [];
+			
+			// Remove the material
+			var aFiltered = aMaterials.filter(function (oMat) {
+				return !(oMat.tripNumber === oMaterial.tripNumber &&
+						 oMat.docType === oMaterial.docType &&
+						 oMat.refDocNo === oMaterial.refDocNo &&
+						 oMat.refDocItemNo === oMaterial.refDocItemNo);
+			});
+			
+			oModel.setProperty("/materialDetails", aFiltered, true);
+			
+			// Update filtered materials
+			this._filterMaterialDetails();
 		},
 
 		_updateLocalMaterialDetail: function (oPayload, oOriginalMaterial) {
@@ -2165,18 +2728,29 @@ sap.ui.define([
 				var vQty = oPayload.Quantity;
 				var sQtyDisplay = (vQty === null || vQty === undefined || vQty === "") ? "" : String(vQty);
 
-				// Update the material
+				// Update the material with all fields from backend response
 				aMaterials[iIndex] = Object.assign({}, aMaterials[iIndex], {
+					// Keep uppercase versions for backend compatibility
+					TripNumber: oPayload.TripNumber || aMaterials[iIndex].TripNumber || aMaterials[iIndex].tripNumber,
+					DocType: oPayload.DocType || aMaterials[iIndex].DocType || aMaterials[iIndex].docType,
+					RefDocNo: oPayload.RefDocNo || aMaterials[iIndex].RefDocNo || aMaterials[iIndex].refDocNo,
+					RefDocItemNo: oPayload.RefDocItemNo || aMaterials[iIndex].RefDocItemNo || aMaterials[iIndex].refDocItemNo,
+					// Lowercase versions for UI binding
+					tripNumber: oPayload.TripNumber || aMaterials[iIndex].tripNumber,
+					docType: oPayload.DocType || aMaterials[iIndex].docType,
+					refDocNo: oPayload.RefDocNo || aMaterials[iIndex].refDocNo,
+					refDocItemNo: oPayload.RefDocItemNo || aMaterials[iIndex].refDocItemNo,
 					materialCode: oPayload.MaterialCode || aMaterials[iIndex].materialCode,
 					materialDescription: oPayload.MaterialDescription || aMaterials[iIndex].materialDescription,
 					qty: sQtyDisplay,
 					uom: oPayload.UoM || aMaterials[iIndex].uom,
-					changedBy: oPayload.ChangedBy || "",
-					changedOnDate: this._formatODataDate(oPayload.ChangedDate),
-					changedOnTime: this._formatODataTime(oPayload.ChangedTime)
+					changedBy: oPayload.ChangedBy || aMaterials[iIndex].changedBy || "",
+					changedOnDate: this._formatODataDate(oPayload.ChangedDate) || aMaterials[iIndex].changedOnDate,
+					changedOnTime: this._formatODataTime(oPayload.ChangedTime) || aMaterials[iIndex].changedOnTime
 				});
 
-				oModel.setProperty("/materialDetails", aMaterials);
+				// Force model refresh by setting the entire array
+				oModel.setProperty("/materialDetails", aMaterials, true); // true = force refresh
 				// Update filtered list after updating material
 				this._filterMaterialDetails();
 			}
@@ -2215,7 +2789,8 @@ sap.ui.define([
 				changedOnTime: this._formatODataTime(oPayload.ChangedTime)
 			});
 
-			oModel.setProperty("/materialDetails", aMaterials);
+			// Force model refresh by setting the entire array
+			oModel.setProperty("/materialDetails", aMaterials, true); // true = force refresh
 			// Update filtered list after adding new material
 			this._filterMaterialDetails();
 		},
@@ -2234,35 +2809,71 @@ sap.ui.define([
 				oModel.setProperty("/referenceDocs", []);
 				oModel.setProperty("/materialDetails", []);
 				oModel.setProperty("/filteredMaterialDetails", []);
-				// Hide scanner if no trip data
-				this._updateScannerVisibility();
+				oModel.setProperty("/supportingDocs", []);
+				// Re-apply authorization (will disable buttons)
+				this._applyRefDocAuthorization();
 				return;
 			}
-
-			// Update scanner visibility based on Movement Type
-			this._updateScannerVisibility();
+			
+			// Re-apply authorization when TripData changes (plant might have changed)
+			setTimeout(function() {
+				this._applyRefDocAuthorization();
+			}.bind(this), 100);
 
 			var vOrderDetails = oTripData.getProperty("/OrderDetails");
 			var vItemDetails = oTripData.getProperty("/ItemDetails");
 
-			// Check if ItemDetails is a deferred object (OData v2 $expand)
-			if (vItemDetails && vItemDetails.__deferred) {
-				var sTripNumber = oTripData.getProperty("/TripNumber") || "";
-				if (sTripNumber) {
-					this._loadItemDetailsSeparately(sTripNumber);
-				} else {
-					this._setMaterialDetailsFromService([]);
+			// Check if ItemDetails is already loaded from $expand
+			// When $expand is used successfully, ItemDetails will have a "results" property
+			// Only make separate call if ItemDetails is truly deferred (has __deferred but no results)
+			var bHasResults = false;
+			if (vItemDetails) {
+				// Check if it's an array (direct results)
+				if (Array.isArray(vItemDetails)) {
+					bHasResults = true;
 				}
-			} else {
+				// Check if it has results property (OData format)
+				else if (vItemDetails.results && Array.isArray(vItemDetails.results)) {
+					bHasResults = true;
+				}
+				// Check if it's deferred (needs separate call)
+				else if (vItemDetails.__deferred && !vItemDetails.results) {
+					// Data is deferred, need to load separately (should not happen with $expand)
+					var sTripNumber = oTripData.getProperty("/TripNumber") || "";
+					if (sTripNumber) {
+						this._loadItemDetailsSeparately(sTripNumber);
+					} else {
+						this._setMaterialDetailsFromService([]);
+					}
+					return; // Exit early
+				}
+			}
+			
+			if (bHasResults || vItemDetails) {
+				// Data is already available from $expand (has results property), use it directly
+				// DO NOT make separate ItemDetails calls - use the expanded data
 				var aOrderDetails = this._extractResults(vOrderDetails);
 				var aItemDetails = this._extractResults(vItemDetails);
 
-				this._setReferenceDocsFromService(aOrderDetails);
+				// Pass flag=true to indicate ItemDetails is already loaded from expand
+				// This prevents _loadAllMaterialsForAllRefDocs from making separate calls
+				this._setReferenceDocsFromService(aOrderDetails, true);
 				this._setMaterialDetailsFromService(aItemDetails);
+			} else {
+				// No ItemDetails data available
+				this._setReferenceDocsFromService(this._extractResults(vOrderDetails), true);
+				this._setMaterialDetailsFromService([]);
 			}
+			
+			// Also load supporting documents
+			// this._loadSupportingDocs();
 		},
 
-		_setReferenceDocsFromService: function (aDocs) {
+		_setReferenceDocsFromService: function (aDocs, bItemDetailsAlreadyLoaded) {
+			// Default to false if parameter not provided (backward compatibility)
+			if (bItemDetailsAlreadyLoaded === undefined) {
+				bItemDetailsAlreadyLoaded = false;
+			}
 			// Filter out deleted records (Deleted === true)
 			var aRefDocs = (aDocs || [])
 				.filter(function (oDoc) {
@@ -2295,13 +2906,56 @@ sap.ui.define([
 			// Update Material Doc Types and Document Numbers when Reference Documents are loaded
 			this._loadMaterialDocTypesFromRefDocs();
 			this._loadMaterialRefDocNumbersFromRefDocs();
-			// Automatically load all materials for all reference documents
-			this._loadAllMaterialsForAllRefDocs(aRefDocs);
+			// Only load materials separately if ItemDetails was NOT already loaded from expand
+			// When ItemDetails is already available from $expand, materials are already set via _setMaterialDetailsFromService
+			// IMPORTANT: If bItemDetailsAlreadyLoaded is true, DO NOT call _loadAllMaterialsForAllRefDocs
+			// This prevents duplicate ItemDetails filter calls when data is already available from $expand
+			if (bItemDetailsAlreadyLoaded !== true) {
+				// Only load if flag is explicitly false or undefined (backward compatibility)
+				// But first check if ItemDetails is already in TripData to be safe
+				var oTripData = sap.ui.getCore().getModel("TripData");
+				var bItemDetailsInTripData = false;
+				if (oTripData) {
+					var vItemDetails = oTripData.getProperty("/ItemDetails");
+					if (vItemDetails && (vItemDetails.results || Array.isArray(vItemDetails))) {
+						bItemDetailsInTripData = true;
+					}
+				}
+				
+				// Only call if ItemDetails is NOT in TripData
+				if (!bItemDetailsInTripData) {
+					// Automatically load all materials for all reference documents
+					this._loadAllMaterialsForAllRefDocs(aRefDocs);
+				}
+			}
 		},
 
 		_loadAllMaterialsForAllRefDocs: function (aRefDocs) {
 			if (!aRefDocs || aRefDocs.length === 0) {
 				return;
+			}
+
+			// IMPORTANT: Check if ItemDetails is already available from TripData $expand
+			// If so, DO NOT make separate calls - data is already loaded
+			var oTripData = sap.ui.getCore().getModel("TripData");
+			if (oTripData) {
+				var vItemDetails = oTripData.getProperty("/ItemDetails");
+				// Check multiple ways the data might be structured
+				var bHasResults = false;
+				if (vItemDetails) {
+					if (Array.isArray(vItemDetails)) {
+						bHasResults = true;
+					} else if (vItemDetails.results && Array.isArray(vItemDetails.results)) {
+						bHasResults = true;
+					} else if (vItemDetails.results && vItemDetails.results.length > 0) {
+						bHasResults = true;
+					}
+				}
+				if (bHasResults) {
+					// ItemDetails is already loaded from $expand, skip separate calls
+					// Materials are already set via _setMaterialDetailsFromService
+					return;
+				}
 			}
 
 			var that = this;
@@ -2463,6 +3117,20 @@ sap.ui.define([
 		},
 
 		_loadItemDetailsSeparately: function (sTripNumber) {
+			// IMPORTANT: Check if ItemDetails is already available from TripData $expand
+			// If so, DO NOT make separate call - use the expanded data instead
+			var oTripData = sap.ui.getCore().getModel("TripData");
+			if (oTripData) {
+				var vItemDetails = oTripData.getProperty("/ItemDetails");
+				if (vItemDetails && (vItemDetails.results || Array.isArray(vItemDetails))) {
+					// ItemDetails is already loaded from $expand, use it directly
+					var aItemDetails = this._extractResults(vItemDetails);
+					this._setMaterialDetailsFromService(aItemDetails);
+					return; // Exit early - no need to make separate call
+				}
+			}
+
+			// Only make separate call if data is truly not available
 			var oService = this._getItemDetailsService();
 			var that = this;
 
@@ -2482,6 +3150,26 @@ sap.ui.define([
 		},
 
 		_refreshBothTables: function () {
+			// Try to use TripData first (from $expand) to avoid separate calls
+			var oTripData = sap.ui.getCore().getModel("TripData");
+			if (oTripData) {
+				var vOrderDetails = oTripData.getProperty("/OrderDetails");
+				var vItemDetails = oTripData.getProperty("/ItemDetails");
+				
+				// Check if data is already available from $expand (has results property)
+				var bHasResults = vItemDetails && (vItemDetails.results || Array.isArray(vItemDetails));
+				if (bHasResults) {
+					var aOrderDetails = this._extractResults(vOrderDetails);
+					var aItemDetails = this._extractResults(vItemDetails);
+					
+					// Use data from TripData (already loaded from expand)
+					this._setReferenceDocsFromService(aOrderDetails, true);
+					this._setMaterialDetailsFromService(aItemDetails);
+					return; // Exit early - no separate calls needed
+				}
+			}
+			
+			// Fallback: Load separately if TripData is not available or data is deferred
 			var oGlobalModel = sap.ui.getCore().getModel("globalData");
 			var sTripNumber = oGlobalModel?.getProperty("/TripNumber") || "";
 
@@ -2501,10 +3189,10 @@ sap.ui.define([
 				],
 				success: function (oData) {
 					var aOrderDetails = oData.results || [];
-					that._setReferenceDocsFromService(aOrderDetails);
+					that._setReferenceDocsFromService(aOrderDetails, false);
 				},
 				error: function (oError) {
-					that._setReferenceDocsFromService([]);
+					that._setReferenceDocsFromService([], false);
 				}
 			});
 
@@ -2616,13 +3304,25 @@ sap.ui.define([
 			}.bind(this));
 		},
 
-		_onMaterialDocTypeValueHelpSearch: function (oEvent) {
-			var sValue = oEvent.getParameter("value") || "";
-			var oBinding = oEvent.getSource().getBinding("items");
+	_onMaterialDocTypeValueHelpSearch: function (oEvent) {
+		var sValue = oEvent.getParameter("value") || "";
+		var oSearchField = oEvent.getSource();
+		// Get the parent SelectDialog
+		var oSelectDialog = oSearchField.getParent();
+		// If parent is not a SelectDialog, traverse up
+		while (oSelectDialog && !oSelectDialog.isA("sap.m.SelectDialog")) {
+			oSelectDialog = oSelectDialog.getParent();
+		}
+		
+		if (!oSelectDialog) {
+			return;
+		}
+		
+		var oBinding = oSelectDialog.getBinding("items");
 
-			if (!oBinding) {
-				return;
-			}
+		if (!oBinding) {
+			return;
+		}
 
 			var aFilters = [];
 			if (sValue) {
@@ -2638,13 +3338,25 @@ sap.ui.define([
 			oBinding.filter(aFilters);
 		},
 
-		_onDocTypeValueHelpSearch: function (oEvent) {
-			var sValue = oEvent.getParameter("value") || "";
-			var oBinding = oEvent.getSource().getBinding("items");
+	_onDocTypeValueHelpSearch: function (oEvent) {
+		var sValue = oEvent.getParameter("value") || "";
+		var oSearchField = oEvent.getSource();
+		// Get the parent SelectDialog
+		var oSelectDialog = oSearchField.getParent();
+		// If parent is not a SelectDialog, traverse up
+		while (oSelectDialog && !oSelectDialog.isA("sap.m.SelectDialog")) {
+			oSelectDialog = oSelectDialog.getParent();
+		}
+		
+		if (!oSelectDialog) {
+			return;
+		}
+		
+		var oBinding = oSelectDialog.getBinding("items");
 
-			if (!oBinding) {
-				return;
-			}
+		if (!oBinding) {
+			return;
+		}
 
 			var aFilters = [];
 			if (sValue) {
@@ -2676,7 +3388,10 @@ sap.ui.define([
 			if (oCtx) {
 				var oDocType = oCtx.getObject();
 				var sDocType = oDocType.ConfigID || "";
-				this.byId("idRefDocType")?.setValue(sDocType);
+				var oDocTypeSelect = this.byId("idRefDocType");
+				if (oDocTypeSelect) {
+					oDocTypeSelect.setSelectedKey(sDocType);
+				}
 				this._sSelectedDocType = sDocType;
 				this._loadRefDocSuggestions(sDocType);
 			}
@@ -3021,187 +3736,87 @@ sap.ui.define([
 			}
 		},
 
-		//---------------------------------------------
-		// SCANNER LOGIC
-		//---------------------------------------------
-		onScanSuccess: function () {
-			var that = this;
-			BarcodeScanner.scan(
-				function (oResult) {
-					if (!oResult.cancelled) {
-						var sScannedCode = oResult.text;
-						// Parse code if it contains pipe separator (e.g., "GATE001|Entry Gate 1")
-						var sParsedCode = sScannedCode.split("|")[0];
-						that._processScannedCode(sParsedCode);
+		/**
+		 * Apply authorization to Reference Documents buttons based on UserRoles
+		 */
+		_applyRefDocAuthorization: function () {
+			var oUserRoles = sap.ui.getCore().getModel("UserRoles");
+			if (!oUserRoles) {
+				// If UserRoles not loaded, disable buttons by default
+				var oTable = this.byId("idReferenceDocsTable");
+				if (oTable) {
+					var oToolbar = oTable.getHeaderToolbar();
+					if (oToolbar) {
+						var aContent = oToolbar.getContent();
+						aContent.forEach(function(oControl) {
+							if (oControl && oControl.getText && oControl.getText() === "Add Document") {
+								oControl.setEnabled(false);
+							}
+						});
 					}
-				}.bind(this),
-				function (oError) {
-					// Scan failed
-					MessageToast.show("Scan failed: " + (oError.message || oError));
-					setTimeout(function() {
-						var oScannerInput = that.getView().byId("idRefDocScannerInput");
-						if (oScannerInput) {
-							oScannerInput.focus();
-						}
-					}, 200);
-				}.bind(this)
-			);
-		},
-
-		onScanLiveupdate: function (oEvent) {
-			var sText = oEvent.getParameter("newValue");
-			var oScannerInput = this.getView().byId("idRefDocScannerInput");
-			if (oScannerInput) {
-				oScannerInput.setValue(sText);
-			}
-			// Process scanned code if value is entered
-			if (sText && sText.trim() !== "") {
-				var sParsedCode = sText.split("|")[0];
-				this._processScannedCode(sParsedCode);
-			}
-		},
-
-		_processScannedCode: function (sScannedCode) {
-			if (!sScannedCode || sScannedCode.trim() === "") {
-				MessageToast.show("Invalid scan code");
-				return;
-			}
-
-			// Try to parse scanned code as JSON first
-			var oScannedData = null;
-			try {
-				oScannedData = JSON.parse(sScannedCode);
-			} catch (e) {
-				// If not JSON, try to parse as comma-separated key-value pairs
-				oScannedData = this._parseKeyValueString(sScannedCode);
-				if (!oScannedData) {
-					MessageToast.show("Invalid barcode format");
-					this._clearAndRefocusScanner();
-					return;
 				}
-			}
-
-			// Extract asnId and orgId from scanned data
-			var sAsnId = oScannedData.asnId;
-			var sOrgId = oScannedData.orgId;
-			
-			if (!sAsnId || !sOrgId) {
-				MessageToast.show("Invalid barcode: Missing asnId or orgId");
-				this._clearAndRefocusScanner();
 				return;
 			}
 
-			// Post to AsnDetails entity set
-			this._postAsnDetails(sAsnId, sOrgId);
-		},
+			var sAddRef = oUserRoles.getProperty("/AddRef") || "";
+			var sEditRef = oUserRoles.getProperty("/EditRef") || "";
+			var sDelRef = oUserRoles.getProperty("/DelRef") || "";
 
-		_parseKeyValueString: function (sString) {
-			try {
-				// Parse format like: "vendorCode=I0141,asnId=ASN5a8faad3,poNum=2000000294,orgId=a039ec0a-df8c-4b0b-abb5-7f41b2190fc6"
-				var oResult = {};
-				var aPairs = sString.split(',');
-				aPairs.forEach(function(sPair) {
-					var aKeyValue = sPair.split('=');
-					if (aKeyValue.length === 2) {
-						var sKey = aKeyValue[0].trim();
-						var sValue = aKeyValue[1].trim();
-						oResult[sKey] = sValue;
+			// Disable/Enable Add button in toolbar
+			var oTable = this.byId("idReferenceDocsTable");
+			if (oTable) {
+				var oToolbar = oTable.getHeaderToolbar();
+				if (oToolbar) {
+					var aContent = oToolbar.getContent();
+					aContent.forEach(function(oControl) {
+						if (oControl && oControl.getText && oControl.getText() === "Add Document") {
+							oControl.setEnabled(sAddRef === "X");
+						}
+					});
+				}
+
+				// Disable/Enable Edit and Delete buttons in table rows
+				var aItems = oTable.getItems();
+				aItems.forEach(function(oItem) {
+					if (oItem && oItem.getCells) {
+						var aCells = oItem.getCells();
+						aCells.forEach(function(oCell) {
+							if (oCell && oCell.getContent) {
+								var aCellContent = oCell.getContent();
+								aCellContent.forEach(function(oControl) {
+									if (oControl && oControl.isA && oControl.isA("sap.m.Button")) {
+										var sIcon = oControl.getIcon() || "";
+										if (sIcon.indexOf("edit") !== -1) {
+											oControl.setEnabled(sEditRef === "X");
+										} else if (sIcon.indexOf("delete") !== -1) {
+											oControl.setEnabled(sDelRef === "X");
+										}
+									}
+								});
+							}
+						});
 					}
 				});
-				return oResult;
-			} catch (e) {
-				return null;
 			}
 		},
 
-		_clearAndRefocusScanner: function () {
-			var oScannerInput = this.getView().byId("idRefDocScannerInput");
-			if (oScannerInput) {
-				oScannerInput.setValue("");
-				setTimeout(function() {
-					oScannerInput.focus();
-				}, 100);
-			}
+		// ============================================================
+		// Supporting Documents Handlers (Stubs - for view only)
+		// ============================================================
+		onAddSupportingDoc: function () {
+			// Stub function - to be implemented
 		},
 
-		_focusOnScannerInput: function () {
-			var that = this;
-			setTimeout(function() {
-				var oScannerInput = that.getView().byId("idRefDocScannerInput");
-				if (oScannerInput && oScannerInput.focus) {
-					oScannerInput.focus();
-				}
-			}, 200);
+		onEditSupportingDoc: function () {
+			// Stub function - to be implemented
 		},
 
-		_postAsnDetails: function (sAsnId, sOrgId) {
-			var that = this;
-			var oPayload = {
-				AsnId: sAsnId,
-				OrgId: sOrgId
-			};
-
-			console.log("ASN Details Payload:", oPayload);
-
-			var oService = this._getOrderDetailsService();
-			oService.create("/AsnDetails", oPayload, {
-				headers: {
-					"X-Requested-With": "X"
-				},
-				success: function (oResponse) {
-					MessageToast.show("ASN Details posted successfully! ASN ID: " + sAsnId);
-					that._clearAndRefocusScanner();
-				},
-				error: function (oError) {
-					var sErrorMessage = "Failed to post ASN Details"; // default message
-					
-					try {
-						// oError.responseText is JSON string from backend
-						var oResponse = JSON.parse(oError.responseText);
-						if (
-							oResponse.error &&
-							oResponse.error.message &&
-							oResponse.error.message.value
-						) {
-							sErrorMessage = oResponse.error.message.value;
-						} else if (oResponse.error && oResponse.error.message) {
-							sErrorMessage = oResponse.error.message;
-						}
-					} catch (e) {
-						// fallback if parsing fails, try oError.message.value or oError.message
-						if (oError.message && oError.message.value) {
-							sErrorMessage = oError.message.value;
-						} else if (oError.message) {
-							sErrorMessage += ": " + oError.message;
-						}
-					}
-					
-					console.log("ASN Details Error:", oError);
-					MessageToast.show(sErrorMessage);
-					that._clearAndRefocusScanner();
-				}
-			});
+		onDeleteSupportingDoc: function () {
+			// Stub function - to be implemented
 		},
 
-		_updateScannerVisibility: function () {
-			var oTripData = sap.ui.getCore().getModel("TripData");
-			var oScannerVBox = this.getView().byId("idRefDocScannerVBox");
-			
-			if (!oScannerVBox) {
-				return;
-			}
-
-			var bIsInward = false;
-			if (oTripData) {
-				var sMovementType = oTripData.getProperty("/MovementType") || "";
-				var sMovementTypeDesc = (oTripData.getProperty("/MovementTypeDesc") || "").toUpperCase();
-				
-				// Check if Movement Type is "I" (Inward) or description contains "INWARD"
-				bIsInward = sMovementType === "I" || sMovementTypeDesc.indexOf("INWARD") !== -1;
-			}
-
-			// Update visibility
-			oScannerVBox.setVisible(bIsInward);
+		onSupportingDocColumnSettings: function () {
+			// Stub function - to be implemented
 		}
 
 	});

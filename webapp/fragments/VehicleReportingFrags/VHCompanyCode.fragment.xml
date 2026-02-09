@@ -6,7 +6,6 @@
         id="idVHCompanyCode"
         title="Select Company Code"
         contentWidth="40%"
-        contentHeight="60%"
         draggable="true"
         resizable="true">
 

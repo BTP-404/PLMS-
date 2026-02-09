@@ -24,14 +24,15 @@
             <VBox class="sapUiSmallMargin sapUiSizeCompact">
 
                 <!-- ===================== TABLE SECTION ===================== -->
-                <ScrollContainer horizontal="true" vertical="false" width="100%"
+                <ScrollContainer
+                    horizontal="true"
+                    vertical="false"
+                    width="100%"
                     class="sapUiNoContentPadding sapUiSmallMarginTop sapUiSizeCompact">
-                    <HBox wrap="Wrap" width="auto">
                         <Table
                             id="idUnloadingMaterialTable"
                             inset="false"
-                            mode="None"
-                            width="100%"
+                            width="auto"
                             class="sapUiSizeCompact"
                             fixedLayout="false"
                             autoPopin="true"
@@ -40,7 +41,7 @@
                             growingScrollToLoad="true"
                             growingThreshold="20"
                             items="{tableModel>/materials}"
-                        >
+                            noDataText="No materials unloaded yet">
                             <headerToolbar>
                                 <Toolbar>
                                     <Title text="Material Details" level="H6" />
@@ -56,112 +57,116 @@
                                 <Column
                                     id="colUnloadingRefDocNumber"
                                     demandPopin="true"
-                                    minScreenWidth="Tablet"
-                                    popinDisplay="Inline"
-                                >
+                                    minScreenWidth="Desktop"
+                                    popinDisplay="Inline">
                                     <Text text="Ref Doc Number" />
                                 </Column>
                                 <Column
                                     id="colUnloadingRefDocItemNumber"
                                     demandPopin="true"
-                                    minScreenWidth="Tablet"
-                                    popinDisplay="Inline"
-                                >
+                                    minScreenWidth="Desktop"
+                                    popinDisplay="Inline">
                                     <Text text="Ref Doc Item Number" />
                                 </Column>
                                 <Column
                                     id="colUnloadingMaterialCode"
                                     demandPopin="true"
-                                    minScreenWidth="Tablet"
-                                >
+                                    minScreenWidth="Desktop"
+                                    popinDisplay="Inline">
                                     <Text text="Material Code" />
                                 </Column>
                                 <Column
                                     id="colUnloadingMaterialDescription"
                                     demandPopin="true"
                                     minScreenWidth="Desktop"
-                                    popinDisplay="Inline"
-                                >
+                                    popinDisplay="Inline">
                                     <Text text="Material Description" />
                                 </Column>
                                 <Column
                                     id="colUnloadingQty"
+                                    hAlign="End"
                                     demandPopin="true"
                                     minScreenWidth="Desktop"
-                                >
+                                    popinDisplay="Inline">
                                     <Text text="Qty" />
                                 </Column>
                                 <Column
                                     id="colUnloadingUoM"
+                                    hAlign="Center"
                                     demandPopin="true"
                                     minScreenWidth="Desktop"
-                                >
+                                    popinDisplay="Inline">
                                     <Text text="UoM" />
                                 </Column>
                                 <Column
-                                    id="colUnloadingUnloadedWeight"
+                                    id="colUnloadingQtyConfirm"
+                                    hAlign="Center"
                                     demandPopin="true"
                                     minScreenWidth="Desktop"
-                                    popinDisplay="Inline"
-                                >
-                                    <Text text="Unloaded Quantity " />
+                                    popinDisplay="Inline">
+                                    <Text text="Qty Confirmed" />
+                                </Column>
+                                <Column
+                                    id="colUnloadingUnloadedWeight"
+                                    hAlign="End"
+                                    demandPopin="true"
+                                    minScreenWidth="Desktop"
+                                    popinDisplay="Inline">
+                                    <Text text="Unloaded Quantity" />
                                 </Column>
                                 <Column
                                     id="colUnloadingGrossWt"
+                                    hAlign="End"
                                     demandPopin="true"
                                     minScreenWidth="Desktop"
                                     popinDisplay="Inline"
-                                    visible="{unloadingModel>/weighmentEnabled}"
-                                >
+                                    visible="{unloadingModel>/weighmentEnabled}">
                                     <Text text="Gross Wt" />
                                 </Column>
                                 <Column
                                     id="colUnloadingTareWt"
+                                    hAlign="End"
                                     demandPopin="true"
                                     minScreenWidth="Desktop"
                                     popinDisplay="Inline"
-                                    visible="{unloadingModel>/weighmentEnabled}"
-                                >
+                                    visible="{unloadingModel>/weighmentEnabled}">
                                     <Text text="Tare Wt" />
                                 </Column>
                                 <Column
                                     id="colUnloadingNetWt"
+                                    hAlign="End"
                                     demandPopin="true"
                                     minScreenWidth="Desktop"
                                     popinDisplay="Inline"
-                                    visible="{unloadingModel>/weighmentEnabled}"
-                                >
+                                    visible="{unloadingModel>/weighmentEnabled}">
                                     <Text text="Net Wt" />
                                 </Column>
                                 <Column
                                     id="colUnloadingRemark"
                                     demandPopin="true"
                                     minScreenWidth="Desktop"
-                                    popinDisplay="Inline"
-                                >
+                                    popinDisplay="Inline">
                                     <Text text="Remark" />
                                 </Column>
                                 <Column
                                     id="colUnloadingCreatedBy"
                                     demandPopin="true"
-                                    minScreenWidth="XLarge"
-                                >
+                                    minScreenWidth="Desktop"
+                                    popinDisplay="Inline">
                                     <Text text="Created By" />
                                 </Column>
                                 <Column
                                     id="colUnloadingCreatedOnDate"
                                     demandPopin="true"
-                                    minScreenWidth="XLarge"
-                                    popinDisplay="Inline"
-                                >
+                                    minScreenWidth="Desktop"
+                                    popinDisplay="Inline">
                                     <Text text="Created On Date" />
                                 </Column>
                                 <Column
                                     id="colUnloadingCreatedOnTime"
                                     demandPopin="true"
-                                    minScreenWidth="XLarge"
-                                    popinDisplay="Inline"
-                                >
+                                    minScreenWidth="Desktop"
+                                    popinDisplay="Inline">
                                     <Text text="Created On Time" />
                                 </Column>
                             </columns>
@@ -173,38 +178,60 @@
                                         <Text text="{tableModel>RefDocItemNumber}"/>
                                         <Text text="{tableModel>MaterialCode}"/>
                                         <Text text="{tableModel>MaterialDescription}"/>
-                                        <Text text="{tableModel>Qty}"/>
-                                        <Text text="{tableModel>UoM}"/>
+                                        <Text 
+                                            text="{tableModel>Qty}"
+                                            textAlign="End"/>
+                                        <Text 
+                                            text="{tableModel>UoM}"
+                                            textAlign="Center"/>
+                                        <HBox justifyContent="Center" alignItems="Center">
+                                            <CheckBox
+                                                selected="{= ${tableModel>ConfirmQty} === 'X' }"
+                                                select=".onConfirmQtySelect"
+                                                tooltip="Confirm Quantity (backend field ConfirmQty)"
+                                            />
+                                        </HBox>
                                         <Input
                                             value="{tableModel>UnloadedWeight}"
-                                            enabled="{unloadingModel>/weighmentEnabled}"
-                                            placeholder="Enter Unloaded Weight"
-                                            width="100%"
+                                            enabled="true"
+                                            placeholder="Enter Weight"
+                                            width="8rem"
                                             type="Number"
+                                            textAlign="End"
+                                            class="sapUiSizeCompact"
+                                            liveChange="onWeightFieldChange"
                                             change="onWeightFieldChange"
                                         />
                                         <Input
                                             value="{tableModel>GrossWt}"
                                             enabled="{unloadingModel>/weighmentEnabled}"
-                                            placeholder="Enter Gross Wt"
-                                            width="100%"
+                                            placeholder="Gross Wt"
+                                            width="7rem"
                                             type="Number"
+                                            textAlign="End"
+                                            class="sapUiSizeCompact"
                                             change="onWeightFieldChange"
                                         />
                                         <Input
                                             value="{tableModel>TareWt}"
                                             enabled="{unloadingModel>/weighmentEnabled}"
-                                            placeholder="Enter Tare Wt"
-                                            width="100%"
+                                            placeholder="Tare Wt"
+                                            width="7rem"
                                             type="Number"
+                                            textAlign="End"
+                                            class="sapUiSizeCompact"
                                             change="onWeightFieldChange"
                                         />
-                                        <Text text="{tableModel>NetWt}"/>
+                                        <Text 
+                                            text="{tableModel>NetWt}"
+                                            textAlign="End"
+                                            class="sapUiTinyMarginEnd"/>
                                         <Input
                                             value="{tableModel>Remark}"
-                                            placeholder=""
-                                            width="100%"
+                                            placeholder="Remark"
+                                            width="10rem"
                                             maxLength="255"
+                                            class="sapUiSizeCompact"
                                         />
                                         <Text text="{tableModel>CreatedBy}"/>
                                         <Text text="{tableModel>CreatedOnDate}"/>
@@ -213,7 +240,6 @@
                                 </ColumnListItem>
                             </items>
                         </Table>
-                    </HBox>
                 </ScrollContainer>
 
             </VBox>
@@ -221,17 +247,15 @@
 
         <!-- ===================== BUTTONS AT BOTTOM ===================== -->
         <HBox justifyContent="End" class="sapUiSmallMarginTop sapUiSmallMarginEnd">
-            <!-- Update Weights Button (only visible when weighment is enabled) -->
+            <!-- Save Unloading (weights/quantities/remark) -->
             <Button 
-                id="btnUpdateWeights" 
+                id="btnSaveUnloading" 
                 text="Save" 
                 type="Emphasized" 
-                press="onUpdateWeights" 
+                press="onSaveUnloading" 
                 icon="sap-icon://save"
-                visible="{unloadingModel>/weighmentEnabled}"
-                class="sapUiTinyMarginEnd"
             />
-            
+
             <!-- Start Unloading Button -->
             <Button 
                 id="btnStartUnloading" 
@@ -239,7 +263,18 @@
                 type="Accept" 
                 press="onStartUnloading" 
                 icon="sap-icon://unload"
-                enabled="true" 
+                class="sapUiTinyMarginBegin"
+            />
+
+            <!-- ReStart Unloading Button (shown when unloading is ended) -->
+            <Button 
+                id="btnReStartUnloading" 
+                text="ReStart Unloading" 
+                type="Accept" 
+                press="onReStartUnloading" 
+                icon="sap-icon://refresh"
+                visible="false"
+                class="sapUiTinyMarginBegin"
             />
 
             <!-- End Unloading Button -->
@@ -249,7 +284,6 @@
                 type="Reject" 
                 press="onEndUnloading" 
                 icon="sap-icon://cart-5"
-                enabled="false" 
                 class="sapUiTinyMarginBegin"
             />
         </HBox>

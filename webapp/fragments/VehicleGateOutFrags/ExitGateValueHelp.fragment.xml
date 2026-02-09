@@ -3,7 +3,6 @@
         id="exitGateDialog"
         title="Select Exit Gate"
         contentWidth="25rem"
-        contentHeight="18rem"
         items="{
             path: 'ExitGatehelpModel>/'
         }"

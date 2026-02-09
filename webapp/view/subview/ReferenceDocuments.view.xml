@@ -7,36 +7,6 @@
 
     <VBox class="sapUiSizeCompact sapUiSmallMargin">
 
-        <!-- ========================= SCANNER ROW ========================= -->
-        <!-- Scanner Input and Button - Only visible when Movement Type is Inward -->
-        <VBox 
-            id="idRefDocScannerVBox"
-            class="sapUiSmallMarginBottom"
-            visible="false">
-            <Label
-                text="Scanner Input"
-                design="Bold"
-                class="sapUiNoMarginBottom"
-            />
-            <HBox alignItems="Center" width="100%">
-                <Input
-                    id="idRefDocScannerInput"
-                    placeholder="Scan barcode or enter manually"
-                    width="100%"
-                    liveChange="onScanLiveupdate"
-                    class="sapUiTinyMarginEnd"
-                />
-                <Button
-                    id="idRefDocScanButton"
-                    text="Scan"
-                    type="Emphasized"
-                    icon="sap-icon://bar-code"
-                    press="onScanSuccess"
-                    class="sapUiTinyMarginBegin"
-                />
-            </HBox>
-        </VBox>
-
         <!-- ========================================================= -->
         <!-- =============== Reference Documents Panel =============== -->
         <!-- ========================================================= -->
@@ -124,7 +94,7 @@
                                 <Column id="colRefDocChangedOnTime" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
                                     <Text text="Changed On Time"/>
                                 </Column>
-                                <Column id="colRefDocAction" hAlign="Center" width="8rem" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colRefDocAction" hAlign="Center" width="12rem" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
                                     <Text text="Action"/>
                                 </Column>
                             </columns>
@@ -147,6 +117,12 @@
                                             alignItems="Center"
                                             justifyContent="SpaceAround"
                                             width="100%">
+                                            <Button
+                                                text="Select Materials"
+                                                icon="sap-icon://list"
+                                                type="Transparent"
+                                                tooltip="Select Materials"
+                                                press=".onSelectMaterialsFromTable"/>
                                             <Button
                                                 icon="sap-icon://edit"
                                                 type="Transparent"
@@ -291,6 +267,119 @@
                             </items>
 
                         </Table>
+                </ScrollContainer>
+            </VBox>
+        </Panel>
+
+
+
+        <!-- ========================================================= -->
+        <!-- =============== Supporting Doc Panel =============== -->
+        <!-- ========================================================= -->
+        <Panel
+            expandable="true"
+            expanded="true"
+            class="sapUiNoContentPadding sapUiSmallMarginTop">
+            
+            <headerToolbar>
+                <OverflowToolbar>
+                    <Title text="Supporting Doc"/>
+                    <ToolbarSpacer/>
+                    <Button
+                        text="Add Supporting Doc"
+                        icon="sap-icon://add"
+                        type="Emphasized"
+                        press="onAddSupportingDoc"/>
+                </OverflowToolbar>
+            </headerToolbar>
+            
+            <VBox class="sapUiSmallMargin sapUiSizeCompact">
+                <ScrollContainer
+                    horizontal="true"
+                    vertical="false"
+                    width="100%"
+                    class="sapUiNoContentPadding sapUiSmallMarginTop sapUiSizeCompact">
+                    <Table
+                        id="idSupportingDocsTable"
+                        inset="false"
+                        width="auto"
+                        class="sapUiSizeCompact"
+                        fixedLayout="false"
+                        autoPopin="true"
+                        sticky="ColumnHeaders,HeaderToolbar"
+                        growing="true"
+                        growingScrollToLoad="true"
+                        items="{path: 'refDocModel>/supportingDocs'}"
+                        noDataText="No supporting documents added yet">
+                        
+                        <headerToolbar>
+                            <Toolbar>
+                                <Title text="Supporting Documents" level="H6"/>
+                                <ToolbarSpacer/>
+                                <Button
+                                    id="idSupportingDocColumnsButton"
+                                    icon="sap-icon://action-settings"
+                                    tooltip="Column Settings"
+                                    press="onSupportingDocColumnSettings"/>
+                            </Toolbar>
+                        </headerToolbar>
+                        
+                        <columns>
+                            <Column id="colSupportingDocName" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Text text="Document Name"/>
+                            </Column>
+                            <Column id="colSupportingDocType" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Text text="Document Type"/>
+                            </Column>
+                            <Column id="colSupportingDocFileName" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Text text="File Name"/>
+                            </Column>
+                            <Column id="colSupportingDocDescription" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Text text="Description"/>
+                            </Column>
+                            <Column id="colSupportingDocCreatedBy" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Text text="Created By"/>
+                            </Column>
+                            <Column id="colSupportingDocCreatedOnDate" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Text text="Created On Date"/>
+                            </Column>
+                            <Column id="colSupportingDocCreatedOnTime" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Text text="Created On Time"/>
+                            </Column>
+                            <Column id="colSupportingDocAction" hAlign="Center" width="8rem" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Text text="Action"/>
+                            </Column>
+                        </columns>
+                        
+                        <items>
+                            <ColumnListItem>
+                                <cells>
+                                    <Text text="{refDocModel>documentName}"/>
+                                    <Text text="{refDocModel>documentType}"/>
+                                    <Text text="{refDocModel>fileName}"/>
+                                    <Text text="{refDocModel>description}"/>
+                                    <Text text="{refDocModel>createdBy}"/>
+                                    <Text text="{refDocModel>createdOnDate}"/>
+                                    <Text text="{refDocModel>createdOnTime}"/>
+                                    <HBox
+                                        alignItems="Center"
+                                        justifyContent="SpaceAround"
+                                        width="100%">
+                                        <Button
+                                            icon="sap-icon://edit"
+                                            type="Transparent"
+                                            tooltip="Edit"
+                                            press=".onEditSupportingDoc"/>
+                                        <Button
+                                            icon="sap-icon://delete"
+                                            type="Transparent"
+                                            tooltip="Delete"
+                                            press=".onDeleteSupportingDoc"/>
+                                    </HBox>
+                                </cells>
+                            </ColumnListItem>
+                        </items>
+                    </Table>
                 </ScrollContainer>
             </VBox>
         </Panel>

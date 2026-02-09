@@ -2,28 +2,42 @@
 	xmlns:form="sap.ui.layout.form" xmlns:unified="sap.ui.unified" xmlns:html="http://www.w3.org/1999/xhtml" displayBlock="true">
 	<App>
 		<pages>
-			<Page>
+			<Page id="stagePage" enableScrolling="true">
 				<customHeader>
-					<Bar>
-						<contentLeft>
-							<Text text="Trip No: {
-								path: 'pageTitleModel>/tripNumber',
-								formatter: '.formatTripNumber'
-							}" class="sapUiSmallMarginBegin"/>
-						</contentLeft>
+					<Bar id="headerBar" design="Header">
 						<contentMiddle>
-							<Text text="Vehicle No:- {pageTitleModel>/vehicleNumber}"/>
+							<HBox width="100%" justifyContent="SpaceBetween" alignItems="Center">
+								<Text
+									text="Trip No: {
+										path: 'pageTitleModel>/tripNumber',
+										formatter: '.formatTripNumber'
+									}"
+									class="sapUiSmallMarginBegin"
+								/>
+								<Text
+									text="Vehicle No:- {pageTitleModel>/vehicleNumber}"
+									textAlign="Center"
+								/>
+								<Text
+									text="Trip status :- {pageTitleModel>/tripStatus}"
+									class="sapUiSmallMarginEnd"
+									textAlign="Right"
+								/>
+							</HBox>
 						</contentMiddle>
-						<contentRight>
-							<Text text="Trip status :- {pageTitleModel>/tripStatus}" class="sapUiSmallMarginEnd"/>
-						</contentRight>
 					</Bar>
 				</customHeader>
 				<content>
-					<VBox >
-						<!-- Selected Scenario Info -->
-						<Text id="selectedScenarioText" text="" class="sapUiSmallMarginBegin sapUiSmallMarginEnd sapUiTinyMarginBottom cutstomCssSCenarioText"
+					<VBox class="stageContentVBox">
+						<!-- Selected Scenario Info (no layout space when hidden) -->
+						<Text id="selectedScenarioText" text="" class="cutstomCssSCenarioText"
 							visible="false"/>
+						<!-- Vehicle animation strip: visible only on Gate In / Gate Out; no extra space -->
+						<VBox id="vehicleAnimationStrip" visible="false" class="vehicleAnimationStrip">
+							<HBox justifyContent="Center" alignItems="Center" width="100%" height="100%">
+								<Image id="idVehicleGateImage" class="vehicleAnimationImage" densityAware="false" decorative="true"/>
+							</HBox>
+						</VBox>
 						<!-- IconTabBar -->
 						<IconTabBar id="iconTabBar" expandable="true" expanded="true" enableTabReordering="true" select="onIconTabSelect">
 							<items>
@@ -36,10 +50,10 @@
 								<IconTabFilter key="gateIn" text="Gate In" icon="sap-icon://visits" enabled="true">
 									<mvc:XMLView viewName="com.incresolZ_INC_PLMS.view.subview.GateIn"/>
 								</IconTabFilter>
-								<IconTabFilter id="idLoadingMaterial" text="Loading" icon="sap-icon://shipping-status">
+								<IconTabFilter id="idLoadingMaterial" text="Loading" icon="sap-icon://shipping-status" visible="false">
 									<mvc:XMLView id="idLoadingMaterialView" viewName="com.incresolZ_INC_PLMS.view.subview.Loading"/>
 								</IconTabFilter>
-								<IconTabFilter id="idUnloadingMaterial" text="Unloading" icon="sap-icon://inventory">
+								<IconTabFilter id="idUnloadingMaterial" text="Unloading" icon="sap-icon://inventory" visible="false">
 									<mvc:XMLView id="idUnloadingMaterialView" viewName="com.incresolZ_INC_PLMS.view.subview.Unloading"/>
 								</IconTabFilter>
 								<IconTabFilter id="tabGateOut" text="Gate Out" key="gateout" icon="sap-icon://outbox" iconColor="Default">

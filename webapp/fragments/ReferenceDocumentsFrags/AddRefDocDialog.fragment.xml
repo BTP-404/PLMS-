@@ -21,25 +21,25 @@
             columnsM="1"
         >
             <Label text="Doc Type" />
-            <Input
+            <Select
                 id="idRefDocType"
-                valueLiveUpdate="true"
-                showValueHelp="true"
-                valueHelpRequest=".onDocTypeValueHelp"
-                showSuggestion="true"
-                filterSuggests="true"
-                suggestionItemSelected=".onDocTypeSuggestionSelected"
-                suggestionItems="{docTypeModel>/items}"
+                change=".onDocTypeChange"
+                items="{docTypeModel>/items}"
+                forceSelection="false"
             >
-                <suggestionItems>
-                    <core:Item
-                        key="{docTypeModel>ConfigID}"
-                        text="{docTypeModel>ConfigID}"
-                        additionalText="{docTypeModel>Description}"
-                        templateShareable="false"
-                    />
-                </suggestionItems>
-            </Input>
+                <core:Item
+                    key="{docTypeModel>ConfigID}"
+                    text="{= ${docTypeModel>ConfigID} + ' - ' + ${docTypeModel>Description}}"
+                    additionalText="{docTypeModel>Description}"
+                />
+            </Select>
+
+            <Label text="Supporting Documents" />
+            <CheckBox
+                id="idRefDocHasSupportingDocuments"
+                text="Supporting Document"
+                selected="false"
+            />
 
             <Label text="Document Number" />
             <Input
@@ -84,14 +84,14 @@
                 enabled="false"
             />
 
-            <Label text="Sales Order Number" />
+            <Label text="Order Number" />
             <Input
                 id="idRefDocSalesDoc"
                 valueLiveUpdate="true"
                 enabled="false"
             />
 
-            <Label text="Sales Order Type" />
+            <Label text="Order Type" />
             <Input
                 id="idRefDocSalesDoctype"
                 valueLiveUpdate="true"
@@ -99,6 +99,18 @@
             />
 
         </form:SimpleForm>
+
+        <Toolbar>
+            <ToolbarSpacer/>
+            <Button
+                id="idSelectMaterialsBtn"
+                text="Select Materials"
+                icon="sap-icon://list"
+                press=".onSelectMaterials"
+                type="Transparent"
+                enabled="true"
+            />
+        </Toolbar>
 
         <beginButton>
             <Button

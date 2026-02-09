@@ -55,6 +55,17 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Unloading", 
         this._eventBus.subscribe("TripData", "Updated", this._onTripDataUpdated, this);
         this._eventBus.subscribe("TripData", "WeighmentRequiredChanged", this._onWeighmentRequiredChanged, this);
         this._eventBus.subscribe("Stage", "ClearAllTabs", this._clearAllData, this);
+        // DISABLED: Button enable/disable logic removed
+        // this._eventBus.subscribe("UserRoles", "Loaded", this._applyUnloadingAuthorization, this);
+        
+        // DISABLED: Button enable/disable logic removed
+        // Race condition fix: Check if UserRoles already loaded
+        // var oUserRoles = sap.ui.getCore().getModel("UserRoles");
+        // if (oUserRoles) {
+        //     setTimeout(function() {
+        //         this._applyUnloadingAuthorization();
+        //     }.bind(this), 0);
+        // }
         
         // Check initial weighment required state
         this._updateWeighmentEnabledState();
@@ -67,8 +78,9 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Unloading", 
         // Initialize column visibility
         this._initializeUnloadingColumnVisibility();
         
+        // DISABLED: Button enable/disable logic removed
         // Initialize button states based on TripDetails
-        this._updateUnloadingButtonStates();
+        // this._updateUnloadingButtonStates();
     },
 
     onAfterRendering: function() {
@@ -76,6 +88,10 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Unloading", 
         // Use setTimeout to ensure view is fully rendered
         setTimeout(function() {
             this._bindMaterialsFromRefDocs();
+            // Update button states when view is rendered
+            this._updateUnloadingButtonStates();
+            // DISABLED: Button enable/disable logic removed
+            // this._applyUnloadingAuthorization();
         }.bind(this), 200);
     },
 
@@ -83,6 +99,8 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Unloading", 
         this._eventBus?.unsubscribe("TripData", "Updated", this._onTripDataUpdated, this);
         this._eventBus?.unsubscribe("TripData", "WeighmentRequiredChanged", this._onWeighmentRequiredChanged, this);
         this._eventBus?.unsubscribe("Stage", "ClearAllTabs", this._clearAllData, this);
+        // DISABLED: Button enable/disable logic removed
+        // this._eventBus?.unsubscribe("UserRoles", "Loaded", this._applyUnloadingAuthorization, this);
         this._oUnloadingColumnVisibilityDialog?.destroy();
     },
     
@@ -106,12 +124,14 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Unloading", 
         if (oTripData) {
             this.getView().setModel(oTripData, "TripData");
         }
+        // Update button states
+        this._updateUnloadingButtonStates();
         // Update weighment enabled state
         this._updateWeighmentEnabledState();
         // Bind materials
         this._bindMaterialsFromRefDocs();
-        // Update button states based on TripDetails status
-        this._updateUnloadingButtonStates();
+        // Re-apply authorization when TripData changes (plant might have changed)
+        // this._applyUnloadingAuthorization();
     },
 
     // =====================================================================
@@ -199,6 +219,162 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Unloading", 
             return;
         }
 
+        // Always save weights first (if there are any to save), then call event
+        oView.setBusy(true);
+        
+        // Check if there are materials with weight values to save
+        var oTableModel = this.getView().getModel("tableModel");
+        var aMaterials = oTableModel ? (oTableModel.getProperty("/materials") || []) : [];
+        var bHasWeightsToSave = false;
+        
+        aMaterials.forEach(function (oMaterial) {
+            var sGrossWt = oMaterial.GrossWt || "";
+            var sTareWt = oMaterial.TareWt || "";
+            var sUnloadedWeight = oMaterial.UnloadedWeight || "";
+            var sNetWt = oMaterial.NetWt || "";
+            var sRemark = oMaterial.Remark || "";
+            
+            if (sGrossWt || sTareWt || sUnloadedWeight || sNetWt || sRemark) {
+                bHasWeightsToSave = true;
+            }
+        });
+
+        // If there are weights to save, validate and save them first
+        if (bHasWeightsToSave) {
+            // Validate weight fields for zero values before saving
+            if (!this._validateWeightFields()) {
+                oView.setBusy(false);
+                var sErrorMessage = "Please enter valid values:\n";
+                if (this._aValidationErrors && this._aValidationErrors.length > 0) {
+                    sErrorMessage += this._aValidationErrors.join("\n");
+                } else {
+                    sErrorMessage += "Unloaded Quantity and weights cannot be zero.";
+                }
+                MessageBox.warning(sErrorMessage);
+                return;
+            }
+            
+            this._updateAllItemDetailsWithWeights(false).then(function() {
+                // After save is successful, call the EndUnloading event
+                this._callEndUnloadingEvent(sTripNumber);
+            }.bind(this)).catch(function(oError) {
+                oView.setBusy(false);
+                // If save fails, show error and don't proceed with event
+                var sMessage = "Failed to save weights. Please try again.";
+                if (oError && oError.message) {
+                    sMessage = oError.message;
+                }
+                MessageBox.error(sMessage);
+            }.bind(this));
+        } else {
+            // No weights to save, directly call the event
+            this._callEndUnloadingEvent(sTripNumber);
+        }
+    },
+
+    // =====================================================================
+    // Save Unloading (without ending unloading)
+    // =====================================================================
+    onSaveUnloading: function () {
+        // Check authorization - determine if this is add or edit
+        var oTableModel = this.getView().getModel("tableModel");
+        var aMaterials = oTableModel ? (oTableModel.getProperty("/materials") || []) : [];
+        var bHasExistingData = false;
+        
+        // Check if any material has existing data
+        aMaterials.forEach(function (oMaterial) {
+            if (oMaterial.GrossWt || oMaterial.TareWt || oMaterial.LoadedWeight || oMaterial.NetWt) {
+                bHasExistingData = true;
+            }
+        });
+        
+        var oUserRoles = sap.ui.getCore().getModel("UserRoles");
+        var bAuthorized = false;
+        
+        if (bHasExistingData) {
+            // Editing existing unloading data
+            var sEditUnloading = oUserRoles ? (oUserRoles.getProperty("/EditUnloading") || "") : "";
+            bAuthorized = sEditUnloading === "X";
+            if (!bAuthorized) {
+                MessageBox.warning("You are not authorized to edit Unloading information.");
+                return;
+            }
+        } else {
+            // Adding new unloading data
+            var sAddUnloading = oUserRoles ? (oUserRoles.getProperty("/AddUnloading") || "") : "";
+            bAuthorized = sAddUnloading === "X";
+            if (!bAuthorized) {
+                MessageBox.warning("You are not authorized to add Unloading information.");
+                return;
+            }
+        }
+        
+        var oView = this.getView();
+        var sTripNumber = sap.ui.getCore().getModel("globalData").getProperty("/TripNumber");
+
+        if (!sTripNumber) {
+            MessageToast.show("Trip Number missing. Please open a trip first.");
+            return;
+        }
+
+        oView.setBusy(true);
+
+        // Check if there are materials with values to save
+        var oTableModel = this.getView().getModel("tableModel");
+        var aMaterials = oTableModel ? (oTableModel.getProperty("/materials") || []) : [];
+        var bHasDataToSave = false;
+
+        aMaterials.forEach(function (oMaterial) {
+            var sGrossWt = oMaterial.GrossWt || "";
+            var sTareWt = oMaterial.TareWt || "";
+            var sUnloadedWeight = oMaterial.UnloadedWeight || "";
+            var sNetWt = oMaterial.NetWt || "";
+            var sRemark = oMaterial.Remark || "";
+
+            if (sGrossWt || sTareWt || sUnloadedWeight || sNetWt || sRemark) {
+                bHasDataToSave = true;
+            }
+        });
+
+        if (!bHasDataToSave) {
+            oView.setBusy(false);
+            MessageToast.show("Nothing to save.");
+            return;
+        }
+
+        // Validate before saving
+        if (!this._validateWeightFields()) {
+            oView.setBusy(false);
+            var sErrorMessage = "Please enter valid values:\n";
+            if (this._aValidationErrors && this._aValidationErrors.length > 0) {
+                sErrorMessage += this._aValidationErrors.join("\n");
+            } else {
+                sErrorMessage += "Unloaded Quantity and weights cannot be zero.";
+            }
+            MessageBox.warning(sErrorMessage);
+            return;
+        }
+
+        this._updateAllItemDetailsWithWeights(true).then(function () {
+            oView.setBusy(false);
+            MessageToast.show("Saved successfully.");
+            // Button states may depend on trip status; refresh them
+            this._reloadTripDataAndUpdateButtons();
+        }.bind(this)).catch(function (oError) {
+            oView.setBusy(false);
+            var sMessage = "Failed to save. Please try again.";
+            if (oError && oError.message) {
+                sMessage = oError.message;
+            }
+            MessageBox.error(sMessage);
+        });
+    },
+
+    // =====================================================================
+    // Call EndUnloading Event (internal method)
+    // =====================================================================
+    _callEndUnloadingEvent: function (sTripNumber) {
+        var oView = this.getView();
         oView.setBusy(true);
 
         // FunctionImport: EndUnloading - POST method, returns RegisterEvent
@@ -243,6 +419,88 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Unloading", 
                 this._reloadTripDataAndUpdateButtons();
             }.bind(this)
         });
+    },
+
+    // =====================================================================
+    // ReStart Unloading (calls ReOpen function)
+    // =====================================================================
+    onReStartUnloading: function () {
+        var oView = this.getView();
+        var sTripNumber = sap.ui.getCore().getModel("globalData").getProperty("/TripNumber");
+
+        if (!sTripNumber) {
+            MessageToast.show("Trip Number missing. Please open a trip first.");
+            return;
+        }
+
+        // Confirm with user before reopening
+        MessageBox.confirm(
+            "Are you sure you want to restart unloading? This will allow you to continue unloading operations.",
+            {
+                title: "ReStart Unloading",
+                actions: [MessageBox.Action.OK, MessageBox.Action.CANCEL],
+                emphasizedAction: MessageBox.Action.OK,
+                onClose: function (sAction) {
+                    if (sAction === MessageBox.Action.OK) {
+                        oView.setBusy(true);
+
+                        // FunctionImport: ReOpen - POST method, returns RegisterEvent
+                        this.oModel.callFunction("/ReOpen", {
+                            method: "POST",
+                            urlParameters: {
+                                TripNumber: sTripNumber
+                            },
+                            headers: {
+                                "X-Requested-With": "X"
+                            },
+                            success: function (oData) {
+                                oView.setBusy(false);
+                                MessageToast.show("Unloading restarted successfully.");
+
+                                // DISABLED: Button enable/disable logic removed
+                                // After restart, disable ReStart button and enable End button
+                                // var oBtnReStart = oView.byId("btnReStartUnloading");
+                                // var oBtnEnd = oView.byId("btnEndUnloading");
+                                // if (oBtnReStart) {
+                                //     oBtnReStart.setEnabled(false);
+                                // }
+                                // if (oBtnEnd) {
+                                //     oBtnEnd.setEnabled(true);
+                                // }
+                                
+                                // Reload TripData to get updated status fields
+                                this._reloadTripDataAndUpdateButtons();
+                            }.bind(this),
+                            error: function (oError) {
+                                oView.setBusy(false);
+
+                                let sMessage = "Failed to restart unloading";
+
+                                try {
+                                    if (oError && oError.responseText) {
+                                        const oResponse = JSON.parse(oError.responseText);
+                                        if (oResponse.error?.message?.value) {
+                                            sMessage = oResponse.error.message.value;
+                                        } else if (oResponse.error?.message) {
+                                            sMessage = oResponse.error.message;
+                                        }
+                                    } else if (oError && oError.message) {
+                                        sMessage = oError.message.value || oError.message;
+                                    }
+                                } catch (e) {
+                                    // Error parsing response
+                                }
+
+                                MessageBox.error(sMessage);
+
+                                // Reload TripData to restore correct button states
+                                this._reloadTripDataAndUpdateButtons();
+                            }.bind(this)
+                        });
+                    }
+                }.bind(this)
+            }
+        );
     },
 
 
@@ -401,11 +659,12 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Unloading", 
             MaterialDescription: oMaterial.MaterialDescription || oMaterial.materialDescription || "",
             Qty: oMaterial.Quantity || oMaterial.qty || "",
             UoM: oMaterial.UoM || oMaterial.uom || "",
+            ConfirmQty: oMaterial.ConfirmQty || oMaterial.confirmQty || "",
             UnloadedWeight: sUnloadedWeight,
             GrossWt: sGrossWt, // Map from backend GrossWeight to frontend GrossWt
             TareWt: sTareWt, // Map from backend TareWeight to frontend TareWt
             NetWt: sNetWt, // Map from backend NetWeight to frontend NetWt (or calculate if missing)
-            Remark: oMaterial.Remark || oMaterial.remark || "",
+            Remark: oMaterial.Remark || oMaterial.remark || oMaterial.Remarks || "",
             CreatedBy: oMaterial.CreatedBy || oMaterial.createdBy || "",
             CreatedOnDate: oMaterial.CreatedOnDate || oMaterial.createdOnDate || "",
             CreatedOnTime: oMaterial.CreatedOnTime || oMaterial.createdOnTime || ""
@@ -441,6 +700,13 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Unloading", 
         
         if (oTripData) {
             var sWeighmentRequired = oTripData.getProperty("/WeighmentRequired");
+            
+            // Default to "N" if not set, null, or undefined
+            if (!sWeighmentRequired || sWeighmentRequired === null || sWeighmentRequired === undefined || sWeighmentRequired === "") {
+                sWeighmentRequired = "N";
+                oTripData.setProperty("/WeighmentRequired", "N");
+            }
+            
             bEnabled = (sWeighmentRequired === "Y" || sWeighmentRequired === "Yes");
         }
         
@@ -460,25 +726,75 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Unloading", 
             return;
         }
         
-        // Zero validation - prevent zero values
-        if (sValue !== "" && sValue !== null && sValue !== undefined) {
-            var fValue = parseFloat(sValue);
-            if (!isNaN(fValue) && fValue === 0) {
-                oInput.setValueState("Error");
-                oInput.setValueStateText("Weight cannot be zero");
-                return;
-            } else {
-                oInput.setValueState("None");
-                oInput.setValueStateText("");
-            }
+        // Check if weighment is required - skip validation for weight fields if not required
+        var oTripData = sap.ui.getCore().getModel("TripData");
+        var bWeighmentRequired = false;
+        if (oTripData) {
+            var sWeighmentRequired = oTripData.getProperty("/WeighmentRequired");
+            bWeighmentRequired = (sWeighmentRequired === "Y" || sWeighmentRequired === "Yes");
         }
+        
+        // Get the input field ID to determine which field is being validated
+        var sInputId = oInput.getId() || "";
+        var bIsWeightField = sInputId.indexOf("GrossWt") !== -1 || 
+                            sInputId.indexOf("TareWt") !== -1 || 
+                            sInputId.indexOf("NetWt") !== -1;
+        
+        // Skip validation for weight fields if weighment is not required
+        if (bIsWeightField && !bWeighmentRequired) {
+            oInput.setValueState("None");
+            oInput.setValueStateText("");
+            return;
+        }
+        
+        // Validation - check for blank, null, zero, and negative values
+        var sTrimmedValue = sValue ? String(sValue).trim() : "";
+        
+        // Check if value is blank, null, or undefined
+        if (sValue === "" || sValue === null || sValue === undefined || sTrimmedValue === "") {
+            oInput.setValueState("None");
+            oInput.setValueStateText("");
+            return; // Allow blank values (user can clear the field)
+        }
+        
+        // Check for valid numeric value
+        var fValue = parseFloat(sTrimmedValue);
+        if (isNaN(fValue)) {
+            oInput.setValueState("Error");
+            var sErrorMessage = sInputId && sInputId.indexOf("UnloadedWeight") !== -1 
+                ? "Unloaded Quantity must be a valid number" 
+                : "Weight must be a valid number";
+            oInput.setValueStateText(sErrorMessage);
+            return;
+        }
+        
+        // Check for zero value
+        if (fValue === 0) {
+            oInput.setValueState("Error");
+            var sErrorMessage = sInputId && sInputId.indexOf("UnloadedWeight") !== -1 
+                ? "Unloaded Quantity cannot be zero" 
+                : "Weight cannot be zero";
+            oInput.setValueStateText(sErrorMessage);
+            return;
+        }
+        
+        // Check for negative value
+        if (fValue < 0) {
+            oInput.setValueState("Error");
+            oInput.setValueStateText("Value cannot be negative");
+            return;
+        }
+        
+        // Valid value
+        oInput.setValueState("None");
+        oInput.setValueStateText("");
         
         var oMaterial = oBindingContext.getObject();
         var sGrossWt = oMaterial.GrossWt || "";
         var sTareWt = oMaterial.TareWt || "";
         
-        // Calculate Net Wt = Gross Wt - Tare Wt
-        if (sGrossWt && sTareWt) {
+        // Calculate Net Wt = Gross Wt - Tare Wt (only if weighment is required)
+        if (bWeighmentRequired && sGrossWt && sTareWt) {
             var fGrossWt = parseFloat(sGrossWt);
             var fTareWt = parseFloat(sTareWt);
             if (!isNaN(fGrossWt) && !isNaN(fTareWt) && fGrossWt !== 0 && fTareWt !== 0) {
@@ -494,14 +810,20 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Unloading", 
     onUpdateWeights: function () {
         // Validate weight fields for zero values before saving
         if (!this._validateWeightFields()) {
-            MessageBox.warning("Please enter valid weight values. Weight cannot be zero.");
+            var sErrorMessage = "Please enter valid values:\n";
+            if (this._aValidationErrors && this._aValidationErrors.length > 0) {
+                sErrorMessage += this._aValidationErrors.join("\n");
+            } else {
+                sErrorMessage += "Unloaded Quantity and weights cannot be zero.";
+            }
+            MessageBox.warning(sErrorMessage);
             return;
         }
         
         var oView = this.getView();
         oView.setBusy(true);
         
-        this._updateAllItemDetailsWithWeights().then(function() {
+        this._updateAllItemDetailsWithWeights(false).then(function() {
             oView.setBusy(false);
         }.bind(this)).catch(function(oError) {
             oView.setBusy(false);
@@ -512,6 +834,13 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Unloading", 
     // VALIDATE WEIGHT FIELDS FOR ZERO VALUES
     // =====================================================================
     _validateWeightFields: function () {
+        var oTripData = sap.ui.getCore().getModel("TripData");
+        var bWeighmentRequired = false;
+        if (oTripData) {
+            var sWeighmentRequired = oTripData.getProperty("/WeighmentRequired");
+            bWeighmentRequired = (sWeighmentRequired === "Y" || sWeighmentRequired === "Yes");
+        }
+
         var oTableModel = this.getView().getModel("tableModel");
         if (!oTableModel) {
             return true;
@@ -519,27 +848,79 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Unloading", 
         
         var aMaterials = oTableModel.getProperty("/materials") || [];
         var bIsValid = true;
+        var aErrors = [];
         
-        aMaterials.forEach(function (oMaterial) {
-            var sGrossWt = oMaterial.GrossWt || "";
-            var sTareWt = oMaterial.TareWt || "";
-            var sUnloadedWeight = oMaterial.UnloadedWeight || "";
-            var sNetWt = oMaterial.NetWt || "";
+        aMaterials.forEach(function (oMaterial, iIndex) {
+            var sGrossWt = oMaterial.GrossWt;
+            var sTareWt = oMaterial.TareWt;
+            var sUnloadedWeight = oMaterial.UnloadedWeight;
+            var sNetWt = oMaterial.NetWt;
+            var sMaterialCode = oMaterial.MaterialCode || "";
             
-            // Check if any weight field has zero value
-            if (sGrossWt && parseFloat(sGrossWt) === 0) {
-                bIsValid = false;
+            // Helper function to check if value is blank/null/undefined
+            var fnIsBlank = function(sVal) {
+                return sVal === null || sVal === undefined || sVal === "" || String(sVal).trim() === "";
+            };
+            
+            // Helper function to validate numeric value
+            var fnValidateNumeric = function(sVal, sFieldName) {
+                if (fnIsBlank(sVal)) {
+                    return { valid: false, error: sFieldName + " cannot be blank or null" };
+                }
+                var fVal = parseFloat(String(sVal).trim());
+                if (isNaN(fVal)) {
+                    return { valid: false, error: sFieldName + " must be a valid number" };
+                }
+                if (fVal === 0) {
+                    return { valid: false, error: sFieldName + " cannot be zero" };
+                }
+                if (fVal < 0) {
+                    return { valid: false, error: sFieldName + " cannot be negative" };
+                }
+                return { valid: true };
+            };
+            
+            // Validate Unloaded Quantity (if entered, must be valid) - always validate
+            if (!fnIsBlank(sUnloadedWeight)) {
+                var oValidation = fnValidateNumeric(sUnloadedWeight, "Unloaded Quantity");
+                if (!oValidation.valid) {
+                    bIsValid = false;
+                    aErrors.push("Material " + sMaterialCode + ": " + oValidation.error);
+                }
             }
-            if (sTareWt && parseFloat(sTareWt) === 0) {
-                bIsValid = false;
-            }
-            if (sUnloadedWeight && parseFloat(sUnloadedWeight) === 0) {
-                bIsValid = false;
-            }
-            if (sNetWt && parseFloat(sNetWt) === 0) {
-                bIsValid = false;
+            
+            // Validate weight fields (if entered, must be valid) - only if weighment is required
+            if (bWeighmentRequired) {
+                if (!fnIsBlank(sGrossWt)) {
+                    var oValidation = fnValidateNumeric(sGrossWt, "Gross Weight");
+                    if (!oValidation.valid) {
+                        bIsValid = false;
+                        aErrors.push("Material " + sMaterialCode + ": " + oValidation.error);
+                    }
+                }
+                
+                if (!fnIsBlank(sTareWt)) {
+                    var oValidation = fnValidateNumeric(sTareWt, "Tare Weight");
+                    if (!oValidation.valid) {
+                        bIsValid = false;
+                        aErrors.push("Material " + sMaterialCode + ": " + oValidation.error);
+                    }
+                }
+                
+                if (!fnIsBlank(sNetWt)) {
+                    var oValidation = fnValidateNumeric(sNetWt, "Net Weight");
+                    if (!oValidation.valid) {
+                        bIsValid = false;
+                        aErrors.push("Material " + sMaterialCode + ": " + oValidation.error);
+                    }
+                }
             }
         });
+        
+        // Store errors for display
+        if (!bIsValid && aErrors.length > 0) {
+            this._aValidationErrors = aErrors;
+        }
         
         return bIsValid;
     },
@@ -547,7 +928,7 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Unloading", 
     // =====================================================================
     // UPDATE ALL ITEMDETAILS WITH WEIGHT FIELDS
     // =====================================================================
-    _updateAllItemDetailsWithWeights: function () {
+    _updateAllItemDetailsWithWeights: function (bShowSuccessToast) {
         var oTableModel = this.getView().getModel("tableModel");
         if (!oTableModel) {
             return;
@@ -560,19 +941,20 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Unloading", 
             return;
         }
         
-        // Update each material that has weight values
+        // Update each material that has weight values or confirm qty
         var aUpdatePromises = [];
         var iTotalUpdates = 0;
         aMaterials.forEach(function (oMaterial) {
-            // Check if material has weight values or remark to update
+            // Check if material has weight values, remark, or confirm qty to update
             var sGrossWt = oMaterial.GrossWt || "";
             var sTareWt = oMaterial.TareWt || "";
             var sUnloadedWeight = oMaterial.UnloadedWeight || "";
             var sNetWt = oMaterial.NetWt || "";
             var sRemark = oMaterial.Remark || "";
+            var sConfirmQty = oMaterial.ConfirmQty || "";
             
-            // Update if at least one weight field or remark has a value
-            if (sGrossWt || sTareWt || sUnloadedWeight || sNetWt || sRemark) {
+            // Update if at least one weight field, remark, or confirm qty has a value
+            if (sGrossWt || sTareWt || sUnloadedWeight || sNetWt || sRemark || sConfirmQty) {
                 iTotalUpdates++;
                 var oUpdatePromise = this._updateItemDetailWeight(oMaterial, sTripNumber);
                 if (oUpdatePromise) {
@@ -605,7 +987,9 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Unloading", 
                 
                 // Show success message only if all updates succeeded
                 if (iFailureCount === 0 && iSuccessCount > 0) {
-                    MessageToast.show("Weight fields updated successfully");
+                    if (bShowSuccessToast) {
+                        MessageToast.show("Weight fields updated successfully");
+                    }
                     // Reload TripData to fetch updated weights from backend
                     // Use setTimeout to ensure the reload happens after the current promise chain
                     setTimeout(function() {
@@ -731,14 +1115,21 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Unloading", 
                 if (oMaterial.NetWt) {
                     oUpdatePayload.NetWeight = String(parseFloat(oMaterial.NetWt) || 0);
                 }
-                // Add Unloaded Weight to payload
-                if (oMaterial.UnloadedWeight) {
-                    oUpdatePayload.UnloadedWeight = String(parseFloat(oMaterial.UnloadedWeight) || 0);
-                }
-                // Add Remarks to payload
-                if (oMaterial.Remark !== undefined && oMaterial.Remark !== null) {
-                    oUpdatePayload.Remarks = String(oMaterial.Remark || "");
-                }
+        // Add Unloaded Weight to payload
+        if (oMaterial.UnloadedWeight) {
+            oUpdatePayload.UnloadedWeight = String(parseFloat(oMaterial.UnloadedWeight) || 0);
+        }
+        // Add Remarks to payload
+        if (oMaterial.Remark !== undefined && oMaterial.Remark !== null) {
+            oUpdatePayload.Remarks = String(oMaterial.Remark || "");
+        }
+
+        // Add ConfirmQty to payload (X when checked, empty otherwise)
+        if (oMaterial.ConfirmQty !== undefined && oMaterial.ConfirmQty !== null) {
+            oUpdatePayload.ConfirmQty = oMaterial.ConfirmQty ? "X" : "";
+        } else if (oCurrentData && oCurrentData.ConfirmQty !== undefined) {
+            oUpdatePayload.ConfirmQty = oCurrentData.ConfirmQty;
+        }
         
         // Update ItemDetails using the same pattern as Reference Documents
         return new Promise(function (resolve, reject) {
@@ -912,11 +1303,16 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Unloading", 
         
         var sStartUnloading = oTripData.getProperty("/Start_Unloading") || "";
         var sEndUnloading = oTripData.getProperty("/End_Unloading") || "";
+        var sTripStatus = (oTripData.getProperty("/TripStatus") || "").trim();
+        var sLowerStatus = sTripStatus.toLowerCase();
+        var bIsUnloadingReopened = sLowerStatus === "unloading reopened" || sLowerStatus === "unloading-reopened";
         
         var bStartStarted = (sStartUnloading === "X" || sStartUnloading === "x");
         var bEndCompleted = (sEndUnloading === "X" || sEndUnloading === "x");
         
         var oBtnStart = oView.byId("btnStartUnloading");
+        var oBtnReStart = oView.byId("btnReStartUnloading");
+        var oBtnSave = oView.byId("btnSaveUnloading");
         var oBtnEnd = oView.byId("btnEndUnloading");
         
         if (!oBtnStart || !oBtnEnd) {
@@ -924,22 +1320,61 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Unloading", 
         }
         
         // Logic:
-        // 1. If started but not completed: Start disabled, End enabled
-        // 2. If both started and completed: Both enabled
-        // 3. If neither started: Start enabled, End disabled
+        // 1. If started but not completed (or after reopen if End flag cleared): Start hidden, ReStart hidden, Save enabled, End visible and enabled
+        // 2. If both started and completed (before reopen or after reopen if End flag kept): Start hidden, ReStart visible and enabled, Save disabled, End visible and enabled
+        // 3. If neither started: Start visible and enabled, ReStart hidden, Save disabled, End visible but disabled
+        // 4. If TripStatus is "Unloading Reopened": Hide ReStart button regardless of other conditions
         
         if (bStartStarted && !bEndCompleted) {
-            // Started but not completed
-            oBtnStart.setEnabled(false);
-            oBtnEnd.setEnabled(true);
+            // Started but not completed (or after restart)
+            if (oBtnStart) {
+                oBtnStart.setVisible(false);
+            }
+            if (oBtnReStart) {
+                oBtnReStart.setVisible(false);
+            }
+            if (oBtnSave) {
+                oBtnSave.setEnabled(true);
+            }
+            if (oBtnEnd) {
+                oBtnEnd.setVisible(true);
+                oBtnEnd.setEnabled(true);
+            }
         } else if (bStartStarted && bEndCompleted) {
-            // Both started and completed
-            oBtnStart.setEnabled(true);
-            oBtnEnd.setEnabled(true);
+            // Unloading ended - Hide Start, Show Restart and End (End visible after restart)
+            if (oBtnStart) {
+                oBtnStart.setVisible(false);
+            }
+            if (oBtnReStart) {
+                // Hide ReStart button if TripStatus is "Unloading Reopened"
+                oBtnReStart.setVisible(!bIsUnloadingReopened);
+                if (!bIsUnloadingReopened) {
+                    oBtnReStart.setEnabled(true);
+                }
+            }
+            if (oBtnSave) {
+                oBtnSave.setEnabled(false);
+            }
+            if (oBtnEnd) {
+                oBtnEnd.setVisible(true);
+                oBtnEnd.setEnabled(true);
+            }
         } else {
             // Neither started (default)
-            oBtnStart.setEnabled(true);
-            oBtnEnd.setEnabled(false);
+            if (oBtnStart) {
+                oBtnStart.setVisible(true);
+                oBtnStart.setEnabled(true);
+            }
+            if (oBtnReStart) {
+                oBtnReStart.setVisible(false);
+            }
+            if (oBtnSave) {
+                oBtnSave.setEnabled(false);
+            }
+            if (oBtnEnd) {
+                oBtnEnd.setVisible(true);
+                oBtnEnd.setEnabled(false);
+            }
         }
     },
 
@@ -967,6 +1402,83 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Unloading", 
             }
         });
     },
+
+    /**
+     * Apply authorization to Unloading buttons based on UserRoles
+     */
+    // DISABLED: Button enable/disable logic removed
+    /*
+    _applyUnloadingAuthorization: function () {
+        var oUserRoles = sap.ui.getCore().getModel("UserRoles");
+        if (!oUserRoles) {
+            // If UserRoles not loaded, disable buttons by default
+            var oSaveBtn = this.getView().byId("btnSaveUnloading");
+            if (oSaveBtn) {
+                oSaveBtn.setEnabled(false);
+            }
+            return;
+        }
+
+        var oTableModel = this.getView().getModel("tableModel");
+        var aMaterials = oTableModel ? (oTableModel.getProperty("/materials") || []) : [];
+        var bHasExistingData = false;
+        
+        // Check if any material has existing data
+        aMaterials.forEach(function (oMaterial) {
+            if (oMaterial.GrossWt || oMaterial.TareWt || oMaterial.UnloadedWeight || oMaterial.NetWt) {
+                bHasExistingData = true;
+            }
+        });
+
+        var oSaveBtn = this.getView().byId("btnSaveUnloading");
+        var oStartBtn = this.getView().byId("btnStartUnloading");
+        var oEndBtn = this.getView().byId("btnEndUnloading");
+        var oReStartBtn = this.getView().byId("btnReStartUnloading");
+
+        // Get authorization roles
+        var sAddUnloading = oUserRoles.getProperty("/AddUnloading") || "";
+        var sEditUnloading = oUserRoles.getProperty("/EditUnloading") || "";
+        var sDelUnloading = oUserRoles.getProperty("/DelUnloading") || "";
+        var sReopenUnload = oUserRoles.getProperty("/ReopenUnload") || "";
+
+        var bHasAnyUnloadingAuth = (sAddUnloading === "X" || sEditUnloading === "X" || sDelUnloading === "X");
+
+        // Save button - only restrict if not authorized
+        if (oSaveBtn) {
+            var bCurrentState = oSaveBtn.getEnabled();
+            var bShouldBeEnabled = bHasExistingData ? (sEditUnloading === "X") : (sAddUnloading === "X");
+            if (bCurrentState && !bShouldBeEnabled) {
+                oSaveBtn.setEnabled(false);
+            }
+        }
+
+        // Start button - only restrict if not authorized
+        if (oStartBtn && oStartBtn.getVisible()) {
+            var bCurrentState = oStartBtn.getEnabled();
+            var bHasAuth = sAddUnloading === "X";
+            if (bCurrentState && !bHasAuth) {
+                oStartBtn.setEnabled(false);
+            }
+        }
+
+        // ReStart button - only restrict if not authorized
+        if (oReStartBtn && oReStartBtn.getVisible()) {
+            var bCurrentState = oReStartBtn.getEnabled();
+            var bHasAuth = sReopenUnload === "X";
+            if (bCurrentState && !bHasAuth) {
+                oReStartBtn.setEnabled(false);
+            }
+        }
+
+        // End button - only restrict if no unloading auth
+        if (oEndBtn) {
+            var bCurrentState = oEndBtn.getEnabled();
+            if (bCurrentState && !bHasAnyUnloadingAuth) {
+                oEndBtn.setEnabled(false);
+            }
+        }
+    },
+    */
     
     // =====================================================================
     // RELOAD TRIPDATA AND REFRESH MATERIALS (for weight updates)
@@ -994,8 +1506,9 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Unloading", 
                 
                 // Update weighment enabled state
                 this._updateWeighmentEnabledState();
+                // DISABLED: Button enable/disable logic removed
                 // Update button states based on TripDetails status
-                this._updateUnloadingButtonStates();
+                // this._updateUnloadingButtonStates();
                 
                 // Publish event for other subscribers
                 sap.ui.getCore().getEventBus().publish("TripData", "Updated");

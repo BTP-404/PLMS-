@@ -4,8 +4,10 @@ sap.ui.define([
 	"sap/ui/model/odata/v2/ODataModel",
 	"sap/m/MessageBox",
 	"sap/m/MessageToast",
-	"sap/m/ButtonType"
-], function(Controller, JSONModel, ODataModel, MessageBox, MessageToast, ButtonType) {
+	"sap/m/ButtonType",
+	"sap/ui/model/Filter",
+	"sap/ui/model/FilterOperator"
+], function(Controller, JSONModel, ODataModel, MessageBox, MessageToast, ButtonType, Filter, FilterOperator) {
 	"use strict";
 	return Controller.extend("com.incresolZ_INC_PLMS.controller.Stage", {
 		onInit: function() {
@@ -22,32 +24,62 @@ sap.ui.define([
 			this._oEventBus = sap.ui.getCore().getEventBus();
 			this._oEventBus.subscribe("TripData", "Updated", this._refreshPageTitleModel, this);
 			this._oEventBus.subscribe("TripData", "Updated", this._updateLoadingUnloadingTabs, this);
+			this._oEventBus.subscribe("TripData", "MovementTypeChanged", this._updateLoadingUnloadingTabs, this);
 			this._oEventBus.subscribe("TripData", "Updated", this._updateCancelButtonVisibility, this);
+			this._oEventBus.subscribe("TripData", "Updated", this._loadUserRolesForTrip, this);
 			this._oEventBus.subscribe("Stage", "TripCreated", this._onTripCreated, this);
+			this._oEventBus.subscribe("Stage", "GateSaveSuccess", this._onGateSaveSuccess, this);
 			this._oEventBus.subscribe("Notes", "UnreadCountChanged", this._updateNotesTabIndicator, this);
 			this._oEventBus.subscribe("Stage", "ClearAllTabs", this._onClearAllTabs, this);
+			this._bShowGateAnimationAfterSave = false;
+			
+			// UserRoles are loaded in HomePage - just try to load plant-specific roles if TripData exists
+			this._loadUserRolesForTrip();
 		},
-		onAfterRendering: function() {
-			this._updateLoadingUnloadingTabs();
-			this._updateCancelButtonVisibility();
-		},
+	onAfterRendering: function() {
+		this._updateCancelButtonVisibility();
+		this._updateTabVisibilityForCreateMode();
+		this._updateLoadingUnloadingTabs(); // Call after _updateTabVisibilityForCreateMode to ensure movement type logic takes precedence
+		this._updateHeaderVisibilityForCreateMode();
+		// Sync vehicle animation strip with current tab (e.g. when returning to Stage with Gate In/Out selected)
+		var oIconTabBar = this.byId("iconTabBar");
+		if (oIconTabBar) {
+			var sKey = oIconTabBar.getSelectedKey();
+			// Defer so IconTabBar has finished updating selected key
+			setTimeout(function () {
+				var k = this.byId("iconTabBar") ? this.byId("iconTabBar").getSelectedKey() : sKey;
+				this._updateVehicleAnimationStrip(k || sKey);
+			}.bind(this), 0);
+		}
+	},
 
 		onExit: function () {
 			this._oEventBus?.unsubscribe("TripData", "Updated", this._refreshPageTitleModel, this);
 			this._oEventBus?.unsubscribe("TripData", "Updated", this._updateLoadingUnloadingTabs, this);
+			this._oEventBus?.unsubscribe("TripData", "MovementTypeChanged", this._updateLoadingUnloadingTabs, this);
 			this._oEventBus?.unsubscribe("TripData", "Updated", this._updateCancelButtonVisibility, this);
+			this._oEventBus?.unsubscribe("TripData", "Updated", this._loadUserRolesForTrip, this);
 			this._oEventBus?.unsubscribe("Stage", "TripCreated", this._onTripCreated, this);
+			this._oEventBus?.unsubscribe("Stage", "GateSaveSuccess", this._onGateSaveSuccess, this);
 			this._oEventBus?.unsubscribe("Notes", "UnreadCountChanged", this._updateNotesTabIndicator, this);
 			this._oEventBus?.unsubscribe("Stage", "ClearAllTabs", this._onClearAllTabs, this);
 		},
 		
-		_onClearAllTabs: function () {
-			// Clear page title header (Trip No, Vehicle No, Trip status)
-			this.resetPageTitleModel();
-			// Set create mode to ensure header stays clear
-			this._bCreateMode = true;
-			this._sCurrentTripNumber = "";
-		},
+	_onClearAllTabs: function () {
+		// Clear page title header (Trip No, Vehicle No, Trip status)
+		this.resetPageTitleModel();
+		// Set create mode to ensure header stays clear
+		this._bCreateMode = true;
+		this._sCurrentTripNumber = "";
+		this._updateTabVisibilityForCreateMode();
+		this._updateHeaderVisibilityForCreateMode();
+		
+		// IMPORTANT:
+		// Do NOT reset UserRoles here – they are user-level, not trip-level.
+		// Clearing them causes all other screens that depend on UserRoles
+		// (Reference Docs, GateIn/Out, Loading, etc.) to lose authorization
+		// after a clear/refresh. We keep the last loaded roles instead.
+	},
 
 	_onRouteMatched: function (oEvent) {
 
@@ -82,12 +114,14 @@ sap.ui.define([
 			sap.ui.getCore().getModel("globalData")?.setProperty("/TripNumber", "");
 			sap.ui.getCore().setModel(null, "TripData");
 	
-			this.resetPageTitleModel();   // ← finally clears
-			this._setIconTabSelection("vehicleReporting");
-			this._updateLoadingUnloadingTabs();
-			this._updateCancelButtonVisibility();
+		this.resetPageTitleModel();   // ← finally clears
+		this._setIconTabSelection("vehicleReporting");
+		this._updateCancelButtonVisibility();
+		this._updateTabVisibilityForCreateMode();
+		this._updateLoadingUnloadingTabs(); // Call after _updateTabVisibilityForCreateMode to ensure movement type logic takes precedence
+		this._updateHeaderVisibilityForCreateMode();
 	
-			return;
+		return;
 		}
 	
 		// ============================
@@ -100,18 +134,22 @@ sap.ui.define([
 	
 			sap.ui.getCore().getModel("globalData")?.setProperty("/TripNumber", sTripNumber);
 	
-			this._refreshPageTitleModel();
-			this._updateLoadingUnloadingTabs();
-			this._updateCancelButtonVisibility();
-		}
+		this._refreshPageTitleModel();
+		this._updateCancelButtonVisibility();
+		this._updateTabVisibilityForCreateMode();
+		this._updateLoadingUnloadingTabs(); // Call after _updateTabVisibilityForCreateMode to ensure movement type logic takes precedence
+		this._updateHeaderVisibilityForCreateMode();
+	}
 	}
 		
 		,
 		_setIconTabSelection: function (sKey) {
 			var oIconTabBar = this.byId("iconTabBar");
+			var sEffectiveKey = sKey || "vehicleReporting";
 			if (oIconTabBar) {
-				oIconTabBar.setSelectedKey(sKey || "vehicleReporting");
+				oIconTabBar.setSelectedKey(sEffectiveKey);
 			}
+			this._updateVehicleAnimationStrip(sEffectiveKey);
 		}
 		,
 
@@ -173,14 +211,16 @@ sap.ui.define([
 			this._refreshPageTitleModel();
 		},
 
-		_onTripCreated: function (sChannel, sEvent, oData) {
-			// Trip was just created, update mode and refresh header
-			if (oData && oData.tripNumber) {
-				this._bCreateMode = false;
-				this._sCurrentTripNumber = oData.tripNumber;
-				this._refreshPageTitleModel();
-			}
-		},
+	_onTripCreated: function (sChannel, sEvent, oData) {
+		// Trip was just created, update mode and refresh header
+		if (oData && oData.tripNumber) {
+			this._bCreateMode = false;
+			this._sCurrentTripNumber = oData.tripNumber;
+			this._refreshPageTitleModel();
+			this._updateHeaderVisibilityForCreateMode();
+			this._updateTabVisibilityForCreateMode();
+		}
+	},
 
 		_refreshPageTitleModel: function () {
 			if (!this._oPageTitleModel) {
@@ -286,20 +326,16 @@ sap.ui.define([
 				return;
 			}
 
-			var oService = this._getTripService();
-
-			oService.read("/TripDetails('" + sTripNumber + "')", {
-				success: function (oData) {
-					var sFormattedTripNo = this.formatTripNumber(oData.TripNumber || sTripNumber);
-					this._oPageTitleModel.setProperty("/tripNumber", sFormattedTripNo);
-					this._oPageTitleModel.setProperty("/vehicleNumber", oData.VehicleNumber || "");
-					this._oPageTitleModel.setProperty("/tripStatus", oData.TripStatus || "");
-				}.bind(this),
-				error: function () {
-					var sFormattedTripNo = this.formatTripNumber(sTripNumber);
-					this._oPageTitleModel.setProperty("/tripNumber", sFormattedTripNo);
-				}.bind(this)
-			});
+			var oTripData = sap.ui.getCore().getModel("TripData");
+			if (oTripData) {
+				var sFormattedTripNo = this.formatTripNumber(oTripData.getProperty("/TripNumber") || sTripNumber);
+				this._oPageTitleModel.setProperty("/tripNumber", sFormattedTripNo);
+				this._oPageTitleModel.setProperty("/vehicleNumber", oTripData.getProperty("/VehicleNumber") || "");
+				this._oPageTitleModel.setProperty("/tripStatus", oTripData.getProperty("/TripStatus") || "");
+			} else {
+				var sFormattedTripNo = this.formatTripNumber(sTripNumber);
+				this._oPageTitleModel.setProperty("/tripNumber", sFormattedTripNo);
+			}
 		},
 
 		formatTripNumber: function (sTripNumber) {
@@ -322,38 +358,62 @@ sap.ui.define([
 			return this._oTripService;
 		},
 
-		_updateLoadingUnloadingTabs: function () {
-			var oTripDataModel = sap.ui.getCore().getModel("TripData");
-			var oLoadingTab = this.byId("idLoadingMaterial");
-			var oUnloadingTab = this.byId("idUnloadingMaterial");
+	_updateLoadingUnloadingTabs: function () {
+		var oTripDataModel = sap.ui.getCore().getModel("TripData");
+		var oLoadingTab = this.byId("idLoadingMaterial");
+		var oUnloadingTab = this.byId("idUnloadingMaterial");
 
-			if (!oLoadingTab || !oUnloadingTab) {
-				return;
+		if (!oLoadingTab || !oUnloadingTab) {
+			return;
+		}
+
+		// In CREATE mode (new vehicle reporting), always hide both tabs
+		// irrespective of movement type. Tabs are controlled only after
+		// a trip exists (DISPLAY / update mode).
+		if (this._bCreateMode) {
+			oLoadingTab.setVisible(false);
+			oUnloadingTab.setVisible(false);
+			return;
+		}
+
+		var sMovementType = "";
+		var sMovementTypeDesc = "";
+
+		// Check TripData first (existing trips)
+		if (oTripDataModel) {
+			sMovementTypeDesc = (oTripDataModel.getProperty("/MovementTypeDesc") || "").toUpperCase();
+			sMovementType = oTripDataModel.getProperty("/MovementType") || "";
+		} else {
+			// During trip creation, check globalData model
+			var oGlobalModel = sap.ui.getCore().getModel("globalData");
+			if (oGlobalModel) {
+				sMovementType = oGlobalModel.getProperty("/MovementType") || "";
+				sMovementTypeDesc = (oGlobalModel.getProperty("/MovementTypeDesc") || "").toUpperCase();
 			}
+		}
 
-			if (oTripDataModel) {
-				var sMovementTypeDesc = (oTripDataModel.getProperty("/MovementTypeDesc") || "").toUpperCase();
-				var bIsInward = sMovementTypeDesc.indexOf("INWARD") !== -1;
+		// Determine if Inward or Outward based on MovementType code or description
+		var bIsInward = sMovementType === "I" || sMovementTypeDesc.indexOf("INWARD") !== -1;
+		var bIsOutward = sMovementType === "O" || sMovementTypeDesc.indexOf("OUTWARD") !== -1;
 
-				// If Inward, show Unloading and hide Loading
-				// Otherwise, show Loading and hide Unloading
-				if (bIsInward) {
-					oUnloadingTab.setVisible(true);
-					oLoadingTab.setVisible(false);
-				} else {
-					oLoadingTab.setVisible(true);
-					oUnloadingTab.setVisible(false);
-				}
-			} else {
-				// Default: show both tabs when no TripData (create mode)
-				oLoadingTab.setVisible(true);
-				oUnloadingTab.setVisible(true);
-			}
-		},
+		// If Inward, show Unloading and hide Loading
+		// If Outward, show Loading and hide Unloading
+		if (bIsInward) {
+			oUnloadingTab.setVisible(true);
+			oLoadingTab.setVisible(false);
+		} else if (bIsOutward) {
+			oLoadingTab.setVisible(true);
+			oUnloadingTab.setVisible(false);
+		} else {
+			// Default: hide both if movement type is not determined
+			oLoadingTab.setVisible(false);
+			oUnloadingTab.setVisible(false);
+		}
+	},
 
 		/**
 		 * Update Cancel Button Visibility
-		 * Hide the cancel button if TripStatus is "Gate Out" or "Gate-Out"
+		 * Hide the cancel button in CREATE mode, or if TripStatus is "Gate Out"/"Gate-Out", or "Trip Completed"/"Completed"
 		 */
 		_updateCancelButtonVisibility: function () {
 			var oCancelButton = this.byId("btnCancelTrip");
@@ -362,22 +422,80 @@ sap.ui.define([
 				return;
 			}
 
-			var oTripDataModel = sap.ui.getCore().getModel("TripData");
-			
-			// Show button if in create mode (no trip data)
-			if (!oTripDataModel || this._bCreateMode) {
-				oCancelButton.setVisible(true);
+			// Hide button in CREATE mode (new vehicle reporting)
+			if (this._bCreateMode) {
+				oCancelButton.setVisible(false);
 				return;
 			}
 
-			// Check if TripStatus is "Gate Out" or "Gate-Out" (case-insensitive, handles both space and hyphen)
+			var oTripDataModel = sap.ui.getCore().getModel("TripData");
+			
+			// If no trip data, hide button
+			if (!oTripDataModel) {
+				oCancelButton.setVisible(false);
+				return;
+			}
+
+			// Check TripStatus (case-insensitive)
 			var sTripStatus = (oTripDataModel.getProperty("/TripStatus") || "").trim();
 			var sLowerStatus = sTripStatus.toLowerCase();
-			// Check for both "gate out" (with space) and "gate-out" (with hyphen)
+			// Gate Out: "gate out" or "gate-out"
 			var bIsGateOut = sLowerStatus === "gate out" || sLowerStatus === "gate-out";
+			// Trip Completed: "completed", "trip completed", "done"
+			var bIsCompleted = sLowerStatus === "completed" || sLowerStatus === "trip completed" || sLowerStatus === "done";
 
-			// Hide button if TripStatus is "Gate Out" or "Gate-Out"
-			oCancelButton.setVisible(!bIsGateOut);
+			// Hide button if Gate Out or Trip Completed
+			oCancelButton.setVisible(!bIsGateOut && !bIsCompleted);
+		},
+
+		/**
+		 * Update Tab Visibility for Create Mode
+		 * Hide all tabs except Reporting when creating a new vehicle
+		 */
+		_updateTabVisibilityForCreateMode: function () {
+			var oIconTabBar = this.byId("iconTabBar");
+			if (!oIconTabBar) {
+				return;
+			}
+
+			var aTabs = oIconTabBar.getItems();
+			
+			aTabs.forEach(function(oTab) {
+				var sKey = oTab.getKey();
+				var sId = oTab.getId();
+				
+				// Always show Reporting tab
+				if (sKey === "vehicleReporting") {
+					oTab.setVisible(true);
+					return;
+				}
+				
+				// Skip Loading and Unloading tabs - they are handled by _updateLoadingUnloadingTabs()
+				if (sId && (sId.indexOf("idLoadingMaterial") !== -1 || sId.indexOf("idUnloadingMaterial") !== -1)) {
+					return; // Don't change visibility - let _updateLoadingUnloadingTabs() handle it
+				}
+				
+				// Hide all other tabs in CREATE mode, show them in DISPLAY mode
+				if (this._bCreateMode) {
+					oTab.setVisible(false);
+				} else {
+					oTab.setVisible(true);
+				}
+			}.bind(this));
+		},
+
+		/**
+		 * Update Header Visibility for Create Mode
+		 * Hide the header (Trip No, Vehicle No, Trip status) when creating a new vehicle
+		 */
+		_updateHeaderVisibilityForCreateMode: function () {
+			var oHeaderBar = this.byId("headerBar");
+			if (!oHeaderBar) {
+				return;
+			}
+
+			// Hide header in CREATE mode, show in DISPLAY mode
+			oHeaderBar.setVisible(!this._bCreateMode);
 		},
 
 		/** --------------------------------------------
@@ -408,7 +526,8 @@ sap.ui.define([
 
 		onIconTabSelect: function (oEvent) {
 			var sSelectedKey = oEvent.getParameter("key");
-			
+			this._updateVehicleAnimationStrip(sSelectedKey);
+
 			// If ReferenceDocuments tab is selected, focus on scanner input
 			if (sSelectedKey === "referenceDocuments") {
 				// Use setTimeout to ensure the view is rendered
@@ -423,15 +542,129 @@ sap.ui.define([
 						if (oRefDocTab && oRefDocTab.getContent && oRefDocTab.getContent().length > 0) {
 							var oRefDocView = oRefDocTab.getContent()[0];
 							if (oRefDocView && oRefDocView.byId) {
-								var oScannerInput = oRefDocView.byId("idRefDocScannerInput");
-								if (oScannerInput && oScannerInput.focus) {
-									oScannerInput.focus();
-								}
 							}
 						}
 					}
 				}.bind(this), 100);
 			}
+		},
+
+		/**
+		 * Show vehicle animation strip only after successful Save on Gate In/Gate Out.
+		 * On tab select we prepare image/class but keep strip hidden until save success.
+		 */
+		_onGateSaveSuccess: function (sChannel, sEvent, oData) {
+			var sTabKey = (oData && oData.tabKey) ? oData.tabKey : "";
+			if (sTabKey === "gateIn" || sTabKey === "gateout") {
+				this._bShowGateAnimationAfterSave = true;
+				this._updateVehicleAnimationStrip(sTabKey);
+			}
+		},
+
+		/**
+		 * Show/hide vehicle animation strip. Strip is only visible after successful Save (see _onGateSaveSuccess).
+		 * @param {string} sTabKey - Selected tab key (e.g. "gateIn", "gateout")
+		 */
+		_updateVehicleAnimationStrip: function (sTabKey) {
+			var oStrip = this.byId("vehicleAnimationStrip");
+			var oImage = this.byId("idVehicleGateImage");
+			if (!oStrip || !oImage) {
+				return;
+			}
+			if (sTabKey !== "gateIn" && sTabKey !== "gateout") {
+				this._bShowGateAnimationAfterSave = false;
+				oStrip.setVisible(false);
+				oImage.removeStyleClass("vehicleMoveIn");
+				oImage.removeStyleClass("vehicleMoveOut");
+				return;
+			}
+			// Prepare image and animation class; show strip only if save just succeeded
+			if (sTabKey === "gateIn") {
+				oImage.setSrc(sap.ui.require.toUrl("com/incresolZ_INC_PLMS/images/vehicle-gate-in.png"));
+				oImage.removeStyleClass("vehicleMoveOut");
+				oImage.addStyleClass("vehicleMoveIn");
+			} else {
+				oImage.setSrc(sap.ui.require.toUrl("com/incresolZ_INC_PLMS/images/vehicle-gate-out.png"));
+				oImage.removeStyleClass("vehicleMoveIn");
+				oImage.addStyleClass("vehicleMoveOut");
+			}
+			oStrip.setVisible(!!this._bShowGateAnimationAfterSave);
+		},
+
+		/**
+		 * Load UserRoles for the current trip's plant
+		 * Matches trip's plant with user's plant and loads corresponding UserRoles
+		 * IMPORTANT: Never clears existing roles if no match is found, to avoid random loss of permissions.
+		 */
+		_loadUserRolesForTrip: function () {
+			var oTripData = sap.ui.getCore().getModel("TripData");
+			if (!oTripData) {
+				// No trip data yet – keep existing UserRoles (user-level)
+				return;
+			}
+
+			var sTripPlant = oTripData.getProperty("/Plant") || "";
+			if (!sTripPlant) {
+				// No plant in trip data – keep existing UserRoles (user-level)
+				return;
+			}
+
+			// Get all user roles from array
+			var oUserRolesArrayModel = sap.ui.getCore().getModel("UserRolesArray");
+			if (!oUserRolesArrayModel) {
+				// Array not loaded yet – keep existing UserRoles (user-level)
+				return;
+			}
+
+			var aAllRoles = oUserRolesArrayModel.getProperty("/roles") || [];
+
+			// Normalized plant comparison (trim + uppercase)
+			var fnNormalizePlant = function (sPlant) {
+				return (sPlant || "").toString().trim().toUpperCase();
+			};
+			var sNormTripPlant = fnNormalizePlant(sTripPlant);
+
+			var oMatchedRole = null;
+			for (var i = 0; i < aAllRoles.length; i++) {
+				var sRolePlant = fnNormalizePlant(aAllRoles[i].Plant);
+				if (sRolePlant && sNormTripPlant && sRolePlant === sNormTripPlant) {
+					oMatchedRole = aAllRoles[i];
+					break;
+				}
+			}
+
+			if (oMatchedRole) {
+				// Store matched plant-specific UserRoles
+				var oUserRolesModel = new JSONModel(oMatchedRole);
+				sap.ui.getCore().setModel(oUserRolesModel, "UserRoles");
+
+				// Publish event that UserRoles are loaded/updated
+				sap.ui.getCore().getEventBus().publish("UserRoles", "Loaded", {
+					roles: [oMatchedRole],
+					plant: sTripPlant
+				});
+			} else {
+				// IMPORTANT: Do NOT clear roles anymore – keep whatever UserRoles we already have.
+				// This avoids random loss of permissions when plant values or timing don't match exactly.
+				jQuery.sap.log.warning(
+					"No matching UserRoles found for plant '" + sTripPlant +
+					"'. Keeping existing UserRoles instead of clearing them."
+				);
+			}
+		},
+
+		/**
+		 * Utility function to check if user has authorization for a specific action
+		 * @param {string} sAction - Action name (e.g., "AddRef", "EditGatein", "DelLoading")
+		 * @returns {boolean} - true if authorized (value is "X"), false otherwise
+		 */
+		_checkAuthorization: function (sAction) {
+			var oUserRoles = sap.ui.getCore().getModel("UserRoles");
+			if (!oUserRoles) {
+				return false; // No roles loaded, deny access
+			}
+			var sValue = oUserRoles.getProperty("/" + sAction) || "";
+			return sValue === "X";
 		}
 
 	});
