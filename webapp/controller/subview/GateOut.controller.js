@@ -415,7 +415,6 @@ sap.ui.define(
                     MessageBox.success(sMessage);
                     MessageBox.warning("Some attachments failed to upload.");
                   }
-                  this._eventBus.publish("Stage", "GateSaveSuccess", { tabKey: "gateout" });
                   // Disable inputs after successful save
                   this._setInputsEnabled(false);
                   // Reload attachments list
@@ -423,7 +422,6 @@ sap.ui.define(
                 });
               } else {
                 MessageBox.success(sMessage);
-                this._eventBus.publish("Stage", "GateSaveSuccess", { tabKey: "gateout" });
                 // Disable inputs after successful save
                 this._setInputsEnabled(false);
               }

@@ -1777,55 +1777,38 @@ sap.ui.define([
 		},
 
 	_onRefDocValueHelpSearch: function (oEvent) {
-		var sValue = oEvent.getParameter("value") || "";
-		var oSearchField = oEvent.getSource();
-		// Get the parent SelectDialog
-		var oSelectDialog = oSearchField.getParent();
-		// If parent is not a SelectDialog, traverse up
-		while (oSelectDialog && !oSelectDialog.isA("sap.m.SelectDialog")) {
-			oSelectDialog = oSelectDialog.getParent();
-		}
-		
-		if (!oSelectDialog) {
-			return;
-		}
-		
-		var oBinding = oSelectDialog.getBinding("items");
+		var sQuery = (oEvent.getParameter("value") || "").trim().toLowerCase();
+		var oSelectDialog = oEvent.getSource(); // SelectDialog itself
+		var oBinding = oSelectDialog && oSelectDialog.getBinding("items");
 
 		if (!oBinding) {
 			return;
 		}
 
-			var aFilters = [];
-			if (sValue) {
-				var sLowerValue = sValue.toLowerCase();
-				aFilters.push(new Filter({
-					filters: [
-						new Filter({
-							path: "DocumentNumber",
-							operator: function(sDocNum) {
-								return sDocNum && sDocNum.toString().toLowerCase().indexOf(sLowerValue) !== -1;
-							}
-						}),
-						new Filter({
-							path: "DocType",
-							operator: function(sDocType) {
-								return sDocType && sDocType.toString().toLowerCase().indexOf(sLowerValue) !== -1;
-							}
-						}),
-						new Filter({
-							path: "Name",
-							operator: function(sName) {
-								return sName && sName.toString().toLowerCase().indexOf(sLowerValue) !== -1;
-							}
-						})
-					],
-					and: false
-				}));
-			}
+		var aFilters = [];
 
-			oBinding.filter(aFilters);
-		},
+		if (sQuery) {
+			// Generic, case-insensitive filter across all properties in the row
+			aFilters.push(new Filter(function (oContext) {
+				var oObj = oContext.getObject();
+				if (!oObj) {
+					return false;
+				}
+
+				return Object.keys(oObj).some(function (sKey) {
+					var vValue = oObj[sKey];
+					if (vValue === null || vValue === undefined) {
+						return false;
+					}
+					var sValue = String(vValue).toLowerCase();
+					return sValue.indexOf(sQuery) !== -1;
+				});
+			}));
+		}
+
+		// Empty aFilters => no filter applied (all items)
+		oBinding.filter(aFilters);
+	},
 
 		_onRefDocValueHelpConfirm: function (oEvent) {
 			var oCtx = oEvent.getParameter("selectedContexts")?.[0];

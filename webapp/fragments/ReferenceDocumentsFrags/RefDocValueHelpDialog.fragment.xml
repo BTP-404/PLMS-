@@ -4,6 +4,7 @@
     <SelectDialog
         id="idRefDocValueHelpDialog"
         title="Select Reference Document"
+        noDataText="No matching documents found"
         search="._onRefDocValueHelpSearch"
         liveChange="._onRefDocValueHelpSearch"
         confirm="._onRefDocValueHelpConfirm"

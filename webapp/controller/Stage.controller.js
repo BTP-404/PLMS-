@@ -28,11 +28,9 @@ sap.ui.define([
 			this._oEventBus.subscribe("TripData", "Updated", this._updateCancelButtonVisibility, this);
 			this._oEventBus.subscribe("TripData", "Updated", this._loadUserRolesForTrip, this);
 			this._oEventBus.subscribe("Stage", "TripCreated", this._onTripCreated, this);
-			this._oEventBus.subscribe("Stage", "GateSaveSuccess", this._onGateSaveSuccess, this);
 			this._oEventBus.subscribe("Notes", "UnreadCountChanged", this._updateNotesTabIndicator, this);
 			this._oEventBus.subscribe("Stage", "ClearAllTabs", this._onClearAllTabs, this);
-			this._bShowGateAnimationAfterSave = false;
-			
+
 			// UserRoles are loaded in HomePage - just try to load plant-specific roles if TripData exists
 			this._loadUserRolesForTrip();
 		},
@@ -41,16 +39,6 @@ sap.ui.define([
 		this._updateTabVisibilityForCreateMode();
 		this._updateLoadingUnloadingTabs(); // Call after _updateTabVisibilityForCreateMode to ensure movement type logic takes precedence
 		this._updateHeaderVisibilityForCreateMode();
-		// Sync vehicle animation strip with current tab (e.g. when returning to Stage with Gate In/Out selected)
-		var oIconTabBar = this.byId("iconTabBar");
-		if (oIconTabBar) {
-			var sKey = oIconTabBar.getSelectedKey();
-			// Defer so IconTabBar has finished updating selected key
-			setTimeout(function () {
-				var k = this.byId("iconTabBar") ? this.byId("iconTabBar").getSelectedKey() : sKey;
-				this._updateVehicleAnimationStrip(k || sKey);
-			}.bind(this), 0);
-		}
 	},
 
 		onExit: function () {
@@ -60,7 +48,6 @@ sap.ui.define([
 			this._oEventBus?.unsubscribe("TripData", "Updated", this._updateCancelButtonVisibility, this);
 			this._oEventBus?.unsubscribe("TripData", "Updated", this._loadUserRolesForTrip, this);
 			this._oEventBus?.unsubscribe("Stage", "TripCreated", this._onTripCreated, this);
-			this._oEventBus?.unsubscribe("Stage", "GateSaveSuccess", this._onGateSaveSuccess, this);
 			this._oEventBus?.unsubscribe("Notes", "UnreadCountChanged", this._updateNotesTabIndicator, this);
 			this._oEventBus?.unsubscribe("Stage", "ClearAllTabs", this._onClearAllTabs, this);
 		},
@@ -149,7 +136,6 @@ sap.ui.define([
 			if (oIconTabBar) {
 				oIconTabBar.setSelectedKey(sEffectiveKey);
 			}
-			this._updateVehicleAnimationStrip(sEffectiveKey);
 		}
 		,
 
@@ -526,7 +512,6 @@ sap.ui.define([
 
 		onIconTabSelect: function (oEvent) {
 			var sSelectedKey = oEvent.getParameter("key");
-			this._updateVehicleAnimationStrip(sSelectedKey);
 
 			// If ReferenceDocuments tab is selected, focus on scanner input
 			if (sSelectedKey === "referenceDocuments") {
@@ -547,48 +532,6 @@ sap.ui.define([
 					}
 				}.bind(this), 100);
 			}
-		},
-
-		/**
-		 * Show vehicle animation strip only after successful Save on Gate In/Gate Out.
-		 * On tab select we prepare image/class but keep strip hidden until save success.
-		 */
-		_onGateSaveSuccess: function (sChannel, sEvent, oData) {
-			var sTabKey = (oData && oData.tabKey) ? oData.tabKey : "";
-			if (sTabKey === "gateIn" || sTabKey === "gateout") {
-				this._bShowGateAnimationAfterSave = true;
-				this._updateVehicleAnimationStrip(sTabKey);
-			}
-		},
-
-		/**
-		 * Show/hide vehicle animation strip. Strip is only visible after successful Save (see _onGateSaveSuccess).
-		 * @param {string} sTabKey - Selected tab key (e.g. "gateIn", "gateout")
-		 */
-		_updateVehicleAnimationStrip: function (sTabKey) {
-			var oStrip = this.byId("vehicleAnimationStrip");
-			var oImage = this.byId("idVehicleGateImage");
-			if (!oStrip || !oImage) {
-				return;
-			}
-			if (sTabKey !== "gateIn" && sTabKey !== "gateout") {
-				this._bShowGateAnimationAfterSave = false;
-				oStrip.setVisible(false);
-				oImage.removeStyleClass("vehicleMoveIn");
-				oImage.removeStyleClass("vehicleMoveOut");
-				return;
-			}
-			// Prepare image and animation class; show strip only if save just succeeded
-			if (sTabKey === "gateIn") {
-				oImage.setSrc(sap.ui.require.toUrl("com/incresolZ_INC_PLMS/images/vehicle-gate-in.png"));
-				oImage.removeStyleClass("vehicleMoveOut");
-				oImage.addStyleClass("vehicleMoveIn");
-			} else {
-				oImage.setSrc(sap.ui.require.toUrl("com/incresolZ_INC_PLMS/images/vehicle-gate-out.png"));
-				oImage.removeStyleClass("vehicleMoveIn");
-				oImage.addStyleClass("vehicleMoveOut");
-			}
-			oStrip.setVisible(!!this._bShowGateAnimationAfterSave);
 		},
 
 		/**

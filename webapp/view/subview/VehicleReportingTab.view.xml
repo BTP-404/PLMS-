@@ -22,9 +22,10 @@
             <HBox alignItems="Center" width="100%">
                 <Input
                     id="idReportingScannerInput"
-                    placeholder="Scan barcode (ASN) or enter PO number"
+                    placeholder="Scan D-Note or enter PO number"
                     width="100%"
-                    liveChange="onScanLiveupdate"
+                    change="onScanLiveupdate"
+                    
                     class="sapUiTinyMarginEnd"
                 />
                 <Button

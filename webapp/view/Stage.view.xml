@@ -32,12 +32,6 @@
 						<!-- Selected Scenario Info (no layout space when hidden) -->
 						<Text id="selectedScenarioText" text="" class="cutstomCssSCenarioText"
 							visible="false"/>
-						<!-- Vehicle animation strip: visible only on Gate In / Gate Out; no extra space -->
-						<VBox id="vehicleAnimationStrip" visible="false" class="vehicleAnimationStrip">
-							<HBox justifyContent="Center" alignItems="Center" width="100%" height="100%">
-								<Image id="idVehicleGateImage" class="vehicleAnimationImage" densityAware="false" decorative="true"/>
-							</HBox>
-						</VBox>
 						<!-- IconTabBar -->
 						<IconTabBar id="iconTabBar" expandable="true" expanded="true" enableTabReordering="true" select="onIconTabSelect">
 							<items>

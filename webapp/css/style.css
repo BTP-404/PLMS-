@@ -591,7 +591,7 @@
     margin-bottom: 0.75rem !important;
 }
 
-/* Process Flow Connections - More Visible and Animated */
+/* Process Flow Connections - More Visible */
 .eyeCatchingTimeline .sapSuitePFConnection {
     stroke-width: 4px !important;
     stroke: #0070f2 !important;
@@ -1354,32 +1354,12 @@
     box-shadow: 0 12px 32px rgba(33, 150, 243, 0.35) !important;
     transform: scale(1.08) !important;
     z-index: 10 !important;
-    animation: pulseHighlight 2s ease-in-out infinite !important;
-}
-
-@keyframes pulseHighlight {
-    0%, 100% {
-        box-shadow: 0 12px 32px rgba(33, 150, 243, 0.35);
-    }
-    50% {
-        box-shadow: 0 12px 32px rgba(33, 150, 243, 0.5);
-    }
 }
 
 .sapSuitePFNodeHighlighted .sapSuitePFNodeIcon,
 .sapSuitePFNodeFocused .sapSuitePFNodeIcon {
     background: linear-gradient(135deg, #2196f3 0%, #1976d2 100%) !important;
     box-shadow: 0 8px 20px rgba(33, 150, 243, 0.5) !important;
-    animation: iconPulse 2s ease-in-out infinite !important;
-}
-
-@keyframes iconPulse {
-    0%, 100% {
-        transform: scale(1);
-    }
-    50% {
-        transform: scale(1.05);
-    }
 }
 
 /* Process Flow Node Inner Content - Allow Wrapping */
@@ -1430,22 +1410,6 @@
 /* ProcessFlow Container - Better Spacing */
 .sapSuitePFContent {
     padding: 1rem 0.5rem !important;
-}
-
-/* Add subtle animation to nodes */
-@keyframes nodeFadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-.sapSuitePFNode {
-    animation: nodeFadeIn 0.5s ease-out !important;
 }
 
 /* ProcessFlow Node - Force Icon Display */
@@ -2392,7 +2356,7 @@
     color: #1f2937 !important;
 }
 
-/* ==================== STAGE CONTENT: NO EXTRA SPACE ABOVE ANIMATION ==================== */
+/* ==================== STAGE CONTENT ==================== */
 #stagePage .sapMPageContent {
     padding-top: 0 !important;
 }
@@ -2400,56 +2364,4 @@
 .stageContentVBox {
     padding-top: 0 !important;
     margin-top: 0 !important;
-}
-
-/* ==================== VEHICLE ANIMATION STRIP (GATE IN / GATE OUT) ==================== */
-/* Show only the animation – no extra grey area, strip is minimal and transparent */
-.vehicleAnimationStrip {
-    width: 100%;
-    height: 100px;
-    min-height: 100px;
-    overflow: hidden;
-    background-color: transparent !important;
-    border: none !important;
-    margin: 0 !important;
-    padding: 0 !important;
-}
-
-.vehicleAnimationStrip .vehicleAnimationImage {
-    max-height: 85px;
-    width: auto;
-    min-width: 120px;
-    object-fit: contain;
-}
-
-/* Gate In: vehicle moves right to left (entering) - apply to Image root */
-.vehicleAnimationStrip .vehicleAnimationImage.vehicleMoveIn,
-.vehicleMoveIn {
-    animation: vehicleMoveIn 18s ease-in-out infinite !important;
-    will-change: transform;
-}
-
-/* Gate Out: vehicle moves left to right (exiting) */
-.vehicleAnimationStrip .vehicleAnimationImage.vehicleMoveOut,
-.vehicleMoveOut {
-    animation: vehicleMoveOut 18s ease-in-out infinite !important;
-    will-change: transform;
-}
-
-@keyframes vehicleMoveIn {
-    from {
-        transform: translateX(100vw);
-    }
-    to {
-        transform: translateX(-100vw);
-    }
-}
-
-@keyframes vehicleMoveOut {
-    from {
-        transform: translateX(-100vw);
-    }
-    to {
-        transform: translateX(100vw);
-    }
 }
