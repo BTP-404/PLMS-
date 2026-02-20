@@ -8,19 +8,36 @@
     controllerName="com.incresolZ_INC_PLMS.controller.subview.GateIn"
     displayBlock="true"
 >
-    <VBox
-        class="sapUiSizeCompact sapUiTinyMargin"
+    <ScrollContainer
+        height="100%"
         width="100%"
+        vertical="true"
+        horizontal="false"
+        class="sapUiSizeCompact"
     >
-        <!-- ========================================================= -->
-        <!-- =================== Gate In Info Panel ================== -->
-        <!-- ========================================================= -->
-        <Panel
-            id="gateInInfoPanel"
-            expandable="true"
-            expanded="true"
-            class="sapUiNoContentPadding"
+        <VBox
+            class="sapUiSizeCompact sapUiTinyMargin"
+            width="100%"
         >
+            <!-- ========================================================= -->
+            <!-- =================== Reporting (merged) =================== -->
+            <!-- ========================================================= -->
+            <mvc:XMLView viewName="com.incresolZ_INC_PLMS.view.subview.VehicleReportingTab" class="sapUiTinyMarginBottom"/>
+
+            <!-- ========================================================= -->
+            <!-- =============== Reference Documents (merged) ============= -->
+            <!-- ========================================================= -->
+            <mvc:XMLView viewName="com.incresolZ_INC_PLMS.view.subview.ReferenceDocuments" class="sapUiTinyMarginBottom"/>
+
+            <!-- ========================================================= -->
+            <!-- =================== Gate In Info Panel ================== -->
+            <!-- ========================================================= -->
+            <Panel
+                id="gateInInfoPanel"
+                expandable="true"
+                expanded="true"
+                class="sapUiNoContentPadding"
+            >
             <headerToolbar>
                 <OverflowToolbar>
                     <Title text="Gate-In" />
@@ -201,9 +218,9 @@
         </Panel>
 
         <!-- ========================================================= -->
-        <!-- ================= Change History Panel ================== -->
+        <!-- ================= Change History Panel (at last) ========== -->
         <!-- ========================================================= -->
-        <!-- <Panel
+        <Panel
             id="gateInChangeHistoryPanel"
             expandable="true"
             expanded="false"
@@ -287,6 +304,7 @@
                     </layout:content>
                 </layout:Grid>
             </VBox>
-        </Panel> -->
-    </VBox>
+        </Panel>
+        </VBox>
+    </ScrollContainer>
 </mvc:View>

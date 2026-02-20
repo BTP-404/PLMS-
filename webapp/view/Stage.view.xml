@@ -35,12 +35,6 @@
 						<!-- IconTabBar -->
 						<IconTabBar id="iconTabBar" expandable="true" expanded="true" enableTabReordering="true" select="onIconTabSelect">
 							<items>
-								<IconTabFilter text="Reporting" key="vehicleReporting" icon="sap-icon://order-status">
-									<mvc:XMLView viewName="com.incresolZ_INC_PLMS.view.subview.VehicleReportingTab"/>
-								</IconTabFilter>
-								<IconTabFilter id="refDoc" text="Ref. Docs/Mat. Details" key="refDocs" icon="sap-icon://documents" iconColor="Positive">
-									<mvc:XMLView viewName="com.incresolZ_INC_PLMS.view.subview.ReferenceDocuments"/>
-								</IconTabFilter>
 								<IconTabFilter key="gateIn" text="Gate In" icon="sap-icon://visits" enabled="true">
 									<mvc:XMLView viewName="com.incresolZ_INC_PLMS.view.subview.GateIn"/>
 								</IconTabFilter>

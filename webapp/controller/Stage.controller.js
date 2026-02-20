@@ -102,7 +102,7 @@ sap.ui.define([
 			sap.ui.getCore().setModel(null, "TripData");
 	
 		this.resetPageTitleModel();   // ← finally clears
-		this._setIconTabSelection("vehicleReporting");
+		this._setIconTabSelection("gateIn");
 		this._updateCancelButtonVisibility();
 		this._updateTabVisibilityForCreateMode();
 		this._updateLoadingUnloadingTabs(); // Call after _updateTabVisibilityForCreateMode to ensure movement type logic takes precedence
@@ -132,7 +132,7 @@ sap.ui.define([
 		,
 		_setIconTabSelection: function (sKey) {
 			var oIconTabBar = this.byId("iconTabBar");
-			var sEffectiveKey = sKey || "vehicleReporting";
+			var sEffectiveKey = sKey || "gateIn";
 			if (oIconTabBar) {
 				oIconTabBar.setSelectedKey(sEffectiveKey);
 			}
@@ -303,7 +303,7 @@ sap.ui.define([
 			this._bCreateMode = true;
 			this._sCurrentTripNumber = "";
 			this.resetPageTitleModel();
-			this._setIconTabSelection("vehicleReporting");
+			this._setIconTabSelection("gateIn");
 			this.getOwnerComponent().getRouter().navTo("HomePage");
 		},
 
@@ -436,7 +436,7 @@ sap.ui.define([
 
 		/**
 		 * Update Tab Visibility for Create Mode
-		 * Hide all tabs except Reporting when creating a new vehicle
+		 * Hide all tabs except Gate In (Reporting, Ref. Docs, Gate In merged) when creating a new vehicle
 		 */
 		_updateTabVisibilityForCreateMode: function () {
 			var oIconTabBar = this.byId("iconTabBar");
@@ -450,8 +450,8 @@ sap.ui.define([
 				var sKey = oTab.getKey();
 				var sId = oTab.getId();
 				
-				// Always show Reporting tab
-				if (sKey === "vehicleReporting") {
+				// Always show Gate In tab (contains Reporting, Ref. Docs, Gate In)
+				if (sKey === "gateIn") {
 					oTab.setVisible(true);
 					return;
 				}

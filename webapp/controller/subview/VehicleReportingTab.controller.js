@@ -149,7 +149,8 @@ sap.ui.define(
             // DISPLAY mode
             this._mode = "DISPLAY";
             const sTripNumber = oArgs.tripNo;
-            this.getView().byId("changeHistoryPanel").setVisible(true);
+            // Change History shown only once at end of merged Gate In screen (GateIn.view.xml)
+            this.getView().byId("changeHistoryPanel").setVisible(false);
             
             // Load plants first, then load trip details (so Plant Select can be populated)
             this._loadPlants().then(function() {
