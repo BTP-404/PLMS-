@@ -311,6 +311,15 @@ sap.ui.define([
 				return MessageToast.show("Document Number is mandatory");
 			}
 
+			// Only allow document numbers that exist in the current suggestions (matched entries)
+			var aSuggestions = this._getRefDocSuggestionModel().getProperty("/items") || [];
+			var bMatched = aSuggestions.some(function (oItem) {
+				return (oItem.DocumentNumber || "").trim() === (oPayload.DocumentNumber || "").trim();
+			});
+			if (!bMatched) {
+				return MessageToast.show("Please select a document number from the suggestions.");
+			}
+
 			if (this._bIsRefDocEditMode && this._oEditingRefDoc) {
 				// Update existing reference document
 				this._updateOrderDetail(oPayload, this._oEditingRefDoc)
