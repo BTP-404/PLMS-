@@ -2877,6 +2877,9 @@ sap.ui.define([
 						partyName: oDoc.Name || "",
 						salesDoc: oDoc.SalesDoc || "",
 						salesDoctype: oDoc.SalesDoctype || "",
+						// New E-way bill fields (populated only when backend provides them)
+						ewayBillNumber: oDoc.EwayBillNumber || "",
+						ewayBillDate: this._formatODataDate(oDoc.EwayBillDate),
 						createdBy: oDoc.CreatedBy || "",
 						createdOnDate: this._formatODataDate(oDoc.CreatedOnDate),
 						createdOnTime: this._formatODataTime(oDoc.CreatedOnTime),
@@ -3068,6 +3071,10 @@ sap.ui.define([
 						materialDescription: oItem.MaterialDescription || "",
 						qty: (oItem.Quantity === null || oItem.Quantity === undefined) ? "" : String(oItem.Quantity),
 						uom: oItem.UoM || "",
+						// New dispatch-related fields (populated only when backend provides them)
+						dispatchQty: (oItem.DispatchQty === null || oItem.DispatchQty === undefined) ? "" : String(oItem.DispatchQty),
+						remainQty: (oItem.RemainQty === null || oItem.RemainQty === undefined) ? "" : String(oItem.RemainQty),
+						dispatchDate: this._formatODataDate(oItem.DispatchDate),
 						createdBy: oItem.CreatedBy || "",
 						createdOnDate: this._formatODataDate(oItem.CreatedOn),
 						createdOnTime: this._formatODataTime(oItem.CreatedTime),
@@ -3721,66 +3728,108 @@ sap.ui.define([
 
 		/**
 		 * Apply authorization to Reference Documents buttons based on UserRoles
+		 * and Movement Scenario (business restriction scenarios).
 		 */
 		_applyRefDocAuthorization: function () {
 			var oUserRoles = sap.ui.getCore().getModel("UserRoles");
-			if (!oUserRoles) {
-				// If UserRoles not loaded, disable buttons by default
-				var oTable = this.byId("idReferenceDocsTable");
-				if (oTable) {
-					var oToolbar = oTable.getHeaderToolbar();
-					if (oToolbar) {
-						var aContent = oToolbar.getContent();
-						aContent.forEach(function(oControl) {
-							if (oControl && oControl.getText && oControl.getText() === "Add Document") {
-								oControl.setEnabled(false);
-							}
-						});
-					}
-				}
+			var oTripData = sap.ui.getCore().getModel("TripData");
+
+			// Determine current Movement Scenario description
+			var sMovementScenario = "";
+			if (oTripData) {
+				sMovementScenario = oTripData.getProperty("/MovementScenarioDesc") || "";
+			}
+
+			// Scenarios where ALL Reference Document controls should be hidden
+			var aRestrictedScenarios = [
+				"Inward w.r.t  Supplier Portal Direct Purchase Order ASN",
+				"Inward w.r.t  Supplier Portal Scheduling Agreement Schedule Line ASN",
+				"Inward w.r.t. Job Work Purchase Order (Supplier Portal Vendor)"
+			];
+
+			var bRestrictedScenario = false;
+			if (sMovementScenario) {
+				var sTrimmedScenario = sMovementScenario.trim();
+				bRestrictedScenario = aRestrictedScenarios.some(function (sText) {
+					return sTrimmedScenario === sText.trim();
+				});
+			}
+
+			// Read role-based authorizations (default to none if model not loaded)
+			var sAddRef = "";
+			var sEditRef = "";
+			var sDelRef = "";
+			if (oUserRoles) {
+				sAddRef = oUserRoles.getProperty("/AddRef") || "";
+				sEditRef = oUserRoles.getProperty("/EditRef") || "";
+				sDelRef = oUserRoles.getProperty("/DelRef") || "";
+			}
+
+			// Combine role-based auth with scenario restriction
+			var bCanAdd = sAddRef === "X" && !bRestrictedScenario;
+			var bCanEdit = sEditRef === "X" && !bRestrictedScenario;
+			var bCanDel = sDelRef === "X" && !bRestrictedScenario;
+
+			var oTable = this.byId("idReferenceDocsTable");
+			if (!oTable) {
 				return;
 			}
 
-			var sAddRef = oUserRoles.getProperty("/AddRef") || "";
-			var sEditRef = oUserRoles.getProperty("/EditRef") || "";
-			var sDelRef = oUserRoles.getProperty("/DelRef") || "";
+			// Hide "Action" column completely in restricted scenarios
+			var oActionCol = this.byId("colRefDocAction");
+			if (oActionCol) {
+				oActionCol.setVisible(!bRestrictedScenario);
+			}
 
-			// Disable/Enable Add button in toolbar
-			var oTable = this.byId("idReferenceDocsTable");
-			if (oTable) {
-				var oToolbar = oTable.getHeaderToolbar();
-				if (oToolbar) {
-					var aContent = oToolbar.getContent();
-					aContent.forEach(function(oControl) {
-						if (oControl && oControl.getText && oControl.getText() === "Add Document") {
-							oControl.setEnabled(sAddRef === "X");
-						}
-					});
-				}
+			// E-way bill columns: visible only in restricted scenarios
+			var oEwayNoCol = this.byId("colEwayBillNumber");
+			if (oEwayNoCol) {
+				oEwayNoCol.setVisible(bRestrictedScenario);
+			}
+			var oEwayDateCol = this.byId("colEwayBillDate");
+			if (oEwayDateCol) {
+				oEwayDateCol.setVisible(bRestrictedScenario);
+			}
 
-				// Disable/Enable Edit and Delete buttons in table rows
-				var aItems = oTable.getItems();
-				aItems.forEach(function(oItem) {
-					if (oItem && oItem.getCells) {
-						var aCells = oItem.getCells();
-						aCells.forEach(function(oCell) {
-							if (oCell && oCell.getContent) {
-								var aCellContent = oCell.getContent();
-								aCellContent.forEach(function(oControl) {
-									if (oControl && oControl.isA && oControl.isA("sap.m.Button")) {
-										var sIcon = oControl.getIcon() || "";
-										if (sIcon.indexOf("edit") !== -1) {
-											oControl.setEnabled(sEditRef === "X");
-										} else if (sIcon.indexOf("delete") !== -1) {
-											oControl.setEnabled(sDelRef === "X");
-										}
-									}
-								});
-							}
-						});
+			// Disable/Hide Add button in toolbar
+			var oToolbar = oTable.getHeaderToolbar();
+			if (oToolbar) {
+				var aContent = oToolbar.getContent();
+				aContent.forEach(function (oControl) {
+					if (oControl && oControl.getText && oControl.getText() === "Add Document") {
+						oControl.setEnabled(bCanAdd);
+						oControl.setVisible(bCanAdd);
 					}
 				});
 			}
+
+			// Disable/Hide row-level action buttons (Select Materials / Edit / Delete)
+			var aItems = oTable.getItems();
+			aItems.forEach(function (oItem) {
+				if (oItem && oItem.getCells) {
+					var aCells = oItem.getCells();
+					aCells.forEach(function (oCell) {
+						if (oCell && oCell.getContent) {
+							var aCellContent = oCell.getContent();
+							aCellContent.forEach(function (oControl) {
+								if (oControl && oControl.isA && oControl.isA("sap.m.Button")) {
+									var sIcon = oControl.getIcon() || "";
+									var sText = (oControl.getText && oControl.getText()) || "";
+
+									// Treat "Select Materials" like an edit-style action
+									if (sText === "Select Materials" || sIcon.indexOf("edit") !== -1) {
+										oControl.setEnabled(bCanEdit);
+										oControl.setVisible(bCanEdit);
+									} else if (sIcon.indexOf("delete") !== -1) {
+										oControl.setEnabled(bCanDel);
+										oControl.setVisible(bCanDel);
+									}
+								}
+							});
+						}
+					});
+				}
+			});
 		},
 
 		// ============================================================

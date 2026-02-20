@@ -70,6 +70,12 @@
                                 <Column id="colRefDocDate" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
                                     <Text text="Document Date"/>
                                 </Column>
+                                <Column id="colEwayBillNumber" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline" visible="false">
+                                    <Text text="EwayBill Number"/>
+                                </Column>
+                                <Column id="colEwayBillDate" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline" visible="false">
+                                    <Text text="EwayBill Date"/>
+                                </Column>
                                 <Column id="colRefDocPartyCode" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
                                     <Text text="Sending / Receiving Party Code"/>
                                 </Column>
@@ -105,6 +111,8 @@
                                         <Text text="{refDocModel>docType}"/>
                                         <Text text="{refDocModel>documentNumber}"/>
                                         <Text text="{refDocModel>documentDate}"/>
+                                        <Text text="{refDocModel>ewayBillNumber}"/>
+                                        <Text text="{refDocModel>ewayBillDate}"/>
                                         <Text text="{refDocModel>partyCode}"/>
                                         <Text text="{refDocModel>partyName}"/>
                                         <Text text="{refDocModel>createdBy}"/>
@@ -206,6 +214,15 @@
                                 <Column id="colMaterialQuantity" hAlign="End" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
                                     <Text text="Quantity"/>
                                 </Column>
+                                <Column id="colDispatchQty" hAlign="End" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                    <Text text="Dispatch Qty"/>
+                                </Column>
+                                <Column id="colRemainQty" hAlign="End" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                    <Text text="Remain Qty"/>
+                                </Column>
+                                <Column id="colDispatchDate" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                    <Text text="Dispatch Date"/>
+                                </Column>
                                 <Column id="colMaterialUoM" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
                                     <Text text="UoM"/>
                                 </Column>
@@ -240,6 +257,9 @@
                                         <Text text="{refDocModel>refDocItemNo}"/>
                                         <Text text="{refDocModel>materialDescription}"/>
                                         <Text text="{refDocModel>qty}"/>
+                                        <Text text="{refDocModel>dispatchQty}"/>
+                                        <Text text="{refDocModel>remainQty}"/>
+                                        <Text text="{refDocModel>dispatchDate}"/>
                                         <Text text="{refDocModel>uom}"/>
                                         <Text text="{refDocModel>createdBy}"/>
                                         <Text text="{refDocModel>createdOnDate}"/>

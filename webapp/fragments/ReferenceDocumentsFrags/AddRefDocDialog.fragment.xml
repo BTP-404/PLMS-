@@ -100,18 +100,6 @@
 
         </form:SimpleForm>
 
-        <Toolbar>
-            <ToolbarSpacer/>
-            <Button
-                id="idSelectMaterialsBtn"
-                text="Select Materials"
-                icon="sap-icon://list"
-                press=".onSelectMaterials"
-                type="Transparent"
-                enabled="true"
-            />
-        </Toolbar>
-
         <beginButton>
             <Button
                 id="idRefDocDialogSaveBtn"
