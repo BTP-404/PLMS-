@@ -30,26 +30,9 @@ sap.ui.define([
 		this._oEventBus = sap.ui.getCore().getEventBus();
 		this._oEventBus.subscribe("TripData", "Updated", this._onTripDataUpdated, this);
 		this._oEventBus.subscribe("Stage", "ClearAllTabs", this._clearAllData, this);
-		this._oEventBus.subscribe("UserRoles", "Loaded", this._applyRefDocAuthorization, this);
-		
-		// Race condition fix: Check if UserRoles already loaded
-		var oUserRoles = sap.ui.getCore().getModel("UserRoles");
-		if (oUserRoles) {
-			setTimeout(function() {
-				this._applyRefDocAuthorization();
-			}.bind(this), 0);
-		}
 		// this._onTripDataUpdated(); // Initial load
 		this._initializeColumnVisibility();
-		// Apply authorization after view is rendered
-		this.getView().addDelegate({
-			onAfterRendering: function() {
-				// Apply authorization after view is rendered
-				setTimeout(function() {
-					this._applyRefDocAuthorization();
-				}.bind(this), 100);
-			}.bind(this)
-		}, this);
+		// Apply any view-related initialization after render using delegates if needed
 	},
 
 		onExit: function () {
@@ -65,11 +48,9 @@ sap.ui.define([
 			this._oRefDocColumnVisibilityDialog?.destroy();
 			this._oMaterialColumnVisibilityDialog?.destroy();
 			this._oSelectMaterialsDialog?.destroy();
-			this._oSupportingDocDialog?.destroy();
 			if (this._oEventBus) {
 				this._oEventBus.unsubscribe("TripData", "Updated", this._onTripDataUpdated, this);
 				this._oEventBus.unsubscribe("Stage", "ClearAllTabs", this._clearAllData, this);
-				this._oEventBus.unsubscribe("UserRoles", "Loaded", this._applyRefDocAuthorization, this);
 			}
 		},
 		
@@ -80,8 +61,7 @@ sap.ui.define([
 				oRefDocModel.setData({
 					referenceDocuments: [],
 					materialDetails: [],
-					filteredMaterialDetails: [],
-					supportingDocs: []
+					filteredMaterialDetails: []
 				});
 			}
 			
@@ -156,14 +136,13 @@ sap.ui.define([
 		// Reference Documents Dialog Handlers
 		// ============================================================
 		onAddRefDocRow: function () {
-			// Check authorization
-			var oUserRoles = sap.ui.getCore().getModel("UserRoles");
-			var sAddRef = oUserRoles ? (oUserRoles.getProperty("/AddRef") || "") : "";
-			if (sAddRef !== "X") {
-				MessageBox.warning("You are not authorized to add Reference Documents.");
+			// If scanning-based reporting is active, do not allow manual add
+			var oGlobalModel = sap.ui.getCore().getModel("globalData");
+			if (oGlobalModel && (oGlobalModel.getProperty("/IsScanningReporting") || oGlobalModel.getProperty("/DisableRefDocMaterialsActions"))) {
+				MessageToast.show("Manual reference document creation is disabled for this movement scenario.");
 				return;
 			}
-			
+
 			this._resetRefDocDialog();
 			this._openAddRefDocDialog();
 		},
@@ -250,6 +229,13 @@ sap.ui.define([
 		},
 
 		onSelectMaterialsFromTable: function (oEvent) {
+			// If scanning-based reporting is active, do not allow manual material selection
+			var oGlobalModel = sap.ui.getCore().getModel("globalData");
+			if (oGlobalModel && (oGlobalModel.getProperty("/IsScanningReporting") || oGlobalModel.getProperty("/DisableRefDocMaterialsActions"))) {
+				MessageToast.show("Manual material selection is disabled for this movement scenario.");
+				return;
+			}
+
 			var oSource = oEvent.getSource();
 			var oBindingContext = oSource.getBindingContext("refDocModel");
 			
@@ -272,6 +258,11 @@ sap.ui.define([
 		},
 
 		onAddSelectedMaterials: function () {
+			var oGlobalModel = sap.ui.getCore().getModel("globalData");
+			if (oGlobalModel && oGlobalModel.getProperty("/DisableRefDocMaterialsActions")) {
+				MessageToast.show("Adding materials is disabled for this movement scenario.");
+				return;
+			}
 			var oTable = this.byId("idMaterialsSelectionTable");
 			if (!oTable) {
 				return;
@@ -309,15 +300,6 @@ sap.ui.define([
 			}
 			if (!oPayload.DocumentNumber) {
 				return MessageToast.show("Document Number is mandatory");
-			}
-
-			// Only allow document numbers that exist in the current suggestions (matched entries)
-			var aSuggestions = this._getRefDocSuggestionModel().getProperty("/items") || [];
-			var bMatched = aSuggestions.some(function (oItem) {
-				return (oItem.DocumentNumber || "").trim() === (oPayload.DocumentNumber || "").trim();
-			});
-			if (!bMatched) {
-				return MessageToast.show("Please select a document number from the suggestions.");
 			}
 
 			if (this._bIsRefDocEditMode && this._oEditingRefDoc) {
@@ -370,14 +352,11 @@ sap.ui.define([
 		},
 
 		onEditRefDocRow: function (oEvent) {
-			// Check authorization
-			var oUserRoles = sap.ui.getCore().getModel("UserRoles");
-			var sEditRef = oUserRoles ? (oUserRoles.getProperty("/EditRef") || "") : "";
-			if (sEditRef !== "X") {
-				MessageBox.warning("You are not authorized to edit Reference Documents.");
+			var oGlobalModel = sap.ui.getCore().getModel("globalData");
+			if (oGlobalModel && oGlobalModel.getProperty("/DisableRefDocMaterialsActions")) {
+				MessageToast.show("Editing reference documents is disabled for this movement scenario.");
 				return;
 			}
-			
 			var oButton = oEvent.getSource();
 			// Get the table row - button -> cell -> row
 			var oCell = oButton.getParent();
@@ -417,14 +396,11 @@ sap.ui.define([
 		},
 
 		onDeleteRefDocRow: function (oEvent) {
-			// Check authorization
-			var oUserRoles = sap.ui.getCore().getModel("UserRoles");
-			var sDelRef = oUserRoles ? (oUserRoles.getProperty("/DelRef") || "") : "";
-			if (sDelRef !== "X") {
-				MessageBox.warning("You are not authorized to delete Reference Documents.");
+			var oGlobalModel = sap.ui.getCore().getModel("globalData");
+			if (oGlobalModel && oGlobalModel.getProperty("/DisableRefDocMaterialsActions")) {
+				MessageToast.show("Deleting reference documents is disabled for this movement scenario.");
 				return;
 			}
-			
 			var oItem = oEvent.getSource().getParent();
 			var oCtx = oItem.getBindingContext("refDocModel");
 			if (!oCtx) {
@@ -697,6 +673,11 @@ sap.ui.define([
 		},
 
 		onEditMaterialRow: function (oEvent) {
+			var oGlobalModel = sap.ui.getCore().getModel("globalData");
+			if (oGlobalModel && oGlobalModel.getProperty("/DisableRefDocMaterialsActions")) {
+				MessageToast.show("Editing materials is disabled for this movement scenario.");
+				return;
+			}
 			var oButton = oEvent.getSource();
 			// Get the table row - button -> cell -> row
 			var oCell = oButton.getParent();
@@ -736,6 +717,11 @@ sap.ui.define([
 		},
 
 		onDeleteMaterialRow: function (oEvent) {
+			var oGlobalModel = sap.ui.getCore().getModel("globalData");
+			if (oGlobalModel && oGlobalModel.getProperty("/DisableRefDocMaterialsActions")) {
+				MessageToast.show("Deleting materials is disabled for this movement scenario.");
+				return;
+			}
 			var oItem = oEvent.getSource().getParent();
 			var oCtx = oItem.getBindingContext("refDocModel");
 			if (!oCtx) {
@@ -768,8 +754,7 @@ sap.ui.define([
 					materialDetails: [],
 					filteredMaterialDetails: [],
 					materialDocTypes: [],
-					materialRefDocNumbers: [],
-					supportingDocs: []  // New array for supporting documents
+					materialRefDocNumbers: []
 				});
 				this.getView().setModel(oModel, "refDocModel");
 				// Also expose globally so other subviews (e.g. Loading) can reuse materials
@@ -1172,6 +1157,8 @@ sap.ui.define([
 			this.byId("idRefDocDate")?.setValue(oRefDoc.documentDate || "");
 			this.byId("idRefDocPartyCode")?.setValue(oRefDoc.partyCode || "");
 			this.byId("idRefDocPartyName")?.setValue(oRefDoc.partyName || "");
+			this.byId("idRefDocEwayBillNumber")?.setValue(oRefDoc.ewayBillNumber || "");
+			this.byId("idRefDocEwayBillDate")?.setValue(oRefDoc.ewayBillDate || "");
 			this.byId("idRefDocSalesDoc")?.setValue(oRefDoc.salesDoc || "");
 			this.byId("idRefDocSalesDoctype")?.setValue(oRefDoc.salesDoctype || "");
 			
@@ -1189,10 +1176,13 @@ sap.ui.define([
 				"idMaterialCode",
 				"idMaterialDesc",
 				"idMaterialQty",
+				"idMaterialDispatchQty",
+				"idMaterialRemainQty",
 				"idMaterialUoM"
 			].forEach(function (sId) {
 				this.byId(sId)?.setValue("");
 			}.bind(this));
+			this.byId("idMaterialDispatchDate")?.setValue("");
 
 			this._sSelectedMaterialDocType = "";
 			this._oEditingMaterial = null;
@@ -1210,20 +1200,14 @@ sap.ui.define([
 
 			oDialog?.setTitle(bIsEdit ? "Edit Material Row" : "Add Material Row");
 			oSaveButton?.setText(bIsEdit ? "Update" : "Add");
-			
-			// In edit mode, allow editing of quantity and UoM but keep other auto-populated fields read-only
-			if (bIsEdit) {
-				this.byId("idMaterialCode")?.setEditable(false);
-				this.byId("idMaterialDesc")?.setEditable(false);
-				this.byId("idMaterialUoM")?.setEditable(true);
-				this.byId("idMaterialQty")?.setEditable(true);
-			} else {
-				// In add mode, allow editing of UoM and quantity
-				this.byId("idMaterialCode")?.setEditable(false);
-				this.byId("idMaterialDesc")?.setEditable(false);
-				this.byId("idMaterialUoM")?.setEditable(true);
-				this.byId("idMaterialQty")?.setEditable(true);
-			}
+			// Allow editing of all material fields in both add and edit modes
+			this.byId("idMaterialCode")?.setEditable(true);
+			this.byId("idMaterialDesc")?.setEditable(true);
+			this.byId("idMaterialUoM")?.setEditable(true);
+			this.byId("idMaterialQty")?.setEditable(true);
+			this.byId("idMaterialDispatchQty")?.setEditable(true);
+			this.byId("idMaterialRemainQty")?.setEditable(true);
+			this.byId("idMaterialDispatchDate")?.setEditable(true);
 		},
 
 		_populateMaterialDialog: function (oMaterial) {
@@ -1238,6 +1222,9 @@ sap.ui.define([
 			this.byId("idMaterialCode")?.setValue(oMaterial.materialCode || "");
 			this.byId("idMaterialDesc")?.setValue(oMaterial.materialDescription || "");
 			this.byId("idMaterialQty")?.setValue(oMaterial.qty || "");
+			this.byId("idMaterialDispatchQty")?.setValue(oMaterial.dispatchQty != null && oMaterial.dispatchQty !== "" ? String(oMaterial.dispatchQty) : "");
+			this.byId("idMaterialRemainQty")?.setValue(oMaterial.remainQty != null && oMaterial.remainQty !== "" ? String(oMaterial.remainQty) : "");
+			this.byId("idMaterialDispatchDate")?.setValue(oMaterial.dispatchDate || "");
 			this.byId("idMaterialUoM")?.setValue(oMaterial.uom || "");
 			
 			// Load suggestions for the selected doc type
@@ -2028,11 +2015,6 @@ sap.ui.define([
 			// Fetch all existing ItemDetails for this Ref Doc
 			this._fetchItemDetailsByRefDocNo(sDocType, sRefDocNo)
 				.then(function (aItems) {
-					if (!aItems || aItems.length === 0) {
-						MessageToast.show("No materials found for the selected reference document");
-						return;
-					}
-
 					// Get existing materials from local model to avoid duplicates
 					var oModel = that._ensureRefDocModel();
 					var aExistingMaterials = oModel.getProperty("/materialDetails") || [];
@@ -2057,7 +2039,6 @@ sap.ui.define([
 					});
 
 					if (aNewMaterials.length === 0) {
-						MessageToast.show("All materials from this reference document are already added");
 						// Close the dialog since all materials are already added
 						that._closeMaterialDialog();
 						that._resetMaterialDialog();
@@ -2248,6 +2229,8 @@ sap.ui.define([
 			var sDocNumber = this.byId("idRefDocNumber")?.getValue().trim() || "";
 			var sPartyCode = this.byId("idRefDocPartyCode")?.getValue().trim() || "";
 			var sPartyName = this.byId("idRefDocPartyName")?.getValue().trim() || "";
+			var sEwayBillNumber = this.byId("idRefDocEwayBillNumber")?.getValue().trim() || "";
+			var sEwayBillDate = this.byId("idRefDocEwayBillDate")?.getValue();
 			var sSalesDoc = this.byId("idRefDocSalesDoc")?.getValue().trim() || "";
 			var sSalesDoctype = this.byId("idRefDocSalesDoctype")?.getValue().trim() || "";
 			var sDate = this.byId("idRefDocDate")?.getValue();
@@ -2255,6 +2238,9 @@ sap.ui.define([
 			if (oDate && isNaN(oDate.getTime())) {
 				oDate = null;
 			}
+
+			// EwaybillDate is defined as Edm.String (length 10) in OrderDetails metadata.
+			// Pass through as-is (e.g. 'yyyy-MM-dd') instead of converting to Date.
 
 			var bIsEdit = false; // Edit mode removed
 
@@ -2266,6 +2252,9 @@ sap.ui.define([
 				Vendor: sPartyCode,
 				Customer: sPartyCode,
 				Name: sPartyName,
+				// Backend fields: EwayBill (string) and EwaybillDate (string)
+				EwayBill: sEwayBillNumber,
+				EwaybillDate: sEwayBillDate || "",
 				SalesDoc: sSalesDoc,
 				SalesDoctype: sSalesDoctype,
 				Deleted: false
@@ -2284,6 +2273,8 @@ sap.ui.define([
 			var sMaterialCode = (this.byId("idMaterialCode")?.getValue() || "").trim();
 			var sMaterialDesc = (this.byId("idMaterialDesc")?.getValue() || "").trim();
 			var sQty = (this.byId("idMaterialQty")?.getValue() || "").trim();
+			var sDispatchQty = (this.byId("idMaterialDispatchQty")?.getValue() || "").trim();
+			var sRemainQty = (this.byId("idMaterialRemainQty")?.getValue() || "").trim();
 			var sUoM = (this.byId("idMaterialUoM")?.getValue() || "").trim();
 
 			// Quantity is required (Nullable="false")
@@ -2293,6 +2284,20 @@ sap.ui.define([
 				var fParsed = parseFloat(sQty);
 				if (!isNaN(fParsed) && isFinite(fParsed)) {
 					fQty = fParsed;
+				}
+			}
+			var fDispatchQty = 0;
+			if (sDispatchQty) {
+				var fD = parseFloat(sDispatchQty);
+				if (!isNaN(fD) && isFinite(fD)) {
+					fDispatchQty = fD;
+				}
+			}
+			var fRemainQty = 0;
+			if (sRemainQty) {
+				var fR = parseFloat(sRemainQty);
+				if (!isNaN(fR) && isFinite(fR)) {
+					fRemainQty = fR;
 				}
 			}
 
@@ -2306,10 +2311,8 @@ sap.ui.define([
 			// and user-provided values. The backend will handle the rest.
 
 			// Quantity: Match Postman test format - send as string (e.g. "2" or "1.00")
-			// For whole numbers, send without decimals; for decimals, preserve them
 			var sFormattedQty = "";
 			if (fQty !== 0 || sQty) {
-				// If it's a whole number, send as integer string; otherwise preserve decimals
 				if (fQty % 1 === 0) {
 					sFormattedQty = String(Math.floor(fQty));
 				} else {
@@ -2318,6 +2321,8 @@ sap.ui.define([
 			} else {
 				sFormattedQty = "0";
 			}
+			var sFormattedDispatchQty = (fDispatchQty % 1 === 0) ? String(Math.floor(fDispatchQty)) : fDispatchQty.toFixed(2);
+			var sFormattedRemainQty = (fRemainQty % 1 === 0) ? String(Math.floor(fRemainQty)) : fRemainQty.toFixed(2);
 
 			var oPayload = {
 				TripNumber: sTripNumber,
@@ -2327,6 +2332,8 @@ sap.ui.define([
 				MaterialCode: sMaterialCode,
 				MaterialDescription: sMaterialDesc || sMaterialCode, // Required, fallback to MaterialCode
 				Quantity: sFormattedQty,
+				DispatchQty: sFormattedDispatchQty,
+				RemainQty: sFormattedRemainQty,
 				UoM: sUoM || "", // Set to empty string if not provided
 				IsDeleted: "", // Required MaxLength="1", use empty string for not deleted
 				IsSplitActive: false
@@ -2607,6 +2614,8 @@ sap.ui.define([
 				MaterialCode: oPayload.MaterialCode,
 				MaterialDescription: oPayload.MaterialDescription,
 				Quantity: oPayload.Quantity,
+				DispatchQty: oPayload.DispatchQty || "",
+				RemainQty: oPayload.RemainQty || "",
 				UoM: oPayload.UoM || "",
 				IsDeleted: oPayload.IsDeleted || "",
 				IsSplitActive: oPayload.IsSplitActive !== undefined ? oPayload.IsSplitActive : false
@@ -2721,6 +2730,8 @@ sap.ui.define([
 				var sQtyDisplay = (vQty === null || vQty === undefined || vQty === "") ? "" : String(vQty);
 
 				// Update the material with all fields from backend response
+				var sDispatchQtyDisplay = (oPayload.DispatchQty === null || oPayload.DispatchQty === undefined || oPayload.DispatchQty === "") ? "" : String(oPayload.DispatchQty);
+				var sRemainQtyDisplay = (oPayload.RemainQty === null || oPayload.RemainQty === undefined || oPayload.RemainQty === "") ? "" : String(oPayload.RemainQty);
 				aMaterials[iIndex] = Object.assign({}, aMaterials[iIndex], {
 					// Keep uppercase versions for backend compatibility
 					TripNumber: oPayload.TripNumber || aMaterials[iIndex].TripNumber || aMaterials[iIndex].tripNumber,
@@ -2735,6 +2746,8 @@ sap.ui.define([
 					materialCode: oPayload.MaterialCode || aMaterials[iIndex].materialCode,
 					materialDescription: oPayload.MaterialDescription || aMaterials[iIndex].materialDescription,
 					qty: sQtyDisplay,
+					dispatchQty: sDispatchQtyDisplay,
+					remainQty: sRemainQtyDisplay,
 					uom: oPayload.UoM || aMaterials[iIndex].uom,
 					changedBy: oPayload.ChangedBy || aMaterials[iIndex].changedBy || "",
 					changedOnDate: this._formatODataDate(oPayload.ChangedDate) || aMaterials[iIndex].changedOnDate,
@@ -2763,6 +2776,8 @@ sap.ui.define([
 
 			var vQty = oPayload.Quantity;
 			var sQtyDisplay = (vQty === null || vQty === undefined || vQty === "") ? sDialogQty : String(vQty);
+			var sDispatchQtyDisplay = (oPayload.DispatchQty === null || oPayload.DispatchQty === undefined || oPayload.DispatchQty === "") ? "" : String(oPayload.DispatchQty);
+			var sRemainQtyDisplay = (oPayload.RemainQty === null || oPayload.RemainQty === undefined || oPayload.RemainQty === "") ? "" : String(oPayload.RemainQty);
 
 			aMaterials.push({
 				tripNumber: oPayload.TripNumber || "",
@@ -2772,6 +2787,9 @@ sap.ui.define([
 				materialCode: oPayload.MaterialCode || sDialogMaterial,
 				materialDescription: oPayload.MaterialDescription || sDialogDesc,
 				qty: sQtyDisplay,
+				dispatchQty: sDispatchQtyDisplay,
+				remainQty: sRemainQtyDisplay,
+				dispatchDate: this._formatODataDate(oPayload.DispatchDate) || "",
 				uom: oPayload.UoM || sDialogUoM,
 				createdBy: oPayload.CreatedBy || "",
 				createdOnDate: this._formatODataDate(oPayload.CreatedOn),
@@ -2792,6 +2810,25 @@ sap.ui.define([
 			var oTripData = sap.ui.getCore().getModel("TripData");
 			var oModel = this._ensureRefDocModel();
 
+			// Ensure global model exists for cross-view flags
+			var oGlobalModel = sap.ui.getCore().getModel("globalData");
+			if (!oGlobalModel) {
+				oGlobalModel = new JSONModel({});
+				sap.ui.getCore().setModel(oGlobalModel, "globalData");
+			}
+
+			// Determine if ref doc / material actions must be disabled
+			var sMovementScenarioDesc = oTripData ? (oTripData.getProperty("/MovementScenarioDesc") || "") : "";
+			var bDisableActions = false;
+			if (sMovementScenarioDesc) {
+				var sUpper = sMovementScenarioDesc.toUpperCase();
+				bDisableActions =
+					sUpper.indexOf("DIRECT PURCHASE ORDER ASN") >= 0 ||
+					sUpper.indexOf("SCHEDULING AGREEMENT ASN") >= 0 ||
+					sUpper.indexOf("SUPPLIER PORTAL VENDOR") >= 0;
+			}
+			oGlobalModel.setProperty("/DisableRefDocMaterialsActions", !!bDisableActions);
+
 			// Set TripData model on view if not already set (for binding)
 			if (oTripData && !this.getView().getModel("TripData")) {
 				this.getView().setModel(oTripData, "TripData");
@@ -2801,17 +2838,9 @@ sap.ui.define([
 				oModel.setProperty("/referenceDocs", []);
 				oModel.setProperty("/materialDetails", []);
 				oModel.setProperty("/filteredMaterialDetails", []);
-				oModel.setProperty("/supportingDocs", []);
-				// Re-apply authorization (will disable buttons)
-				this._applyRefDocAuthorization();
 				return;
 			}
 			
-			// Re-apply authorization when TripData changes (plant might have changed)
-			setTimeout(function() {
-				this._applyRefDocAuthorization();
-			}.bind(this), 100);
-
 			var vOrderDetails = oTripData.getProperty("/OrderDetails");
 			var vItemDetails = oTripData.getProperty("/ItemDetails");
 
@@ -2856,9 +2885,6 @@ sap.ui.define([
 				this._setReferenceDocsFromService(this._extractResults(vOrderDetails), true);
 				this._setMaterialDetailsFromService([]);
 			}
-			
-			// Also load supporting documents
-			// this._loadSupportingDocs();
 		},
 
 		_setReferenceDocsFromService: function (aDocs, bItemDetailsAlreadyLoaded) {
@@ -2887,8 +2913,9 @@ sap.ui.define([
 						salesDoc: oDoc.SalesDoc || "",
 						salesDoctype: oDoc.SalesDoctype || "",
 						// New E-way bill fields (populated only when backend provides them)
-						ewayBillNumber: oDoc.EwayBillNumber || "",
-						ewayBillDate: this._formatODataDate(oDoc.EwayBillDate),
+						// Backend fields (metadata): EwayBill (string), EwaybillDate (string)
+						ewayBillNumber: oDoc.EwayBill || "",
+						ewayBillDate: oDoc.EwaybillDate || "",
 						createdBy: oDoc.CreatedBy || "",
 						createdOnDate: this._formatODataDate(oDoc.CreatedOnDate),
 						createdOnTime: this._formatODataTime(oDoc.CreatedOnTime),
@@ -3550,6 +3577,8 @@ sap.ui.define([
 				{ id: "colRefDocType", label: "Doc Type", visible: true },
 				{ id: "colRefDocNumber", label: "Document Number", visible: true },
 				{ id: "colRefDocDate", label: "Document Date", visible: true },
+				{ id: "colEwayBillNumber", label: "EwayBill Number", visible: true },
+				{ id: "colEwayBillDate", label: "EwayBill Date", visible: true },
 				{ id: "colRefDocPartyCode", label: "Sending / Receiving Party Code", visible: true },
 				{ id: "colRefDocPartyName", label: "Sending / Receiving Party Name", visible: true },
 				{ id: "colRefDocCreatedBy", label: "Created By", visible: false },
@@ -3568,6 +3597,9 @@ sap.ui.define([
 				{ id: "colMaterialRefDocItemNo", label: "Ref Doc Item No", visible: true },
 				{ id: "colMaterialDescription", label: "Material Description", visible: true },
 				{ id: "colMaterialQuantity", label: "Quantity", visible: true },
+				{ id: "colDispatchQty", label: "Dispatch Qty", visible: true },
+				{ id: "colRemainQty", label: "Remain Qty", visible: true },
+				{ id: "colDispatchDate", label: "Dispatch Date", visible: true },
 				{ id: "colMaterialUoM", label: "UoM", visible: true },
 				{ id: "colMaterialCreatedBy", label: "Created By", visible: false },
 				{ id: "colMaterialCreatedOnDate", label: "Created On Date", visible: false },
@@ -3683,6 +3715,8 @@ sap.ui.define([
 				{ id: "colRefDocType", label: "Doc Type", visible: true },
 				{ id: "colRefDocNumber", label: "Document Number", visible: true },
 				{ id: "colRefDocDate", label: "Document Date", visible: true },
+				{ id: "colEwayBillNumber", label: "EwayBill Number", visible: true },
+				{ id: "colEwayBillDate", label: "EwayBill Date", visible: true },
 				{ id: "colRefDocPartyCode", label: "Sending / Receiving Party Code", visible: true },
 				{ id: "colRefDocPartyName", label: "Sending / Receiving Party Name", visible: true },
 				{ id: "colRefDocCreatedBy", label: "Created By", visible: false },
@@ -3705,6 +3739,9 @@ sap.ui.define([
 				{ id: "colMaterialCode", label: "Material Code", visible: true },
 				{ id: "colMaterialDescription", label: "Material Description", visible: true },
 				{ id: "colMaterialQuantity", label: "Quantity", visible: true },
+				{ id: "colDispatchQty", label: "Dispatch Qty", visible: true },
+				{ id: "colRemainQty", label: "Remain Qty", visible: true },
+				{ id: "colDispatchDate", label: "Dispatch Date", visible: true },
 				{ id: "colMaterialUoM", label: "UoM", visible: true },
 				{ id: "colMaterialCreatedBy", label: "Created By", visible: false },
 				{ id: "colMaterialCreatedOnDate", label: "Created On Date", visible: false },
@@ -3733,131 +3770,6 @@ sap.ui.define([
 					oDialog.close();
 				});
 			}
-		},
-
-		/**
-		 * Apply authorization to Reference Documents buttons based on UserRoles
-		 * and Movement Scenario (business restriction scenarios).
-		 */
-		_applyRefDocAuthorization: function () {
-			var oUserRoles = sap.ui.getCore().getModel("UserRoles");
-			var oTripData = sap.ui.getCore().getModel("TripData");
-
-			// Determine current Movement Scenario description
-			var sMovementScenario = "";
-			if (oTripData) {
-				sMovementScenario = oTripData.getProperty("/MovementScenarioDesc") || "";
-			}
-
-			// Scenarios where ALL Reference Document controls should be hidden
-			var aRestrictedScenarios = [
-				"Inward w.r.t  Supplier Portal Direct Purchase Order ASN",
-				"Inward w.r.t  Supplier Portal Scheduling Agreement Schedule Line ASN",
-				"Inward w.r.t. Job Work Purchase Order (Supplier Portal Vendor)"
-			];
-
-			var bRestrictedScenario = false;
-			if (sMovementScenario) {
-				var sTrimmedScenario = sMovementScenario.trim();
-				bRestrictedScenario = aRestrictedScenarios.some(function (sText) {
-					return sTrimmedScenario === sText.trim();
-				});
-			}
-
-			// Read role-based authorizations (default to none if model not loaded)
-			var sAddRef = "";
-			var sEditRef = "";
-			var sDelRef = "";
-			if (oUserRoles) {
-				sAddRef = oUserRoles.getProperty("/AddRef") || "";
-				sEditRef = oUserRoles.getProperty("/EditRef") || "";
-				sDelRef = oUserRoles.getProperty("/DelRef") || "";
-			}
-
-			// Combine role-based auth with scenario restriction
-			var bCanAdd = sAddRef === "X" && !bRestrictedScenario;
-			var bCanEdit = sEditRef === "X" && !bRestrictedScenario;
-			var bCanDel = sDelRef === "X" && !bRestrictedScenario;
-
-			var oTable = this.byId("idReferenceDocsTable");
-			if (!oTable) {
-				return;
-			}
-
-			// Hide "Action" column completely in restricted scenarios
-			var oActionCol = this.byId("colRefDocAction");
-			if (oActionCol) {
-				oActionCol.setVisible(!bRestrictedScenario);
-			}
-
-			// E-way bill columns: visible only in restricted scenarios
-			var oEwayNoCol = this.byId("colEwayBillNumber");
-			if (oEwayNoCol) {
-				oEwayNoCol.setVisible(bRestrictedScenario);
-			}
-			var oEwayDateCol = this.byId("colEwayBillDate");
-			if (oEwayDateCol) {
-				oEwayDateCol.setVisible(bRestrictedScenario);
-			}
-
-			// Disable/Hide Add button in toolbar
-			var oToolbar = oTable.getHeaderToolbar();
-			if (oToolbar) {
-				var aContent = oToolbar.getContent();
-				aContent.forEach(function (oControl) {
-					if (oControl && oControl.getText && oControl.getText() === "Add Document") {
-						oControl.setEnabled(bCanAdd);
-						oControl.setVisible(bCanAdd);
-					}
-				});
-			}
-
-			// Disable/Hide row-level action buttons (Select Materials / Edit / Delete)
-			var aItems = oTable.getItems();
-			aItems.forEach(function (oItem) {
-				if (oItem && oItem.getCells) {
-					var aCells = oItem.getCells();
-					aCells.forEach(function (oCell) {
-						if (oCell && oCell.getContent) {
-							var aCellContent = oCell.getContent();
-							aCellContent.forEach(function (oControl) {
-								if (oControl && oControl.isA && oControl.isA("sap.m.Button")) {
-									var sIcon = oControl.getIcon() || "";
-									var sText = (oControl.getText && oControl.getText()) || "";
-
-									// Treat "Select Materials" like an edit-style action
-									if (sText === "Select Materials" || sIcon.indexOf("edit") !== -1) {
-										oControl.setEnabled(bCanEdit);
-										oControl.setVisible(bCanEdit);
-									} else if (sIcon.indexOf("delete") !== -1) {
-										oControl.setEnabled(bCanDel);
-										oControl.setVisible(bCanDel);
-									}
-								}
-							});
-						}
-					});
-				}
-			});
-		},
-
-		// ============================================================
-		// Supporting Documents Handlers (Stubs - for view only)
-		// ============================================================
-		onAddSupportingDoc: function () {
-			// Stub function - to be implemented
-		},
-
-		onEditSupportingDoc: function () {
-			// Stub function - to be implemented
-		},
-
-		onDeleteSupportingDoc: function () {
-			// Stub function - to be implemented
-		},
-
-		onSupportingDocColumnSettings: function () {
-			// Stub function - to be implemented
 		}
 
 	});

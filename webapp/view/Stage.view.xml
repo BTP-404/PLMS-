@@ -4,7 +4,7 @@
 		<pages>
 			<Page id="stagePage" enableScrolling="true">
 				<customHeader>
-					<Bar id="headerBar" design="Header">
+					<Bar id="headerBar" design="Header" class="stageHeaderBar">
 						<contentMiddle>
 							<HBox width="100%" justifyContent="SpaceBetween" alignItems="Center">
 								<Text
@@ -38,10 +38,10 @@
 								<IconTabFilter key="gateIn" text="Gate In" icon="sap-icon://visits" enabled="true">
 									<mvc:XMLView viewName="com.incresolZ_INC_PLMS.view.subview.GateIn"/>
 								</IconTabFilter>
-								<IconTabFilter id="idLoadingMaterial" text="Loading" icon="sap-icon://shipping-status" visible="false">
+								<IconTabFilter id="idLoadingMaterial" text="Loading" icon="sap-icon://cart-3" visible="false">
 									<mvc:XMLView id="idLoadingMaterialView" viewName="com.incresolZ_INC_PLMS.view.subview.Loading"/>
 								</IconTabFilter>
-								<IconTabFilter id="idUnloadingMaterial" text="Unloading" icon="sap-icon://inventory" visible="false">
+								<IconTabFilter id="idUnloadingMaterial" text="Unloading" icon="sap-icon://cart-2" visible="false">
 									<mvc:XMLView id="idUnloadingMaterialView" viewName="com.incresolZ_INC_PLMS.view.subview.Unloading"/>
 								</IconTabFilter>
 								<IconTabFilter id="tabGateOut" text="Gate Out" key="gateout" icon="sap-icon://outbox" iconColor="Default">

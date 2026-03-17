@@ -93,51 +93,10 @@
                     </content>
                 </Panel>
 
-                <!-- ==================== STAGE SUMMARY PANEL ==================== -->
-                <Panel 
-                    headerText="Stage Summary"
-                    class="sapUiNoContentPadding sapUiTinyMarginTop"
-                    expandable="true"
-                    expanded="true">
-                    <content>
-                        <List
-                            class="sapUiNoContentPadding"
-                            items="{activityModel>/milestones}">
-                            <CustomListItem 
-                                class="sapUiTinyMargin stageSummaryItem"
-                                type="Active">
-                                <HBox alignItems="Center" class="sapUiSmallMargin stageSummaryContent">
-                                    <VBox class="stageIconContainer">
-                                        <core:Icon 
-                                            src="{activityModel>icon}"
-                                            size="2.5rem"
-                                            class="stageIcon"/>
-                                    </VBox>
-                                    <VBox class="sapUiTinyMarginBegin sapUiSmallMarginBegin" flex="1">
-                                        <Title 
-                                            text="{activityModel>title}"
-                                            level="H5"
-                                            class="sapUiTinyMarginBottom stageTitle"/>
-                                        <Text 
-                                            text="{activityModel>description}"
-                                            class="sapUiSmallFontSize stageDescription"/>
-                                    </VBox>
-                                    <VBox alignItems="End" class="sapUiTinyMarginBegin sapUiSmallMarginBegin">
-                                        <ObjectStatus
-                                            text="{activityModel>tatText}"
-                                            state="{activityModel>infoState}"
-                                            class="stageTAT"/>
-                                    </VBox>
-                                </HBox>
-                            </CustomListItem>
-                        </List>
-                    </content>
-                </Panel>
-
                 <!-- ==================== ACTIVITY TIMELINE PANEL ==================== -->
                 <Panel 
                     headerText="Activity Timeline"
-                    class="sapUiNoContentPadding sapUiTinyMarginTop"
+                    class="sapUiNoContentPadding sapUiTinyMarginTop activityTimelinePanel"
                     expandable="true"
                     expanded="true">
                     <content>
@@ -209,91 +168,33 @@
                                                     class="eventIcon"/>
                                             </VBox>
                                             <VBox class="sapUiTinyMarginBegin sapUiSmallMarginBegin" flex="1">
-                                                <!-- Stage Title -->
+                                                <!-- Event -->
                                                 <HBox alignItems="Center" class="sapUiTinyMarginBottom">
-                                                    <Title 
-                                                        text="{activityModel>stageTitle}"
-                                                        level="H5"
-                                                        class="eventTitle"/>
-                                                    <core:Icon 
-                                                        src="sap-icon://detail-view"
-                                                        size="1rem"
-                                                        color="#666"
-                                                        class="sapUiTinyMarginBegin sapUiTinyMarginEnd"/>
-                                                    <Text 
-                                                        text="{activityModel>eventDescription}"
-                                                        class="eventDescription"/>
+                                                    <Text text="Event: " class="eventDescription eventDetailLabel"/>
+                                                    <Text text="{activityModel>stageTitle}" class="eventDescription" wrapping="true"/>
                                                 </HBox>
-                                                <!-- Movement Type - Movement Scenario -->
+                                                <!-- TAT -->
                                                 <HBox alignItems="Center" class="sapUiTinyMarginBottom">
-                                                    <core:Icon 
-                                                        src="sap-icon://arrow-right"
-                                                        size="1rem"
-                                                        color="#107e3e"
-                                                        class="sapUiTinyMarginEnd"/>
-                                                    <Text 
-                                                        text="{activityModel>loadingUnloadingText}"
-                                                        class="eventDescription"
-                                                        wrapping="false"
-                                                        style="font-weight: 600;"/>
-                                                    <Text 
-                                                        text=" - "
-                                                        class="eventDescription sapUiTinyMarginBegin sapUiTinyMarginEnd"/>
-                                                    <Text 
-                                                        text="{activityModel>movementTypeDesc}"
-                                                        class="eventDescription"
-                                                        wrapping="false"/>
-                                                    <Text 
-                                                        text=" - "
-                                                        class="eventDescription sapUiTinyMarginBegin sapUiTinyMarginEnd"/>
-                                                    <Text 
-                                                        text="{activityModel>movementScenarioDesc}"
-                                                        class="eventDescription"
-                                                        wrapping="true"/>
-                                                    <!-- Show TAT inline if available -->
-                                                    <Text 
-                                                        text="{= ${activityModel>turnAroundTimeFormatted} !== '—' ? ' • TAT: ' + ${activityModel>turnAroundTimeFormatted} : ''}"
-                                                        class="eventDescription sapUiTinyMarginBegin"
-                                                        style="color: #107e3e; font-weight: 600;"/>
+                                                    <Text text="TAT: " class="eventDescription eventDetailLabel"/>
+                                                    <ObjectStatus
+                                                        text="{activityModel>turnAroundTimeFormatted}"
+                                                        state="Success"
+                                                        class="sapUiSmallFontSize"/>
                                                 </HBox>
-                                                <!-- Details Row with Icons -->
-                                                <HBox alignItems="Start" wrap="Wrap" class="sapUiTinyMarginTop">
-                                                    <!-- TAT -->
-                                                    <HBox alignItems="Center" class="sapUiTinyMarginEnd sapUiTinyMarginBottom">
-                                                        <core:Icon 
-                                                            src="sap-icon://time-entry-record"
-                                                            size="1rem"
-                                                            color="#107e3e"
-                                                            class="sapUiTinyMarginEnd"/>
-                                                        <ObjectStatus
-                                                            text="{activityModel>turnAroundTimeFormatted}"
-                                                            state="Success"
-                                                            class="sapUiSmallFontSize"/>
-                                                    </HBox>
-                                                    <!-- Timestamp -->
-                                                    <HBox alignItems="Center" class="sapUiTinyMarginEnd sapUiTinyMarginBottom">
-                                                        <core:Icon 
-                                                            src="sap-icon://calendar"
-                                                            size="1rem"
-                                                            color="#666"
-                                                            class="sapUiTinyMarginEnd"/>
-                                                        <Text 
-                                                            text="{activityModel>displayTimestamp}"
-                                                            class="eventDescription"
-                                                            wrapping="false"/>
-                                                    </HBox>
-                                                    <!-- Created By -->
-                                                    <HBox alignItems="Center" class="sapUiTinyMarginEnd sapUiTinyMarginBottom">
-                                                        <core:Icon 
-                                                            src="sap-icon://employee"
-                                                            size="1rem"
-                                                            color="#666"
-                                                            class="sapUiTinyMarginEnd"/>
-                                                        <Text 
-                                                            text="{activityModel>createdBy}"
-                                                            class="eventDescription"
-                                                            wrapping="false"/>
-                                                    </HBox>
+                                                <!-- Moment Description -->
+                                                <HBox alignItems="Start" class="sapUiTinyMarginBottom">
+                                                    <Text text="Moment Description: " class="eventDescription eventDetailLabel"/>
+                                                    <Text text="{activityModel>movementTypeDesc} - {activityModel>movementScenarioDesc}" class="eventDescription" wrapping="true"/>
+                                                </HBox>
+                                                <!-- Date -->
+                                                <HBox alignItems="Center" class="sapUiTinyMarginBottom">
+                                                    <Text text="Date: " class="eventDescription eventDetailLabel"/>
+                                                    <Text text="{activityModel>displayTimestamp}" class="eventDescription" wrapping="false"/>
+                                                </HBox>
+                                                <!-- User -->
+                                                <HBox alignItems="Center" class="sapUiTinyMarginBottom">
+                                                    <Text text="User: " class="eventDescription eventDetailLabel"/>
+                                                    <Text text="{activityModel>createdBy}" class="eventDescription" wrapping="false"/>
                                                 </HBox>
                                             </VBox>
                                         </HBox>
@@ -302,7 +203,7 @@
                                             <core:Icon 
                                                 src="sap-icon://slim-arrow-down"
                                                 size="1.5rem"
-                                                color="#ff9800"
+                                                color="#4caf50"
                                                 class="sapUiTinyMargin"/>
                                         </HBox>
                                     </CustomListItem>

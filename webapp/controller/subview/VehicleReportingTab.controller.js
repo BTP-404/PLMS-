@@ -31,6 +31,20 @@ sap.ui.define(
       "com.incresolZ_INC_PLMS.controller.subview.VehicleReportingTab",
       {
         /* ===========================================================
+         * ADDED: formatCompanyCodeDisplay
+         * - shows "Code - Description" in the Company Code field
+         * =========================================================== */
+        formatCompanyCodeDisplay: function (sCode, sDesc) {
+          if (!sCode) {
+            return "";
+          }
+          if (!sDesc) {
+            return sCode;
+          }
+          return sCode + " - " + sDesc;
+        },
+
+        /* ===========================================================
          * NO CHANGE: onInit (kept original, only comment added)
          * =========================================================== */
         onInit: function () {
@@ -55,33 +69,20 @@ sap.ui.define(
           // Subscribe to event to clear all data when reporting new vehicle
           this._oEventBus = sap.ui.getCore().getEventBus();
           this._oEventBus.subscribe("Stage", "ClearAllTabs", this._clearAllData, this);
-          this._oEventBus.subscribe("UserRoles", "Loaded", this._applyReportingAuthorization, this);
           this._oEventBus.subscribe("TripData", "Updated", this._onTripDataUpdated, this);
-          
-          // Race condition fix: Check if UserRoles already loaded
-          var oUserRoles = sap.ui.getCore().getModel("UserRoles");
-          if (oUserRoles) {
-            setTimeout(function() {
-              this._applyReportingAuthorization();
-            }.bind(this), 0);
-          }
         },
 
         onExit: function () {
           // Unsubscribe from event bus to prevent memory leaks
           if (this._oEventBus) {
             this._oEventBus.unsubscribe("Stage", "ClearAllTabs", this._clearAllData, this);
-            this._oEventBus.unsubscribe("UserRoles", "Loaded", this._applyReportingAuthorization, this);
             this._oEventBus.unsubscribe("TripData", "Updated", this._onTripDataUpdated, this);
           }
         },
 
         onAfterRendering: function () {
-          // Apply authorization when view is rendered
-          // Use setTimeout to ensure buttons exist
+          // Use setTimeout to ensure controls exist before updating scanner visibility
           setTimeout(function() {
-            this._applyReportingAuthorization();
-            // Also update scanner visibility when view is rendered
             this._updateScannerVisibility();
           }.bind(this), 200);
         },
@@ -109,21 +110,6 @@ sap.ui.define(
             // CREATE mode - clear all data first
             this._mode = "CREATE";
             
-            // Get current user for logging
-            var sUser = "";
-            try {
-              sUser = sap.ushell.Container.getUser().getId();
-            } catch (oError) {
-              sUser = "Unknown";
-            }
-            
-            // Get user roles for logging
-            var oUserRoles = sap.ui.getCore().getModel("UserRoles");
-            var sAddReporting = "";
-            if (oUserRoles) {
-              sAddReporting = oUserRoles.getProperty("/AddReporting") || "";
-            }
-            
             this._clearAllData();
             this._clearForm();
 
@@ -139,10 +125,8 @@ sap.ui.define(
               this._setPlantSelectValue();
             }.bind(this));
             
-            // Apply authorization after route is matched (with delay to ensure buttons exist)
+            // Update scanner visibility when route is matched
             setTimeout(function() {
-              this._applyReportingAuthorization();
-              // Update scanner visibility when route is matched
               this._updateScannerVisibility();
             }.bind(this), 300);
           } else if (sRoute === "StagewithParam") {
@@ -158,10 +142,8 @@ sap.ui.define(
               this._loadTripDetails(sTripNumber);
             }.bind(this));
             
-            // Apply authorization after route is matched (with delay to ensure buttons exist)
+            // Update scanner visibility when trip details are loaded
             setTimeout(function() {
-              this._applyReportingAuthorization();
-              // Update scanner visibility when trip details are loaded
               this._updateScannerVisibility();
             }.bind(this), 300);
           }
@@ -243,13 +225,9 @@ sap.ui.define(
 
               // Also bind to this view (optional)
               that.getView().setModel(oTripDataModel, "TripData");
-
-              // Set Company Code from TripData in DISPLAY mode (set immediately)
-              const sCompanyCode = oData.CompanyCode || "";
-              const oCompanyCodeInput = that.byId("idCompanyCode");
-              if (oCompanyCodeInput && sCompanyCode) {
-                oCompanyCodeInput.setValue(sCompanyCode);
-              }
+              
+              // Ensure Company Code displays with description (code - description)
+              that._setCompanyCodeDisplay(oData.CompanyCode || "");
               
               // Set Plant Select value from TripData in DISPLAY mode only
               // Wait a bit to ensure PlantModel is loaded (since plants load first)
@@ -264,22 +242,14 @@ sap.ui.define(
               that._setButtonStates(true, true); // Re-enable after load
               MessageToast.show("Trip data loaded for: " + sTripNumber);
               
-              // Apply authorization after trip details are loaded (with delay to ensure UserRoles are matched)
-              // TripData Updated event will trigger UserRoles reload in Stage controller
+              // Update scanner visibility after trip data is loaded
               setTimeout(function() {
-                that._applyReportingAuthorization();
-                // Update scanner visibility after trip data is loaded
                 that._updateScannerVisibility();
               }, 500);
             },
             error: function () {
               that._setButtonStates(true, true); // Still re-enable even on error
               MessageBox.error("Failed to load trip data for " + sTripNumber);
-              
-              // Apply authorization even on error
-              setTimeout(function() {
-                that._applyReportingAuthorization();
-              }, 500);
             },
           });
         },
@@ -291,14 +261,6 @@ sap.ui.define(
          * - clears Plant Select when entering edit mode
          * =========================================================== */
         onEditReporting: function () {
-          // Check authorization
-          var oUserRoles = sap.ui.getCore().getModel("UserRoles");
-          var sEditReporting = oUserRoles ? (oUserRoles.getProperty("/EditReporting") || "") : "";
-          if (sEditReporting !== "X") {
-            MessageBox.warning("You are not authorized to edit Reporting information.");
-            return;
-          }
-          
           // Get Plant value from TripData BEFORE enabling inputs (preserve it)
           const oTripDataModel = this.getView().getModel("TripData");
           const sPreservedPlant = oTripDataModel ? (oTripDataModel.getProperty("/Plant") || "") : "";
@@ -335,38 +297,6 @@ sap.ui.define(
          * - keeps existing required field validation and create/update flows
          * =========================================================== */
         onSaveReporting: function () {
-          // Get current user for logging
-          var sUser = "";
-          try {
-            sUser = sap.ushell.Container.getUser().getId();
-          } catch (oError) {
-            sUser = "Unknown";
-          }
-          
-          // Check authorization
-          var oUserRoles = sap.ui.getCore().getModel("UserRoles");
-          var bAuthorized = false;
-          
-          if (this._mode === "CREATE") {
-            // Check AddReporting for create mode
-            var sAddReporting = oUserRoles ? (oUserRoles.getProperty("/AddReporting") || "") : "";
-            bAuthorized = sAddReporting === "X";
-            
-            if (!bAuthorized) {
-              MessageBox.warning("You are not authorized to add Reporting information.");
-              return;
-            }
-          } else {
-            // Check EditReporting for update mode
-            var sEditReporting = oUserRoles ? (oUserRoles.getProperty("/EditReporting") || "") : "";
-            bAuthorized = sEditReporting === "X";
-            
-            if (!bAuthorized) {
-              MessageBox.warning("You are not authorized to edit Reporting information.");
-              return;
-            }
-          }
-          
           const oModel = this.getView().getModel();
 
           if (!this._validateRequiredFields()) {
@@ -770,8 +700,7 @@ sap.ui.define(
               }
             });
 
-            // Note: Button authorization is handled separately via _applyReportingAuthorization()
-            // Don't force enable buttons here - let authorization control them
+            // Button enablement is controlled by standard UI logic; no user-role authorization.
           } catch (e) {
             // don't break if something unexpected happens
             jQuery.sap.log.error("Error in _setInputsEnabled: " + e);
@@ -1638,11 +1567,39 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
             oCompanyCodeInput.setValue(sCompanyCodeDisplay);
           }
 
-          // Update TripData model
+          // Update TripData model (store only code)
           const oTripDataModel = this.getView().getModel("TripData");
           if (oTripDataModel) {
             oTripDataModel.setProperty("/Plant", sSelectedKey);
-            oTripDataModel.setProperty("/CompanyCode", sCompanyCodeDisplay);
+            oTripDataModel.setProperty("/CompanyCode", oData.ParentConfig || "");
+          }
+        },
+
+        /**
+         * Ensure Company Code input shows "Code - Description"
+         * based on a CompanyCode value coming from TripDetails.
+         */
+        _setCompanyCodeDisplay: function (sCompanyCode) {
+          const oInput = this.byId("idCompanyCode");
+          const oModel = this.getView().getModel();
+          const oTripDataModel = this.getView().getModel("TripData");
+
+          if (!sCompanyCode) {
+            if (oInput) {
+              oInput.setValue("");
+            }
+            if (oTripDataModel) {
+              oTripDataModel.setProperty("/CompanyCode", "");
+            }
+            return;
+          }
+
+          // Simply reflect the code in the input and model
+          if (oInput) {
+            oInput.setValue(sCompanyCode);
+          }
+          if (oTripDataModel) {
+            oTripDataModel.setProperty("/CompanyCode", sCompanyCode);
           }
         },
 
@@ -1950,15 +1907,17 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
                 movementScenario = row.MovementScenario;
                 movementType = row.movementType;
                 Mtype = row.movementType;
-                
-                // Determine icon based on movement type
+
+                // Determine SAP icon based on movement type
                 var sIcon = "";
                 if (row.MovementType === "O") {
-                  sIcon = "sap-icon://outbox"; // Outward icon
+                  // Loading / Outward
+                  sIcon = "sap-icon://cart-3";
                 } else if (row.MovementType === "I") {
-                  sIcon = "sap-icon://inbox"; // Inward icon
+                  // Unloading / Inward
+                  sIcon = "sap-icon://cart-2";
                 }
-                
+
                 oList.addItem(
                   new sap.m.StandardListItem({
                     title: row.LongText,
@@ -2879,11 +2838,11 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
             // Store code value in global variable (code only, no description)
             CompanyCod = oSelectedItem.ConfigID;
 
-            // Build CompanyCode display value with description (for UI)
-            const sCompanyCodeDisplay = `${oSelectedItem.ConfigID}-${oSelectedItem.Description}`;
-
-            // Set selected value - show description in UI
-            this.byId("idCompanyCode").setValue(sCompanyCodeDisplay);
+            // Update TripData model with code only
+            const oTripDataModel = this.getView().getModel("TripData");
+            if (oTripDataModel) {
+              oTripDataModel.setProperty("/CompanyCode", oSelectedItem.ConfigID);
+            }
           }
         },
 
@@ -3114,61 +3073,8 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
           oBinding.filter(aFilters);
         },
 
-        /**
-         * Apply authorization to Reporting buttons based on UserRoles
-         * Note: Save button is no longer controlled by user roles - it's always enabled when needed
-         */
-        _applyReportingAuthorization: function () {
-          var oUserRoles = sap.ui.getCore().getModel("UserRoles");
-          var oEditBtn = this.byId("btnEditReporting");
-          var oSaveBtn = this.byId("btnSaveReporting");
-
-          // Get current user for logging
-          var sUser = "";
-          try {
-            sUser = sap.ushell.Container.getUser().getId();
-          } catch (oError) {
-            sUser = "Unknown";
-          }
-
-          if (this._mode === "CREATE") {
-            // Get AddReporting role for logging
-            var sAddReporting = "";
-            if (oUserRoles) {
-              sAddReporting = oUserRoles.getProperty("/AddReporting") || "";
-            }
-            
-            // Create mode - hide edit button, save button is always enabled (not role-dependent)
-            if (oEditBtn) {
-              oEditBtn.setVisible(false);
-              oEditBtn.setEnabled(false);
-            }
-            // Save button is not controlled by roles - always enabled when in create mode
-            if (oSaveBtn) {
-              oSaveBtn.setEnabled(true);
-            }
-          } else {
-            // Display/Update mode - check EditReporting for edit button only
-            if (oUserRoles) {
-              var sEditReporting = oUserRoles.getProperty("/EditReporting") || "";
-              
-              if (oEditBtn) {
-                oEditBtn.setVisible(true);
-                oEditBtn.setEnabled(sEditReporting === "X");
-              }
-            } else {
-              // If UserRoles not loaded, disable edit button by default
-              if (oEditBtn) {
-                oEditBtn.setVisible(true);
-                oEditBtn.setEnabled(false);
-              }
-            }
-            // Save button is not controlled by roles - always enabled when in update mode
-            if (oSaveBtn) {
-              oSaveBtn.setEnabled(true);
-            }
-          }
-        },
+        // User-role-based authorization for Vehicle Reporting has been removed; 
+        // edit/save button states are controlled by view mode and validation only.
 
         /**
          * Handle TripData updates to refresh scanner visibility
@@ -3435,6 +3341,15 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
             if (oSaveButton) {
               oSaveButton.setVisible(true);
             }
+
+            // In this case reporting is not done via scanner
+            var oGlobalModelHasData = sap.ui.getCore().getModel("globalData");
+            if (!oGlobalModelHasData) {
+              oGlobalModelHasData = new sap.ui.model.json.JSONModel({});
+              sap.ui.getCore().setModel(oGlobalModelHasData, "globalData");
+            }
+            oGlobalModelHasData.setProperty("/IsScanningReporting", false);
+
             return;
           }
 
@@ -3453,11 +3368,13 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
             }
           }
           
-          // Check if it matches any of the three specific scenarios
+          // Check if it matches any of the specific scenarios that should use scanner
           var aAllowedScenarios = [
-            "Inward w.r.t  Supplier Portal Direct Purchase Order ASN",
-            "Inward w.r.t  Supplier Portal Scheduling Agreement Schedule Line ASN",
-            "Inward w.r.t. Job Work Purchase Order (Supplier Portal Vendor)"
+            "Inward Supplier Portal – Direct Purchase Order ASN",
+            "Inward wrt PO",
+            "Inward Supplier Portal – Scheduling Agreement ASN",
+            "I/W SPSASL ASN",
+            "Inward Job Work PO – Supplier Portal Vendor"
           ];
           
           var bShowScanner = false;
@@ -3484,6 +3401,14 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
           if (oSaveButton) {
             oSaveButton.setVisible(!bShowScanner);
           }
+
+          // Store scanner reporting mode in globalData model so other tabs can react
+          var oGlobalModel = sap.ui.getCore().getModel("globalData");
+          if (!oGlobalModel) {
+            oGlobalModel = new sap.ui.model.json.JSONModel({});
+            sap.ui.getCore().setModel(oGlobalModel, "globalData");
+          }
+          oGlobalModel.setProperty("/IsScanningReporting", !!bShowScanner);
           
           // If scanner is visible, focus on input after a short delay
           if (bShowScanner) {

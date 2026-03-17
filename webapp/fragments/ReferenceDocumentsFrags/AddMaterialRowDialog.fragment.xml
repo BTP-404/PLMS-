@@ -88,14 +88,12 @@
             <Input
                 id="idMaterialCode"
                 valueLiveUpdate="true"
-                editable="false"
             />
 
             <Label text="Material Description" />
             <Input
                 id="idMaterialDesc"
                 valueLiveUpdate="true"
-                editable="false"
             />
 
             <Label text="Quantity" />
@@ -103,7 +101,27 @@
                 id="idMaterialQty"
                 type="Number"
                 valueLiveUpdate="true"
-                
+            />
+
+            <Label text="Dispatch Qty" />
+            <Input
+                id="idMaterialDispatchQty"
+                type="Number"
+                valueLiveUpdate="true"
+            />
+
+            <Label text="Remain Qty" />
+            <Input
+                id="idMaterialRemainQty"
+                type="Number"
+                valueLiveUpdate="true"
+            />
+
+            <Label text="Dispatch Date" />
+            <DatePicker
+                id="idMaterialDispatchDate"
+                valueFormat="yyyy-MM-dd"
+                displayFormat="medium"
             />
 
             <Label text="UoM" />

@@ -55,17 +55,6 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Loading", {
         this._eventBus.subscribe("TripData", "Updated", this._onTripDataUpdated, this);
         this._eventBus.subscribe("TripData", "WeighmentRequiredChanged", this._onWeighmentRequiredChanged, this);
         this._eventBus.subscribe("Stage", "ClearAllTabs", this._clearAllData, this);
-        // DISABLED: Button enable/disable logic removed
-        // this._eventBus.subscribe("UserRoles", "Loaded", this._applyLoadingAuthorization, this);
-        
-        // DISABLED: Button enable/disable logic removed
-        // Race condition fix: Check if UserRoles already loaded
-        // var oUserRoles = sap.ui.getCore().getModel("UserRoles");
-        // if (oUserRoles) {
-        //     setTimeout(function() {
-        //         this._applyLoadingAuthorization();
-        //     }.bind(this), 0);
-        // }
         
         // Check initial weighment required state
         this._updateWeighmentEnabledState();
@@ -111,8 +100,6 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Loading", {
         this._eventBus?.unsubscribe("TripData", "Updated", this._onTripDataUpdated, this);
         this._eventBus?.unsubscribe("TripData", "WeighmentRequiredChanged", this._onWeighmentRequiredChanged, this);
         this._eventBus?.unsubscribe("Stage", "ClearAllTabs", this._clearAllData, this);
-        // DISABLED: Button enable/disable logic removed
-        // this._eventBus?.unsubscribe("UserRoles", "Loaded", this._applyLoadingAuthorization, this);
         this._oLoadingColumnVisibilityDialog?.destroy();
     },
     
@@ -299,7 +286,7 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Loading", {
     // Save Loading (without ending loading)
     // =====================================================================
     onSaveLoading: function () {
-        // Check authorization - determine if this is add or edit
+        // Authorization checks based on UserRoles have been removed; saving is always allowed.
         var oTableModel = this.getView().getModel("tableModel");
         var aMaterials = oTableModel ? (oTableModel.getProperty("/materials") || []) : [];
         var bHasExistingData = false;
@@ -310,28 +297,6 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Loading", {
                 bHasExistingData = true;
             }
         });
-        
-        var oUserRoles = sap.ui.getCore().getModel("UserRoles");
-        var bAuthorized = false;
-        
-        if (bHasExistingData) {
-            // Editing existing loading data
-            var sEditLoading = oUserRoles ? (oUserRoles.getProperty("/EditLoading") || "") : "";
-            bAuthorized = sEditLoading === "X";
-            if (!bAuthorized) {
-                MessageBox.warning("You are not authorized to edit Loading information.");
-                return;
-            }
-        } else {
-            // Adding new loading data
-            var sAddLoading = oUserRoles ? (oUserRoles.getProperty("/AddLoading") || "") : "";
-            bAuthorized = sAddLoading === "X";
-            if (!bAuthorized) {
-                MessageBox.warning("You are not authorized to add Loading information.");
-                return;
-            }
-        }
-        
         var oView = this.getView();
         var sTripNumber = sap.ui.getCore().getModel("globalData").getProperty("/TripNumber");
 
@@ -1776,97 +1741,6 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Loading", {
         });
     },
     
-    // =====================================================================
-    /**
-     * Apply authorization to Loading buttons based on UserRoles
-     */
-    // DISABLED: Button enable/disable logic removed
-    /*
-    _applyLoadingAuthorization: function () {
-        var oUserRoles = sap.ui.getCore().getModel("UserRoles");
-
-        var oView = this.getView();
-        var oSaveBtn = oView.byId("btnSaveLoading");
-        var oStartBtn = oView.byId("btnStartLoading");
-        var oEndBtn = oView.byId("btnEndLoading");
-        var oReStartBtn = oView.byId("btnReStartLoading");
-
-        if (!oUserRoles) {
-            // If UserRoles not loaded, disable all action buttons by default
-            if (oSaveBtn) { 
-                oSaveBtn.setEnabled(false);
-            }
-            if (oStartBtn) { 
-                oStartBtn.setEnabled(false);
-            }
-            if (oEndBtn) { 
-                oEndBtn.setEnabled(false);
-            }
-            if (oReStartBtn) {
-                oReStartBtn.setEnabled(false);
-            }
-            return;
-        }
-
-        // -----------------------------------------------------------------
-        // Save button authorization (existing logic)
-        // -----------------------------------------------------------------
-        var oTableModel = this.getView().getModel("tableModel");
-        var aMaterials = oTableModel ? (oTableModel.getProperty("/materials") || []) : [];
-        var bHasExistingData = false;
-        
-        // Check if any material has existing data
-        aMaterials.forEach(function (oMaterial) {
-            if (oMaterial.GrossWt || oMaterial.TareWt || oMaterial.LoadedWeight || oMaterial.NetWt) {
-                bHasExistingData = true;
-            }
-        });
-
-        // Get authorization roles
-        var sAddLoadingRole = oUserRoles.getProperty("/AddLoading") || "";
-        var sEditLoadingRole = oUserRoles.getProperty("/EditLoading") || "";
-        var sDelLoadingRole = oUserRoles.getProperty("/DelLoading") || "";
-        var sReopenLoadingRole = oUserRoles.getProperty("/ReopenLoading") || "";
-
-        var bHasAnyLoadingAuth = (sAddLoadingRole === "X" || sEditLoadingRole === "X" || sDelLoadingRole === "X");
-
-        // Save button - check authorization but only restrict if not authorized
-        if (oSaveBtn) {
-            var bCurrentState = oSaveBtn.getEnabled();
-            var bShouldBeEnabled = bHasExistingData ? (sEditLoadingRole === "X") : (sAddLoadingRole === "X");
-            // Only change if button is currently enabled but user doesn't have permission
-            if (bCurrentState && !bShouldBeEnabled) {
-                oSaveBtn.setEnabled(false);
-            }
-        }
-
-        // Start button - only restrict if not authorized
-        if (oStartBtn && oStartBtn.getVisible()) {
-            var bCurrentState = oStartBtn.getEnabled();
-            var bHasAuth = sAddLoadingRole === "X";
-            if (bCurrentState && !bHasAuth) {
-                oStartBtn.setEnabled(false);
-            }
-        }
-
-        // ReStart button - only restrict if not authorized
-        if (oReStartBtn && oReStartBtn.getVisible()) {
-            var bCurrentState = oReStartBtn.getEnabled();
-            var bHasAuth = sReopenLoadingRole === "X";
-            if (bCurrentState && !bHasAuth) {
-                oReStartBtn.setEnabled(false);
-            }
-        }
-
-        // End button - only restrict if no loading auth at all
-        if (oEndBtn) {
-            var bCurrentState = oEndBtn.getEnabled();
-            if (bCurrentState && !bHasAnyLoadingAuth) {
-                oEndBtn.setEnabled(false);
-            }
-        }
-    },
-    */
 
     // RELOAD TRIPDATA AND REFRESH MATERIALS (for weight updates)
     // =====================================================================

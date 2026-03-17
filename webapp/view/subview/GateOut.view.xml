@@ -19,13 +19,13 @@
         >
             <headerToolbar>
                 <OverflowToolbar>
-                    <Title text="Gate-Out" />
+                    <Title text="Gate-Out" class="sectionPanelTitle" />
                 </OverflowToolbar>
             </headerToolbar>
 
             <VBox class="sapUiSizeCompact sapUiSmallPadding">
                 <!-- ========================= ROW 1 ========================= -->
-                <!-- Exit Gate + Verified Docs + Upload Attachments -->
+                <!-- Exit Gate + Verified Docs + Bins Returned (3 columns) -->
                 <layout:Grid
                     defaultSpan="L4 M6 S12"
                     hSpacing="0.5rem"
@@ -76,7 +76,37 @@
                         </VBox>
                     </layout:content>
 
-                    <!-- Upload Attachments -->
+                    <!-- Bins Returned -->
+                    <layout:content>
+                        <VBox width="100%">
+                            <Label
+                                text="Bins Returned"
+                                design="Bold"
+                                class="sapUiNoMarginBottom"
+                            />
+                            <Input
+                                id="idBinsReturned"
+                                width="100%"
+                                type="Number"
+                                placeholder="Enter bins returned"
+                                value="{
+                                    path: 'TripData>/BinsReturned',
+                                    mode: 'OneWay'
+                                }"
+                            />
+                        </VBox>
+                    </layout:content>
+                </layout:Grid>
+
+                <!-- ========================= ROW 2 ========================= -->
+                <!-- Upload Attachments (full width) -->
+                <layout:Grid
+                    defaultSpan="L12 M12 S12"
+                    hSpacing="0.5rem"
+                    vSpacing="0.5rem"
+                    width="100%"
+                    class="sapUiTinyMarginTop"
+                >
                     <layout:content>
                         <VBox width="100%">
                             <Label
@@ -109,7 +139,7 @@
                     </layout:content>
                 </layout:Grid>
 
-                <!-- ========================= ROW 2 ========================= -->
+                <!-- ========================= ROW 3 ========================= -->
                 <!-- Remarks + Additional Info -->
                 <layout:Grid
                     defaultSpan="L6 M6 S12"
@@ -193,7 +223,7 @@
         >
             <headerToolbar>
                 <OverflowToolbar>
-                    <Title text="Change History" />
+                    <Title text="Change History" class="sectionPanelTitle" />
                 </OverflowToolbar>
             </headerToolbar>
 

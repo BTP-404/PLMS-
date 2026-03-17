@@ -17,7 +17,7 @@
         >
             <headerToolbar>
                 <OverflowToolbar>
-                    <Title text="Loading" />
+                    <Title text="Loading" class="sectionPanelTitle" />
                 </OverflowToolbar>
             </headerToolbar>
 

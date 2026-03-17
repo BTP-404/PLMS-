@@ -42,12 +42,12 @@
         <Panel
             id="reportingDetailsPanel"
             expandable="true"
-            expanded="true"
+            expanded="false"
             class="sapUiNoContentPadding"
         >
             <headerToolbar>
                 <OverflowToolbar>
-                    <Title text="Reporting Details" />
+                    <Title text="Reporting Details" class="sectionPanelTitle" />
                 </OverflowToolbar>
             </headerToolbar>
             <VBox class="sapUiSizeCompact sapUiMediumPadding">
@@ -325,22 +325,20 @@
                                 design="Bold"
                                 required="true"
                             />
-                           <Select
-                               id="idPlant"
-                               width="100%"
-                               forceSelection="false"
-                               items="{
-                                   path: 'PlantModel>/'
-                               }"
-                               change="onPlantChange">
-                               <core:Item
-                                   key="{PlantModel>ConfigID}"
-                                   text="{PlantModel>ConfigID}"
-                                   additionalText="{PlantModel>Description}"
-                                   
-                               />
-                           </Select>
-
+                            <Select
+                                id="idPlant"
+                                width="100%"
+                                forceSelection="false"
+                                items="{
+                                    path: 'PlantModel>/'
+                                }"
+                                change="onPlantChange">
+                                <core:Item
+                                    key="{PlantModel>ConfigID}"
+                                    text="{= ${PlantModel>ConfigID} + ' - ' + ${PlantModel>Description} }"
+                                    additionalText="{PlantModel>Description}"
+                                />
+                            </Select>
                         </VBox>
                     </layout:content>
                     <layout:content>
@@ -375,7 +373,7 @@
                     <layout:content>
                         <VBox>
                             <Label
-                                text="Related Trip Number"
+                                text="Related Trip Number (Gate Pass No)"
                                 design="Bold"
                             />
                             <Input
@@ -404,17 +402,7 @@
                         </VBox>
                     </layout:content>
                 </layout:Grid>
-            </VBox>
-        </Panel>
-        <layout:Grid>
-            <ToolbarSpacer/>
-            <layout:content>
-                <ToolbarSpacer/>
-                <ToolbarSpacer/>
-                <HBox
-                    justifyContent="End"
-                    class="sapUiSmallMarginTop sapUiSmallMarginEnd"
-                >
+                <HBox justifyContent="End" class="sapUiSmallMarginTop">
                     <Button
                         id="btnEditReporting"
                         text="Edit"
@@ -431,8 +419,8 @@
                         class="sapUiTinyMarginBegin"
                     />
                 </HBox>
-            </layout:content>
-        </layout:Grid>
+            </VBox>
+        </Panel>
         <!-- ===================== CHANGE HISTORY ===================== -->
         <Panel
             id="changeHistoryPanel"
@@ -443,7 +431,7 @@
         >
             <headerToolbar>
                 <OverflowToolbar>
-                    <Title text="Change History" />
+                    <Title text="Change History" class="sectionPanelTitle" />
                 </OverflowToolbar>
             </headerToolbar>
             <VBox

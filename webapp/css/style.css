@@ -1,3 +1,98 @@
+/* ==================== DESIGN TOKENS ==================== */
+:root {
+    --plms-primary: #0070f2;
+    --plms-primary-dark: #0051d5;
+    --plms-primary-darker: #0854a0;
+    --plms-primary-text: #1c4e80;
+    --plms-success: #4caf50;
+    --plms-success-dark: #388e3c;
+    --plms-warning: #ff9800;
+    --plms-warning-dark: #f57c00;
+    --plms-neutral-bg: #f5f8fc;
+    --plms-neutral-bg-soft: #fafbfc;
+    --plms-neutral-border: #dfe7f2;
+    --plms-row-hover: #eef3ff;
+    --plms-row-alt: #fbfdff;
+    --plms-radius: 12px;
+    --plms-radius-sm: 8px;
+    --plms-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    --plms-shadow-hover: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* ==================== HOMEPAGE BEAUTY ==================== */
+.homeSemanticPage .sapFSemanticPageContent {
+    background: var(--plms-neutral-bg-soft) !important;
+}
+
+.homePageTitle.sapMTitle {
+    font-weight: 700 !important;
+    color: var(--plms-primary-text) !important;
+    border-left: 4px solid var(--plms-primary);
+    padding-left: 0.5rem !important;
+}
+
+.homeFilterCard {
+    background: #ffffff !important;
+    border-radius: var(--plms-radius) !important;
+    box-shadow: var(--plms-shadow) !important;
+    border: 1px solid var(--plms-neutral-border) !important;
+    padding: 1rem 1.25rem !important;
+    margin-bottom: 0.5rem !important;
+}
+
+.homePageContent {
+    padding: 0.5rem 0 !important;
+}
+
+.btnReportVehicle .sapMBtnInner {
+    transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+}
+.btnReportVehicle .sapMBtnInner:hover {
+    transform: translateY(-1px) !important;
+    box-shadow: 0 4px 12px rgba(0, 112, 242, 0.25) !important;
+}
+
+/* ==================== STAGE HEADER BAR (STICKY) ==================== */
+.stageHeaderBar.sapMBar,
+#headerBar.stageHeaderBar {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 100 !important;
+    background: linear-gradient(135deg, var(--plms-neutral-bg) 0%, #ffffff 100%) !important;
+    border-bottom: 2px solid var(--plms-neutral-border) !important;
+    padding: 0.5rem 1rem !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+.stageHeaderBar .sapMText {
+    font-weight: 600 !important;
+    color: var(--plms-primary-text) !important;
+}
+
+#stagePage .sapMITB {
+    /* No sticky here: sticky inside scroll container clips tabs from top */
+    background: var(--sapGroup_ContentBackground, #ffffff) !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+    border-bottom: 1px solid var(--plms-neutral-border);
+}
+
+/* ==================== MICRO-INTERACTIONS ==================== */
+.sapMBtn .sapMBtnInner {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.sapMBtn:hover .sapMBtnInner:not(.sapMBtnDisabled) {
+    transform: translateY(-1px);
+}
+.sapMBtn:active .sapMBtnInner:not(.sapMBtnDisabled) {
+    transform: translateY(0);
+}
+
+.homeFilterCard .sapMInputBase:focus-within,
+.homeFilterCard .sapMInputBaseFocus {
+    border-color: var(--plms-primary) !important;
+    box-shadow: 0 0 0 2px rgba(0, 112, 242, 0.2) !important;
+}
+
 /* ==================== HIDE UNNECESSARY HORIZONTAL SCROLLBARS ==================== */
 
 /* Hide horizontal scrollbar by default, show only on hover or when scrolling */
@@ -100,6 +195,14 @@
     padding-left: 0.5rem !important;
 }
 
+/* ==================== PANEL SECTION TITLES ==================== */
+/* Distinct color for panel titles (Reporting Details, Gate-In, etc.) */
+.sectionPanelTitle,
+.sapMPanel .sapMTB .sectionPanelTitle {
+    color: #0854a0 !important;
+    font-weight: 600 !important;
+}
+
 /* Reduce left margin for common layout containers */
 .sapUiLayoutGrid {
     margin-left: 0.5rem !important;
@@ -147,6 +250,11 @@
 
 /* Mobile: Even less left margin for better space utilization */
 @media (max-width: 768px) {
+    /* Hide Activity Timeline panel on mobile */
+    .activityTimelinePanel {
+        display: none !important;
+    }
+
     .sapUiSmallMargin {
         margin-left: 0.25rem !important;
     }
@@ -180,7 +288,7 @@
 /* Main sticky note container */
 .stickyNote {
     background: #d7ecff;
-    border-radius: 8px;
+    border-radius: var(--plms-radius-sm);
     padding: 12px 14px;
     margin: 10px;
     width: 240px;
@@ -345,34 +453,47 @@
     color: #fff !important;
 }
 
+/* Trip table container: no horizontal scroll */
+.homeTripScrollContainer.sapMScrollContainer {
+    overflow-x: hidden !important;
+}
+
 .homeTripTable {
-    min-width: 150rem;
-    border-radius: 6px;
-    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.08);
+    width: 100% !important;
+    min-width: 0 !important;
+    table-layout: fixed;
+    border-radius: var(--plms-radius-sm);
+    box-shadow: var(--plms-shadow);
     overflow: hidden;
+    border: 1px solid var(--plms-neutral-border);
 }
 
 .homeTripTable .sapMColumnHeader {
-    background-color: #f5f8fc;
-    border-bottom: 1px solid #dfe7f2;
+    background-color: var(--plms-neutral-bg);
+    border-bottom: 2px solid var(--plms-neutral-border);
 }
 
 .homeTripTable .sapMColumnHeaderText {
     font-weight: 600;
-    color: #1c4e80;
+    color: var(--plms-primary-text);
+}
+
+.homeTripTable .sapMListTblRow {
+    transition: background-color 0.15s ease;
 }
 
 .homeTripTable .sapMListTblRow:nth-child(even) {
-    background-color: #fbfdff;
+    background-color: var(--plms-row-alt);
 }
 
 .homeTripTable .sapMListTblRow:hover {
-    background-color: #eef3ff;
+    background-color: var(--plms-row-hover);
 }
 
 .homeTripTable .sapMListTblCell {
     padding-top: 0.65rem;
     padding-bottom: 0.65rem;
+    word-wrap: break-word;
 }
 
 /* ==================== ANALYSIS DASHBOARD STYLES ==================== */
@@ -863,7 +984,7 @@
 }
 
 .sapMPanel[header-text*="Event Details"] .sapMPanelHdr {
-    background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+    background: linear-gradient(135deg, #4caf50 0%, #388e3c 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -1020,17 +1141,21 @@
 
 /* Table Styling for Events */
 #activityDetailsTable .sapMColumnHeader {
-    background-color: #f5f8fc;
-    border-bottom: 2px solid #dfe7f2;
+    background-color: var(--plms-neutral-bg);
+    border-bottom: 2px solid var(--plms-neutral-border);
     font-weight: 600;
 }
 
+#activityDetailsTable .sapMListTblRow {
+    transition: background-color 0.15s ease;
+}
+
 #activityDetailsTable .sapMListTblRow:nth-child(even) {
-    background-color: #fbfdff;
+    background-color: var(--plms-row-alt);
 }
 
 #activityDetailsTable .sapMListTblRow:hover {
-    background-color: #eef3ff;
+    background-color: var(--plms-row-hover);
     cursor: pointer;
 }
 
@@ -1520,15 +1645,15 @@
     top: 0;
     bottom: 0;
     width: 5px;
-    background: linear-gradient(180deg, #ff9800 0%, #f57c00 100%);
+    background: linear-gradient(180deg, #4caf50 0%, #388e3c 100%);
     transition: width 0.3s ease;
 }
 
 .eventDetailItem:hover {
-    background: linear-gradient(135deg, #fff8f0 0%, #ffffff 100%);
-    border-left-color: #ff9800;
+    background: linear-gradient(135deg, #e8f5e9 0%, #ffffff 100%);
+    border-left-color: #4caf50;
     transform: translateX(2px);
-    box-shadow: 0 4px 12px rgba(255, 152, 0, 0.2);
+    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.2);
 }
 
 .eventDetailItem:hover::before {
@@ -1549,31 +1674,31 @@
     width: 100%;
 }
 
-/* Event Icon Container - Beautiful Background (Orange Theme) */
+/* Event Icon Container - Beautiful Background (Green Theme) */
 .eventIconContainer {
     width: 3.5rem;
     height: 3.5rem;
     min-width: 3.5rem;
     min-height: 3.5rem;
-    background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
+    background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
     border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 2px 6px rgba(255, 152, 0, 0.15);
+    box-shadow: 0 2px 6px rgba(76, 175, 80, 0.15);
     transition: all 0.3s ease;
 }
 
 .eventDetailItem:hover .eventIconContainer {
-    background: linear-gradient(135deg, #ffe0b2 0%, #ffcc80 100%);
-    box-shadow: 0 4px 10px rgba(255, 152, 0, 0.25);
+    background: linear-gradient(135deg, #c8e6c9 0%, #a5d6a7 100%);
+    box-shadow: 0 4px 10px rgba(76, 175, 80, 0.25);
     transform: scale(1.05);
 }
 
-/* Event Icon Styling - Enhanced */
+/* Event Icon Styling - Enhanced (Green) */
 .eventIcon {
-    color: #f57c00 !important;
-    filter: drop-shadow(0 2px 4px rgba(245, 124, 0, 0.3));
+    color: #388e3c !important;
+    filter: drop-shadow(0 2px 4px rgba(56, 142, 60, 0.3));
     font-size: 2.5rem !important;
 }
 
@@ -1595,6 +1720,12 @@
     word-wrap: break-word;
 }
 
+/* Event Details panel - bold labels (Event, TAT, Moment Scenario, etc.) */
+.eventDetailLabel {
+    font-weight: bold !important;
+    min-width: 7rem;
+}
+
 /* Event Detail Icons - Colorful */
 .eventDetailItem .sapUiCoreIcon {
     flex-shrink: 0 !important;
@@ -1610,7 +1741,7 @@
 }
 
 .eventDetailItem .sapUiCoreIcon[sap-icon="time-entry-record"] {
-    color: #ff9800 !important;
+    color: #4caf50 !important;
 }
 
 .eventDetailItem .sapUiCoreIcon[sap-icon="calendar"] {
@@ -2362,6 +2493,6 @@
 }
 
 .stageContentVBox {
-    padding-top: 0 !important;
+    padding-top: 0.5rem !important; /* breathing room so tabs are not cut from top */
     margin-top: 0 !important;
 }

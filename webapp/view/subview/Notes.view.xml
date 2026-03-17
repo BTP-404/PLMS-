@@ -38,7 +38,7 @@
         >
             <headerToolbar>
                 <OverflowToolbar>
-                    <Title text="Add Note" />
+                    <Title text="Add Note" class="sectionPanelTitle" />
                 </OverflowToolbar>
             </headerToolbar>
 
@@ -73,7 +73,7 @@
         >
             <headerToolbar>
                 <OverflowToolbar>
-                    <Title text="Saved Notes" />
+                    <Title text="Saved Notes" class="sectionPanelTitle" />
                 </OverflowToolbar>
             </headerToolbar>
 

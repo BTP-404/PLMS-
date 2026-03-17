@@ -9,8 +9,10 @@
 >
     <semantic:SemanticPage
         id="TripSemanticPage"
+        class="homeSemanticPage"
         toggleHeaderOnTitleClick="true"
         preserveHeaderStateOnScroll="true"
+        headerPinnable="true"
         showFooter="false"
     >
         <!-- ==================== TITLE AREA ==================== -->
@@ -18,6 +20,7 @@
             <Title
                 text="Trip Status"
                 level="H5"
+                class="homePageTitle"
             />
         </semantic:titleHeading>
         <!-- ==================== TITLE ACTIONS ==================== -->
@@ -28,6 +31,7 @@
                 icon="sap-icon://add"
                 press=".onReportVehicle"
                 tooltip="Report an unassigned vehicle"
+                class="btnReportVehicle"
             />
         </semantic:titleCustomTextActions>
         <semantic:titleCustomTextActions>
@@ -41,14 +45,46 @@
         <!-- ==================== HEADER FILTER AREA ==================== -->
         <semantic:headerContent>
             <layout:Grid
-                defaultSpan="L3 M6 S12"
+                defaultSpan="XL2 L2 M4 S12"
                 hSpacing="1"
                 vSpacing="1"
-                class="sapUiSizeCompact"
+                class="sapUiSizeCompact homeFilterCard"
             >
+                <!-- Trip Number -->
+                <layout:content>
+                    <VBox>
+                        <layoutData>
+                            <layout:GridData span="XL2 L2 M4 S12" />
+                        </layoutData>
+                        <Label
+                            design="Bold"
+                            text="Trip Number:"
+                        />
+                        <Input
+                            width="100%"
+                            showValueHelp="true"
+                            showSuggestion="true"
+                            suggest=".onSuggest"
+                            filterSuggests="false"
+                            suggestThreshold="1"
+                            valueHelpRequest=".onValueHelpRequest"
+                            suggestionItemSelected=".onSuggestionItemSelected"
+                        >
+                            <customData>
+                                <core:CustomData
+                                    key="field"
+                                    value="tripNo"
+                                />
+                            </customData>
+                        </Input>
+                    </VBox>
+                </layout:content>
                 <!-- Vehicle Number -->
                 <layout:content>
                     <VBox>
+                        <layoutData>
+                            <layout:GridData span="XL2 L2 M4 S12" />
+                        </layoutData>
                         <Label
                             design="Bold"
                             text="Vehicle Number:"
@@ -75,6 +111,9 @@
                 <!-- Plant -->
                 <layout:content>
                     <VBox>
+                        <layoutData>
+                            <layout:GridData span="XL2 L2 M4 S12" />
+                        </layoutData>
                         <Label
                             design="Bold"
                             text="Plant:"
@@ -101,6 +140,9 @@
                 <!-- Report Date From -->
                 <layout:content>
                     <VBox>
+                        <layoutData>
+                            <layout:GridData span="XL3 L3 M4 S12" />
+                        </layoutData>
                         <Label
                             design="Bold"
                             text="Report Date From:"
@@ -121,35 +163,39 @@
                     </VBox>
                 </layout:content>
                 <!-- Report Date To + Go -->
-             <!-- Report Date To + Go -->
-<layout:content>
-    <VBox>
-        <Label design="Bold" text="Report Date To:" />
-        <HBox
-            alignItems="Center"
-            width="100%"
-        >
-            <DatePicker
-                id="ReportDateTo"
-                width="100%"
-                valueFormat="yyyy-MM-dd"
-                displayFormat="medium"
-            >
-                <layoutData>
-                    <FlexItemData growFactor="1" />
-                </layoutData>
-            </DatePicker>
-
-            <Button
-                text="Go"
-                type="Emphasized"
-                width="3rem"
-                press=".onGoPress"
-                class="sapUiTinyMarginBegin"
-            />
-        </HBox>
-    </VBox>
-</layout:content>
+                <layout:content>
+                    <VBox>
+                        <layoutData>
+                            <layout:GridData span="XL3 L3 M4 S12" />
+                        </layoutData>
+                        <Label
+                            design="Bold"
+                            text="Report Date To:"
+                        />
+                        <HBox
+                            alignItems="Center"
+                            width="100%"
+                        >
+                            <DatePicker
+                                id="ReportDateTo"
+                                width="100%"
+                                valueFormat="yyyy-MM-dd"
+                                displayFormat="medium"
+                            >
+                                <layoutData>
+                                    <FlexItemData growFactor="1" />
+                                </layoutData>
+                            </DatePicker>
+                            <Button
+                                text="Go"
+                                type="Emphasized"
+                                width="3rem"
+                                press=".onGoPress"
+                                class="sapUiTinyMarginBegin"
+                            />
+                        </HBox>
+                    </VBox>
+                </layout:content>
 
             </layout:Grid>
         </semantic:headerContent>
@@ -157,9 +203,10 @@
         <semantic:content>
             <ScrollContainer
                 width="100%"
-                horizontal="true"
+                horizontal="false"
                 vertical="false"
                 height="auto"
+                class="homePageContent homeTripScrollContainer"
             >
                 <Table
                     id="tripTable"
@@ -169,19 +216,19 @@
                         path: '/TripDetails'
                     }"
                     headerText="Trip Details"
-                    class="sapUiSizeCompact"
+                    class="sapUiSizeCompact homeTripTable"
                     growing="true"
                     growingScrollToLoad="false"
                     growingThreshold="25"
                     sticky="ColumnHeaders,HeaderToolbar"
-                    width="auto"
+                    width="100%"
                     autoPopin="true"
                     fixedLayout="false"
                     selectionChange="onTripPress"
                 >
                     <headerToolbar>
                     <Toolbar>
-                        <Title text="Trip Details" />
+                        <Title text="Trip Details" class="sectionPanelTitle" />
                         <ToolbarSpacer />
                         <Button
                             icon="sap-icon://action-settings"
@@ -215,6 +262,14 @@
                             popinDisplay="Inline"
                         >
                             <Text text="Trip Status" />
+                        </Column>
+                        <Column
+                            id="colMovementType"
+                            demandPopin="true"
+                            minScreenWidth="Tablet"
+                            popinDisplay="Inline"
+                        >
+                            <Text text="Movement Type" />
                         </Column>
                         <Column
                             id="colVehicleType"
@@ -310,6 +365,13 @@
                                 />
                                 <Text
                                     text="{TripStatus}"
+                                    wrapping="true"
+                                />
+                                <Text
+                                    text="{
+                                        path: 'MovementType',
+                                        formatter: '.formatMovementType'
+                                    }"
                                     wrapping="true"
                                 />
                                 <Text

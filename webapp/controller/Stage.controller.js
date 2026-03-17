@@ -26,13 +26,10 @@ sap.ui.define([
 			this._oEventBus.subscribe("TripData", "Updated", this._updateLoadingUnloadingTabs, this);
 			this._oEventBus.subscribe("TripData", "MovementTypeChanged", this._updateLoadingUnloadingTabs, this);
 			this._oEventBus.subscribe("TripData", "Updated", this._updateCancelButtonVisibility, this);
-			this._oEventBus.subscribe("TripData", "Updated", this._loadUserRolesForTrip, this);
 			this._oEventBus.subscribe("Stage", "TripCreated", this._onTripCreated, this);
 			this._oEventBus.subscribe("Notes", "UnreadCountChanged", this._updateNotesTabIndicator, this);
 			this._oEventBus.subscribe("Stage", "ClearAllTabs", this._onClearAllTabs, this);
-
-			// UserRoles are loaded in HomePage - just try to load plant-specific roles if TripData exists
-			this._loadUserRolesForTrip();
+			
 		},
 	onAfterRendering: function() {
 		this._updateCancelButtonVisibility();
@@ -46,7 +43,6 @@ sap.ui.define([
 			this._oEventBus?.unsubscribe("TripData", "Updated", this._updateLoadingUnloadingTabs, this);
 			this._oEventBus?.unsubscribe("TripData", "MovementTypeChanged", this._updateLoadingUnloadingTabs, this);
 			this._oEventBus?.unsubscribe("TripData", "Updated", this._updateCancelButtonVisibility, this);
-			this._oEventBus?.unsubscribe("TripData", "Updated", this._loadUserRolesForTrip, this);
 			this._oEventBus?.unsubscribe("Stage", "TripCreated", this._onTripCreated, this);
 			this._oEventBus?.unsubscribe("Notes", "UnreadCountChanged", this._updateNotesTabIndicator, this);
 			this._oEventBus?.unsubscribe("Stage", "ClearAllTabs", this._onClearAllTabs, this);
@@ -60,12 +56,6 @@ sap.ui.define([
 		this._sCurrentTripNumber = "";
 		this._updateTabVisibilityForCreateMode();
 		this._updateHeaderVisibilityForCreateMode();
-		
-		// IMPORTANT:
-		// Do NOT reset UserRoles here – they are user-level, not trip-level.
-		// Clearing them causes all other screens that depend on UserRoles
-		// (Reference Docs, GateIn/Out, Loading, etc.) to lose authorization
-		// after a clear/refresh. We keep the last loaded roles instead.
 	},
 
 	_onRouteMatched: function (oEvent) {
@@ -202,6 +192,16 @@ sap.ui.define([
 		if (oData && oData.tripNumber) {
 			this._bCreateMode = false;
 			this._sCurrentTripNumber = oData.tripNumber;
+
+			// Ensure global TripNumber is synced so dependent views (e.g. Activity Analysis tab)
+			// can reliably load data based on the current trip
+			var oGlobalModel = sap.ui.getCore().getModel("globalData");
+			if (!oGlobalModel) {
+				oGlobalModel = new JSONModel({ TripNumber: "" });
+				sap.ui.getCore().setModel(oGlobalModel, "globalData");
+			}
+			oGlobalModel.setProperty("/TripNumber", oData.tripNumber);
+
 			this._refreshPageTitleModel();
 			this._updateHeaderVisibilityForCreateMode();
 			this._updateTabVisibilityForCreateMode();
@@ -345,7 +345,6 @@ sap.ui.define([
 		},
 
 	_updateLoadingUnloadingTabs: function () {
-		var oTripDataModel = sap.ui.getCore().getModel("TripData");
 		var oLoadingTab = this.byId("idLoadingMaterial");
 		var oUnloadingTab = this.byId("idUnloadingMaterial");
 
@@ -353,48 +352,9 @@ sap.ui.define([
 			return;
 		}
 
-		// In CREATE mode (new vehicle reporting), always hide both tabs
-		// irrespective of movement type. Tabs are controlled only after
-		// a trip exists (DISPLAY / update mode).
-		if (this._bCreateMode) {
-			oLoadingTab.setVisible(false);
-			oUnloadingTab.setVisible(false);
-			return;
-		}
-
-		var sMovementType = "";
-		var sMovementTypeDesc = "";
-
-		// Check TripData first (existing trips)
-		if (oTripDataModel) {
-			sMovementTypeDesc = (oTripDataModel.getProperty("/MovementTypeDesc") || "").toUpperCase();
-			sMovementType = oTripDataModel.getProperty("/MovementType") || "";
-		} else {
-			// During trip creation, check globalData model
-			var oGlobalModel = sap.ui.getCore().getModel("globalData");
-			if (oGlobalModel) {
-				sMovementType = oGlobalModel.getProperty("/MovementType") || "";
-				sMovementTypeDesc = (oGlobalModel.getProperty("/MovementTypeDesc") || "").toUpperCase();
-			}
-		}
-
-		// Determine if Inward or Outward based on MovementType code or description
-		var bIsInward = sMovementType === "I" || sMovementTypeDesc.indexOf("INWARD") !== -1;
-		var bIsOutward = sMovementType === "O" || sMovementTypeDesc.indexOf("OUTWARD") !== -1;
-
-		// If Inward, show Unloading and hide Loading
-		// If Outward, show Loading and hide Unloading
-		if (bIsInward) {
-			oUnloadingTab.setVisible(true);
-			oLoadingTab.setVisible(false);
-		} else if (bIsOutward) {
-			oLoadingTab.setVisible(true);
-			oUnloadingTab.setVisible(false);
-		} else {
-			// Default: hide both if movement type is not determined
-			oLoadingTab.setVisible(false);
-			oUnloadingTab.setVisible(false);
-		}
+		// Loading and Unloading tabs are hidden for now (not required to show as of now).
+		oLoadingTab.setVisible(false);
+		oUnloadingTab.setVisible(false);
 	},
 
 		/**
@@ -534,81 +494,7 @@ sap.ui.define([
 			}
 		},
 
-		/**
-		 * Load UserRoles for the current trip's plant
-		 * Matches trip's plant with user's plant and loads corresponding UserRoles
-		 * IMPORTANT: Never clears existing roles if no match is found, to avoid random loss of permissions.
-		 */
-		_loadUserRolesForTrip: function () {
-			var oTripData = sap.ui.getCore().getModel("TripData");
-			if (!oTripData) {
-				// No trip data yet – keep existing UserRoles (user-level)
-				return;
-			}
-
-			var sTripPlant = oTripData.getProperty("/Plant") || "";
-			if (!sTripPlant) {
-				// No plant in trip data – keep existing UserRoles (user-level)
-				return;
-			}
-
-			// Get all user roles from array
-			var oUserRolesArrayModel = sap.ui.getCore().getModel("UserRolesArray");
-			if (!oUserRolesArrayModel) {
-				// Array not loaded yet – keep existing UserRoles (user-level)
-				return;
-			}
-
-			var aAllRoles = oUserRolesArrayModel.getProperty("/roles") || [];
-
-			// Normalized plant comparison (trim + uppercase)
-			var fnNormalizePlant = function (sPlant) {
-				return (sPlant || "").toString().trim().toUpperCase();
-			};
-			var sNormTripPlant = fnNormalizePlant(sTripPlant);
-
-			var oMatchedRole = null;
-			for (var i = 0; i < aAllRoles.length; i++) {
-				var sRolePlant = fnNormalizePlant(aAllRoles[i].Plant);
-				if (sRolePlant && sNormTripPlant && sRolePlant === sNormTripPlant) {
-					oMatchedRole = aAllRoles[i];
-					break;
-				}
-			}
-
-			if (oMatchedRole) {
-				// Store matched plant-specific UserRoles
-				var oUserRolesModel = new JSONModel(oMatchedRole);
-				sap.ui.getCore().setModel(oUserRolesModel, "UserRoles");
-
-				// Publish event that UserRoles are loaded/updated
-				sap.ui.getCore().getEventBus().publish("UserRoles", "Loaded", {
-					roles: [oMatchedRole],
-					plant: sTripPlant
-				});
-			} else {
-				// IMPORTANT: Do NOT clear roles anymore – keep whatever UserRoles we already have.
-				// This avoids random loss of permissions when plant values or timing don't match exactly.
-				jQuery.sap.log.warning(
-					"No matching UserRoles found for plant '" + sTripPlant +
-					"'. Keeping existing UserRoles instead of clearing them."
-				);
-			}
-		},
-
-		/**
-		 * Utility function to check if user has authorization for a specific action
-		 * @param {string} sAction - Action name (e.g., "AddRef", "EditGatein", "DelLoading")
-		 * @returns {boolean} - true if authorized (value is "X"), false otherwise
-		 */
-		_checkAuthorization: function (sAction) {
-			var oUserRoles = sap.ui.getCore().getModel("UserRoles");
-			if (!oUserRoles) {
-				return false; // No roles loaded, deny access
-			}
-			var sValue = oUserRoles.getProperty("/" + sAction) || "";
-			return sValue === "X";
-		}
+		// User-role-based authorization logic has been removed from Stage controller.
 
 	});
 });

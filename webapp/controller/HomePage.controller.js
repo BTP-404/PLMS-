@@ -10,7 +10,7 @@ sap.ui.define(
     "sap/m/StandardListItem",
     "sap/m/SuggestionItem",
     "sap/ui/core/Fragment",
-    "sap/ui/model/json/JSONModel",
+    "sap/ui/model/json/JSONModel"
   ],
   function (
     Controller,
@@ -46,25 +46,11 @@ sap.ui.define(
           this
         );
 
-        // Subscribe to UserRoles loading to update Report Vehicle button visibility
-        this._oEventBus.subscribe(
-          "UserRoles",
-          "Loaded",
-          this._updateReportVehicleButtonVisibility,
-          this
-        );
-
         // Attach route matched event to automatically refresh table when navigating to HomePage
         var oRouter = this.getOwnerComponent().getRouter();
         if (oRouter) {
           oRouter.getRoute("HomePage").attachPatternMatched(this._onRouteMatched, this);
         }
-
-        // Load user roles on landing page so UserRolesArray is available on HomePage
-        this._loadUserRoles();
-
-        // Check initial authorization for Report Vehicle button
-        this._updateReportVehicleButtonVisibility();
 
         this.onRefresh();
       },
@@ -74,13 +60,6 @@ sap.ui.define(
           "HomePage",
           "RefreshTripTable",
           this._onExternalRefresh,
-          this
-        );
-
-        this._oEventBus?.unsubscribe(
-          "UserRoles",
-          "Loaded",
-          this._updateReportVehicleButtonVisibility,
           this
         );
 
@@ -125,7 +104,7 @@ sap.ui.define(
         if (oRouter) {
           oRouter.navTo("Stage");
         } else {
-          window.location.hash = "#/stage";
+          window.location.hash = "#/Stage";
         }
       },
 
@@ -177,8 +156,6 @@ sap.ui.define(
         // Small delay to ensure view is fully rendered before refreshing
         setTimeout(function() {
           this.onRefresh();
-          // Also check Report Vehicle button visibility in case UserRolesArray was loaded
-          this._updateReportVehicleButtonVisibility();
         }.bind(this), 100);
       },
 
@@ -199,6 +176,10 @@ sap.ui.define(
           title: sTitle,
           liveChange: function (oEvt) {
             var sValue = (oEvt.getParameter("value") || "").trim();
+            // Make search case-insensitive by normalizing to upper case
+            if (sValue) {
+              sValue = sValue.toUpperCase();
+            }
             var oBinding = oEvt.getSource().getBinding("items");
             
             if (!oBinding) {
@@ -222,6 +203,10 @@ sap.ui.define(
           search: function (oEvt) {
             // Same logic as liveChange for consistency
             var sValue = (oEvt.getParameter("value") || "").trim();
+            // Make search case-insensitive by normalizing to upper case
+            if (sValue) {
+              sValue = sValue.toUpperCase();
+            }
             var oBinding = oEvt.getSource().getBinding("items");
             
             if (!oBinding) {
@@ -571,6 +556,7 @@ sap.ui.define(
           "colTripNumber",
           "colVehicleNumber",
           "colTripStatus",
+          "colMovementType",
           "colCompanyCode",
           "colPlant",
         ];
@@ -591,6 +577,20 @@ sap.ui.define(
         var sStr = String(sTripNumber);
         // Remove leading zeros but keep at least one digit (e.g., "0000000014" -> "14", "0" -> "0")
         return sStr.replace(/^0+/, "") || "0";
+      },
+
+      formatMovementType: function (sMovementType) {
+        if (!sMovementType) {
+          return "";
+        }
+        var sType = String(sMovementType).toUpperCase().trim();
+        if (sType === "I") {
+          return "Inward";
+        }
+        if (sType === "O") {
+          return "Outward";
+        }
+        return sType;
       },
 
       /**
@@ -631,168 +631,8 @@ sap.ui.define(
         return "";
       },
 
-      /**
-       * Update Report Vehicle button visibility based on AddReporting authorization
-       * Checks UserRolesArray to see if user has AddReporting authorization for any plant
-       */
-      _updateReportVehicleButtonVisibility: function () {
-        var oReportVehicleBtn = this.getView().byId("btnReportVehicle");
-        if (!oReportVehicleBtn) {
-          return;
-        }
-
-        // Check UserRolesArray to see if user has AddReporting for any plant
-        var oUserRolesArray = sap.ui.getCore().getModel("UserRolesArray");
-        if (!oUserRolesArray) {
-          // UserRolesArray not loaded yet, hide button by default
-          oReportVehicleBtn.setVisible(false);
-          return;
-        }
-
-        var aAllRoles = oUserRolesArray.getProperty("/roles") || [];
-        var bHasAddReporting = false;
-
-        // Check if user has AddReporting authorization for any plant
-        for (var i = 0; i < aAllRoles.length; i++) {
-          var sAddReporting = aAllRoles[i].AddReporting || "";
-          if (sAddReporting === "X") {
-            bHasAddReporting = true;
-            break;
-          }
-        }
-
-        // Show button only if user has AddReporting authorization
-        oReportVehicleBtn.setVisible(bHasAddReporting);
-      },
-
-      /**
-       * Load UserRoles from OData service for logged-in user (all plants)
-       * Stores all UserRoles in UserRolesArray and creates default UserRoles model
-       * Only calls backend if data doesn't already exist
-       */
-      _loadUserRoles: function () {
-        // Check if UserRolesArray already exists - if yes, don't call backend
-        var oExistingUserRolesArray = sap.ui.getCore().getModel("UserRolesArray");
-        if (oExistingUserRolesArray) {
-          var aExistingRoles = oExistingUserRolesArray.getProperty("/roles") || [];
-          if (aExistingRoles.length > 0) {
-            // Ensure UserRoles model also exists (use first role as default if not set)
-            var oExistingUserRoles = sap.ui.getCore().getModel("UserRoles");
-            if (!oExistingUserRoles) {
-              var oFirstRole = aExistingRoles[0];
-              if (oFirstRole) {
-                var oUserRolesModel = new JSONModel(oFirstRole);
-                sap.ui.getCore().setModel(oUserRolesModel, "UserRoles");
-                
-                // Publish event
-                sap.ui.getCore().getEventBus().publish("UserRoles", "Loaded", {
-                  roles: [oFirstRole],
-                  plant: oFirstRole.Plant || ""
-                });
-              }
-            }
-            
-            // Update Report Vehicle button visibility
-            this._updateReportVehicleButtonVisibility();
-            return;
-          }
-        }
-
-        var sUser = "";
-
-        // Get logged-in user from Fiori Launchpad
-        try {
-          sUser = sap.ushell.Container.getUser().getId();
-        } catch (oError) {
-          // If FLP context is not available (e.g., local run), just return
-          // Button visibility will then depend on any pre-set UserRolesArray
-          jQuery.sap.log.error("Error getting user from FLP in HomePage:", oError);
-          return;
-        }
-
-        if (!sUser) {
-          return;
-        }
-
-        // Create OData model instance
-        var oModel = new ODataModel("/sap/opu/odata/sap/YIGP_PLMS_SRV/", {
-          useBatch: false,
-          defaultBindingMode: "TwoWay",
-        });
-
-        // Filter by User only to get all plant entries
-        var aFilters = [new Filter("User", FilterOperator.EQ, sUser)];
-
-        // Call UserRoles entity set
-        oModel.read("/UserRoles", {
-          filters: aFilters,
-          success: function (oData) {
-            if (oData.results && oData.results.length > 0) {
-              // Store all user roles as array for plant-specific lookups
-              var oUserRolesArrayModel = new JSONModel({ roles: oData.results });
-              sap.ui.getCore().setModel(oUserRolesArrayModel, "UserRolesArray");
-
-              // Also set a default UserRoles model (first role) so that
-              // other screens have something to work with even before
-              // TripData/Plant is known
-              var oFirstRole = oData.results[0];
-              if (oFirstRole) {
-                var oUserRolesModel = new JSONModel(oFirstRole);
-                sap.ui.getCore().setModel(oUserRolesModel, "UserRoles");
-              }
-
-              // Immediately update Report Vehicle button visibility
-              this._updateReportVehicleButtonVisibility();
-
-              // Publish event so any other listeners can react
-              sap.ui.getCore().getEventBus().publish("UserRoles", "Loaded", {
-                roles: oData.results,
-                plant: oFirstRole ? (oFirstRole.Plant || "") : ""
-              });
-            } else {
-              // No roles found - hide button
-              this.getView().byId("btnReportVehicle")?.setVisible(false);
-            }
-          }.bind(this),
-          error: function (oError) {
-            jQuery.sap.log.error("UserRoles error in HomePage:", oError);
-            this.getView().byId("btnReportVehicle")?.setVisible(false);
-            
-            // Set empty roles so app doesn't break when OData fails
-            var oEmptyRoles = {
-              AddReporting: "",
-              EditReporting: "",
-              DelReporting: "",
-              AddRef: "",
-              EditRef: "",
-              DelRef: "",
-              AddGatein: "",
-              EditGatein: "",
-              DelGatein: "",
-              AddLoading: "",
-              EditLoading: "",
-              DelLoading: "",
-              AddUnloading: "",
-              EditUnloading: "",
-              DelUnloading: "",
-              AddGateout: "",
-              EditGateout: "",
-              DelGateout: "",
-              ReopenLoading: "",
-              ReopenUnload: ""
-            };
-            var oUserRolesModel = new JSONModel(oEmptyRoles);
-            sap.ui.getCore().setModel(oUserRolesModel, "UserRoles");
-            sap.ui.getCore().setModel(new JSONModel({ roles: [] }), "UserRolesArray");
-            
-            // Publish event so controllers know roles are set (even if empty)
-            sap.ui.getCore().getEventBus().publish("UserRoles", "Loaded", {
-              roles: [],
-              plant: ""
-            });
-          }.bind(this),
-        });
-      },
+      // User-role-based visibility for Report Vehicle has been removed;
+      // button visibility is now controlled purely by view configuration.
     });
   }
 );

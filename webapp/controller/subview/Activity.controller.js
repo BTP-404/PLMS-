@@ -66,7 +66,6 @@ sap.ui.define([
 			this._oService = new ODataModel("/sap/opu/odata/sap/YIGP_PLMS_SRV/", {
 				useBatch: false
 			});
-
 			this._oEventBus = sap.ui.getCore().getEventBus();
 			// Store bound function reference for proper unsubscription
 			this._onTripDataUpdated = function() {
@@ -74,9 +73,12 @@ sap.ui.define([
 			}.bind(this);
 			// Subscribe with delay flag for updates to allow backend processing time
 			this._oEventBus.subscribe("TripData", "Updated", this._onTripDataUpdated, this);
-			this._oEventBus.subscribe("Stage", "ClearAllTabs", this._clearAllData, this);
+			
+			// Initial load in case TripData was already set before this view was created
+			// (e.g., when navigating from HomePage where TripData is prepared first)
+			this._loadActivityHistory();
 
-			// Removed direct call - will be triggered by event subscription when TripData is available
+			this._oEventBus.subscribe("Stage", "ClearAllTabs", this._clearAllData, this);
 		},
 
 		onExit: function () {

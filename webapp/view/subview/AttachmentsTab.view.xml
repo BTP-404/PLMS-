@@ -20,7 +20,7 @@
         >
             <headerToolbar>
                 <OverflowToolbar>
-                    <Title text="Upload Document" />
+                    <Title text="Upload Document" class="sectionPanelTitle" />
                 </OverflowToolbar>
             </headerToolbar>
 
@@ -110,7 +110,7 @@
         >
             <headerToolbar>
                 <OverflowToolbar>
-                    <Title text="Uploaded Files" />
+                    <Title text="Uploaded Files" class="sectionPanelTitle" />
                 </OverflowToolbar>
             </headerToolbar>
 
