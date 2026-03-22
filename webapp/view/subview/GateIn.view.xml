@@ -136,40 +136,6 @@
                         </VBox>
                     </layout:content>
 
-                    <!-- Upload Attachments (full width) -->
-                    <layout:content>
-                        <VBox>
-                            <layoutData>
-                                <layout:GridData span="L12 M12 S12" />
-                            </layoutData>
-                            <Label
-                                text="Upload Attachments"
-                                design="Bold"
-                            />
-                            <HBox alignItems="Center" width="100%">
-                                <unified:FileUploader
-                                    id="idGateInAttachments"
-                                    multiple="true"
-                                    buttonText="Choose Files"
-                                    fileType="jpg,png,pdf,docx"
-                                    placeholder="Attach related documents"
-                                    change="onGateInAttachmentChange"
-                                    width="100%"
-                                    class="sapUiTinyMarginEnd"
-                                />
-                                <Button
-                                    id="idPreviewSelectedGateInFiles"
-                                    icon="sap-icon://show"
-                                    tooltip="Preview Selected Files"
-                                    type="Transparent"
-                                    enabled="false"
-                                    press="onPreviewSelectedGateInFiles"
-                                    class="sapUiTinyMarginBegin"
-                                />
-                            </HBox>
-                        </VBox>
-                    </layout:content>
-
                     <!-- Weighment Required -->
                     <layout:content>
                         <VBox>

@@ -8,6 +8,38 @@
     displayBlock="true"
 >
     <VBox class="sapUiSizeCompact sapUiTinyMargin">
+        <!-- Single dropdown input BEFORE Reference Documents (screen-only) -->
+        <VBox
+            width="100%"
+            class="sapUiSmallMarginBottom"
+        >
+            <Label
+                text="Invoice No"
+                required="true"
+                design="Bold"
+                class="sapUiNoMarginBottom"
+            />
+            <Select
+                id="idInvoiceNumberDropdown"
+                width="100%"
+                forceSelection="false"
+                selectedKey=""
+            >
+                <core:Item key="INV1" text="INV1" />
+                <core:Item key="INV2" text="INV2" />
+                <core:Item key="INV3" text="INV3" />
+            </Select>
+        </VBox>
+
+        <!-- ========================================================= -->
+        <!-- =============== Reference Documents (merged) ============= -->
+        <!-- ========================================================= -->
+        <mvc:XMLView
+            id="idRefDocsViewGateOut"
+            viewName="com.incresolZ_INC_PLMS.view.subview.ReferenceDocuments"
+            class="sapUiTinyMarginBottom"
+        />
+
         <!-- ========================================================= -->
         <!-- ==================== Gate Out Details ==================== -->
         <!-- ========================================================= -->
@@ -25,36 +57,13 @@
 
             <VBox class="sapUiSizeCompact sapUiSmallPadding">
                 <!-- ========================= ROW 1 ========================= -->
-                <!-- Exit Gate + Verified Docs + Bins Returned (3 columns) -->
+                <!-- Verified Docs + Bins Returned (2 columns) -->
                 <layout:Grid
-                    defaultSpan="L4 M6 S12"
+                    defaultSpan="L6 M6 S12"
                     hSpacing="0.5rem"
                     vSpacing="0.5rem"
                     width="100%"
                 >
-                    <!-- Exit Gate Number -->
-                    <layout:content>
-                        <VBox width="100%">
-                            <Label
-                                text="Exit Gate Number"
-                                required="true"
-                                design="Bold"
-                                class="sapUiNoMarginBottom"
-                            />
-                            <Input
-                                id="idExitGateNumber"
-                                showValueHelp="true"
-                                placeholder="Select Exit Gate"
-                                valueHelpRequest="onExitGateValueHelp"
-                                width="100%"
-                                value="{
-                                    path: 'TripData>/ExitGateNum',
-                                    mode: 'OneWay'
-                                }"
-                            />
-                        </VBox>
-                    </layout:content>
-
                     <!-- Verified Docs -->
                     <layout:content>
                         <VBox width="100%">
@@ -67,7 +76,7 @@
                             <RadioButtonGroup
                                 id="idVerifiedDocs"
                                 columns="2"
-                                selectedIndex="{TripData>/VerifiedDocs}"
+                                selectedIndex="0"
                                 width="100%"
                             >
                                 <RadioButton text="Yes" />
@@ -89,52 +98,7 @@
                                 width="100%"
                                 type="Number"
                                 placeholder="Enter bins returned"
-                                value="{
-                                    path: 'TripData>/BinsReturned',
-                                    mode: 'OneWay'
-                                }"
                             />
-                        </VBox>
-                    </layout:content>
-                </layout:Grid>
-
-                <!-- ========================= ROW 2 ========================= -->
-                <!-- Upload Attachments (full width) -->
-                <layout:Grid
-                    defaultSpan="L12 M12 S12"
-                    hSpacing="0.5rem"
-                    vSpacing="0.5rem"
-                    width="100%"
-                    class="sapUiTinyMarginTop"
-                >
-                    <layout:content>
-                        <VBox width="100%">
-                            <Label
-                                text="Upload Attachments"
-                                design="Bold"
-                                class="sapUiNoMarginBottom"
-                            />
-                            <HBox alignItems="Center" width="100%">
-                                <unified:FileUploader
-                                    id="idGateOutAttachments"
-                                    multiple="true"
-                                    buttonText="Choose Files"
-                                    fileType="jpg,png,pdf,docx"
-                                    placeholder="Attach related documents"
-                                    change="onGateOutAttachmentChange"
-                                    width="100%"
-                                    class="sapUiTinyMarginEnd"
-                                />
-                                <Button
-                                    id="idPreviewSelectedGateOutFiles"
-                                    icon="sap-icon://show"
-                                    tooltip="Preview Selected Files"
-                                    type="Transparent"
-                                    enabled="false"
-                                    press="onPreviewSelectedGateOutFiles"
-                                    class="sapUiTinyMarginBegin"
-                                />
-                            </HBox>
                         </VBox>
                     </layout:content>
                 </layout:Grid>
@@ -160,7 +124,6 @@
                                 id="idGateOutRemarks"
                                 rows="4"
                                 placeholder="Enter any remarks"
-                                value="{TripData>/GateOutRemarks}"
                                 width="100%"
                             />
                         </VBox>
@@ -178,7 +141,6 @@
                                 id="idGateOutAdditionalInfo"
                                 rows="4"
                                 placeholder="Enter additional information"
-                                value="{TripData>/GateOutAdditionalInfo}"
                                 growing="true"
                                 width="100%"
                             />

@@ -38,6 +38,33 @@
     border: 1px solid var(--plms-neutral-border) !important;
     padding: 1rem 1.25rem !important;
     margin-bottom: 0.5rem !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    /* Header strip can inherit light text; keep filter labels/values readable on white */
+    color: var(--sapTextColor, #32363a);
+}
+
+.homeFilterCard .sapMLabel .sapMLabelInner,
+.homeFilterCard .sapMLabel {
+    color: var(--sapTextColor, #32363a) !important;
+}
+
+.homeFilterCard .sapMInputBaseInner,
+.homeFilterCard .sapMInputBaseContentWrapper input {
+    color: var(--sapField_TextColor, var(--sapTextColor, #32363a)) !important;
+    -webkit-text-fill-color: var(--sapField_TextColor, var(--sapTextColor, #32363a)) !important;
+}
+
+.homeFilterCard .sapMInputBaseInner::placeholder,
+.homeFilterCard .sapMInputBaseContentWrapper input::placeholder {
+    color: var(--sapField_PlaceholderTextColor, #6a6d70) !important;
+    -webkit-text-fill-color: var(--sapField_PlaceholderTextColor, #6a6d70) !important;
+    font-style: italic;
+}
+
+.homeFilterCard .sapMBtnEmphasized .sapMBtnContent {
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
 }
 
 .homePageContent {
@@ -152,6 +179,35 @@
 .sapMScrollContainer .sapMTable[width="auto"] {
     width: auto;
     min-width: 100%;
+}
+
+/* Input suggestion popup (Trip Number, Vehicle Number, etc.): the global
+   .sapMScrollContainer rules above force overflow-x:auto and overflow-y:hidden,
+   which conflicts with sap.m.Input's sapMSuggestionsPopover and tends to show
+   both scrollbars. Popover also enables horizontal scrolling by default. */
+.sapMSuggestionsPopover .sapMScrollContainer {
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+}
+
+.sapMSuggestionsPopover .sapMScrollContainer:hover {
+    scrollbar-width: none !important;
+}
+
+.sapMSuggestionsPopover .sapMPopoverScroll {
+    overflow-x: hidden !important;
+}
+
+.sapMSuggestionsPopover .sapMPopoverScroll,
+.sapMSuggestionsPopover .sapMScrollContainer {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.sapMSuggestionsPopover .sapMPopoverScroll::-webkit-scrollbar,
+.sapMSuggestionsPopover .sapMScrollContainer::-webkit-scrollbar {
+    width: 0;
+    height: 0;
 }
 
 /* ==================== GLOBAL LEFT MARGIN REDUCTION ==================== */
@@ -2370,6 +2426,11 @@
     border-left: 4px solid #E91E63 !important;
 }
 
+.tripStatusTest {
+    background-color: #FFF8E1 !important; /* Light Amber - Test */
+    border-left: 4px solid #FFC107 !important;
+}
+
 /* Hover effect for trip status rows */
 .tripStatusNew:hover,
 .tripStatusPending:hover,
@@ -2379,7 +2440,8 @@
 .tripStatusGateOut:hover,
 .tripStatusCompleted:hover,
 .tripStatusCancelled:hover,
-.tripStatusError:hover {
+.tripStatusError:hover,
+.tripStatusTest:hover {
     opacity: 0.9;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
 }

@@ -24,26 +24,10 @@ sap.ui.define(
     "use strict";
     var movementScenario;
     var Mtype;
-    var PlantCode;
-    var CompanyCod;
     var movementType;
     return Controller.extend(
       "com.incresolZ_INC_PLMS.controller.subview.VehicleReportingTab",
       {
-        /* ===========================================================
-         * ADDED: formatCompanyCodeDisplay
-         * - shows "Code - Description" in the Company Code field
-         * =========================================================== */
-        formatCompanyCodeDisplay: function (sCode, sDesc) {
-          if (!sCode) {
-            return "";
-          }
-          if (!sDesc) {
-            return sCode;
-          }
-          return sCode + " - " + sDesc;
-        },
-
         /* ===========================================================
          * NO CHANGE: onInit (kept original, only comment added)
          * =========================================================== */
@@ -52,12 +36,9 @@ sap.ui.define(
           this._loadVehicleSuggestions();
           this._loadVehicleTypeSuggestions();
           this._loadVehicleSizeSuggestions();
-          this._loadCompanyCodeSuggestions();
-          
-          // Initialize empty PlantModel to ensure binding works
-          const oEmptyPlantModel = new sap.ui.model.json.JSONModel([]);
-          this.getView().setModel(oEmptyPlantModel, "PlantModel");
-          
+          this.getView().setModel(new JSONModel([]), "movementScenarioItems");
+          this._loadMovementScenarioItems();
+
           const oRouter = this.getOwnerComponent().getRouter();
           oRouter
             .getRoute("Stage")
@@ -119,12 +100,7 @@ sap.ui.define(
             this._setButtonStates(true, true); // both visible and enabled
             this.getView().byId("changeHistoryPanel").setVisible(false);
             MessageToast.show("New Vehicle Reporting ");
-            // Load plants after route is matched (TripNumber might be available from globalData)
-            this._loadPlants().then(function() {
-              // Ensure Plant Select is cleared after plants are loaded (mode is CREATE)
-              this._setPlantSelectValue();
-            }.bind(this));
-            
+
             // Update scanner visibility when route is matched
             setTimeout(function() {
               this._updateScannerVisibility();
@@ -136,11 +112,7 @@ sap.ui.define(
             // Change History shown only once at end of merged Gate In screen (GateIn.view.xml)
             this.getView().byId("changeHistoryPanel").setVisible(false);
             
-            // Load plants first, then load trip details (so Plant Select can be populated)
-            this._loadPlants().then(function() {
-              // After plants are loaded, load trip details
-              this._loadTripDetails(sTripNumber);
-            }.bind(this));
+            this._loadTripDetails(sTripNumber);
             
             // Update scanner visibility when trip details are loaded
             setTimeout(function() {
@@ -186,6 +158,9 @@ sap.ui.define(
 
               // Also bind to this view
               that.getView().setModel(oTripDataModel, "TripData");
+
+              movementScenario = oData.MovementScenario;
+              Mtype = oData.MovementType;
             },
             error: function () {
               // Even if loading fails, try to update header with trip number
@@ -225,17 +200,9 @@ sap.ui.define(
 
               // Also bind to this view (optional)
               that.getView().setModel(oTripDataModel, "TripData");
-              
-              // Ensure Company Code displays with description (code - description)
-              that._setCompanyCodeDisplay(oData.CompanyCode || "");
-              
-              // Set Plant Select value from TripData in DISPLAY mode only
-              // Wait a bit to ensure PlantModel is loaded (since plants load first)
-              if (that._mode === "DISPLAY") {
-                setTimeout(function() {
-                  that._setPlantSelectValue();
-                }, 300); // Longer delay to ensure PlantModel is ready
-              }
+
+              movementScenario = oData.MovementScenario;
+              Mtype = oData.MovementType;
 
               // UPDATED: call inputs helper to properly disable inputs
               that._setInputsEnabled(false); // UPDATED (was _setFormEditable(false))
@@ -258,35 +225,12 @@ sap.ui.define(
          * UPDATED: onEditReporting
          * - originally called _setFormEditable(false) which disabled inputs.
          * - corrected so Edit enables inputs.
-         * - clears Plant Select when entering edit mode
          * =========================================================== */
         onEditReporting: function () {
-          // Get Plant value from TripData BEFORE enabling inputs (preserve it)
-          const oTripDataModel = this.getView().getModel("TripData");
-          const sPreservedPlant = oTripDataModel ? (oTripDataModel.getProperty("/Plant") || "") : "";
-          
-          // Set mode to EDIT
           this._mode = "EDIT";
-          
-          // UPDATED: enable inputs for edit
-          this._setInputsEnabled(true); // ADDED
-          this._setFormEditable(true); // keep compatibility
-          
-          // Preserve Plant value - set it after a small delay to ensure Select control is ready
-          const that = this;
-          setTimeout(function() {
-            if (sPreservedPlant) {
-              const oPlantSelect = that.byId("idPlant");
-              if (oPlantSelect) {
-                oPlantSelect.setSelectedKey(sPreservedPlant);
-              }
-            } else {
-              // If no preserved value, try to set from TripData
-              that._setPlantSelectValue();
-            }
-          }, 100); // Small delay to ensure Select control is ready after enabling
-          
-          // Company Code is already bound to TripData model, so it will preserve its value automatically
+
+          this._setInputsEnabled(true);
+          this._setFormEditable(true);
 
           MessageToast.show("Edit mode activated");
         },
@@ -340,8 +284,14 @@ sap.ui.define(
           var sDriverPhoto = oData.DriverPhoto;
           delete oData.DriverPhoto; // Remove from TripDetails payload
 
-          oData.MovementScenario = movementScenario;
-          oData.MovementType = Mtype;
+          oData.MovementScenario =
+            movementScenario !== undefined && movementScenario !== null && movementScenario !== ""
+              ? movementScenario
+              : oData.MovementScenario;
+          oData.MovementType =
+            Mtype !== undefined && Mtype !== null && Mtype !== ""
+              ? Mtype
+              : oData.MovementType;
           //   oData.LR_Number = LRNumber;
           var oDate = this.byId("idLRDate").getDateValue(); // JS Date object
           if (oDate) {
@@ -349,35 +299,7 @@ sap.ui.define(
           } else {
             oData.LR_Date =  null;
           }
-          // Extract only the code part from Plant (remove description if present)
-          // Priority: PlantCode variable > UI control value > model data
-          var oPlantCtrl = this.byId("idPlant");
-          var sPlantInput = "";
-          if (oPlantCtrl) {
-            // For Select controls use selectedKey (preferred), otherwise fall back to getValue if available
-            if (typeof oPlantCtrl.getSelectedKey === "function") {
-              sPlantInput = oPlantCtrl.getSelectedKey() || "";
-            } else if (typeof oPlantCtrl.getValue === "function") {
-              sPlantInput = oPlantCtrl.getValue() || "";
-            }
-          }
-          var sPlant = PlantCode || sPlantInput || oData.Plant || "";
-          // If Plant contains a dash, extract only the part before the dash
-          if (sPlant && sPlant.indexOf("-") > 0) {
-            sPlant = sPlant.split("-")[0].trim();
-          }
-          oData.Plant = sPlant;
-          
-          // Extract only the code part from CompanyCode (remove description if present)
-          // Priority: CompanyCod variable > input field value > model data
-          var sCompanyCodeInput = this.byId("idCompanyCode")?.getValue() || "";
-          var sCompanyCode = CompanyCod || sCompanyCodeInput || oData.CompanyCode || "";
-          // If CompanyCode contains a dash, extract only the part before the dash
-          if (sCompanyCode && sCompanyCode.indexOf("-") > 0) {
-            sCompanyCode = sCompanyCode.split("-")[0].trim();
-          }
-          oData.CompanyCode = sCompanyCode;
-          
+
           const that = this;
 
           // ADDED: show busy while creating (non-invasive)
@@ -486,9 +408,14 @@ sap.ui.define(
           delete oUpdateData.WeighmentRequired;
           delete oUpdateData.Weighment_Req;
 
-          // Set MovementScenario and MovementType from global variables (same as create)
-          oUpdateData.MovementScenario = movementScenario;
-          oUpdateData.MovementType = Mtype;
+          oUpdateData.MovementScenario =
+            movementScenario !== undefined && movementScenario !== null && movementScenario !== ""
+              ? movementScenario
+              : oUpdateData.MovementScenario;
+          oUpdateData.MovementType =
+            Mtype !== undefined && Mtype !== null && Mtype !== ""
+              ? Mtype
+              : oUpdateData.MovementType;
           
           // Handle LR_Date format (same as create)
           var oDate = this.byId("idLRDate").getDateValue(); // JS Date object
@@ -497,35 +424,6 @@ sap.ui.define(
           } else {
             oUpdateData.LR_Date = null;
           }
-
-          // Extract only the code part from Plant (remove description if present)
-          // Priority: PlantCode variable > UI control value > model data
-          var oPlantCtrl = this.byId("idPlant");
-          var sPlantInput = "";
-          if (oPlantCtrl) {
-            // For Select controls use selectedKey (preferred), otherwise fall back to getValue if available
-            if (typeof oPlantCtrl.getSelectedKey === "function") {
-              sPlantInput = oPlantCtrl.getSelectedKey() || "";
-            } else if (typeof oPlantCtrl.getValue === "function") {
-              sPlantInput = oPlantCtrl.getValue() || "";
-            }
-          }
-          var sPlant = PlantCode || sPlantInput || oUpdateData.Plant || "";
-          // If Plant contains a dash, extract only the part before the dash
-          if (sPlant && sPlant.indexOf("-") > 0) {
-            sPlant = sPlant.split("-")[0].trim();
-          }
-          oUpdateData.Plant = sPlant;
-          
-          // Extract only the code part from CompanyCode (remove description if present)
-          // Priority: CompanyCod variable > input field value > model data
-          var sCompanyCodeInput = this.byId("idCompanyCode")?.getValue() || "";
-          var sCompanyCode = CompanyCod || sCompanyCodeInput || oUpdateData.CompanyCode || "";
-          // If CompanyCode contains a dash, extract only the part before the dash
-          if (sCompanyCode && sCompanyCode.indexOf("-") > 0) {
-            sCompanyCode = sCompanyCode.split("-")[0].trim();
-          }
-          oUpdateData.CompanyCode = sCompanyCode;
 
           // Only update TripDetails('<TripNumber>') – no deep update
           this.getView().setBusy(true);
@@ -584,10 +482,7 @@ sap.ui.define(
           
           const oVehicleSizeSuggestions = new JSONModel({ items: [] });
           this.getView().setModel(oVehicleSizeSuggestions, "vehicleSizeSuggestions");
-          
-          const oCompanyCodeSuggestions = new JSONModel({ items: [] });
-          this.getView().setModel(oCompanyCodeSuggestions, "companyCodeSuggestions");
-          
+
           const oSuggestions = new JSONModel({ MovementScenarioSuggestions: [] });
           this.getView().setModel(oSuggestions, "suggestions");
           
@@ -604,8 +499,6 @@ sap.ui.define(
           // Reset global variables
           movementScenario = undefined;
           Mtype = undefined;
-          PlantCode = undefined;
-          CompanyCod = undefined;
           movementType = undefined;
           
           // Clear value help dialog models if they exist
@@ -636,22 +529,14 @@ sap.ui.define(
             DriverName: "",
             DriverMobile: "",
             DriverLicence: "",
-            CompanyCode: "",
-            Plant: "",
             TripNumber: "",
             AdditionalInfo: "",
           });
           this.getView().setModel(oTripData, "TripData");
-          
-          // Explicitly clear Plant Select and Company Code controls
-          const oPlantSelect = this.byId("idPlant");
-          if (oPlantSelect) {
-            oPlantSelect.setSelectedKey("");
-          }
-          
-          const oCompanyCodeInput = this.byId("idCompanyCode");
-          if (oCompanyCodeInput) {
-            oCompanyCodeInput.setValue("");
+
+          const oMovementScenarioCb = this.byId("idMovementScenario");
+          if (oMovementScenarioCb && oMovementScenarioCb.setSelectedKey) {
+            oMovementScenarioCb.setSelectedKey("");
           }
         },
 
@@ -743,19 +628,23 @@ sap.ui.define(
             "idDriverName",
             "idDriverContact",
             "idDriverLicense",
-            "idCompanyCode",
-            "idPlant",
           ];
 
           let valid = true;
           required.forEach((id) => {
             const oCtrl = this.byId(id);
             if (!oCtrl) return;
-            const val = oCtrl.getValue
-              ? oCtrl.getValue()
-              : oCtrl.getSelectedKey
-              ? oCtrl.getSelectedKey()
-              : undefined;
+            let val;
+            if (oCtrl.getSelectedKey && typeof oCtrl.getSelectedKey === "function") {
+              val = oCtrl.getSelectedKey();
+            }
+            if (
+              (val === undefined || val === null || val === "") &&
+              oCtrl.getValue &&
+              typeof oCtrl.getValue === "function"
+            ) {
+              val = oCtrl.getValue();
+            }
             if (!val && val !== 0) {
               oCtrl.setValueState("Error");
               valid = false;
@@ -1268,13 +1157,6 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
           });
         },
 
-        /* ===========================================================
-         * NO CHANGE: Value Help entry points
-         * =========================================================== */
-        onValueHelpMovementScenario: function () {
-          this._openMovementScenarioVH();
-        },
-
         onValueHelpMovementType: function () {
           const oView = this.getView();
 
@@ -1347,6 +1229,92 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
           }
         },
 
+        _loadMovementScenarioItems: function () {
+          const oModel = this.getView().getModel();
+          if (!oModel) {
+            return;
+          }
+          const that = this;
+          oModel.read("/OrderTypeSH", {
+            success: function (oData) {
+              that
+                .getView()
+                .setModel(
+                  new JSONModel(oData.results || []),
+                  "movementScenarioItems"
+                );
+            },
+            error: function () {
+              MessageBox.error("Failed to load movement scenarios.");
+            },
+          });
+        },
+
+        _syncMovementScenarioFromRow: function (row) {
+          if (!row) {
+            return;
+          }
+          Mtype = row.MovementType;
+          movementScenario = row.MovementScenario;
+
+          const oScenario = this.byId("idMovementScenario");
+          if (oScenario && oScenario.setSelectedKey) {
+            oScenario.setSelectedKey(String(row.MovementScenario));
+          }
+
+          let sMovementTypeDesc = "";
+          if (row.MovementType === "O") {
+            this.byId("idMovementType").setValue("Outward");
+            sMovementTypeDesc = "Outward";
+          } else if (row.MovementType === "I") {
+            this.byId("idMovementType").setValue("Inward");
+            sMovementTypeDesc = "Inward";
+          }
+
+          const oTripDataModel = this.getView().getModel("TripData");
+          if (oTripDataModel) {
+            oTripDataModel.setProperty("/MovementScenario", row.MovementScenario);
+            oTripDataModel.setProperty("/MovementScenarioDesc", row.LongText || "");
+            oTripDataModel.setProperty("/MovementType", row.MovementType);
+            if (sMovementTypeDesc) {
+              oTripDataModel.setProperty("/MovementTypeDesc", sMovementTypeDesc);
+            }
+          }
+
+          let oGlobalModel = sap.ui.getCore().getModel("globalData");
+          if (!oGlobalModel) {
+            oGlobalModel = new JSONModel({
+              TripNumber: "",
+              MovementType: "",
+              MovementTypeDesc: "",
+            });
+            sap.ui.getCore().setModel(oGlobalModel, "globalData");
+          }
+          oGlobalModel.setProperty("/MovementType", row.MovementType);
+          oGlobalModel.setProperty("/MovementTypeDesc", sMovementTypeDesc);
+
+          sap.ui.getCore().getEventBus().publish("TripData", "MovementTypeChanged", {
+            movementType: row.MovementType,
+          });
+
+          this._updateScannerVisibility();
+        },
+
+        onMovementScenarioComboChange: function (oEvent) {
+          const sKey = oEvent.getSource().getSelectedKey();
+          const oItems = this.getView().getModel("movementScenarioItems");
+          const aRows = (oItems && oItems.getData()) || [];
+          const oRow = aRows.find(function (r) {
+            return r && String(r.MovementScenario) === String(sKey);
+          });
+          if (oRow) {
+            this._syncMovementScenarioFromRow(oRow);
+          } else {
+            movementScenario = undefined;
+            Mtype = undefined;
+            this._updateScannerVisibility();
+          }
+        },
 
         /**
          * Helper function to get TripNumber from globalData or TripData model
@@ -1364,243 +1332,6 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
             }
           }
           return sTripNumber;
-        },
-
-        /**
-         * Load Plants from ConfigValues for Select dropdown
-         */
-        _loadPlants: function () {
-          const oModel = this.getView().getModel();
-          const that = this;
-          const sTripNumber = this._getTripNumber();
-
-          var aFilters = [
-            new sap.ui.model.Filter(
-              "ConfigGroup",
-              sap.ui.model.FilterOperator.EQ,
-              "Plant"
-            ),
-          ];
-
-          // Add TripNumber filter if available
-          if (sTripNumber) {
-            aFilters.push(
-              new sap.ui.model.Filter(
-                "TripNumber",
-                sap.ui.model.FilterOperator.EQ,
-                sTripNumber
-              )
-            );
-          }
-
-          return new Promise(function (resolve) {
-            oModel.read("/ConfigValues", {
-              filters: aFilters,
-              success: function (oData) {
-                // Always set PlantModel, even if empty, to ensure binding works
-                const aResults = oData.results || [];
-                const oJSON = new sap.ui.model.json.JSONModel(aResults);
-                that.getView().setModel(oJSON, "PlantModel");
-                
-                // Ensure Plant Select is handled based on mode
-                setTimeout(function() {
-                  that._setPlantSelectValue();
-                }, 100);
-                resolve();
-              },
-              error: function (oError) {
-                // Set empty model on error to prevent binding issues
-                const oJSON = new sap.ui.model.json.JSONModel([]);
-                that.getView().setModel(oJSON, "PlantModel");
-                sap.m.MessageBox.error("Failed to load Plant.");
-                resolve();
-              },
-            });
-          });
-        },
-
-        /**
-         * Helper function to set Plant Select value based on current mode
-         * Only sets value in DISPLAY mode, clears in CREATE/EDIT mode
-         */
-        _setPlantSelectValue: function () {
-          const oPlantSelect = this.byId("idPlant");
-          if (!oPlantSelect) {
-            return;
-          }
-          
-          if (this._mode === "CREATE") {
-            // Clear in CREATE mode only
-            oPlantSelect.setSelectedKey("");
-          } else if (this._mode === "EDIT" || this._mode === "DISPLAY") {
-            // Set value from TripData in both EDIT and DISPLAY modes (preserve existing value)
-            const oTripDataModel = this.getView().getModel("TripData");
-            if (oTripDataModel) {
-              const sPlant = oTripDataModel.getProperty("/Plant") || "";
-              if (sPlant) {
-                oPlantSelect.setSelectedKey(sPlant);
-              } else {
-                oPlantSelect.setSelectedKey("");
-              }
-            } else {
-              oPlantSelect.setSelectedKey("");
-            }
-          }
-        },
-
-        /**
-         * Handle Plant Select change
-         * Sets plant value and fetches company code
-         */
-        onPlantChange: function (oEvent) {
-          const oSelect = oEvent.getSource();
-          const sSelectedKey = oSelect.getSelectedKey();
-          
-          if (!sSelectedKey) {
-            // User cleared the selection, clear Company Code too
-            const oCompanyCodeInput = this.byId("idCompanyCode");
-            if (oCompanyCodeInput) {
-              oCompanyCodeInput.setValue("");
-            }
-            const oTripDataModel = this.getView().getModel("TripData");
-            if (oTripDataModel) {
-              oTripDataModel.setProperty("/CompanyCode", "");
-            }
-            return;
-          }
-
-          // Get selected item data
-          const oSelectedItem = oSelect.getSelectedItem();
-          if (!oSelectedItem) {
-            return;
-          }
-
-          // Get the full data from binding context
-          const oBindingContext = oSelectedItem.getBindingContext("PlantModel");
-          if (!oBindingContext) {
-            return;
-          }
-
-          const oData = oBindingContext.getObject();
-          
-          // Store code values in global variables (code only, no description)
-          PlantCode = oData.ConfigID;
-          CompanyCod = oData.ParentConfig || "";
-          
-          // Build CompanyCode display value with description (for UI)
-          var sCompanyCodeDisplay = oData.ParentConfig || "";
-          if (!sCompanyCodeDisplay) {
-            // No ParentConfig available, clear Company Code
-            const oCompanyCodeInput = this.byId("idCompanyCode");
-            if (oCompanyCodeInput) {
-              oCompanyCodeInput.setValue("");
-            }
-            const oTripDataModel = this.getView().getModel("TripData");
-            if (oTripDataModel) {
-              oTripDataModel.setProperty("/CompanyCode", "");
-            }
-            return;
-          }
-          
-          if (oData.Val01) {
-            sCompanyCodeDisplay = `${oData.ParentConfig}-${oData.Val01}`;
-          } else {
-            // Fetch CompanyCode description if Val01 is not available
-            const that = this;
-            const oModel = this.getView().getModel();
-            const sTripNumber = this._getTripNumber();
-            var aFilters = [
-              new sap.ui.model.Filter("ConfigGroup", sap.ui.model.FilterOperator.EQ, "CompanyCode"),
-              new sap.ui.model.Filter("ConfigID", sap.ui.model.FilterOperator.EQ, oData.ParentConfig)
-            ];
-
-            // Add TripNumber filter if available
-            if (sTripNumber) {
-              aFilters.push(
-                new sap.ui.model.Filter("TripNumber", sap.ui.model.FilterOperator.EQ, sTripNumber)
-              );
-            }
-
-            oModel.read("/ConfigValues", {
-              filters: aFilters,
-              success: function (oData) {
-                if (oData.results && oData.results.length > 0) {
-                  const oCompanyCode = oData.results[0];
-                  sCompanyCodeDisplay = oCompanyCode.ConfigID || sCompanyCodeDisplay;
-                  if (oCompanyCode.Description) {
-                    sCompanyCodeDisplay = `${oCompanyCode.ConfigID}-${oCompanyCode.Description}`;
-                  }
-                  
-                  // Set company code in the UI
-                  const oCompanyCodeInput = that.byId("idCompanyCode");
-                  if (oCompanyCodeInput) {
-                    oCompanyCodeInput.setValue(sCompanyCodeDisplay);
-                  }
-                  
-                  // Update TripData model with Company Code
-                  const oTripDataModel = that.getView().getModel("TripData");
-                  if (oTripDataModel) {
-                    oTripDataModel.setProperty("/CompanyCode", sCompanyCodeDisplay);
-                  }
-                }
-              },
-              error: function () {
-                // If fetch fails, just use the code
-                const oCompanyCodeInput = that.byId("idCompanyCode");
-                if (oCompanyCodeInput) {
-                  oCompanyCodeInput.setValue(sCompanyCodeDisplay);
-                }
-                
-                // Update TripData model with Company Code
-                const oTripDataModel = that.getView().getModel("TripData");
-                if (oTripDataModel) {
-                  oTripDataModel.setProperty("/CompanyCode", sCompanyCodeDisplay);
-                }
-              },
-            });
-            return; // Exit early since we're fetching company code
-          }
-          
-          // Set company code in the UI
-          const oCompanyCodeInput = this.byId("idCompanyCode");
-          if (oCompanyCodeInput) {
-            oCompanyCodeInput.setValue(sCompanyCodeDisplay);
-          }
-
-          // Update TripData model (store only code)
-          const oTripDataModel = this.getView().getModel("TripData");
-          if (oTripDataModel) {
-            oTripDataModel.setProperty("/Plant", sSelectedKey);
-            oTripDataModel.setProperty("/CompanyCode", oData.ParentConfig || "");
-          }
-        },
-
-        /**
-         * Ensure Company Code input shows "Code - Description"
-         * based on a CompanyCode value coming from TripDetails.
-         */
-        _setCompanyCodeDisplay: function (sCompanyCode) {
-          const oInput = this.byId("idCompanyCode");
-          const oModel = this.getView().getModel();
-          const oTripDataModel = this.getView().getModel("TripData");
-
-          if (!sCompanyCode) {
-            if (oInput) {
-              oInput.setValue("");
-            }
-            if (oTripDataModel) {
-              oTripDataModel.setProperty("/CompanyCode", "");
-            }
-            return;
-          }
-
-          // Simply reflect the code in the input and model
-          if (oInput) {
-            oInput.setValue(sCompanyCode);
-          }
-          if (oTripDataModel) {
-            oTripDataModel.setProperty("/CompanyCode", sCompanyCode);
-          }
         },
 
         /**
@@ -1653,8 +1384,7 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
          */
         onSearchVehicleType: function (oEvent) {
           var sValue = (oEvent.getParameter("value") || oEvent.getParameter("newValue") || "").trim();
-          
-          // Use the same approach as Plant search - direct byId access
+
           var oList = this.byId("idVHVehicleTypeList");
 
           if (!oList) {
@@ -1670,7 +1400,6 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
           var aFilters = [];
 
           if (sValue && sValue.length > 0) {
-            // Use the same filter syntax as Plant search (which works)
             aFilters.push(
               new sap.ui.model.Filter({
                 filters: [
@@ -1828,9 +1557,11 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
               break;
           }
 
-          if (sField && sId !== this.getView().getId() + "--idVHVehicleType") {
-            // safety: ensure control exists
-            // Skip VehicleType as it's handled in the switch case above
+          if (
+            sField &&
+            sId !== this.getView().getId() + "--idVHVehicleType" &&
+            sId !== this.getView().getId() + "--idVHMovementScenario"
+          ) {
             const oFieldCtrl = this.byId(sField);
             if (oFieldCtrl && oSelected.getTitle) {
               oFieldCtrl.setValue(oSelected.getTitle());
@@ -1904,9 +1635,8 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
           oModel.read("/OrderTypeSH", {
             success: function (oData) {
               oData.results.forEach((row) => {
-                movementScenario = row.MovementScenario;
-                movementType = row.movementType;
-                Mtype = row.movementType;
+                // Do not set movementScenario/movementType here — would overwrite with last list row.
+                // Globals are set only on user selection (value help / suggestion).
 
                 // Determine SAP icon based on movement type
                 var sIcon = "";
@@ -1954,46 +1684,12 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
 
         onSelectMovementScenario: function (oEvent) {
           const oItem = oEvent.getParameter("listItem");
-          const row = oItem.data("row");
-          Mtype = row.MovementType;
-          movementScenario = row.MovementScenario;
-          
-          // Set Movement Scenario value to Long Text
-          this.byId("idMovementScenario").setValue(row.LongText);
-          
-          // Set Movement Type value based on MovementType
-          var sMovementTypeDesc = "";
-          if (row.MovementType === "O") {
-            this.byId("idMovementType").setValue("Outward");
-            sMovementTypeDesc = "Outward";
-          } else if (row.MovementType === "I") {
-            this.byId("idMovementType").setValue("Inward");
-            sMovementTypeDesc = "Inward";
+          const row = oItem && oItem.data("row");
+          this._syncMovementScenarioFromRow(row);
+          const oDlg = this.byId("idVHMovementScenario");
+          if (oDlg && oDlg.close) {
+            oDlg.close();
           }
-
-          // Store MovementType in global model for tab visibility during trip creation
-          var oGlobalModel = sap.ui.getCore().getModel("globalData");
-          if (!oGlobalModel) {
-            oGlobalModel = new sap.ui.model.json.JSONModel({
-              TripNumber: "",
-              MovementType: "",
-              MovementTypeDesc: ""
-            });
-            sap.ui.getCore().setModel(oGlobalModel, "globalData");
-          }
-          oGlobalModel.setProperty("/MovementType", row.MovementType);
-          oGlobalModel.setProperty("/MovementTypeDesc", sMovementTypeDesc);
-          
-          // Publish event to update tabs immediately
-          var oEventBus = sap.ui.getCore().getEventBus();
-          oEventBus.publish("TripData", "MovementTypeChanged", {
-            movementType: row.MovementType
-          });
-
-          this.byId("idVHMovementScenario").close();
-          
-          // Update scanner visibility immediately when Movement Scenario is selected
-          this._updateScannerVisibility();
         },
 
         onMovementScenarioSuggest: function (oEvent) {
@@ -2057,89 +1753,10 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
           });
 
           if (oSelectedRow) {
-            // Update global variables
-            movementScenario = oSelectedRow.MovementScenario;
-            Mtype = oSelectedRow.MovementType;
-            
-            // Set Movement Scenario value to Long Text (same as value help behavior)
-            this.byId("idMovementScenario").setValue(oSelectedRow.LongText);
-            
-            // Set Movement Type value based on MovementType
-            if (oSelectedRow.MovementType === "O") {
-              this.byId("idMovementType").setValue("Outward");
-            } else if (oSelectedRow.MovementType === "I") {
-              this.byId("idMovementType").setValue("Inward");
-            }
-            
-            // Update scanner visibility immediately
-            this._updateScannerVisibility();
+            this._syncMovementScenarioFromRow(oSelectedRow);
           }
         },
 
-        _fetchPlantsForCompany: function (sPlant) {
-          const oModel = this.getView().getModel();
-          const that = this;
-          const sTripNumber = this._getTripNumber();
-
-          var aFilters = [
-            new sap.ui.model.Filter(
-              "ConfigGroup",
-              sap.ui.model.FilterOperator.EQ,
-              "Plant"
-            ),
-            new sap.ui.model.Filter(
-              "ParentConfig",
-              sap.ui.model.FilterOperator.EQ,
-              sPlant
-            ),
-          ];
-
-          // Add TripNumber filter if available
-          if (sTripNumber) {
-            aFilters.push(
-              new sap.ui.model.Filter(
-                "TripNumber",
-                sap.ui.model.FilterOperator.EQ,
-                sTripNumber
-              )
-            );
-          }
-
-          oModel.read("/ConfigValues", {
-            filters: aFilters,
-
-            success: function (oData) {
-              if (oData.results.length === 1) {
-                const oPlant = oData.results[0];
-                // Store code in global variable (code only)
-                CompanyCod = oPlant.ConfigID || "";
-                // Build CompanyCode display value with description (for UI)
-                var sCompanyCodeDisplay = oPlant.ConfigID || "";
-                if (oPlant.Description) {
-                  sCompanyCodeDisplay = `${oPlant.ConfigID}-${oPlant.Description}`;
-                }
-                that.byId("idCompanyCode").setValue(sCompanyCodeDisplay);
-              } else if (oData.results.length > 1) {
-                const oJSON = new sap.ui.model.json.JSONModel(oData.results);
-                const oDialog = that._mValueHelps?.VHPlant;
-
-                if (oDialog) {
-                  oDialog.setModel(oJSON, "VHModel");
-                  oDialog.open();
-                }
-              } else {
-                MessageToast.show("No Company Code found for Plant " + sPlant);
-                CompanyCod = "";
-                that.byId("idCompanyCode").setValue("");
-              }
-            },
-
-            error: function () {
-              MessageBox.error("Error Company Code found for Plant " + sPlant);
-              that.byId("idCompanyCode").setValue("");
-            },
-          });
-        },
         onValueHelpVehicleNumber: function () {
           const oView = this.getView();
 
@@ -2266,52 +1883,6 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
               that.getView().setModel(
                 new sap.ui.model.json.JSONModel({ items: [] }),
                 "vehicleSizeSuggestions"
-              );
-            },
-          });
-        },
-
-        /**
-         * Load Company Code Suggestions
-         */
-        _loadCompanyCodeSuggestions: function () {
-          const oModel = this.getView().getModel();
-          const that = this;
-          const sTripNumber = this._getTripNumber();
-
-          var aFilters = [
-            new sap.ui.model.Filter(
-              "ConfigGroup",
-              sap.ui.model.FilterOperator.EQ,
-              "CompanyCode"
-            ),
-          ];
-
-          // Add TripNumber filter if available
-          if (sTripNumber) {
-            aFilters.push(
-              new sap.ui.model.Filter(
-                "TripNumber",
-                sap.ui.model.FilterOperator.EQ,
-                sTripNumber
-              )
-            );
-          }
-
-          oModel.read("/ConfigValues", {
-            filters: aFilters,
-            success: function (oData) {
-              const aResults = oData.results || [];
-              const oJSON = new sap.ui.model.json.JSONModel({
-                items: aResults
-              });
-              that.getView().setModel(oJSON, "companyCodeSuggestions");
-            },
-            error: function (oError) {
-              // Set empty model on error to prevent binding issues
-              that.getView().setModel(
-                new sap.ui.model.json.JSONModel({ items: [] }),
-                "companyCodeSuggestions"
               );
             },
           });
@@ -2780,214 +2351,6 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
         },
 
         /**
-         * Company Code Suggestion Handler
-         */
-        onCompanyCodeSuggest: function (oEvent) {
-          const sValue = (oEvent.getParameter("suggestValue") || "").trim();
-          const oInput = oEvent.getSource();
-          const oBinding = oInput.getBinding("suggestionItems");
-
-          if (!oBinding) {
-            return;
-          }
-
-          if (sValue && sValue.length > 0) {
-            oBinding.filter([
-              new sap.ui.model.Filter({
-                filters: [
-                  new sap.ui.model.Filter(
-                    "ConfigID",
-                    sap.ui.model.FilterOperator.Contains,
-                    sValue
-                  ),
-                  new sap.ui.model.Filter(
-                    "Description",
-                    sap.ui.model.FilterOperator.Contains,
-                    sValue
-                  ),
-                ],
-                and: false,
-              }),
-            ]);
-          } else {
-            oBinding.filter([]);
-          }
-        },
-
-        /**
-         * Company Code Suggestion Selected
-         */
-        onCompanyCodeSuggestionSelected: function (oEvent) {
-          const oItem = oEvent.getParameter("selectedItem");
-          if (!oItem) {
-            return;
-          }
-
-          const sConfigID = oItem.getKey();
-          const oSuggestionsModel = this.getView().getModel("companyCodeSuggestions");
-          if (!oSuggestionsModel) {
-            return;
-          }
-
-          const aItems = oSuggestionsModel.getData().items || [];
-          const oSelectedItem = aItems.find(function (item) {
-            return item.ConfigID === sConfigID;
-          });
-
-          if (oSelectedItem) {
-            // Store code value in global variable (code only, no description)
-            CompanyCod = oSelectedItem.ConfigID;
-
-            // Update TripData model with code only
-            const oTripDataModel = this.getView().getModel("TripData");
-            if (oTripDataModel) {
-              oTripDataModel.setProperty("/CompanyCode", oSelectedItem.ConfigID);
-            }
-          }
-        },
-
-        /* ===========================================================
-         * Company Code Value Help
-         * =========================================================== */
-        onValueHelpCompanyCode: function () {
-          const oView = this.getView();
-
-          if (!this._mValueHelps) {
-            this._mValueHelps = {};
-          }
-
-          if (!this._mValueHelps.VHCompanyCode) {
-            Fragment.load({
-              id: oView.getId(),
-              name: "com.incresolZ_INC_PLMS.fragments.VehicleReportingFrags.VHCompanyCode",
-              controller: this,
-            }).then(
-              function (oDialog) {
-                this._mValueHelps.VHCompanyCode = oDialog;
-                oView.addDependent(oDialog);
-
-                this._loadCompanyCodeData().then(() => {
-                  oDialog.open();
-                });
-              }.bind(this)
-            );
-          } else {
-            this._loadCompanyCodeData();
-            this._mValueHelps.VHCompanyCode.open();
-          }
-        },
-
-        /**
-         * Load Company Codes from ConfigValues
-         */
-        _loadCompanyCodeData: function () {
-          const oModel = this.getView().getModel();
-          const that = this;
-          const sTripNumber = this._getTripNumber();
-
-          var aFilters = [
-            new sap.ui.model.Filter(
-              "ConfigGroup",
-              sap.ui.model.FilterOperator.EQ,
-              "CompanyCode"
-            ),
-          ];
-
-          // Add TripNumber filter if available
-          if (sTripNumber) {
-            aFilters.push(
-              new sap.ui.model.Filter(
-                "TripNumber",
-                sap.ui.model.FilterOperator.EQ,
-                sTripNumber
-              )
-            );
-          }
-
-          return new Promise(function (resolve) {
-            oModel.read("/ConfigValues", {
-              filters: aFilters,
-              success: function (oData) {
-                const oJSON = new sap.ui.model.json.JSONModel(oData.results);
-                if (that._mValueHelps && that._mValueHelps.VHCompanyCode) {
-                  that._mValueHelps.VHCompanyCode.setModel(oJSON, "VHModel");
-                }
-                resolve();
-              },
-              error: function () {
-                sap.m.MessageBox.error("Failed to load Company Code.");
-                resolve();
-              },
-            });
-          });
-        },
-
-        /**
-         * Search Company Code
-         */
-        onSearchCompanyCode: function (oEvent) {
-          const sValue = (oEvent.getParameter("value") || "").trim();
-          const oList = this.byId("idVHCompanyCodeList");
-
-          if (!oList) {
-            return;
-          }
-
-          const oBinding = oList.getBinding("items");
-
-          if (!oBinding) {
-            return;
-          }
-
-          const aFilters = [];
-          if (sValue && sValue.length > 0) {
-            aFilters.push(
-              new sap.ui.model.Filter({
-                filters: [
-                  new sap.ui.model.Filter(
-                    "ConfigID",
-                    sap.ui.model.FilterOperator.Contains,
-                    sValue
-                  ),
-                  new sap.ui.model.Filter(
-                    "Description",
-                    sap.ui.model.FilterOperator.Contains,
-                    sValue
-                  ),
-                ],
-                and: false,
-              })
-            );
-          }
-
-          oBinding.filter(aFilters);
-        },
-
-        /**
-         * Select Company Code
-         */
-        onSelectCompanyCode: function (oEvent) {
-          const oItem = oEvent.getParameter("listItem");
-          if (!oItem) {
-            return;
-          }
-
-          const oData = oItem.getBindingContext("VHModel").getObject();
-          const sCompanyCodeDisplay = `${oData.ConfigID}-${oData.Description}`;
-
-          // Store code value in global variable (code only, no description)
-          CompanyCod = oData.ConfigID;
-
-          // Set selected value - show description in UI
-          this.byId("idCompanyCode").setValue(sCompanyCodeDisplay);
-
-          // Close dialog
-          if (this._mValueHelps && this._mValueHelps.VHCompanyCode) {
-            this._mValueHelps.VHCompanyCode.close();
-          }
-        },
-
-        /**
          * Load TripNumber from ConfigValues
          */
         _loadTripNumberData: function () {
@@ -3087,16 +2450,14 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
           // Also update scanner visibility based on Movement Scenario from TripData
           var oTripData = sap.ui.getCore().getModel("TripData");
           if (oTripData) {
-            var sMovementScenarioDesc = oTripData.getProperty("/MovementScenarioDesc") || "";
-            if (sMovementScenarioDesc) {
-              // Update the input field if it's not already set
-              var oMovementScenarioInput = this.byId("idMovementScenario");
-              if (oMovementScenarioInput && !oMovementScenarioInput.getValue()) {
-                oMovementScenarioInput.setValue(sMovementScenarioDesc);
+            var oMovementScenarioCtrl = this.byId("idMovementScenario");
+            if (oMovementScenarioCtrl && oMovementScenarioCtrl.setSelectedKey) {
+              var sMs = oTripData.getProperty("/MovementScenario");
+              if (sMs !== undefined && sMs !== null && sMs !== "" && !oMovementScenarioCtrl.getSelectedKey()) {
+                oMovementScenarioCtrl.setSelectedKey(String(sMs));
               }
-              // Update scanner visibility
-              this._updateScannerVisibility();
             }
+            this._updateScannerVisibility();
           }
         },
 
@@ -3353,41 +2714,27 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
             return;
           }
 
-          // Get selected Movement Scenario LongText from input field
-          var oMovementScenarioInput = this.byId("idMovementScenario");
-          var sMovementScenario = "";
-          
-          if (oMovementScenarioInput) {
-            sMovementScenario = oMovementScenarioInput.getValue() || "";
-          }
-          
-          // If not found in input, try to get from TripData
-          if (!sMovementScenario) {
-            if (oTripData) {
-              sMovementScenario = oTripData.getProperty("/MovementScenarioDesc") || "";
+          // Scanner mode by Movement Scenario code (OrderTypeSH MovementScenario), not description
+          var sScenarioCode = "";
+          if (movementScenario !== undefined && movementScenario !== null && movementScenario !== "") {
+            sScenarioCode = String(movementScenario).trim();
+          } else if (oTripData) {
+            var sFromTrip = oTripData.getProperty("/MovementScenario");
+            if (sFromTrip !== undefined && sFromTrip !== null && sFromTrip !== "") {
+              sScenarioCode = String(sFromTrip).trim();
             }
           }
-          
-          // Check if it matches any of the specific scenarios that should use scanner
-          var aAllowedScenarios = [
-            "Inward Supplier Portal – Direct Purchase Order ASN",
-            "Inward wrt PO",
-            "Inward Supplier Portal – Scheduling Agreement ASN",
-            "I/W SPSASL ASN",
-            "Inward Job Work PO – Supplier Portal Vendor"
-          ];
-          
-          var bShowScanner = false;
-          if (sMovementScenario) {
-            // Trim and compare (case-insensitive for safety)
-            var sTrimmedScenario = sMovementScenario.trim();
-            for (var i = 0; i < aAllowedScenarios.length; i++) {
-              if (sTrimmedScenario === aAllowedScenarios[i].trim()) {
-                bShowScanner = true;
-                break;
-              }
-            }
+          // Normalize single-digit numeric codes (e.g. "1" -> "01") to match MaxLength 2 values
+          if (/^\d$/.test(sScenarioCode)) {
+            sScenarioCode = "0" + sScenarioCode;
           }
+
+          // MovementScenario codes that use scanner-first reporting (extend as needed)
+          var aAllowedScenarioCodes = ["01", "02", "03"];
+
+          var bShowScanner =
+            sScenarioCode !== "" &&
+            aAllowedScenarioCodes.indexOf(sScenarioCode) !== -1;
 
           // Update scanner visibility
           oScannerVBox.setVisible(bShowScanner);

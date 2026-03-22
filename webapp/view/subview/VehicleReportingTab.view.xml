@@ -9,7 +9,7 @@
 >
     <VBox class="sapUiSizeCompact sapUiSmallMargin">
         <!-- ========================= SCANNER ROW ========================= -->
-        <!-- Scanner Input and Button - Only visible for specific Movement Scenarios -->
+        <!-- Scanner Input and Button - Only visible for MovementScenario codes 01, 02, 03 (see VehicleReportingTab.controller) -->
         <VBox 
             id="idReportingScannerVBox"
             class="sapUiSmallMarginBottom"
@@ -42,7 +42,7 @@
         <Panel
             id="reportingDetailsPanel"
             expandable="true"
-            expanded="false"
+            expanded="true"
             class="sapUiNoContentPadding"
         >
             <headerToolbar>
@@ -66,16 +66,23 @@
                                 design="Bold"
                                 required="true"
                             />
-                            <Input
+                            <ComboBox
                                 id="idMovementScenario"
                                 width="100%"
-                                showValueHelp="true"
-                                valueHelpRequest="onValueHelpMovementScenario"
-                                value="{TripData>/MovementScenarioDesc}"
-                                showSuggestion="true"
-                                suggest="onMovementScenarioSuggest"
-                                suggestionItemSelected="onMovementScenarioSuggestionSelected"
-                            />
+                                placeholder="Select or search movement scenario"
+                                items="{movementScenarioItems>/}"
+                                selectedKey="{path: 'TripData>/MovementScenario', mode: 'TwoWay'}"
+                                change="onMovementScenarioComboChange"
+                                forceSelection="true"
+                                filterSecondaryValues="true"
+                                showSecondaryValues="true"
+                            >
+                                <core:Item
+                                    key="{movementScenarioItems>MovementScenario}"
+                                    text="{movementScenarioItems>LongText}"
+                                    additionalText="{movementScenarioItems>ShortText}"
+                                />
+                            </ComboBox>
                         </VBox>
                     </layout:content>
                     <layout:content>
@@ -88,8 +95,6 @@
                             <Input
                                 id="idMovementType"
                                 width="100%"
-                                showValueHelp="true"
-                                valueHelpRequest="onValueHelpMovementType"
                                 enabled="false"
                                 value="{TripData>/MovementTypeDesc}"
                             />
@@ -105,14 +110,12 @@
                             <Input
                                 id="idVehicleNumber"
                                 width="100%"
-                                showValueHelp="true"
                                 showSuggestion="true"
                                 suggestionItems="{VHModel>/}"
                                 suggest=".onSuggest"
                                 filterSuggests="false"
                                 value="{TripData>/VehicleNumber}"
                                 suggestThreshold="1"
-                                valueHelpRequest=".onValueHelpVehicleNumber"
                                 suggestionItemSelected=".onSuggestionItemSelected"
                             >
                                 <suggestionItems>
@@ -140,8 +143,6 @@
                             <Input
                                 id="idVehicleType"
                                 width="100%"
-                                showValueHelp="true"
-                                valueHelpRequest="onValueHelpVehicleType"
                                 showSuggestion="true"
                                 suggest="onVehicleTypeSuggest"
                                 suggestionItemSelected="onVehicleTypeSuggestionSelected"
@@ -169,8 +170,6 @@
                             <Input
                                 id="idVehicleSize"
                                 width="100%"
-                                showValueHelp="false"
-                                valueHelpRequest="onValueHelpVehicleSize"
                                 showSuggestion="true"
                                 suggest="onVehicleSizeSuggest"
                                 suggestionItemSelected="onVehicleSizeSuggestionSelected"
@@ -318,58 +317,6 @@
                         </VBox>
                     </layout:content>
                     <!-- ================== COLUMN 3 ================== -->
-                    <layout:content>
-                        <VBox>
-                            <Label
-                                text="Plant"
-                                design="Bold"
-                                required="true"
-                            />
-                            <Select
-                                id="idPlant"
-                                width="100%"
-                                forceSelection="false"
-                                items="{
-                                    path: 'PlantModel>/'
-                                }"
-                                change="onPlantChange">
-                                <core:Item
-                                    key="{PlantModel>ConfigID}"
-                                    text="{= ${PlantModel>ConfigID} + ' - ' + ${PlantModel>Description} }"
-                                    additionalText="{PlantModel>Description}"
-                                />
-                            </Select>
-                        </VBox>
-                    </layout:content>
-                    <layout:content>
-                        <VBox>
-                            <Label
-                                text="Company Code"
-                                design="Bold"
-                                required="true"
-                            />
-                            <Input
-                                id="idCompanyCode"
-                                width="100%"
-                                showValueHelp="true"
-                                valueHelpRequest="onValueHelpCompanyCode"
-                                showSuggestion="true"
-                                suggest="onCompanyCodeSuggest"
-                                suggestionItemSelected="onCompanyCodeSuggestionSelected"
-                                suggestionItems="{companyCodeSuggestions>/items}"
-                                value="{TripData>/CompanyCode}"
-                                enabled="false"
-                            >
-                                <suggestionItems>
-                                    <core:Item
-                                        key="{companyCodeSuggestions>ConfigID}"
-                                        text="{companyCodeSuggestions>ConfigID}"
-                                        additionalText="{companyCodeSuggestions>Description}"
-                                    />
-                                </suggestionItems>
-                            </Input>
-                        </VBox>
-                    </layout:content>
                     <layout:content>
                         <VBox>
                             <Label

@@ -229,6 +229,9 @@
                                 <Column id="colMaterialUoM" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
                                     <Text text="UoM"/>
                                 </Column>
+                                <Column id="colMaterialBinsTrolleys" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline" hAlign="End">
+                                    <Text text="Bins (Trolleys)"/>
+                                </Column>
                                 <Column id="colMaterialCreatedBy" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
                                     <Text text="Created By"/>
                                 </Column>
@@ -264,6 +267,7 @@
                                         <Text text="{refDocModel>remainQty}"/>
                                         <Text text="{refDocModel>dispatchDate}"/>
                                         <Text text="{refDocModel>uom}"/>
+                                        <Text text="{= ${refDocModel>binsTrolleys} || '0' }"/>
                                         <Text text="{refDocModel>createdBy}"/>
                                         <Text text="{refDocModel>createdOnDate}"/>
                                         <Text text="{refDocModel>createdOnTime}"/>
@@ -292,6 +296,88 @@
 
                         </Table>
                 </ScrollContainer>
+            </VBox>
+        </Panel>
+
+        <!-- ========================================================= -->
+        <!-- ===================== Bin Details Panel =============== -->
+        <!-- ========================================================= -->
+        <Panel
+            id="binTrackingPanel"
+            expandable="true"
+            expanded="false"
+            class="sapUiNoContentPadding sapUiSmallMarginTop"
+            visible="{= ((${TripData>/TripStatus} || '').toLowerCase().indexOf('gate out') !== -1 || ((${TripData>/TripStatus} || '').toLowerCase().indexOf('gate-out') !== -1)) }"
+        >
+            <headerToolbar>
+                <OverflowToolbar>
+                    <Title text="Bin Tracking" class="sectionPanelTitle"/>
+                </OverflowToolbar>
+            </headerToolbar>
+
+            <VBox class="sapUiSmallMargin sapUiSizeCompact">
+                <Panel
+                    id="binDetailsPanel"
+                    expandable="false"
+                    expanded="false"
+                    class="sapUiNoContentPadding"
+                >
+                    <headerToolbar>
+                        <OverflowToolbar>
+                            <Title text="Bin Details" class="sectionPanelTitle"/>
+                        </OverflowToolbar>
+                    </headerToolbar>
+
+                    <VBox class="sapUiSmallMargin sapUiSizeCompact">
+                        <ScrollContainer
+                            horizontal="true"
+                            vertical="false"
+                            width="100%"
+                            class="sapUiNoContentPadding sapUiSmallMarginTop sapUiSizeCompact"
+                        >
+                            <Table
+                                id="idBinDetailsTable"
+                                inset="false"
+                                width="auto"
+                                class="sapUiSizeCompact"
+                                fixedLayout="false"
+                                autoPopin="true"
+                                sticky="ColumnHeaders,HeaderToolbar"
+                                noDataText="No bin details added yet"
+                            >
+                                <columns>
+                                    <Column demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                        <Text text="Material"/>
+                                    </Column>
+                                    <Column demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline" hAlign="End">
+                                        <Text text="Cases"/>
+                                    </Column>
+                                </columns>
+
+                                <items>
+                                    <ColumnListItem>
+                                        <cells>
+                                            <Text text="Material 001"/>
+                                            <Text text="10"/>
+                                        </cells>
+                                    </ColumnListItem>
+                                    <ColumnListItem>
+                                        <cells>
+                                            <Text text="Material 002"/>
+                                            <Text text="25"/>
+                                        </cells>
+                                    </ColumnListItem>
+                                    <ColumnListItem>
+                                        <cells>
+                                            <Text text="Material 003"/>
+                                            <Text text="7"/>
+                                        </cells>
+                                    </ColumnListItem>
+                                </items>
+                            </Table>
+                        </ScrollContainer>
+                    </VBox>
+                </Panel>
             </VBox>
         </Panel>
 

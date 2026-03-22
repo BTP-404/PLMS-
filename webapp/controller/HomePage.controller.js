@@ -115,7 +115,9 @@ sap.ui.define(
         var oGlobalModel = sap.ui.getCore().getModel("globalData");
 
         if (!oGlobalModel) {
-          oGlobalModel = new sap.ui.model.json.JSONModel({ TripNumber: "" });
+          oGlobalModel = new sap.ui.model.json.JSONModel({
+            TripNumber: ""
+          });
           sap.ui.getCore().setModel(oGlobalModel, "globalData");
         }
 
@@ -428,18 +430,6 @@ sap.ui.define(
               sDescField: "TripNumber",
               sTitle: "Select LR Number",
             };
-          case "plant":
-            return {
-              sKeyField: "Plant",
-              sDescField: "CompanyCode",
-              sTitle: "Select Plant",
-            };
-          case "companyCode":
-            return {
-              sKeyField: "CompanyCode",
-              sDescField: "Plant",
-              sTitle: "Select Company Code",
-            };
           default:
             return null;
         }
@@ -557,8 +547,6 @@ sap.ui.define(
           "colVehicleNumber",
           "colTripStatus",
           "colMovementType",
-          "colCompanyCode",
-          "colPlant",
         ];
         return aDefaultVisible.indexOf(sKey) !== -1;
       },
@@ -625,6 +613,8 @@ sap.ui.define(
           return "tripStatusCancelled";
         } else if (sStatus === "error" || sStatus === "failed") {
           return "tripStatusError";
+        } else if (sStatus === "test" || sStatus === "testing") {
+          return "tripStatusTest";
         }
         
         // Default: no special color

@@ -45,7 +45,8 @@
         <!-- ==================== HEADER FILTER AREA ==================== -->
         <semantic:headerContent>
             <layout:Grid
-                defaultSpan="XL2 L2 M4 S12"
+                width="100%"
+                defaultSpan="XL3 L3 M4 S12"
                 hSpacing="1"
                 vSpacing="1"
                 class="sapUiSizeCompact homeFilterCard"
@@ -54,7 +55,7 @@
                 <layout:content>
                     <VBox>
                         <layoutData>
-                            <layout:GridData span="XL2 L2 M4 S12" />
+                            <layout:GridData span="XL3 L3 M4 S12" />
                         </layoutData>
                         <Label
                             design="Bold"
@@ -62,12 +63,10 @@
                         />
                         <Input
                             width="100%"
-                            showValueHelp="true"
                             showSuggestion="true"
                             suggest=".onSuggest"
                             filterSuggests="false"
                             suggestThreshold="1"
-                            valueHelpRequest=".onValueHelpRequest"
                             suggestionItemSelected=".onSuggestionItemSelected"
                         >
                             <customData>
@@ -83,7 +82,7 @@
                 <layout:content>
                     <VBox>
                         <layoutData>
-                            <layout:GridData span="XL2 L2 M4 S12" />
+                            <layout:GridData span="XL3 L3 M4 S12" />
                         </layoutData>
                         <Label
                             design="Bold"
@@ -91,47 +90,16 @@
                         />
                         <Input
                             width="100%"
-                            showValueHelp="true"
                             showSuggestion="true"
                             suggest=".onSuggest"
                             filterSuggests="false"
                             suggestThreshold="1"
-                            valueHelpRequest=".onValueHelpRequest"
                             suggestionItemSelected=".onSuggestionItemSelected"
                         >
                             <customData>
                                 <core:CustomData
                                     key="field"
                                     value="vehicleNumber"
-                                />
-                            </customData>
-                        </Input>
-                    </VBox>
-                </layout:content>
-                <!-- Plant -->
-                <layout:content>
-                    <VBox>
-                        <layoutData>
-                            <layout:GridData span="XL2 L2 M4 S12" />
-                        </layoutData>
-                        <Label
-                            design="Bold"
-                            text="Plant:"
-                        />
-                        <Input
-                            width="100%"
-                            showValueHelp="true"
-                            showSuggestion="true"
-                            suggest=".onSuggest"
-                            filterSuggests="false"
-                            suggestThreshold="1"
-                            valueHelpRequest=".onValueHelpRequest"
-                            suggestionItemSelected=".onSuggestionItemSelected"
-                        >
-                            <customData>
-                                <core:CustomData
-                                    key="field"
-                                    value="plant"
                                 />
                             </customData>
                         </Input>
@@ -327,22 +295,6 @@
                         >
                             <Text text="Driver Mobile" />
                         </Column>
-                        <Column
-                            id="colCompanyCode"
-                            demandPopin="true"
-                            minScreenWidth="Desktop"
-                            popinDisplay="Inline"
-                        >
-                            <Text text="Company Code" />
-                        </Column>
-                        <Column
-                            id="colPlant"
-                            demandPopin="true"
-                            minScreenWidth="Tablet"
-                            popinDisplay="Inline"
-                        >
-                            <Text text="Plant" />
-                        </Column>
                     </columns>
                     <items>
                         <ColumnListItem 
@@ -406,14 +358,6 @@
                                 />
                                 <Text
                                     text="{DriverMobile}"
-                                    wrapping="true"
-                                />
-                                <Text
-                                    text="{CompanyCode}"
-                                    wrapping="true"
-                                />
-                                <Text
-                                    text="{Plant}"
                                     wrapping="true"
                                 />
                             </cells>

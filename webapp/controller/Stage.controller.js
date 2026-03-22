@@ -17,7 +17,9 @@ sap.ui.define([
 
 			// Ensure global trip model exists upfront
 			if (!sap.ui.getCore().getModel("globalData")) {
-				sap.ui.getCore().setModel(new JSONModel({ TripNumber: "" }), "globalData");
+				sap.ui.getCore().setModel(new JSONModel({
+					TripNumber: ""
+				}), "globalData");
 			}
 			this._initPageTitleModel();
 
@@ -132,7 +134,9 @@ sap.ui.define([
 		_syncTripNumberFromRoute: function (sTripNumber, bReset) {
 			var oGlobalModel = sap.ui.getCore().getModel("globalData");
 			if (!oGlobalModel) {
-				oGlobalModel = new JSONModel({ TripNumber: "" });
+				oGlobalModel = new JSONModel({
+					TripNumber: ""
+				});
 				sap.ui.getCore().setModel(oGlobalModel, "globalData");
 			}
 
@@ -197,7 +201,9 @@ sap.ui.define([
 			// can reliably load data based on the current trip
 			var oGlobalModel = sap.ui.getCore().getModel("globalData");
 			if (!oGlobalModel) {
-				oGlobalModel = new JSONModel({ TripNumber: "" });
+				oGlobalModel = new JSONModel({
+					TripNumber: ""
+				});
 				sap.ui.getCore().setModel(oGlobalModel, "globalData");
 			}
 			oGlobalModel.setProperty("/TripNumber", oData.tripNumber);

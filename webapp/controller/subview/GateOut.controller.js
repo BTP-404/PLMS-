@@ -1,7 +1,6 @@
 sap.ui.define(
   [
     "sap/ui/core/mvc/Controller",
-    "sap/ui/model/odata/v2/ODataModel",
     "sap/m/MessageToast",
     "sap/m/MessageBox",
     "sap/ui/model/json/JSONModel",
@@ -9,7 +8,6 @@ sap.ui.define(
   ],
   function (
     Controller,
-    ODataModel,
     MessageToast,
     MessageBox,
     JSONModel,
@@ -21,11 +19,6 @@ sap.ui.define(
       "com.incresolZ_INC_PLMS.controller.subview.GateOut",
       {
         onInit: function () {
-          this.oModel = new ODataModel("/sap/opu/odata/sap/YIGP_PLMS_SRV/", {
-            useBatch: false,
-            defaultBindingMode: "TwoWay",
-          });
-          this.getView().setModel(this.oModel);
           this._eventBus = sap.ui.getCore().getEventBus();
           this._eventBus.subscribe("TripData", "Updated", this._onTripDataUpdate, this);
           
@@ -43,8 +36,6 @@ sap.ui.define(
         },
         onAfterRendering: function () {
           try {
-            this.loadExitGateNumber();
-            
             // Get trip number from globalData model (safer approach)
             var oGlobalModel = sap.ui.getCore().getModel("globalData");
             this.tripNumber = oGlobalModel ? oGlobalModel.getProperty("/TripNumber") || "" : "";
@@ -296,6 +287,10 @@ sap.ui.define(
           }
         },
         onSaveGateOut: function () {
+          // Screen-only mode: do not call backend services
+          MessageToast.show("Screen only: Gate Out save is not connected to OData.");
+          return;
+
           var oTripData = sap.ui.getCore().getModel("TripData");
           var bIsFirstTime = false;
           if (oTripData) {

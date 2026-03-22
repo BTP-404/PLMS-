@@ -15,11 +15,11 @@
 									class="sapUiSmallMarginBegin"
 								/>
 								<Text
-									text="Vehicle No:- {pageTitleModel>/vehicleNumber}"
+									text="Vehicle No: {pageTitleModel>/vehicleNumber}"
 									textAlign="Center"
 								/>
 								<Text
-									text="Trip status :- {pageTitleModel>/tripStatus}"
+									text="Trip status : {pageTitleModel>/tripStatus}"
 									class="sapUiSmallMarginEnd"
 									textAlign="Right"
 								/>
