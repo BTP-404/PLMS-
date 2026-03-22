@@ -91,6 +91,16 @@ sap.ui.define([
 			this._sSelectedMaterialDocType = "";
 		},
 
+		_setFragmentI18nModel: function (oDialog) {
+			var oComp = this.getOwnerComponent();
+			if (oComp) {
+				var oI18n = oComp.getModel("i18n");
+				if (oI18n) {
+					oDialog.setModel(oI18n, "i18n");
+				}
+			}
+		},
+
 		// ============================================================
 		// Reference Documents Selection Handler
 		// ============================================================
@@ -784,6 +794,7 @@ sap.ui.define([
 							}
 							that._oAddRefDocDialog = oDialog;
 							that.getView().addDependent(oDialog);
+							that._setFragmentI18nModel(oDialog);
 							// Ensure docTypeModel is set on the dialog - this is critical for the binding to work
 							var oDocTypeModel = that._getDocTypeModel();
 							oDialog.setModel(oDocTypeModel, "docTypeModel");
@@ -838,6 +849,7 @@ sap.ui.define([
 							}
 							that._oAddRefDocDialog = oDialog;
 							that.getView().addDependent(oDialog);
+							that._setFragmentI18nModel(oDialog);
 							var oDocTypeModel = that._getDocTypeModel();
 							oDialog.setModel(oDocTypeModel, "docTypeModel");
 							that._setRefDocDialogMode(that._bIsRefDocEditMode ? "edit" : "add");
@@ -877,6 +889,7 @@ sap.ui.define([
 						}
 						this._oAddMaterialDialog = oDialog;
 						this.getView().addDependent(oDialog);
+						this._setFragmentI18nModel(oDialog);
 						// Set dialog mode after dialog is loaded (important for first time)
 						this._setMaterialDialogMode(this._bIsEditMode ? "edit" : "add");
 						// Populate dialog if in edit mode

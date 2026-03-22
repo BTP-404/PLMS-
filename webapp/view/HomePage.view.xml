@@ -123,7 +123,8 @@
                             <DateRangeSelection
                                 id="ReportDateRange"
                                 width="100%"
-                                displayFormat="dd.MM.yyyy"
+                                displayFormat="medium"
+                                placeholder="{i18n>dateRangePlaceholderExample}"
                                 showCurrentDateButton="true"
                                 showFooter="true"
                                 change=".onReportDateRangeChange"
@@ -332,7 +333,7 @@
                                         path: 'LR_Date',
                                         type: 'sap.ui.model.type.Date',
                                         formatOptions: {
-                                            pattern: 'dd.MM.yyyy'
+                                            style: 'medium'
                                         }
                                     }"
                                     wrapping="true"

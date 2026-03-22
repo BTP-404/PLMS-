@@ -62,6 +62,16 @@
     font-style: italic;
 }
 
+/* DatePicker / DateRangeSelection — italic grey placeholder (e.g. Dec 22, 2026) app-wide */
+.sapMDatePicker .sapMInputBaseInner::placeholder,
+.sapMDatePicker .sapMInputBaseContentWrapper input::placeholder,
+.sapMDRS .sapMInputBaseInner::placeholder,
+.sapMDRS .sapMInputBaseContentWrapper input::placeholder {
+    color: var(--sapField_PlaceholderTextColor, #6a6d70) !important;
+    -webkit-text-fill-color: var(--sapField_PlaceholderTextColor, #6a6d70) !important;
+    font-style: italic;
+}
+
 .homeFilterCard .sapMBtnEmphasized .sapMBtnContent {
     color: #ffffff !important;
     -webkit-text-fill-color: #ffffff !important;

@@ -121,7 +121,8 @@
             <DatePicker
                 id="idMaterialDispatchDate"
                 valueFormat="yyyy-MM-dd"
-                displayFormat="dd.MM.yyyy"
+                displayFormat="medium"
+                placeholder="{i18n>datePlaceholderExample}"
             />
 
             <Label text="UoM" />

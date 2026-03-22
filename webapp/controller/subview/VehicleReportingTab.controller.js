@@ -10,6 +10,7 @@ sap.ui.define(
     "sap/ui/model/FilterOperator",
     "sap/ndc/BarcodeScanner",
     "com/incresolZ_INC_PLMS/util/MovementScenarioIcons",
+    "sap/ui/core/format/DateFormat",
   ],
   function (
     Controller,
@@ -21,7 +22,8 @@ sap.ui.define(
     Filter,
     FilterOperator,
     BarcodeScanner,
-    MovementScenarioIcons
+    MovementScenarioIcons,
+    DateFormat
   ) {
     "use strict";
     var movementScenario;
@@ -713,24 +715,28 @@ sap.ui.define(
           if (!vDate) {
             return "";
           }
-          var sYmd = "";
+          var oDate;
           if (vDate instanceof Date) {
-            sYmd = vDate.toISOString().slice(0, 10);
+            oDate = vDate;
           } else if (typeof vDate === "string" && vDate.indexOf("/Date") === 0) {
             var iTimestamp = parseInt(vDate.replace(/\D/g, ""), 10);
             if (!isNaN(iTimestamp)) {
-              sYmd = new Date(iTimestamp).toISOString().slice(0, 10);
+              oDate = new Date(iTimestamp);
             }
           } else if (typeof vDate === "string" && /^\d{4}-\d{2}-\d{2}/.test(vDate)) {
-            sYmd = vDate.slice(0, 10);
+            var p = vDate.slice(0, 10).split("-");
+            oDate = new Date(
+              parseInt(p[0], 10),
+              parseInt(p[1], 10) - 1,
+              parseInt(p[2], 10)
+            );
           } else {
             return vDate;
           }
-          if (!sYmd || sYmd.length < 10) {
+          if (!oDate || isNaN(oDate.getTime())) {
             return "";
           }
-          var a = sYmd.split("-");
-          return a[2] + "." + a[1] + "." + a[0];
+          return DateFormat.getDateInstance({ style: "medium" }).format(oDate);
         },
 
         formatTripTime: function (vTime) {

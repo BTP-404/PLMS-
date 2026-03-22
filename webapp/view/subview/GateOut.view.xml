@@ -230,7 +230,8 @@
                                 enabled="false"
                                 width="100%"
                                 valueFormat="yyyy-MM-dd"
-                                displayFormat="dd.MM.yyyy"
+                                displayFormat="medium"
+                                placeholder="{i18n>datePlaceholderExample}"
                                 value="{
                                     path: 'TripData>/CreatedOn',
                                     formatter: '.formatTripDate'
