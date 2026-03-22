@@ -5,20 +5,17 @@ sap.ui.define(
     "sap/m/MessageToast",
     "sap/m/MessageBox",
     "sap/ui/model/json/JSONModel",
-    "sap/ui/core/Fragment",
   ],
   function (
     Controller,
     ODataModel,
     MessageToast,
     MessageBox,
-    JSONModel,
-    Fragment
+    JSONModel
   ) {
     "use strict";
 
     var tripNumber;
-    var sID;
     return Controller.extend(
       "com.incresolZ_INC_PLMS.controller.subview.GateIn",
       {
@@ -48,6 +45,14 @@ sap.ui.define(
             SelectedProduct2: "",
           });
           this.getView().setModel(this._oEntryGateSelectModel, "entryGateSelect");
+
+          this._oDelayReasonSelectModel = new JSONModel({
+            Enabled: true,
+            Editable: true,
+            DelayReasonCollection: [],
+            SelectedDelayKey: "",
+          });
+          this.getView().setModel(this._oDelayReasonSelectModel, "delayReasonSelect");
           
           // Initialize selected files array
           this._aSelectedFiles = [];
@@ -60,8 +65,8 @@ sap.ui.define(
           }
         },
         onAfterRendering: function () {
+          // Load delay reasons first; entry gates load in the same chain (avoids parallel OData races)
           this.loadDelayReason();
-          this.loadGateNumber();
           
           // Set initial input state based on whether GateIn data exists
           var oTripData = sap.ui.getCore().getModel("TripData");
@@ -107,19 +112,25 @@ sap.ui.define(
             this._oEntryGateSelectModel.setProperty("/ProductCollection2", []);
           }
 
+          if (this._oDelayReasonSelectModel) {
+            this._oDelayReasonSelectModel.setProperty("/SelectedDelayKey", "");
+            this._oDelayReasonSelectModel.setProperty("/DelayReasonCollection", []);
+          }
+
           // Clear input fields by resetting TripData properties if model exists
           var oTripData = this.getView().getModel("TripData");
           if (oTripData) {
             oTripData.setProperty("/EntryGateNum", "");
             oTripData.setProperty("/EntryTime", "");
             oTripData.setProperty("/DelayReason", "");
+            oTripData.setProperty("/DelayReasonDesc", "");
             oTripData.setProperty("/WeighmentRequired", "N");
             oTripData.setProperty("/GrossWeight", "");
             oTripData.setProperty("/TareWeight", "");
             oTripData.setProperty("/NetWeight", "");
           }
 
-          this.loadGateNumber();
+          this.loadDelayReason();
         },
         _onTripDataUpdate: function () {
           var oTripData = sap.ui.getCore().getModel("TripData");
@@ -140,6 +151,8 @@ sap.ui.define(
             
             this.getView().setModel(oTripData, "TripData");
             this._syncEntryGateSelectionFromTripData();
+            this._syncDelayReasonSelectionFromTripData();
+            this._refreshGateSelectKeysFromModels();
             // Disable inputs if GateIn data already exists (display mode)
             var sExistingEntryGateNum = oTripData.getProperty("/EntryGateNum") ||
               oTripData.getProperty("/EntryGateNumber") || "";
@@ -165,70 +178,205 @@ sap.ui.define(
           }
           return sTripNumber;
         },
-        loadDelayReason: function () {
-          var sTripNumber = this._getTripNumber();
-          var aFilters = [
+
+        /**
+         * Master ConfigValues rows use TripNumber ""; extra TripNumber filters often
+         * return 0 rows from the gateway. Load by ConfigGroup only.
+         */
+        _getConfigValuesFilters: function (sConfigGroup) {
+          return [
             new sap.ui.model.Filter(
               "ConfigGroup",
               sap.ui.model.FilterOperator.EQ,
-              "Delayed_Reasons"
+              sConfigGroup
             ),
           ];
+        },
 
-          // Add TripNumber filter if available
-          if (sTripNumber) {
-            aFilters.push(
-              new sap.ui.model.Filter(
-                "TripNumber",
-                sap.ui.model.FilterOperator.EQ,
-                sTripNumber
-              )
-            );
+        _populateEntryGateSelect: function (aProducts, iRetry) {
+          iRetry = iRetry || 0;
+          var oSelect = this.getView().byId("idEntryGateNumber");
+          if (!oSelect) {
+            if (aProducts && aProducts.length && iRetry < 2) {
+              var that = this;
+              setTimeout(function () {
+                that._populateEntryGateSelect(aProducts, iRetry + 1);
+              }, 100);
+            }
+            return;
           }
+          oSelect.destroyItems();
+          (aProducts || []).forEach(function (p) {
+            oSelect.addItem(
+              new sap.ui.core.Item({
+                key: String(p.ProductId),
+                text: p.Name || String(p.ProductId),
+              })
+            );
+          });
+          if (aProducts && aProducts.length && oSelect.getItems().length === 0 && iRetry < 1) {
+            var that2 = this;
+            setTimeout(function () {
+              that2._populateEntryGateSelect(aProducts, iRetry + 1);
+            }, 100);
+          }
+        },
+
+        _populateDelayReasonSelect: function (aItems) {
+          var oSelect = this.getView().byId("idDelayReasons");
+          if (!oSelect) {
+            return;
+          }
+          oSelect.destroyItems();
+          (aItems || []).forEach(function (p) {
+            oSelect.addItem(
+              new sap.ui.core.Item({
+                key: String(p.ProductId),
+                text: p.Name || String(p.ProductId),
+              })
+            );
+          });
+        },
+
+        _refreshGateSelectKeysFromModels: function () {
+          if (!this._oEntryGateSelectModel || !this._oDelayReasonSelectModel) {
+            return;
+          }
+          var sGateKey = this._oEntryGateSelectModel.getProperty("/SelectedProduct2") || "";
+          var sDelayKey = this._oDelayReasonSelectModel.getProperty("/SelectedDelayKey") || "";
+          var oGateSel = this.getView().byId("idEntryGateNumber");
+          var oDelaySel = this.getView().byId("idDelayReasons");
+          if (oGateSel) {
+            oGateSel.setSelectedKey(sGateKey);
+          }
+          if (oDelaySel) {
+            oDelaySel.setSelectedKey(sDelayKey);
+          }
+        },
+
+        loadDelayReason: function () {
+          var aFilters = this._getConfigValuesFilters("Delayed_Reasons");
 
           this.oModel.read("/ConfigValues", {
             filters: aFilters,
             success: function (oData) {
               this._delayReasonData = oData.results;
+              // ConfigID = DelayReasons param; Description = dropdown label (no default selection)
+              var aItems = (oData.results || []).map(function (r) {
+                var sDesc = r.Description != null ? String(r.Description).trim() : "";
+                return {
+                  ProductId: r.ConfigID,
+                  Name: sDesc || r.ConfigID,
+                };
+              });
+              this._oDelayReasonSelectModel.setProperty("/DelayReasonCollection", aItems);
+              var that = this;
+              setTimeout(function () {
+                that._populateDelayReasonSelect(aItems);
+                that._syncDelayReasonSelectionFromTripData();
+                var sDelayKey =
+                  that._oDelayReasonSelectModel.getProperty("/SelectedDelayKey") || "";
+                var oDelaySel = that.getView().byId("idDelayReasons");
+                if (oDelaySel) {
+                  oDelaySel.setSelectedKey(sDelayKey);
+                }
+              }, 0);
+              this.loadGateNumber();
             }.bind(this),
             error: function () {
               sap.m.MessageBox.error("Failed to load delay reasons.");
-            },
+              this.loadGateNumber();
+            }.bind(this),
           });
         },
-        loadGateNumber: function () {
-          var sTripNumber = this._getTripNumber();
-          var aFilters = [
-            new sap.ui.model.Filter(
-              "ConfigGroup",
-              sap.ui.model.FilterOperator.EQ,
-              "EntryGate"
-            ),
-          ];
 
-          // Add TripNumber filter if available
-          if (sTripNumber) {
-            aFilters.push(
-              new sap.ui.model.Filter(
-                "TripNumber",
-                sap.ui.model.FilterOperator.EQ,
-                sTripNumber
-              )
-            );
+        _syncDelayReasonSelectionFromTripData: function () {
+          if (!this._oDelayReasonSelectModel) {
+            return;
           }
+          var oTripData = sap.ui.getCore().getModel("TripData");
+          var aItems = this._oDelayReasonSelectModel.getProperty("/DelayReasonCollection") || [];
+          var sCode = "";
+          if (oTripData) {
+            sCode =
+              (oTripData.getProperty("/DelayReason") ||
+                oTripData.getProperty("/DelayReasons") ||
+                "") + "";
+            sCode = sCode.trim();
+          }
+          if (sCode) {
+            var bFound = aItems.some(function (i) {
+              return String(i.ProductId) === String(sCode);
+            });
+            this._oDelayReasonSelectModel.setProperty("/SelectedDelayKey", bFound ? sCode : "");
+            return;
+          }
+          if (oTripData) {
+            var sDescRaw = (oTripData.getProperty("/DelayReasonDesc") || "").trim();
+            if (sDescRaw) {
+              var oMatch = aItems.find(function (i) {
+                if (i.Name === sDescRaw) {
+                  return true;
+                }
+                return i.Name + " - " + i.ProductId === sDescRaw;
+              });
+              if (oMatch) {
+                this._oDelayReasonSelectModel.setProperty("/SelectedDelayKey", oMatch.ProductId);
+                oTripData.setProperty("/DelayReason", oMatch.ProductId);
+                return;
+              }
+            }
+          }
+          this._oDelayReasonSelectModel.setProperty("/SelectedDelayKey", "");
+        },
+
+        onDelayReasonSelectChange: function () {
+          var oSelect = this.getView().byId("idDelayReasons");
+          var sKey = oSelect ? oSelect.getSelectedKey() : "";
+          var oTripData = sap.ui.getCore().getModel("TripData");
+          if (!oTripData) {
+            return;
+          }
+          if (sKey) {
+            var aItems = this._oDelayReasonSelectModel.getProperty("/DelayReasonCollection") || [];
+            var oRow = aItems.find(function (i) {
+              return String(i.ProductId) === String(sKey);
+            });
+            oTripData.setProperty("/DelayReason", sKey);
+            oTripData.setProperty("/DelayReasonDesc", oRow ? oRow.Name : "");
+          } else {
+            oTripData.setProperty("/DelayReason", "");
+            oTripData.setProperty("/DelayReasonDesc", "");
+          }
+        },
+
+        loadGateNumber: function () {
+          var aFilters = this._getConfigValuesFilters("EntryGate");
 
           this.oModel.read("/ConfigValues", {
             filters: aFilters,
             success: function (oData) {
               this._entryGateData = oData.results;
+              // ConfigID = value for GateIn/EntryGateNumber; Description = dropdown label
               var aProducts = (oData.results || []).map(function (r) {
+                var sDesc = r.Description != null ? String(r.Description).trim() : "";
                 return {
                   ProductId: r.ConfigID,
-                  Name: r.Description || r.ConfigID,
+                  Name: sDesc || r.ConfigID,
                 };
               });
               this._oEntryGateSelectModel.setProperty("/ProductCollection2", aProducts);
-              this._syncEntryGateSelectionFromTripData();
+              var that = this;
+              setTimeout(function () {
+                that._populateEntryGateSelect(aProducts);
+                that._syncEntryGateSelectionFromTripData();
+                var sGateKey =
+                  that._oEntryGateSelectModel.getProperty("/SelectedProduct2") || "";
+                var oGateSel = that.getView().byId("idEntryGateNumber");
+                if (oGateSel) {
+                  oGateSel.setSelectedKey(sGateKey);
+                }
+              }, 0);
             }.bind(this),
             error: function () {
               sap.m.MessageBox.error("Failed to load entry gates.");
@@ -250,13 +398,52 @@ sap.ui.define(
                 "") + "";
             sExisting = sExisting.trim();
           }
+
+          var fnResolveConfigId = function (sKey) {
+            if (!sKey || !aProducts.length) {
+              return null;
+            }
+            var sNorm = String(sKey).trim();
+            var i;
+            for (i = 0; i < aProducts.length; i++) {
+              if (String(aProducts[i].ProductId).trim() === sNorm) {
+                return aProducts[i].ProductId;
+              }
+            }
+            var sNormSp = sNorm.replace(/\s+/g, " ");
+            for (i = 0; i < aProducts.length; i++) {
+              if (
+                String(aProducts[i].ProductId)
+                  .trim()
+                  .replace(/\s+/g, " ") === sNormSp
+              ) {
+                return aProducts[i].ProductId;
+              }
+            }
+            return null;
+          };
+
           if (sExisting) {
-            this._oEntryGateSelectModel.setProperty("/SelectedProduct2", sExisting);
+            var sResolved = fnResolveConfigId(sExisting);
+            if (sResolved != null) {
+              this._oEntryGateSelectModel.setProperty("/SelectedProduct2", String(sResolved));
+              if (oTripData && String(oTripData.getProperty("/EntryGateNum") || "").trim() !== String(sResolved).trim()) {
+                oTripData.setProperty("/EntryGateNum", sResolved);
+              }
+            } else if (aProducts.length > 0) {
+              var sFirst = aProducts[0].ProductId;
+              this._oEntryGateSelectModel.setProperty("/SelectedProduct2", sFirst);
+              if (oTripData) {
+                oTripData.setProperty("/EntryGateNum", sFirst);
+              }
+            } else {
+              this._oEntryGateSelectModel.setProperty("/SelectedProduct2", "");
+            }
           } else if (aProducts.length > 0) {
-            var sFirst = aProducts[0].ProductId;
-            this._oEntryGateSelectModel.setProperty("/SelectedProduct2", sFirst);
+            var sFirst2 = aProducts[0].ProductId;
+            this._oEntryGateSelectModel.setProperty("/SelectedProduct2", sFirst2);
             if (oTripData) {
-              oTripData.setProperty("/EntryGateNum", sFirst);
+              oTripData.setProperty("/EntryGateNum", sFirst2);
             }
           } else {
             this._oEntryGateSelectModel.setProperty("/SelectedProduct2", "");
@@ -269,89 +456,6 @@ sap.ui.define(
           var oTripData = sap.ui.getCore().getModel("TripData");
           if (oTripData && sKey) {
             oTripData.setProperty("/EntryGateNum", sKey);
-          }
-        },
-        onDelayReasonValueHelp: function (oEvent) {
-          var oInput = oEvent.getSource();
-          var aData = this._delayReasonData; // <-- use loaded API data
-
-          if (!aData || aData.length === 0) {
-            sap.m.MessageToast.show("No delay reason data available");
-            return;
-          }
-
-          var that = this;
-
-          if (!this._delayReasonVH) {
-            sap.ui.core.Fragment.load({
-              name: "com.incresolZ_INC_PLMS.fragments.VehicleGateInFrags.DelayReasonValueHelp",
-              controller: this,
-            }).then(function (oDialog) {
-              that._delayReasonVH = oDialog;
-
-              // Bind data
-              oDialog.setModel(
-                new sap.ui.model.json.JSONModel(aData),
-                "delayData"
-              );
-
-              that.getView().addDependent(oDialog);
-              that._vhInput = oInput;
-              oDialog.open();
-            });
-          } else {
-            this._delayReasonVH.setModel(
-              new sap.ui.model.json.JSONModel(aData),
-              "delayData"
-            );
-            this._vhInput = oInput;
-            this._delayReasonVH.open();
-          }
-        },
-        onDelayReasonValueHelpConfirm: function (oEvent) {
-          var oSelected = oEvent.getParameter("selectedItem");
-
-          if (oSelected) {
-            sID = oSelected.getTitle(); // ConfigID
-            var sDesc = oSelected.getDescription(); // Description
-
-            this._vhInput.setValue(sDesc + " - " + sID);
-          }
-
-          // this._delayReasonVH.close();
-        },
-        onDelayReasonValueHelpSearch: function (oEvent) {
-          var sQuery = (oEvent.getParameter("value") || "").trim();
-          var oBinding = oEvent.getSource().getBinding("items");
-
-          if (!oBinding) {
-            return;
-          }
-
-          if (sQuery && sQuery.length > 0) {
-            var sLowerQuery = sQuery.toLowerCase();
-            var oFilter = new sap.ui.model.Filter({
-              filters: [
-                new sap.ui.model.Filter({
-                  path: "ConfigID",
-                  operator: function(sConfigID) {
-                    return sConfigID && sConfigID.toString().toLowerCase().indexOf(sLowerQuery) !== -1;
-                  }
-                }),
-                new sap.ui.model.Filter({
-                  path: "Description",
-                  operator: function(sDescription) {
-                    return sDescription && sDescription.toString().toLowerCase().indexOf(sLowerQuery) !== -1;
-                  }
-                }),
-              ],
-              and: false,
-            });
-
-            oBinding.filter(oFilter);
-          } else {
-            // Clear filter when search is empty
-            oBinding.filter([]);
           }
         },
         onSaveGateInInfo: function () {
@@ -403,8 +507,9 @@ sap.ui.define(
             sTripNumber = String(sTripNumber).padStart(10, "0");
           }
           
-          // Ensure DelayReasons has a value (empty string if not selected)
-          var sDelayReasons = sID || "";
+          var oDelayReasonSelect = oView.byId("idDelayReasons");
+          var sDelayReasons =
+            (oDelayReasonSelect && oDelayReasonSelect.getSelectedKey && oDelayReasonSelect.getSelectedKey()) || "";
           
           // Update TripData model with weighment required value
           var oTripData = sap.ui.getCore().getModel("TripData");
@@ -649,6 +754,12 @@ sap.ui.define(
               var bGateEditable = !bVehicleReported ? true : bEnabled;
               this._oEntryGateSelectModel.setProperty("/Enabled", bGateEditable);
               this._oEntryGateSelectModel.setProperty("/Editable", bGateEditable);
+            }
+
+            if (this._oDelayReasonSelectModel) {
+              var bDelayEditable = !bVehicleReported ? true : bEnabled;
+              this._oDelayReasonSelectModel.setProperty("/Enabled", bDelayEditable);
+              this._oDelayReasonSelectModel.setProperty("/Editable", bDelayEditable);
             }
 
             // Ensure Edit/Save buttons remain enabled

@@ -1,7 +1,6 @@
 <mvc:View
     xmlns:mvc="sap.ui.core.mvc"
     xmlns="sap.m"
-    xmlns:core="sap.ui.core"
     xmlns:layout="sap.ui.layout"
     xmlns:form="sap.ui.layout.form"
     xmlns:unified="sap.ui.unified"
@@ -37,7 +36,7 @@
             <Panel
                 id="gateInInfoPanel"
                 expandable="true"
-                expanded="false"
+                expanded="true"
                 class="sapUiNoContentPadding"
             >
             <headerToolbar>
@@ -70,16 +69,7 @@
                                 selectedKey="{entryGateSelect>/SelectedProduct2}"
                                 change="onEntryGateSelectChange"
                                 width="100%"
-                                items="{
-                                    path: 'entryGateSelect>/ProductCollection2',
-                                    sorter: { path: 'Name' }
-                                }"
-                            >
-                                <core:Item
-                                    key="{ProductId}"
-                                    text="{Name}"
-                                />
-                            </Select>
+                            />
                         </VBox>
                     </layout:content>
 
@@ -90,16 +80,15 @@
                                 text="Delay Reasons"
                                 design="Bold"
                             />
-                            <Input
+                            <Select
                                 id="idDelayReasons"
-                                showValueHelp="true"
+                                enabled="{delayReasonSelect>/Enabled}"
+                                editable="{delayReasonSelect>/Editable}"
+                                forceSelection="false"
                                 placeholder="Select Delay Reason"
-                                valueHelpRequest="onDelayReasonValueHelp"
+                                selectedKey="{delayReasonSelect>/SelectedDelayKey}"
+                                change="onDelayReasonSelectChange"
                                 width="100%"
-                                value="{
-                                    path: 'TripData>/DelayReasonDesc',
-                                    mode: 'OneWay'
-                                }"
                             />
                         </VBox>
                     </layout:content>
