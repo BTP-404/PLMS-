@@ -66,23 +66,21 @@
                                 design="Bold"
                                 required="true"
                             />
-                            <ComboBox
+                            <Select
                                 id="idMovementScenario"
                                 width="100%"
-                                placeholder="Select or search movement scenario"
+                                tooltip="Select movement scenario"
                                 items="{movementScenarioItems>/}"
-                                selectedKey="{path: 'TripData>/MovementScenario', mode: 'TwoWay'}"
+                                selectedKey="{path: 'TripData>/MovementScenarioItemKey', mode: 'TwoWay'}"
                                 change="onMovementScenarioComboChange"
                                 forceSelection="true"
-                                filterSecondaryValues="true"
-                                showSecondaryValues="true"
                             >
-                                <core:Item
-                                    key="{movementScenarioItems>MovementScenario}"
+                                <core:ListItem
+                                    key="{movementScenarioItems>ItemKey}"
                                     text="{movementScenarioItems>LongText}"
-                                    additionalText="{movementScenarioItems>ShortText}"
+                                    icon="{movementScenarioItems>Icon}"
                                 />
-                            </ComboBox>
+                            </Select>
                         </VBox>
                     </layout:content>
                     <layout:content>

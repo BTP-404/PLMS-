@@ -8,7 +8,8 @@ sap.ui.define(
     "sap/ui/core/Fragment",
     "sap/ui/model/Filter",
     "sap/ui/model/FilterOperator",
-    "sap/ndc/BarcodeScanner"
+    "sap/ndc/BarcodeScanner",
+    "com/incresolZ_INC_PLMS/util/MovementScenarioIcons",
   ],
   function (
     Controller,
@@ -19,7 +20,8 @@ sap.ui.define(
     Fragment,
     Filter,
     FilterOperator,
-    BarcodeScanner
+    BarcodeScanner,
+    MovementScenarioIcons
   ) {
     "use strict";
     var movementScenario;
@@ -143,6 +145,7 @@ sap.ui.define(
               
               // Create JSON model for trip data
               const oTripDataModel = new sap.ui.model.json.JSONModel(oData);
+              that._syncMovementScenarioItemKeyOnTripData(oTripDataModel);
 
               // Set as global model available across ALL views
               sap.ui.getCore().setModel(oTripDataModel, "TripData");
@@ -193,6 +196,7 @@ sap.ui.define(
               
               // Create JSON model for trip data
               const oTripDataModel = new sap.ui.model.json.JSONModel(oData);
+              that._syncMovementScenarioItemKeyOnTripData(oTripDataModel);
 
               //  Set as global model available across ALL views
               sap.ui.getCore().setModel(oTripDataModel, "TripData");
@@ -283,6 +287,7 @@ sap.ui.define(
           // Store driver photo separately in Attachments, not in TripDetails
           var sDriverPhoto = oData.DriverPhoto;
           delete oData.DriverPhoto; // Remove from TripDetails payload
+          delete oData.MovementScenarioItemKey;
 
           oData.MovementScenario =
             movementScenario !== undefined && movementScenario !== null && movementScenario !== ""
@@ -407,6 +412,7 @@ sap.ui.define(
           // Weighment is managed separately (e.g., in GateIn screen), not in Vehicle Reporting update
           delete oUpdateData.WeighmentRequired;
           delete oUpdateData.Weighment_Req;
+          delete oUpdateData.MovementScenarioItemKey;
 
           oUpdateData.MovementScenario =
             movementScenario !== undefined && movementScenario !== null && movementScenario !== ""
@@ -519,6 +525,7 @@ sap.ui.define(
         _clearForm: function () {
           const oTripData = new JSONModel({
             MovementScenario: "",
+            MovementScenarioItemKey: "",
             MovementType: "",
             VehicleNumber: "",
             VehicleType: "",
@@ -1237,17 +1244,27 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
           const that = this;
           oModel.read("/OrderTypeSH", {
             success: function (oData) {
+              var aEnriched = MovementScenarioIcons.enrichOrderTypeRows(
+                oData.results || []
+              );
               that
                 .getView()
-                .setModel(
-                  new JSONModel(oData.results || []),
-                  "movementScenarioItems"
-                );
+                .setModel(new JSONModel(aEnriched), "movementScenarioItems");
             },
             error: function () {
               MessageBox.error("Failed to load movement scenarios.");
             },
           });
+        },
+
+        _syncMovementScenarioItemKeyOnTripData: function (oTripDataModel) {
+          if (!oTripDataModel) {
+            return;
+          }
+          var mt = oTripDataModel.getProperty("/MovementType");
+          var ms = oTripDataModel.getProperty("/MovementScenario");
+          var sKey = MovementScenarioIcons.getMovementScenarioItemKey(mt, ms);
+          oTripDataModel.setProperty("/MovementScenarioItemKey", sKey || "");
         },
 
         _syncMovementScenarioFromRow: function (row) {
@@ -1258,8 +1275,12 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
           movementScenario = row.MovementScenario;
 
           const oScenario = this.byId("idMovementScenario");
+          var sItemKey = MovementScenarioIcons.getMovementScenarioItemKey(
+            row.MovementType,
+            row.MovementScenario
+          );
           if (oScenario && oScenario.setSelectedKey) {
-            oScenario.setSelectedKey(String(row.MovementScenario));
+            oScenario.setSelectedKey(sItemKey || "");
           }
 
           let sMovementTypeDesc = "";
@@ -1274,6 +1295,7 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
           const oTripDataModel = this.getView().getModel("TripData");
           if (oTripDataModel) {
             oTripDataModel.setProperty("/MovementScenario", row.MovementScenario);
+            oTripDataModel.setProperty("/MovementScenarioItemKey", sItemKey || "");
             oTripDataModel.setProperty("/MovementScenarioDesc", row.LongText || "");
             oTripDataModel.setProperty("/MovementType", row.MovementType);
             if (sMovementTypeDesc) {
@@ -1305,7 +1327,7 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
           const oItems = this.getView().getModel("movementScenarioItems");
           const aRows = (oItems && oItems.getData()) || [];
           const oRow = aRows.find(function (r) {
-            return r && String(r.MovementScenario) === String(sKey);
+            return r && r.ItemKey === sKey;
           });
           if (oRow) {
             this._syncMovementScenarioFromRow(oRow);
@@ -1638,15 +1660,11 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
                 // Do not set movementScenario/movementType here — would overwrite with last list row.
                 // Globals are set only on user selection (value help / suggestion).
 
-                // Determine SAP icon based on movement type
-                var sIcon = "";
-                if (row.MovementType === "O") {
-                  // Loading / Outward
-                  sIcon = "sap-icon://cart-3";
-                } else if (row.MovementType === "I") {
-                  // Unloading / Inward
-                  sIcon = "sap-icon://cart-2";
-                }
+                var sItemKey = MovementScenarioIcons.getMovementScenarioItemKey(
+                  row.MovementType,
+                  row.MovementScenario
+                );
+                var sIcon = MovementScenarioIcons.getIconForItemKey(sItemKey);
 
                 oList.addItem(
                   new sap.m.StandardListItem({
@@ -2450,11 +2468,12 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
           // Also update scanner visibility based on Movement Scenario from TripData
           var oTripData = sap.ui.getCore().getModel("TripData");
           if (oTripData) {
+            this._syncMovementScenarioItemKeyOnTripData(oTripData);
             var oMovementScenarioCtrl = this.byId("idMovementScenario");
             if (oMovementScenarioCtrl && oMovementScenarioCtrl.setSelectedKey) {
-              var sMs = oTripData.getProperty("/MovementScenario");
-              if (sMs !== undefined && sMs !== null && sMs !== "" && !oMovementScenarioCtrl.getSelectedKey()) {
-                oMovementScenarioCtrl.setSelectedKey(String(sMs));
+              var sKey = oTripData.getProperty("/MovementScenarioItemKey");
+              if (sKey && !oMovementScenarioCtrl.getSelectedKey()) {
+                oMovementScenarioCtrl.setSelectedKey(sKey);
               }
             }
             this._updateScannerVisibility();
