@@ -62,17 +62,24 @@
                                 required="true"
                                 design="Bold"
                             />
-                            <Input
+                            <Select
                                 id="idEntryGateNumber"
-                                showValueHelp="true"
-                                placeholder="Select Entry Gate"
-                                valueHelpRequest="onEntryGateValueHelp"
+                                enabled="{entryGateSelect>/Enabled}"
+                                editable="{entryGateSelect>/Editable}"
+                                forceSelection="false"
+                                selectedKey="{entryGateSelect>/SelectedProduct2}"
+                                change="onEntryGateSelectChange"
                                 width="100%"
-                                value="{
-                                    path: 'TripData>/EntryGateNum',
-                                    mode: 'OneWay'
+                                items="{
+                                    path: 'entryGateSelect>/ProductCollection2',
+                                    sorter: { path: 'Name' }
                                 }"
-                            />
+                            >
+                                <core:Item
+                                    key="{ProductId}"
+                                    text="{Name}"
+                                />
+                            </Select>
                         </VBox>
                     </layout:content>
 

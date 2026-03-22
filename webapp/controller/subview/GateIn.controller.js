@@ -40,6 +40,14 @@ sap.ui.define(
           
           // Initialize attachments model
           this._initGateInAttachmentsModel();
+
+          this._oEntryGateSelectModel = new JSONModel({
+            Enabled: true,
+            Editable: true,
+            ProductCollection2: [],
+            SelectedProduct2: "",
+          });
+          this.getView().setModel(this._oEntryGateSelectModel, "entryGateSelect");
           
           // Initialize selected files array
           this._aSelectedFiles = [];
@@ -94,6 +102,11 @@ sap.ui.define(
             oFileUploader.clear();
           }
           
+          if (this._oEntryGateSelectModel) {
+            this._oEntryGateSelectModel.setProperty("/SelectedProduct2", "");
+            this._oEntryGateSelectModel.setProperty("/ProductCollection2", []);
+          }
+
           // Clear input fields by resetting TripData properties if model exists
           var oTripData = this.getView().getModel("TripData");
           if (oTripData) {
@@ -105,6 +118,8 @@ sap.ui.define(
             oTripData.setProperty("/TareWeight", "");
             oTripData.setProperty("/NetWeight", "");
           }
+
+          this.loadGateNumber();
         },
         _onTripDataUpdate: function () {
           var oTripData = sap.ui.getCore().getModel("TripData");
@@ -124,6 +139,7 @@ sap.ui.define(
             }
             
             this.getView().setModel(oTripData, "TripData");
+            this._syncEntryGateSelectionFromTripData();
             // Disable inputs if GateIn data already exists (display mode)
             var sExistingEntryGateNum = oTripData.getProperty("/EntryGateNum") ||
               oTripData.getProperty("/EntryGateNumber") || "";
@@ -205,90 +221,54 @@ sap.ui.define(
             filters: aFilters,
             success: function (oData) {
               this._entryGateData = oData.results;
+              var aProducts = (oData.results || []).map(function (r) {
+                return {
+                  ProductId: r.ConfigID,
+                  Name: r.Description || r.ConfigID,
+                };
+              });
+              this._oEntryGateSelectModel.setProperty("/ProductCollection2", aProducts);
+              this._syncEntryGateSelectionFromTripData();
             }.bind(this),
             error: function () {
               sap.m.MessageBox.error("Failed to load entry gates.");
             },
           });
         },
-        onEntryGateValueHelp: function (oEvent) {
-          var oInput = oEvent.getSource();
-          var oData = this._entryGateData;
 
-          var that = this;
-
-          // Load fragment directly
-          if (!this._entryGateVH) {
-            sap.ui.core.Fragment.load({
-              name: "com.incresolZ_INC_PLMS.fragments.VehicleGateInFrags.EntryGateValueHelp",
-              controller: this,
-            }).then(function (oDialog) {
-              that._entryGateVH = oDialog;
-
-              // Bind list data
-              oDialog.setModel(
-                new sap.ui.model.json.JSONModel(oData),
-                "helpModel"
-              );
-
-              that.getView().addDependent(oDialog);
-              oDialog.open();
-              that._vhInput = oInput; // input reference
-            });
-          } else {
-            // Update model each time
-            this._entryGateVH.setModel(
-              new sap.ui.model.json.JSONModel(oData),
-              "helpModel"
-            );
-            this._vhInput = oInput;
-            this._entryGateVH.open();
-          }
-        },
-
-        onEntryGateValueHelpConfirm: function (oEvent) {
-          var oSelected = oEvent.getParameter("selectedItem");
-
-          if (oSelected) {
-            this._vhInput.setValue(oSelected.getTitle()); // ConfigID
-          }
-
-          // this._entryGateVH.close();
-        },
-        onEntryGateValueHelpSearch: function (oEvent) {
-          var sValue = oEvent.getParameter("value") || "";
-          var oBinding = oEvent.getSource().getBinding("items");
-
-          if (!oBinding) {
+        _syncEntryGateSelectionFromTripData: function () {
+          if (!this._oEntryGateSelectModel) {
             return;
           }
-
-          var aFilters = [];
-          if (sValue && sValue.trim().length > 0) {
-            var sLowerValue = sValue.toLowerCase();
-            aFilters = [
-              new sap.ui.model.Filter({
-                path: "ConfigID",
-                operator: function(sConfigID) {
-                  return sConfigID && sConfigID.toString().toLowerCase().indexOf(sLowerValue) !== -1;
-                }
-              }),
-              new sap.ui.model.Filter({
-                path: "Description",
-                operator: function(sDescription) {
-                  return sDescription && sDescription.toString().toLowerCase().indexOf(sLowerValue) !== -1;
-                }
-              }),
-            ];
-            oBinding.filter(
-              new sap.ui.model.Filter({
-                filters: aFilters,
-                and: false,
-              })
-            );
+          var oTripData = sap.ui.getCore().getModel("TripData");
+          var aProducts = this._oEntryGateSelectModel.getProperty("/ProductCollection2") || [];
+          var sExisting = "";
+          if (oTripData) {
+            sExisting =
+              (oTripData.getProperty("/EntryGateNum") ||
+                oTripData.getProperty("/EntryGateNumber") ||
+                "") + "";
+            sExisting = sExisting.trim();
+          }
+          if (sExisting) {
+            this._oEntryGateSelectModel.setProperty("/SelectedProduct2", sExisting);
+          } else if (aProducts.length > 0) {
+            var sFirst = aProducts[0].ProductId;
+            this._oEntryGateSelectModel.setProperty("/SelectedProduct2", sFirst);
+            if (oTripData) {
+              oTripData.setProperty("/EntryGateNum", sFirst);
+            }
           } else {
-            // Clear filter when search is empty
-            oBinding.filter([]);
+            this._oEntryGateSelectModel.setProperty("/SelectedProduct2", "");
+          }
+        },
+
+        onEntryGateSelectChange: function () {
+          var oSelect = this.getView().byId("idEntryGateNumber");
+          var sKey = oSelect ? oSelect.getSelectedKey() : "";
+          var oTripData = sap.ui.getCore().getModel("TripData");
+          if (oTripData && sKey) {
+            oTripData.setProperty("/EntryGateNum", sKey);
           }
         },
         onDelayReasonValueHelp: function (oEvent) {
@@ -396,7 +376,9 @@ sap.ui.define(
 
           var oView = this.getView();
 
-          var sEntryGateNumber = oView.byId("idEntryGateNumber").getValue() || "";
+          var oEntryGateSelect = oView.byId("idEntryGateNumber");
+          var sEntryGateNumber =
+            (oEntryGateSelect && oEntryGateSelect.getSelectedKey && oEntryGateSelect.getSelectedKey()) || "";
           // var sDelayReasons = oView.byId("idDelayReasons").getValue();
           var sRemarks = oView.byId("idGateInRemarks").getValue() || "";
           var sBinsReceived = (oView.byId("idBinsReceived") && oView.byId("idBinsReceived").getValue()) || "";
@@ -663,6 +645,12 @@ sap.ui.define(
               }
             });
             
+            if (this._oEntryGateSelectModel) {
+              var bGateEditable = !bVehicleReported ? true : bEnabled;
+              this._oEntryGateSelectModel.setProperty("/Enabled", bGateEditable);
+              this._oEntryGateSelectModel.setProperty("/Editable", bGateEditable);
+            }
+
             // Ensure Edit/Save buttons remain enabled
             if (this.getView().byId("btnEditGateInInfo")) {
               this.getView().byId("btnEditGateInInfo").setEnabled(true);
