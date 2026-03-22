@@ -59,7 +59,7 @@
             <DatePicker
                 id="idRefDocDate"
                 valueFormat="yyyy-MM-dd"
-                displayFormat="long"
+                displayFormat="dd.MM.yyyy"
             />
 
             <Label text="Sending / Receiving Party Code" />
@@ -84,7 +84,7 @@
             <DatePicker
                 id="idRefDocEwayBillDate"
                 valueFormat="yyyy-MM-dd"
-                displayFormat="long"
+                displayFormat="dd.MM.yyyy"
             />
 
             <Label text="Order Number" />

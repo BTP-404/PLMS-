@@ -35,6 +35,13 @@ sap.ui.define(
           defaultBindingMode: "TwoWay",
         });
         this.getView().setModel(oModel);
+        this.getView().setModel(
+          new JSONModel({
+            reportDateFrom: null,
+            reportDateTo: null,
+          }),
+          "homeFilter"
+        );
         this._initializeColumnVisibility();
         // this is for refresh the table data when user cancels the trip
         this._oEventBus = sap.ui.getCore().getEventBus();
@@ -299,22 +306,64 @@ sap.ui.define(
         // Filtering will be applied when user clicks Go button
       },
 
+      /**
+       * True if end date is on or after start date (same calendar day). Single date ok.
+       */
+      _isReportDateRangeOrderValid: function (oFrom, oTo) {
+        if (!oFrom || !oTo) {
+          return true;
+        }
+        var oStart = new Date(oFrom);
+        oStart.setHours(0, 0, 0, 0);
+        var oEnd = new Date(oTo);
+        oEnd.setHours(0, 0, 0, 0);
+        return oEnd.getTime() >= oStart.getTime();
+      },
+
+      /**
+       * Validates range: end cannot be before start. Clears invalid end and syncs homeFilter model.
+       */
+      onReportDateRangeChange: function (oEvent) {
+        if (oEvent.getParameter("valid") === false) {
+          return;
+        }
+        var oDRS = oEvent.getSource();
+        var oFrom = oDRS.getDateValue();
+        var oTo = oDRS.getSecondDateValue();
+        if (!this._isReportDateRangeOrderValid(oFrom, oTo)) {
+          oDRS.setSecondDateValue(null);
+          var oHomeModel = this.getView().getModel("homeFilter");
+          if (oHomeModel) {
+            oHomeModel.setProperty("/reportDateTo", null);
+          }
+          MessageBox.error(
+            "The end date cannot be before the start date. Please choose an end date on or after the start date."
+          );
+        }
+      },
+
+      _getReportDateRange: function () {
+        var oDRS = this.byId("ReportDateRange");
+        if (!oDRS) {
+          return { from: null, to: null };
+        }
+        return {
+          from: oDRS.getDateValue() || null,
+          to: oDRS.getSecondDateValue() || null,
+        };
+      },
+
       onGoPress: function () {
         // Validate date range before applying filters
-        var oDateFromPicker = this.byId("ReportDateFrom");
-        var oDateToPicker = this.byId("ReportDateTo");
-        var oDateFrom = oDateFromPicker ? oDateFromPicker.getDateValue() : null;
-        var oDateTo = oDateToPicker ? oDateToPicker.getDateValue() : null;
+        var oRange = this._getReportDateRange();
+        var oDateFrom = oRange.from;
+        var oDateTo = oRange.to;
 
-        if (oDateFrom && oDateTo) {
-          var oStartFrom = new Date(oDateFrom);
-          oStartFrom.setHours(0, 0, 0, 0);
-          var oStartTo = new Date(oDateTo);
-          oStartTo.setHours(0, 0, 0, 0);
-          if (oStartTo.getTime() < oStartFrom.getTime()) {
-            MessageBox.error("Report Date To cannot be before Report Date From.");
-            return;
-          }
+        if (!this._isReportDateRangeOrderValid(oDateFrom, oDateTo)) {
+          MessageBox.error(
+            "The end date cannot be before the start date. Please choose an end date on or after the start date."
+          );
+          return;
         }
 
         // Apply all filters when Go button is clicked
@@ -342,10 +391,9 @@ sap.ui.define(
         var aFilters = [];
 
         // Handle date range first
-        var oDateFromPicker = this.byId("ReportDateFrom");
-        var oDateToPicker = this.byId("ReportDateTo");
-        var oDateFrom = oDateFromPicker ? oDateFromPicker.getDateValue() : null;
-        var oDateTo = oDateToPicker ? oDateToPicker.getDateValue() : null;
+        var oRange = this._getReportDateRange();
+        var oDateFrom = oRange.from;
+        var oDateTo = oRange.to;
 
         if (oDateFrom || oDateTo) {
           var aDateFilters = [];

@@ -257,7 +257,7 @@
                                 enabled="false"
                                 width="100%"
                                 valueFormat="yyyy-MM-dd"
-                                displayFormat="long"
+                                displayFormat="dd.MM.yyyy"
                                 value="{
                                     path: 'TripData>/CreatedOn',
                                     formatter: '.formatTripDate'

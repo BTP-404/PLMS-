@@ -713,16 +713,24 @@ sap.ui.define(
           if (!vDate) {
             return "";
           }
+          var sYmd = "";
           if (vDate instanceof Date) {
-            return vDate.toISOString().slice(0, 10);
-          }
-          if (typeof vDate === "string" && vDate.indexOf("/Date") === 0) {
+            sYmd = vDate.toISOString().slice(0, 10);
+          } else if (typeof vDate === "string" && vDate.indexOf("/Date") === 0) {
             var iTimestamp = parseInt(vDate.replace(/\D/g, ""), 10);
             if (!isNaN(iTimestamp)) {
-              return new Date(iTimestamp).toISOString().slice(0, 10);
+              sYmd = new Date(iTimestamp).toISOString().slice(0, 10);
             }
+          } else if (typeof vDate === "string" && /^\d{4}-\d{2}-\d{2}/.test(vDate)) {
+            sYmd = vDate.slice(0, 10);
+          } else {
+            return vDate;
           }
-          return vDate;
+          if (!sYmd || sYmd.length < 10) {
+            return "";
+          }
+          var a = sYmd.split("-");
+          return a[2] + "." + a[1] + "." + a[0];
         },
 
         formatTripTime: function (vTime) {

@@ -47,7 +47,7 @@
             <layout:Grid
                 width="100%"
                 defaultSpan="XL3 L3 M4 S12"
-                hSpacing="1"
+                hSpacing="2"
                 vSpacing="1"
                 class="sapUiSizeCompact homeFilterCard"
             >
@@ -105,61 +105,46 @@
                         </Input>
                     </VBox>
                 </layout:content>
-                <!-- Report Date From -->
+                <!-- Report date range + Go: wider column (5/12) so range + Go fit; row 11/12 leaves light margin on right -->
                 <layout:content>
                     <VBox>
                         <layoutData>
-                            <layout:GridData span="XL3 L3 M4 S12" />
+                            <layout:GridData span="XL5 L5 M4 S12" />
                         </layoutData>
                         <Label
                             design="Bold"
-                            text="Report Date From:"
-                        />
-                        <DatePicker
-                            id="ReportDateFrom" 
-                            width="100%"
-                            valueFormat="yyyy-MM-dd"
-                            displayFormat="medium"
-                        >
-                            <customData>
-                                <core:CustomData
-                                    key="field"
-                                    value="reportDateFrom"
-                                />
-                            </customData>
-                        </DatePicker>
-                    </VBox>
-                </layout:content>
-                <!-- Report Date To + Go -->
-                <layout:content>
-                    <VBox>
-                        <layoutData>
-                            <layout:GridData span="XL3 L3 M4 S12" />
-                        </layoutData>
-                        <Label
-                            design="Bold"
-                            text="Report Date To:"
+                            text="Vehicle Reported Date Range:"
                         />
                         <HBox
                             alignItems="Center"
                             width="100%"
+                            justifyContent="Start"
                         >
-                            <DatePicker
-                                id="ReportDateTo"
+                            <DateRangeSelection
+                                id="ReportDateRange"
                                 width="100%"
-                                valueFormat="yyyy-MM-dd"
-                                displayFormat="medium"
+                                displayFormat="dd.MM.yyyy"
+                                showCurrentDateButton="true"
+                                showFooter="true"
+                                change=".onReportDateRangeChange"
+                                value="{
+                                    parts: [
+                                        { path: 'homeFilter>/reportDateFrom', type: 'sap.ui.model.type.Date' },
+                                        { path: 'homeFilter>/reportDateTo', type: 'sap.ui.model.type.Date' }
+                                    ],
+                                    type: 'sap.ui.model.type.DateInterval'
+                                }"
                             >
                                 <layoutData>
                                     <FlexItemData growFactor="1" />
                                 </layoutData>
-                            </DatePicker>
+                            </DateRangeSelection>
                             <Button
                                 text="Go"
                                 type="Emphasized"
                                 width="3rem"
                                 press=".onGoPress"
-                                class="sapUiTinyMarginBegin"
+                                class="sapUiSmallMarginBegin"
                             />
                         </HBox>
                     </VBox>
@@ -347,7 +332,7 @@
                                         path: 'LR_Date',
                                         type: 'sap.ui.model.type.Date',
                                         formatOptions: {
-                                            pattern: 'dd-MM-yyyy'
+                                            pattern: 'dd.MM.yyyy'
                                         }
                                     }"
                                     wrapping="true"

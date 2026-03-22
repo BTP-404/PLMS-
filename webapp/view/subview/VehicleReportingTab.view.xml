@@ -226,7 +226,7 @@
                                     path: 'TripData>/LR_Date',
                                     formatter: '.formatLRDate'
                                 }"
-                                displayFormat="dd/MM/yyyy"
+                                displayFormat="dd.MM.yyyy"
                                 valueFormat="yyyy-MM-dd"
                             />
                         </VBox>
