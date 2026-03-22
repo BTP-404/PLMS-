@@ -9,7 +9,7 @@
 >
     <VBox class="sapUiSizeCompact sapUiSmallMargin">
         <!-- ========================= SCANNER ROW ========================= -->
-        <!-- Scanner Input and Button - Only visible for MovementScenario codes 01, 02, 03 (see VehicleReportingTab.controller) -->
+        <!-- Scanner Input and Button - Only visible for movement scenario I02 / ASN (see VehicleReportingTab.controller) -->
         <VBox 
             id="idReportingScannerVBox"
             class="sapUiSmallMarginBottom"
@@ -73,7 +73,7 @@
                                 items="{movementScenarioItems>/}"
                                 selectedKey="{path: 'TripData>/MovementScenarioItemKey', mode: 'TwoWay'}"
                                 change="onMovementScenarioComboChange"
-                                forceSelection="true"
+                                forceSelection="false"
                             >
                                 <core:ListItem
                                     key="{movementScenarioItems>ItemKey}"

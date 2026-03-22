@@ -2733,27 +2733,25 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
             return;
           }
 
-          // Scanner mode by Movement Scenario code (OrderTypeSH MovementScenario), not description
-          var sScenarioCode = "";
-          if (movementScenario !== undefined && movementScenario !== null && movementScenario !== "") {
-            sScenarioCode = String(movementScenario).trim();
-          } else if (oTripData) {
-            var sFromTrip = oTripData.getProperty("/MovementScenario");
-            if (sFromTrip !== undefined && sFromTrip !== null && sFromTrip !== "") {
-              sScenarioCode = String(sFromTrip).trim();
-            }
+          // Scanner mode: only I02 (Inward + scenario 02 — ASN), same as bar-code icon mapping
+          var sItemKey = "";
+          if (oTripData) {
+            sItemKey = oTripData.getProperty("/MovementScenarioItemKey") || "";
           }
-          // Normalize single-digit numeric codes (e.g. "1" -> "01") to match MaxLength 2 values
-          if (/^\d$/.test(sScenarioCode)) {
-            sScenarioCode = "0" + sScenarioCode;
+          if (!sItemKey) {
+            var sMt =
+              (oTripData && oTripData.getProperty("/MovementType")) || Mtype || "";
+            var sMs =
+              movementScenario !== undefined && movementScenario !== null && movementScenario !== ""
+                ? movementScenario
+                : oTripData
+                  ? oTripData.getProperty("/MovementScenario")
+                  : "";
+            sItemKey = MovementScenarioIcons.getMovementScenarioItemKey(sMt, sMs);
           }
-
-          // MovementScenario codes that use scanner-first reporting (extend as needed)
-          var aAllowedScenarioCodes = ["01", "02", "03"];
 
           var bShowScanner =
-            sScenarioCode !== "" &&
-            aAllowedScenarioCodes.indexOf(sScenarioCode) !== -1;
+            sItemKey === MovementScenarioIcons.SCANNER_MOVEMENT_SCENARIO_ITEM_KEY;
 
           // Update scanner visibility
           oScannerVBox.setVisible(bShowScanner);

@@ -72,10 +72,14 @@ sap.ui.define([], function () {
     });
   }
 
+  /** Movement scenario that uses scanner-first reporting (matches bar-code icon I02 / ASN). */
+  var SCANNER_MOVEMENT_SCENARIO_ITEM_KEY = "I02";
+
   return {
     iconMap: iconMap,
     getMovementScenarioItemKey: getMovementScenarioItemKey,
     getIconForItemKey: getIconForItemKey,
     enrichOrderTypeRows: enrichOrderTypeRows,
+    SCANNER_MOVEMENT_SCENARIO_ITEM_KEY: SCANNER_MOVEMENT_SCENARIO_ITEM_KEY,
   };
 });
