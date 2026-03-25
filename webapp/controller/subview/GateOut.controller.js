@@ -4,6 +4,8 @@ sap.ui.define(
     "sap/m/MessageToast",
     "sap/m/MessageBox",
     "sap/ui/model/json/JSONModel",
+    "sap/ui/model/odata/v2/ODataModel",
+    "sap/m/SuggestionItem",
     "sap/ui/core/Fragment",
   ],
   function (
@@ -11,6 +13,8 @@ sap.ui.define(
     MessageToast,
     MessageBox,
     JSONModel,
+    ODataModel,
+    SuggestionItem,
     Fragment
   ) {
     "use strict";
@@ -21,12 +25,301 @@ sap.ui.define(
         onInit: function () {
           this._eventBus = sap.ui.getCore().getEventBus();
           this._eventBus.subscribe("TripData", "Updated", this._onTripDataUpdate, this);
+
+          this.oModel = new ODataModel("/sap/opu/odata/sap/YIGP_PLMS_SRV/", {
+            useBatch: false,
+            defaultBindingMode: "TwoWay",
+          });
+          this.getView().setModel(this.oModel);
+
+          this._aBillingDocCache = null;
+          this._loadBillingDocSHCache();
           
           // Initialize attachments model
           this._initGateOutAttachmentsModel();
+
+          // Invoice dropdown model (ComboBox items)
+          this._initInvoiceNoModel();
+
+          // Exit gate dropdown model (ComboBox items)
+          if (!this._oExitGateModel) {
+            this._oExitGateModel = new JSONModel({ items: [] });
+            this.getView().setModel(this._oExitGateModel, "exitGateModel");
+          }
           
           // Initialize selected files array
           this._aSelectedFiles = [];
+
+          // Avoid calling OutwardDoc multiple times for the same invoice selection.
+          this._sLastOutwardDocBillingDocument = null;
+
+          // ComboBox often does not fire `change` on blur (only Enter / list pick). Commit on focusout too.
+          this._attachInvoiceComboFocusOutCommit();
+        },
+
+        /**
+         * Ensures invoice OutwardDoc runs after blur, not only on `change` (Enter / dropdown).
+         * Skips while the suggestion list is open so opening the list does not trigger a POST.
+         */
+        _attachInvoiceComboFocusOutCommit: function () {
+          if (this._bInvoiceFocusOutDelegateAdded) {
+            return;
+          }
+          this._bInvoiceFocusOutDelegateAdded = true;
+          var that = this;
+          this.getView().addEventDelegate(
+            {
+              onAfterRendering: function () {
+                var oCombo = that.byId("idInvoiceNumberDropdown");
+                if (!oCombo || oCombo._plmsInvoiceFocusOutAttached) {
+                  return;
+                }
+                oCombo._plmsInvoiceFocusOutAttached = true;
+                oCombo.attachBrowserEvent("focusout", function () {
+                  setTimeout(function () {
+                    var bOpen = false;
+                    try {
+                      bOpen =
+                        typeof oCombo.isOpen === "function" &&
+                        oCombo.isOpen();
+                    } catch (e) {
+                      bOpen = false;
+                    }
+                    if (bOpen) {
+                      return;
+                    }
+                    that._commitInvoiceOutwardDoc(oCombo);
+                  }, 50);
+                });
+              },
+            },
+            this
+          );
+        },
+
+        /**
+         * Loads BillingDocSH once; Invoice No suggestions filter this list as the user types.
+         */
+        _loadBillingDocSHCache: function () {
+          var that = this;
+          if (!this.oModel) {
+            return;
+          }
+          this.oModel.read("/BillingDocSH", {
+            urlParameters: {
+              $top: "5000",
+            },
+            success: function (oData) {
+              that._aBillingDocCache = oData.results || [];
+              that._initInvoiceNoSuggestionItems();
+            },
+            error: function () {
+              that._aBillingDocCache = [];
+              that._initInvoiceNoSuggestionItems();
+            },
+          });
+        },
+
+        _initInvoiceNoModel: function () {
+          if (!this._oInvoiceNoModel) {
+            this._oInvoiceNoModel = new JSONModel({ items: [] });
+            this.getView().setModel(this._oInvoiceNoModel, "invoiceNoModel");
+          }
+        },
+
+        _initInvoiceNoSuggestionItems: function () {
+          try {
+            if (!this.getView) return;
+            if (!this._oInvoiceNoModel) this._initInvoiceNoModel();
+
+            // Preload ComboBox items so the arrow/dropdown works immediately.
+            if (this._bInvoiceSuggestionsPreloaded) return;
+
+            if (!this._aBillingDocCache || !this._aBillingDocCache.length) {
+              return;
+            }
+
+            var aTop = this._aBillingDocCache.slice(0, 200); // keep UI responsive
+            this._oInvoiceNoModel.setProperty(
+              "/items",
+              aTop
+                .map(function (o) {
+                  return { Vbeln: (o.Vbeln || "").toString() };
+                })
+                .filter(function (o) {
+                  return !!o.Vbeln;
+                })
+            );
+
+            this._bInvoiceSuggestionsPreloaded = true;
+          } catch (e) {
+            // Non-blocking; suggestions on typing will still work.
+          }
+        },
+
+        onInvoiceNoSuggest: function (oEvent) {
+          var oInput = oEvent.getSource();
+          var sValue = (oEvent.getParameter("suggestValue") || "").trim();
+          var aAll = this._aBillingDocCache;
+
+          oInput.destroySuggestionItems();
+
+          if (!aAll || !aAll.length) {
+            return;
+          }
+
+          var aMatch;
+          if (sValue.length === 0) {
+            aMatch = aAll.slice();
+          } else {
+            var sLower = sValue.toLowerCase();
+            aMatch = aAll.filter(function (o) {
+              var v = o.Vbeln || "";
+              return String(v).toLowerCase().indexOf(sLower) !== -1;
+            });
+          }
+
+          aMatch.forEach(function (o) {
+            var sV = o.Vbeln || "";
+            oInput.addSuggestionItem(
+              new SuggestionItem({
+                key: sV,
+                text: sV,
+              })
+            );
+          });
+        },
+
+        onInvoiceNoSuggestionItemSelected: function (oEvent) {
+          var oItem = oEvent.getParameter("selectedItem");
+          var sText = oItem ? oItem.getText() : "";
+          var oTripData =
+            this.getView().getModel("TripData") ||
+            sap.ui.getCore().getModel("TripData");
+          if (oTripData) {
+            oTripData.setProperty("/BillingDocument", sText);
+          }
+        },
+
+        /**
+         * Fires when ComboBox reports a committed value (Enter or list selection).
+         * Blur is handled separately via focusout — ComboBox often omits `change` on blur.
+         */
+        onInvoiceNoChange: function (oEvent) {
+          this._commitInvoiceOutwardDoc(oEvent.getSource());
+        },
+
+        /**
+         * Reads committed invoice from the ComboBox and calls OutwardDoc once per distinct value.
+         * Not used for live typing (no selectionChange).
+         */
+        _commitInvoiceOutwardDoc: function (oCombo) {
+          if (!oCombo) {
+            return;
+          }
+          var sKey =
+            (oCombo.getSelectedKey && oCombo.getSelectedKey()) ||
+            "";
+          if (!sKey) {
+            sKey = String(oCombo.getValue() || "").trim();
+          }
+          var oTripData =
+            this.getView().getModel("TripData") ||
+            sap.ui.getCore().getModel("TripData");
+          if (oTripData) {
+            oTripData.setProperty("/BillingDocument", sKey);
+          }
+
+          // FunctionImport: OutwardDoc - POST method, returns RegisterEvent
+          if (!sKey) return;
+          if (this._bSuppressOutwardDocCall) return;
+
+          var sTripNumber = this._getTripNumber();
+          if (!sTripNumber) {
+            MessageToast.show("Trip Number missing. Please open a trip first.");
+            return;
+          }
+
+          if (this._sLastOutwardDocBillingDocument === sKey) {
+            return;
+          }
+          this._sLastOutwardDocBillingDocument = sKey;
+
+          var oView = this.getView();
+          if (oView && oView.setBusy) oView.setBusy(true);
+
+          this.oModel.callFunction("/OutwardDoc", {
+            method: "POST",
+            urlParameters: {
+              TripNumber: sTripNumber,
+              BillingDocument: sKey,
+            },
+            headers: {
+              "X-Requested-With": "X",
+            },
+            success: function (oData) {
+              var sRemarks =
+                (oData && oData.Remarks && String(oData.Remarks).trim()) ||
+                "";
+              this._reloadTripDetailsAndReflectChanges(sTripNumber, function () {
+                if (oView && oView.setBusy) oView.setBusy(false);
+                MessageToast.show(sRemarks || "Invoice details fetched.");
+              });
+            }.bind(this),
+            error: function (oError) {
+              if (oView && oView.setBusy) oView.setBusy(false);
+
+              var sErrorMessage = "Failed to register invoice.";
+              try {
+                if (oError && oError.responseText) {
+                  var oErr = JSON.parse(oError.responseText);
+                  if (
+                    oErr.error &&
+                    oErr.error.message &&
+                    oErr.error.message.value
+                  ) {
+                    sErrorMessage = oErr.error.message.value;
+                  }
+                } else if (oError && oError.message) {
+                  sErrorMessage = oError.message;
+                }
+              } catch (e) {
+                // ignore parse errors
+              }
+
+              MessageBox.error(sErrorMessage);
+            }.bind(this),
+          });
+        },
+
+        /**
+         * Reload TripDetails with OrderDetails + ItemDetails so frontend reflects backend changes immediately.
+         */
+        _reloadTripDetailsAndReflectChanges: function (sTripNumber, fnAfter) {
+          var oView = this.getView();
+          // Keep busy state until we are fully done.
+          if (oView && oView.setBusy) oView.setBusy(true);
+
+          this.oModel.read("/TripDetails('" + sTripNumber + "')", {
+            urlParameters: {
+              "$expand": "OrderDetails,ItemDetails",
+            },
+            success: function (oData) {
+              var oTripDataModel = new JSONModel(oData);
+              sap.ui.getCore().setModel(oTripDataModel, "TripData");
+              this.getView().setModel(oTripDataModel, "TripData");
+
+              // Notify all subscribed views to refresh their bindings.
+              this._eventBus.publish("TripData", "Updated");
+
+              if (fnAfter) fnAfter();
+            }.bind(this),
+            error: function () {
+              // Fallback: still publish update so UI can refresh anything that already changed.
+              this._eventBus.publish("TripData", "Updated");
+              if (fnAfter) fnAfter();
+            }.bind(this),
+          });
         },
         _initGateOutAttachmentsModel: function () {
           if (!this._oGateOutAttachmentsModel) {
@@ -36,13 +329,35 @@ sap.ui.define(
         },
         onAfterRendering: function () {
           try {
+            // Avoid calling OutwardDoc when `BillingDocument` is set from bindings
+            // during initial render / auto-fill. We only want the call on user selection.
+            this._bSuppressOutwardDocCall = true;
+            if (this._iSuppressOutwardDocTimer) {
+              clearTimeout(this._iSuppressOutwardDocTimer);
+            }
+            this._iSuppressOutwardDocTimer = setTimeout(function () {
+              this._bSuppressOutwardDocCall = false;
+            }.bind(this), 800);
+
             // Get trip number from globalData model (safer approach)
             var oGlobalModel = sap.ui.getCore().getModel("globalData");
             this.tripNumber = oGlobalModel ? oGlobalModel.getProperty("/TripNumber") || "" : "";
             
+            this.loadExitGateNumber();
+            this._initInvoiceNoSuggestionItems();
+
             // Set initial input state based on whether GateOut data exists
             var oTripData = sap.ui.getCore().getModel("TripData");
             if (oTripData) {
+              var sBd = oTripData.getProperty("/BillingDocument");
+              var sVb = oTripData.getProperty("/Vbeln");
+              if (
+                (!sBd || String(sBd).trim() === "") &&
+                sVb &&
+                String(sVb).trim() !== ""
+              ) {
+                oTripData.setProperty("/BillingDocument", String(sVb).trim());
+              }
               var sExistingExitGateNum = oTripData.getProperty("/ExitGateNum");
               if (sExistingExitGateNum && sExistingExitGateNum.trim() !== "") {
                 // GateOut exists - disable inputs (display mode)
@@ -70,6 +385,7 @@ sap.ui.define(
           var oTripData = sap.ui.getCore().getModel("TripData");
           if (oTripData) {
             this.getView().setModel(oTripData, "TripData");
+            this.loadExitGateNumber();
             // Disable inputs if GateOut data already exists (display mode)
             var sExistingExitGateNum = oTripData.getProperty("/ExitGateNum");
             if (sExistingExitGateNum && sExistingExitGateNum.trim() !== "") {
@@ -81,10 +397,16 @@ sap.ui.define(
           }
         },
         _getTripNumber: function () {
-          var oGlobalModel = sap.ui.getCore().getModel("globalData");
           var sTripNumber = "";
+          var oGlobalModel = sap.ui.getCore().getModel("globalData");
           if (oGlobalModel) {
             sTripNumber = oGlobalModel.getProperty("/TripNumber") || "";
+          }
+          if (!sTripNumber) {
+            var oCoreTrip = sap.ui.getCore().getModel("TripData");
+            if (oCoreTrip) {
+              sTripNumber = oCoreTrip.getProperty("/TripNumber") || "";
+            }
           }
           if (!sTripNumber) {
             var oTripDataModel = this.getView().getModel("TripData");
@@ -92,8 +414,11 @@ sap.ui.define(
               sTripNumber = oTripDataModel.getProperty("/TripNumber") || "";
             }
           }
-          return sTripNumber;
+          return String(sTripNumber).trim();
         },
+        /**
+         * Loads exit-gate ConfigValues for ConfigGroup ExitGate, always filtered by TripNumber when known.
+         */
         loadExitGateNumber: function () {
           var sTripNumber = this._getTripNumber();
           var aFilters = [
@@ -104,7 +429,6 @@ sap.ui.define(
             ),
           ];
 
-          // Add TripNumber filter if available
           if (sTripNumber) {
             aFilters.push(
               new sap.ui.model.Filter(
@@ -118,7 +442,36 @@ sap.ui.define(
           this.oModel.read("/ConfigValues", {
             filters: aFilters,
             success: function (oData) {
-              this._ExitGateData = oData.results;
+              this._ExitGateData = oData.results || [];
+
+              // Feed the ExitGate dropdown (ComboBox) and default-select the first one.
+              if (!this._oExitGateModel) {
+                this._oExitGateModel = new JSONModel({ items: [] });
+                this.getView().setModel(this._oExitGateModel, "exitGateModel");
+              }
+              this._oExitGateModel.setProperty("/items", this._ExitGateData);
+
+              var oTripData =
+                this.getView().getModel("TripData") ||
+                sap.ui.getCore().getModel("TripData");
+              if (oTripData) {
+                var sExistingExitGateNum = oTripData.getProperty("/ExitGateNum");
+                var bIsEmpty =
+                  !sExistingExitGateNum ||
+                  String(sExistingExitGateNum).trim() === "";
+
+                if (bIsEmpty && this._ExitGateData.length > 0) {
+                  // Keep default selection only in the dropdown UI.
+                  // Do not write into TripData here, otherwise "first time" detection on Save breaks.
+                  var oExitCombo = this.getView().byId("idExitGateNumber");
+                  if (oExitCombo && oExitCombo.setSelectedKey) {
+                    var sFirstGate = this._ExitGateData[0].ConfigID;
+                    if (sFirstGate !== undefined && sFirstGate !== null) {
+                      oExitCombo.setSelectedKey(String(sFirstGate).trim());
+                    }
+                  }
+                }
+              }
             }.bind(this),
             error: function () {
               sap.m.MessageBox.error("Failed to load Exit gates.");
@@ -287,111 +640,158 @@ sap.ui.define(
           }
         },
         onSaveGateOut: function () {
-          // Screen-only mode: do not call backend services
-          MessageToast.show("Screen only: Gate Out save is not connected to OData.");
-          return;
-
-          var oTripData = sap.ui.getCore().getModel("TripData");
-          var bIsFirstTime = false;
-          if (oTripData) {
-            var sExistingExitGateNum = oTripData.getProperty("/ExitGateNum");
-            bIsFirstTime = !sExistingExitGateNum || sExistingExitGateNum.trim() === "";
-          } else {
-            bIsFirstTime = true;
-          }
-          
-          // Use the ODataModel created in onInit()
           var oModel = this.oModel;
-
           if (!oModel) {
-            // OData model not loaded
             MessageBox.error("OData model is not loaded.");
             return;
           }
 
           var oView = this.getView();
+          var oTripData = sap.ui.getCore().getModel("TripData");
+          if (!oTripData) {
+            MessageBox.error("Trip data is not available.");
+            return;
+          }
 
-          var sExitGateNumber = oView.byId("idExitGateNumber").getValue() || "";
+          var sExistingExitGateNum = oTripData.getProperty("/ExitGateNum");
+          var bIsFirstTime =
+            !sExistingExitGateNum ||
+            String(sExistingExitGateNum).trim() === "";
+
+          // Always read the current dropdown selection.
+          // TripData "/ExitGateNum" is used only for "first time" detection.
+          var oExit = oView.byId("idExitGateNumber");
+          var sExitGateNumber = "";
+          if (oExit && oExit.getSelectedKey) {
+            sExitGateNumber = oExit.getSelectedKey() || "";
+          } else if (oExit && oExit.getValue) {
+            sExitGateNumber = oExit.getValue() || "";
+          }
+          if (!sExitGateNumber) {
+            sExitGateNumber = String(oTripData.getProperty("/ExitGateNum") || "").trim();
+          }
           var sRemarks = oView.byId("idGateOutRemarks").getValue() || "";
-          var sBinsReturned = (oView.byId("idBinsReturned") && oView.byId("idBinsReturned").getValue()) || "";
+          var sBinsReturned =
+            (oView.byId("idBinsReturned") &&
+              oView.byId("idBinsReturned").getValue()) ||
+            "";
 
-          // Extract "Verified Documents" (RadioButtonGroup)
-          // selectedIndex: 0 = Yes, 1 = No
           var oRBGroup = oView.byId("idVerifiedDocs");
           var bVerifiedDocs = oRBGroup ? oRBGroup.getSelectedIndex() === 0 : false;
 
-          // Global trip number
-          var sTripNumber = sap.ui
-            .getCore()
-            .getModel("globalData")
-            .getProperty("/TripNumber") || "";
+          var oGlobal = sap.ui.getCore().getModel("globalData");
+          var sTripNumber =
+            (oGlobal && oGlobal.getProperty("/TripNumber")) ||
+            oTripData.getProperty("/TripNumber") ||
+            "";
 
-          // Determine if this is first time (create) or update
-          // Check if ExitGateNum already exists in TripData
-          var oTripData = sap.ui.getCore().getModel("TripData");
-          var bIsFirstTime = false;
-          if (oTripData) {
-            var sExistingExitGateNum = oTripData.getProperty("/ExitGateNum");
-            // If ExitGateNum is empty, null, or undefined, it's the first time
-            bIsFirstTime = !sExistingExitGateNum || sExistingExitGateNum.trim() === "";
+          var sRefdocSkip = oTripData.getProperty("/RefDocSkip");
+          if (
+            sRefdocSkip === undefined ||
+            sRefdocSkip === null ||
+            String(sRefdocSkip).trim() === ""
+          ) {
+            sRefdocSkip = " ";
           } else {
-            // If TripData doesn't exist, assume it's first time
-            bIsFirstTime = true;
+            sRefdocSkip = String(sRefdocSkip).trim();
           }
 
-          // Function Import POST: GateOut
+          var oShort = oView.byId("idShortQty");
+          var sShortQtyVal = "";
+          if (oShort) {
+            var vSqCtrl = oShort.getValue();
+            sShortQtyVal =
+              vSqCtrl !== undefined && vSqCtrl !== null && vSqCtrl !== ""
+                ? String(vSqCtrl).trim()
+                : "";
+          }
+          if (sShortQtyVal === "") {
+            var vSq = oTripData.getProperty("/ShortQty");
+            if (vSq !== undefined && vSq !== null && vSq !== "") {
+              sShortQtyVal = String(vSq).trim();
+            }
+          }
+
+          var sBillingDocument = "";
+          var vBd = oTripData.getProperty("/BillingDocument");
+          if (vBd !== undefined && vBd !== null && String(vBd).trim() !== "") {
+            sBillingDocument = String(vBd).trim();
+          } else {
+            var vVb = oTripData.getProperty("/Vbeln");
+            if (vVb !== undefined && vVb !== null && String(vVb).trim() !== "") {
+              sBillingDocument = String(vVb).trim();
+            } else {
+              var oInv = oView.byId("idInvoiceNumberDropdown");
+              if (oInv) {
+                // ComboBox uses selectedKey; fallback to displayed value if needed.
+                var sSelected = "";
+                if (oInv.getSelectedKey) {
+                  sSelected = oInv.getSelectedKey() || "";
+                } else if (oInv.getValue) {
+                  sSelected = oInv.getValue() || "";
+                }
+                sBillingDocument = String(sSelected).trim();
+              }
+            }
+          }
+
           oModel.callFunction("/GateOut", {
             method: "POST",
             urlParameters: {
-              TripNumber: sTripNumber,
+              RefdocSkip: sRefdocSkip,
+              ShortQty: sShortQtyVal,
+              BillingDocument: sBillingDocument,
               ExitGateNumber: sExitGateNumber,
+              TripNumber: sTripNumber,
+              Remarks: sRemarks,
               VerifiedDocuments: bVerifiedDocs,
-              Remarks: sRemarks || "",
               BinsReturned: sBinsReturned,
             },
             headers: {
               "X-Requested-With": "X",
             },
-            success: function (oData, response) {
-              var sMessage = bIsFirstTime 
-                ? "Gate Out information created successfully!" 
+            success: function () {
+              var sMessage = bIsFirstTime
+                ? "Gate Out information created successfully!"
                 : "Gate Out information updated successfully!";
-              
-              // Update TripData model with saved ExitGateNum and BinsReturned
-              var oTripData = sap.ui.getCore().getModel("TripData");
-              if (oTripData) {
-                oTripData.setProperty("/ExitGateNum", sExitGateNumber);
-                oTripData.setProperty("/VerifiedDocs", bVerifiedDocs ? 0 : 1);
-                oTripData.setProperty("/BinsReturned", sBinsReturned);
-                // Publish event to notify other views
+
+              var oTd = sap.ui.getCore().getModel("TripData");
+              if (oTd) {
+                oTd.setProperty("/ExitGateNum", sExitGateNumber);
+                oTd.setProperty("/VerifiedDocs", bVerifiedDocs ? 0 : 1);
+                oTd.setProperty("/BinsReturned", sBinsReturned);
+                oTd.setProperty("/BillingDocument", sBillingDocument);
+                if (oShort) {
+                  var vFinal = oShort.getValue();
+                  if (vFinal !== undefined && vFinal !== null && vFinal !== "") {
+                    oTd.setProperty("/ShortQty", vFinal);
+                  }
+                }
                 this._eventBus.publish("TripData", "Updated");
               }
-              
-              // Upload attachments if any files were selected
+
               if (this._aSelectedFiles && this._aSelectedFiles.length > 0) {
-                this._uploadGateOutAttachments(function(bSuccess) {
-                  if (bSuccess) {
-                    MessageBox.success(sMessage + " Attachments uploaded successfully!");
-                  } else {
-                    MessageBox.success(sMessage);
-                    MessageBox.warning("Some attachments failed to upload.");
-                  }
-                  // Disable inputs after successful save
-                  this._setInputsEnabled(false);
-                  // Reload attachments list
-                  this._loadGateOutAttachments();
-                });
+                this._uploadGateOutAttachments(
+                  function (bSuccess) {
+                    if (bSuccess) {
+                      MessageBox.success(
+                        sMessage + " Attachments uploaded successfully!"
+                      );
+                    } else {
+                      MessageBox.success(sMessage);
+                      MessageBox.warning("Some attachments failed to upload.");
+                    }
+                    this._setInputsEnabled(false);
+                    this._loadGateOutAttachments();
+                  }.bind(this)
+                );
               } else {
                 MessageBox.success(sMessage);
-                // Disable inputs after successful save
                 this._setInputsEnabled(false);
               }
             }.bind(this),
             error: function (oError) {
-              // GateOut Error
-
               var sErrorMessage = "Failed Gate Out ";
-
               try {
                 if (oError && oError.responseText) {
                   var oErr = JSON.parse(oError.responseText);
@@ -406,7 +806,6 @@ sap.ui.define(
               } catch (e) {
                 // Failed to parse OData error
               }
-
               MessageBox.error(sErrorMessage);
             },
           });
@@ -418,6 +817,21 @@ sap.ui.define(
         },
         _setInputsEnabled: function (bEnabled) {
           try {
+            // Keep ExitGate dropdown always enabled/editable (as requested).
+            var oExitGateCombo = this.getView().byId("idExitGateNumber");
+
+            // Invoice No must stay editable even in Gate Out display mode (ExitGateNum set)
+            var oInvoiceSelect = this.getView().byId("idInvoiceNumberDropdown");
+            if (oInvoiceSelect) {
+              // Keep invoice field editable so `suggest` can trigger and show items.
+              if (oInvoiceSelect.setEnabled) {
+                oInvoiceSelect.setEnabled(true);
+              }
+              if (oInvoiceSelect.setEditable) {
+                oInvoiceSelect.setEditable(true);
+              }
+            }
+
             var oPanel = this.getView().byId("gateOutPanel");
             if (!oPanel) return;
             
@@ -427,6 +841,24 @@ sap.ui.define(
             aChildren.forEach(function(ctrl) {
               // Ignore buttons
               if (ctrl.isA && ctrl.isA("sap.m.Button")) return;
+
+              // Don't disable the Exit Gate dropdown.
+              if (oExitGateCombo && ctrl === oExitGateCombo) {
+                if (ctrl.setEnabled) ctrl.setEnabled(true);
+                if (ctrl.setEditable) ctrl.setEditable(true);
+                return;
+              }
+
+              // Don't override the invoice input editability (see comment above).
+              if (oInvoiceSelect && ctrl === oInvoiceSelect) return;
+
+              // Keep dropdowns as non-editable; only enable/disable them.
+              if (ctrl.isA && ctrl.isA("sap.m.ComboBox")) {
+                if (ctrl.setEnabled) {
+                  ctrl.setEnabled(bEnabled);
+                }
+                return;
+              }
               
               // Try setEditable first (for Input, TextArea, etc.)
               if (ctrl.setEditable) {
@@ -912,6 +1344,18 @@ sap.ui.define(
           document.body.appendChild(oLink);
           oLink.click();
           document.body.removeChild(oLink);
+        },
+
+        /**
+         * Invoice No applies to outward flows; hide when movement type is Inward (I).
+         * @param {string} sMovementType TripData MovementType (I/O per OData)
+         * @returns {boolean}
+         */
+        formatInvoiceSectionVisible: function (sMovementType) {
+          if (sMovementType === undefined || sMovementType === null || sMovementType === "") {
+            return true;
+          }
+          return String(sMovementType).trim().toUpperCase() !== "I";
         },
 
         // User-role-based authorization for GateOut has been removed; buttons are

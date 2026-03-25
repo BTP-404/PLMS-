@@ -34,6 +34,12 @@ sap.ui.define(
           if (oTripData && !oTripData.getProperty("/WeighmentRequired")) {
             oTripData.setProperty("/WeighmentRequired", "N");
           }
+          if (oTripData) {
+            var vSkip = oTripData.getProperty("/RefDocSkip");
+            if (vSkip === undefined || vSkip === null || vSkip === "") {
+              oTripData.setProperty("/RefDocSkip", " ");
+            }
+          }
           
           // Initialize attachments model
           this._initGateInAttachmentsModel();
@@ -125,6 +131,7 @@ sap.ui.define(
             oTripData.setProperty("/DelayReason", "");
             oTripData.setProperty("/DelayReasonDesc", "");
             oTripData.setProperty("/WeighmentRequired", "N");
+            oTripData.setProperty("/RefDocSkip", " ");
             oTripData.setProperty("/GrossWeight", "");
             oTripData.setProperty("/TareWeight", "");
             oTripData.setProperty("/NetWeight", "");
@@ -141,6 +148,11 @@ sap.ui.define(
               // Convert boolean to "Y"/"N" format for frontend
               var sWeighmentRequired = (vWeighmentReq === true || vWeighmentReq === "X") ? "Y" : "N";
               oTripData.setProperty("/WeighmentRequired", sWeighmentRequired);
+            }
+            // TripDetails RefDocSkip: single-char flag; normalize for radio (Yes = skip)
+            var vRefSkip = oTripData.getProperty("/RefDocSkip");
+            if (vRefSkip === undefined || vRefSkip === null || vRefSkip === "") {
+              oTripData.setProperty("/RefDocSkip", " ");
             }
             // Map EntryGateNumber to EntryGateNum if backend returns different property name
             var sEntryGate = oTripData.getProperty("/EntryGateNumber");
@@ -180,17 +192,28 @@ sap.ui.define(
         },
 
         /**
-         * Master ConfigValues rows use TripNumber ""; extra TripNumber filters often
-         * return 0 rows from the gateway. Load by ConfigGroup only.
+         * Builds OData $filter for /ConfigValues: ConfigGroup eq {group} and optionally TripNumber eq {trip}.
+         * Entry gate list matches YIGP_PLMS_SRV (e.g. EntryGate plus current trip number).
          */
-        _getConfigValuesFilters: function (sConfigGroup) {
-          return [
+        _getConfigValuesFilters: function (sConfigGroup, sTripNumber) {
+          var aFilters = [
             new sap.ui.model.Filter(
               "ConfigGroup",
               sap.ui.model.FilterOperator.EQ,
               sConfigGroup
             ),
           ];
+          var sTrip = sTripNumber != null ? String(sTripNumber).trim() : "";
+          if (sTrip) {
+            aFilters.push(
+              new sap.ui.model.Filter(
+                "TripNumber",
+                sap.ui.model.FilterOperator.EQ,
+                sTrip
+              )
+            );
+          }
+          return aFilters;
         },
 
         _populateEntryGateSelect: function (aProducts, iRetry) {
@@ -351,7 +374,8 @@ sap.ui.define(
         },
 
         loadGateNumber: function () {
-          var aFilters = this._getConfigValuesFilters("EntryGate");
+          var sTripNumber = String(this._getTripNumber() || "").trim();
+          var aFilters = this._getConfigValuesFilters("EntryGate", sTripNumber);
 
           this.oModel.read("/ConfigValues", {
             filters: aFilters,
@@ -497,6 +521,12 @@ sap.ui.define(
             bWeighmentRequired = iSelectedIndex === 0; // Direct boolean assignment
           }
 
+          var oSkipDocGroup = oView.byId("idSkipDocument");
+          var sRefDocSkip = " ";
+          if (oSkipDocGroup) {
+            sRefDocSkip = oSkipDocGroup.getSelectedIndex() === 0 ? "X" : " ";
+          }
+
           var sTripNumber = sap.ui
             .getCore()
             .getModel("globalData")
@@ -515,6 +545,7 @@ sap.ui.define(
           var oTripData = sap.ui.getCore().getModel("TripData");
           if (oTripData) {
             oTripData.setProperty("/WeighmentRequired", sWeighmentRequired);
+            oTripData.setProperty("/RefDocSkip", sRefDocSkip);
             // Publish event so Loading controller can react
             this._eventBus.publish("TripData", "WeighmentRequiredChanged", {
               weighmentRequired: sWeighmentRequired
@@ -549,6 +580,7 @@ sap.ui.define(
               DelayReasons: sDelayReasons,
               Weighment_Req: bWeighmentRequired,
               BinsReceived: sBinsReceived,
+              RefdocSkip: sRefDocSkip,
             },
             headers: {
               "X-Requested-With": "X",
@@ -568,6 +600,7 @@ sap.ui.define(
                 if (oTripData) {
                   oTripData.setProperty("/EntryGateNum", sEntryGateNumber);
                   oTripData.setProperty("/BinsReceived", sBinsReceived);
+                  oTripData.setProperty("/RefDocSkip", sRefDocSkip);
                   this._eventBus.publish("TripData", "Updated");
                 }
               }
@@ -684,6 +717,20 @@ sap.ui.define(
             this._eventBus.publish("TripData", "WeighmentRequiredChanged", {
               weighmentRequired: sValue
             });
+          }
+        },
+        formatRefDocSkipIndex: function (v) {
+          if (v === "X" || v === "Y" || v === "1" || v === true) {
+            return 0;
+          }
+          return 1;
+        },
+        onRefDocSkipChange: function (oEvent) {
+          var iSelectedIndex = oEvent.getParameter("selectedIndex");
+          var sRefDocSkip = iSelectedIndex === 0 ? "X" : " ";
+          var oTripData = sap.ui.getCore().getModel("TripData");
+          if (oTripData) {
+            oTripData.setProperty("/RefDocSkip", sRefDocSkip);
           }
         },
         onEditGateInInfo: function () {
@@ -1270,6 +1317,9 @@ sap.ui.define(
               if (oData.Weighment_Req !== undefined) {
                 // Convert boolean to "Y"/"N" format for frontend
                 oData.WeighmentRequired = oData.Weighment_Req === true || oData.Weighment_Req === "X" ? "Y" : "N";
+              }
+              if (oData.RefDocSkip === undefined || oData.RefDocSkip === null || oData.RefDocSkip === "") {
+                oData.RefDocSkip = " ";
               }
               
               // Update global TripData model

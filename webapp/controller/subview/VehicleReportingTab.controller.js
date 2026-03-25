@@ -484,6 +484,11 @@ sap.ui.define(
           // Clear all suggestion models
           const oVHModel = new JSONModel([]);
           this.getView().setModel(oVHModel, "VHModel");
+          this.getView().setModel(
+            new JSONModel({ items: [] }),
+            "vehicleNumberSuggestions"
+          );
+          this._aAllVehicleSuggestions = [];
           
           const oVehicleTypeSuggestions = new JSONModel({ items: [] });
           this.getView().setModel(oVehicleTypeSuggestions, "vehicleTypeSuggestions");
@@ -518,6 +523,11 @@ sap.ui.define(
               }
             }.bind(this));
           }
+
+          // Re-load suggestion sources after reset so type-ahead keeps working.
+          this._loadVehicleSuggestions();
+          this._loadVehicleTypeSuggestions();
+          this._loadVehicleSizeSuggestions();
         },
 
         /* ===========================================================
@@ -1377,18 +1387,16 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
           const oModel = this.getView().getModel();
           const that = this;
           const sTripNumber = this._getTripNumber();
-
-          var aFilters = [
+          var aBaseFilters = [
             new sap.ui.model.Filter(
               "ConfigGroup",
               sap.ui.model.FilterOperator.EQ,
               "VehicleType"
             ),
           ];
-
-          // Add TripNumber filter if available
+          var aTripFilters = aBaseFilters.slice();
           if (sTripNumber) {
-            aFilters.push(
+            aTripFilters.push(
               new sap.ui.model.Filter(
                 "TripNumber",
                 sap.ui.model.FilterOperator.EQ,
@@ -1397,20 +1405,39 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
             );
           }
 
+          var fnReadConfigValues = function (aFilters) {
+            return new Promise(function (resolve) {
+              oModel.read("/ConfigValues", {
+                filters: aFilters,
+                success: function (oData) {
+                  resolve(oData.results || []);
+                },
+                error: function () {
+                  resolve([]);
+                },
+              });
+            });
+          };
+
           return new Promise(function (resolve) {
-            oModel.read("/ConfigValues", {
-              filters: aFilters,
-              success: function (oData) {
-                const oJSON = new sap.ui.model.json.JSONModel(oData.results);
+            fnReadConfigValues(aTripFilters).then(function (aResults) {
+              if (aResults.length > 0 || !sTripNumber) {
+                const oJSON = new sap.ui.model.json.JSONModel(aResults);
                 if (that._mValueHelps && that._mValueHelps.VHVehicleType) {
                   that._mValueHelps.VHVehicleType.setModel(oJSON, "VHModel");
                 }
                 resolve();
-              },
-              error: function () {
-                sap.m.MessageBox.error("Failed to load Vehicle Type.");
+                return;
+              }
+
+              // Fallback: some backends do not provide vehicle types per trip.
+              fnReadConfigValues(aBaseFilters).then(function (aFallbackResults) {
+                const oJSON = new sap.ui.model.json.JSONModel(aFallbackResults);
+                if (that._mValueHelps && that._mValueHelps.VHVehicleType) {
+                  that._mValueHelps.VHVehicleType.setModel(oJSON, "VHModel");
+                }
                 resolve();
-              },
+              });
             });
           });
         },
@@ -1841,12 +1868,52 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
         // SUGGEST
         // =====================================================
         _loadVehicleSuggestions: function () {
+          if (this._bVehicleSuggestionLoadInProgress) {
+            return;
+          }
+
+          this._bVehicleSuggestionLoadInProgress = true;
           const oModel = this.getView().getModel();
 
           oModel.read("/VehicleDetails", {
             success: (oData) => {
-              const oJSON = new sap.ui.model.json.JSONModel(oData.results);
-              this.getView().setModel(oJSON, "VHModel");
+              const aVehicles = oData.results || [];
+              this._aAllVehicleSuggestions = aVehicles.slice();
+              this.getView().setModel(
+                new sap.ui.model.json.JSONModel(aVehicles),
+                "VHModel"
+              );
+              this.getView().setModel(
+                new sap.ui.model.json.JSONModel({ items: aVehicles }),
+                "vehicleNumberSuggestions"
+              );
+              this._bVehicleSuggestionLoadInProgress = false;
+
+              // If user already typed while loading, re-apply immediately.
+              if (this._sPendingVehicleSuggestValue !== undefined) {
+                const sPendingValue = this._sPendingVehicleSuggestValue;
+                this._sPendingVehicleSuggestValue = undefined;
+                this._applyVehicleNumberSuggestions(sPendingValue);
+
+                // Re-fire suggest so popup opens without requiring backspace/next key.
+                const oVehicleInput = this.byId("idVehicleNumber");
+                if (oVehicleInput && sPendingValue) {
+                  oVehicleInput.fireSuggest({ suggestValue: sPendingValue });
+                }
+              }
+            },
+            error: () => {
+              this._aAllVehicleSuggestions = [];
+              this.getView().setModel(
+                new sap.ui.model.json.JSONModel([]),
+                "VHModel"
+              );
+              this.getView().setModel(
+                new sap.ui.model.json.JSONModel({ items: [] }),
+                "vehicleNumberSuggestions"
+              );
+              this._bVehicleSuggestionLoadInProgress = false;
+              this._sPendingVehicleSuggestValue = undefined;
             },
           });
         },
@@ -1858,18 +1925,16 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
           const oModel = this.getView().getModel();
           const that = this;
           const sTripNumber = this._getTripNumber();
-
-          var aFilters = [
+          var aBaseFilters = [
             new sap.ui.model.Filter(
               "ConfigGroup",
               sap.ui.model.FilterOperator.EQ,
               "VehicleType"
             ),
           ];
-
-          // Add TripNumber filter if available
+          var aTripFilters = aBaseFilters.slice();
           if (sTripNumber) {
-            aFilters.push(
+            aTripFilters.push(
               new sap.ui.model.Filter(
                 "TripNumber",
                 sap.ui.model.FilterOperator.EQ,
@@ -1878,22 +1943,45 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
             );
           }
 
-          oModel.read("/ConfigValues", {
-            filters: aFilters,
-            success: function (oData) {
-              const oJSON = new sap.ui.model.json.JSONModel({
-                items: oData.results || []
-              });
-              that.getView().setModel(oJSON, "vehicleTypeSuggestions");
-            },
-            error: function () {
-              // Silently fail, suggestions just won't work
-              that.getView().setModel(
-                new sap.ui.model.json.JSONModel({ items: [] }),
-                "vehicleTypeSuggestions"
+          var fnSetSuggestionModel = function (aItems) {
+            that.getView().setModel(
+              new sap.ui.model.json.JSONModel({ items: aItems || [] }),
+              "vehicleTypeSuggestions"
+            );
+          };
+
+          var fnReadConfigValues = function (aFilters, fnSuccess, fnError) {
+            oModel.read("/ConfigValues", {
+              filters: aFilters,
+              success: fnSuccess,
+              error: fnError,
+            });
+          };
+
+          fnReadConfigValues(
+            aTripFilters,
+            function (oData) {
+              var aItems = oData.results || [];
+              if (aItems.length > 0 || !sTripNumber) {
+                fnSetSuggestionModel(aItems);
+                return;
+              }
+              // Fallback for services where VehicleType is not trip-specific.
+              fnReadConfigValues(
+                aBaseFilters,
+                function (oFallbackData) {
+                  fnSetSuggestionModel(oFallbackData.results || []);
+                },
+                function () {
+                  fnSetSuggestionModel([]);
+                }
               );
             },
-          });
+            function () {
+              // Silently fail, suggestions just won't work
+              fnSetSuggestionModel([]);
+            }
+          );
         },
 
         /**
@@ -1921,44 +2009,45 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
         },
 
         onSuggest: function (oEvent) {
-          const sValue = oEvent.getParameter("suggestValue");
-          const oInput = oEvent.getSource();
-          const oBinding = oInput.getBinding("suggestionItems");
+          const sValue = (oEvent.getParameter("suggestValue") || "").trim();
+          this._applyVehicleNumberSuggestions(sValue);
+        },
 
-          // Check if binding exists
-          if (!oBinding) {
-            // If binding doesn't exist, ensure VHModel is loaded
-            const oVHModel = this.getView().getModel("VHModel");
-            const aData = oVHModel ? oVHModel.getData() : null;
-            if (!oVHModel || !aData || (Array.isArray(aData) && aData.length === 0)) {
-              this._loadVehicleSuggestions();
-            }
+        onVehicleNumberLiveChange: function (oEvent) {
+          const sValue = (oEvent.getParameter("value") || "").trim();
+          this._applyVehicleNumberSuggestions(sValue);
+        },
+
+        _applyVehicleNumberSuggestions: function (sValue) {
+          const oSuggestionModel = this.getView().getModel("vehicleNumberSuggestions");
+          const aAllVehicles = this._aAllVehicleSuggestions || [];
+
+          if (!oSuggestionModel || aAllVehicles.length === 0) {
+            this._sPendingVehicleSuggestValue = sValue || "";
+            this._loadVehicleSuggestions();
             return;
           }
 
-          // Apply filter to the binding
-          if (sValue && sValue.trim().length > 0) {
-            oBinding.filter([
-              new sap.ui.model.Filter({
-                filters: [
-                  new sap.ui.model.Filter(
-                    "VehicleNumber",
-                    sap.ui.model.FilterOperator.Contains,
-                    sValue
-                  ),
-                  new sap.ui.model.Filter(
-                    "TransporterName",
-                    sap.ui.model.FilterOperator.Contains,
-                    sValue
-                  ),
-                ],
-                and: false,
-              }),
-            ]);
-          } else {
-            // Clear filter if search value is empty
-            oBinding.filter([]);
+          if (!sValue) {
+            oSuggestionModel.setData({ items: aAllVehicles.slice() });
+            oSuggestionModel.refresh(true);
+            return;
           }
+
+          const fnNormalize = function (sText) {
+            return (sText || "")
+              .toString()
+              .toLowerCase()
+              .replace(/[^a-z0-9]/g, "");
+          };
+          const sNeedle = fnNormalize(sValue);
+          const aFilteredVehicles = aAllVehicles.filter(function (oVehicle) {
+            const sVehNo = fnNormalize(oVehicle.VehicleNumber);
+            return sVehNo.includes(sNeedle);
+          });
+
+          oSuggestionModel.setData({ items: aFilteredVehicles });
+          oSuggestionModel.refresh(true);
         },
 
         // =====================================================
@@ -1976,7 +2065,7 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
           oInput.setValue(sVehNo);
 
           // Find full vehicle object in VHModel
-          const aVehicles = this.getView().getModel("VHModel").getData();
+          const aVehicles = this._aAllVehicleSuggestions || [];
           const oVehicle = aVehicles.find((v) => v.VehicleNumber === sVehNo);
 
           if (oVehicle) {
@@ -1988,6 +2077,16 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
         // SET THE 3 AUTO FIELDS
         // =====================================================
         _setVehicleAutoFields: function (oVehicle) {
+          const oTripDataModel = this.getView().getModel("TripData");
+
+          // Keep TripData in sync with selected VehicleDetails entity.
+          if (oTripDataModel) {
+            oTripDataModel.setProperty("/VehicleNumber", oVehicle.VehicleNumber || "");
+            oTripDataModel.setProperty("/VehicleType", oVehicle.VehicleType || "");
+            oTripDataModel.setProperty("/VehicleSize", oVehicle.VehicleSize || "");
+            oTripDataModel.setProperty("/TransporterName", oVehicle.TransporterName || "");
+          }
+
           // Set Transporter Name (direct value)
           if (oVehicle.TransporterName) {
             this.byId("idTransporterName").setValue(oVehicle.TransporterName);
@@ -2005,7 +2104,6 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
               // Use description directly if available
               this.byId("idVehicleType").setValue(oVehicle.VehicleTypeDesc);
               // Update TripData model
-              const oTripDataModel = this.getView().getModel("TripData");
               if (oTripDataModel) {
                 oTripDataModel.setProperty("/VehicleType", oVehicle.VehicleType);
                 oTripDataModel.setProperty("/VehicleTypeDesc", oVehicle.VehicleTypeDesc);
@@ -2022,7 +2120,6 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
                 if (oVehicleType && oVehicleType.Description) {
                   this.byId("idVehicleType").setValue(oVehicleType.Description);
                   // Update TripData model
-                  const oTripDataModel = this.getView().getModel("TripData");
                   if (oTripDataModel) {
                     oTripDataModel.setProperty("/VehicleType", oVehicle.VehicleType);
                     oTripDataModel.setProperty("/VehicleTypeDesc", oVehicleType.Description);
@@ -2030,7 +2127,6 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
                 } else {
                   // Fallback: set the code if description not found
                   this.byId("idVehicleType").setValue(oVehicle.VehicleType);
-                  const oTripDataModel = this.getView().getModel("TripData");
                   if (oTripDataModel) {
                     oTripDataModel.setProperty("/VehicleType", oVehicle.VehicleType);
                   }
@@ -2038,7 +2134,6 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
               } else {
                 // Fallback: set the code if model not available
                 this.byId("idVehicleType").setValue(oVehicle.VehicleType);
-                const oTripDataModel = this.getView().getModel("TripData");
                 if (oTripDataModel) {
                   oTripDataModel.setProperty("/VehicleType", oVehicle.VehicleType);
                 }
@@ -2244,94 +2339,74 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
           sap.m.MessageToast.show("Manual vehicle type entered: " + sManualVehicleType);
         },
 
-        /* ===========================================================
-         * Vehicle Type Live Change Handler
-         * Handles manual editing of Vehicle Type field
-         * =========================================================== */
-        onVehicleTypeLiveChange: function (oEvent) {
-          const sValue = oEvent.getParameter("value");
-          const oTripDataModel = this.getView().getModel("TripData");
-          
-          if (oTripDataModel) {
-            // If user is manually typing, set ConfigID to 99 and update description
-            oTripDataModel.setProperty("/VehicleType", "99");
-            oTripDataModel.setProperty("/VehicleTypeDesc", sValue);
-          }
-        },
-
-        /**
-         * Vehicle Type Suggestion Handler
-         */
-        onVehicleTypeSuggest: function (oEvent) {
-          const sValue = (oEvent.getParameter("suggestValue") || "").trim();
-          const oInput = oEvent.getSource();
-          const oBinding = oInput.getBinding("suggestionItems");
-
-          if (!oBinding) {
+        _setVehicleTypeFromItem: function (oSelectedItem) {
+          if (!oSelectedItem) {
             return;
           }
 
-          if (sValue && sValue.length > 0) {
-            oBinding.filter([
-              new sap.ui.model.Filter({
-                filters: [
-                  new sap.ui.model.Filter(
-                    "ConfigID",
-                    sap.ui.model.FilterOperator.Contains,
-                    sValue
-                  ),
-                  new sap.ui.model.Filter(
-                    "Description",
-                    sap.ui.model.FilterOperator.Contains,
-                    sValue
-                  ),
-                ],
-                and: false,
-              }),
-            ]);
-          } else {
-            oBinding.filter([]);
+          if (oSelectedItem.ConfigID === "99") {
+            this._openManualVehicleTypeInput();
+            return;
+          }
+
+          const oTripDataModel = this.getView().getModel("TripData");
+          if (oTripDataModel) {
+            oTripDataModel.setProperty("/VehicleType", oSelectedItem.ConfigID);
+            oTripDataModel.setProperty("/VehicleTypeDesc", oSelectedItem.Description || "");
+          }
+
+          const oVehicleType = this.byId("idVehicleType");
+          if (oVehicleType) {
+            oVehicleType.setSelectedKey(oSelectedItem.ConfigID || "");
+            oVehicleType.setValue(oSelectedItem.Description || "");
           }
         },
 
-        /**
-         * Vehicle Type Suggestion Selected
-         */
-        onVehicleTypeSuggestionSelected: function (oEvent) {
+        onVehicleTypeSelectionChange: function (oEvent) {
           const oItem = oEvent.getParameter("selectedItem");
           if (!oItem) {
             return;
           }
 
-          const sConfigID = oItem.getKey();
-          const oSuggestionsModel = this.getView().getModel("vehicleTypeSuggestions");
-          if (!oSuggestionsModel) {
+          this._setVehicleTypeFromItem({
+            ConfigID: oItem.getKey(),
+            Description: oItem.getText(),
+          });
+        },
+
+        onVehicleTypeChange: function (oEvent) {
+          const oCombo = oEvent.getSource();
+          const sValue = (oCombo.getValue() || "").trim();
+          const oTripDataModel = this.getView().getModel("TripData");
+
+          if (!oTripDataModel) {
             return;
           }
 
-          const aItems = oSuggestionsModel.getData().items || [];
-          const oSelectedItem = aItems.find(function (item) {
-            return item.ConfigID === sConfigID;
+          const sSelectedKey = oCombo.getSelectedKey ? (oCombo.getSelectedKey() || "") : "";
+          if (sSelectedKey) {
+            const aItems = (this.getView().getModel("vehicleTypeSuggestions")?.getProperty("/items")) || [];
+            const oSelectedItem = aItems.find(function (item) {
+              return item.ConfigID === sSelectedKey;
+            });
+            if (oSelectedItem) {
+              this._setVehicleTypeFromItem(oSelectedItem);
+            }
+            return;
+          }
+
+          const aItems = (this.getView().getModel("vehicleTypeSuggestions")?.getProperty("/items")) || [];
+          const oMatchedItem = aItems.find(function (item) {
+            return (item.Description || "").toLowerCase() === sValue.toLowerCase();
           });
 
-          if (oSelectedItem) {
-            // Check if ConfigID is 99 for manual input
-            if (oSelectedItem.ConfigID === "99") {
-              // Open manual input dialog
-              this._openManualVehicleTypeInput();
-              return;
-            }
-
-            // Store ConfigID in TripData model (for backend)
-            const oTripDataModel = this.getView().getModel("TripData");
-            if (oTripDataModel) {
-              oTripDataModel.setProperty("/VehicleType", oSelectedItem.ConfigID);
-              oTripDataModel.setProperty("/VehicleTypeDesc", oSelectedItem.Description || "");
-            }
-
-            // Set the description in the input field
-            this.byId("idVehicleType").setValue(oSelectedItem.Description || "");
+          if (oMatchedItem) {
+            this._setVehicleTypeFromItem(oMatchedItem);
+            return;
           }
+
+          oTripDataModel.setProperty("/VehicleType", "99");
+          oTripDataModel.setProperty("/VehicleTypeDesc", sValue);
         },
 
         /**
@@ -2650,24 +2725,18 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
               // Format trip number (remove leading zeros)
               var sFormattedTripNumber = sTripNumber ? String(sTripNumber).replace(/^0+/, "") || "0" : "";
               
-              // Show MessageBox with trip creation information
-              var sMessage = sTripNumber 
+              // Immediately refresh UI state:
+              // - reload trip details for the current Stage view
+              // - trigger HomePage tripTable refresh (if HomePage is currently active)
+              if (sTripNumber) {
+                that._loadTripDetailsForHeader(sTripNumber);
+              }
+              sap.ui.getCore().getEventBus().publish("HomePage", "RefreshTripTable");
+
+              var sMessage = sTripNumber
                 ? "Trip created with Trip Number: " + sFormattedTripNumber
                 : "Trip created successfully";
-              
-              MessageBox.information(sMessage, {
-                title: "Trip Created",
-                actions: [MessageBox.Action.OK],
-                onClose: function (oAction) {
-                  // Navigate to HomePage when OK is clicked
-                  var oRouter = that.getOwnerComponent().getRouter();
-                  if (oRouter) {
-                    oRouter.navTo("HomePage");
-                  } else {
-                    window.location.hash = "#/";
-                  }
-                }
-              });
+              MessageToast.show(sMessage);
             },
             error: function (oError) {
               var sErrorMessage = sAsnId 
@@ -2744,6 +2813,22 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
             }
             oGlobalModelHasData.setProperty("/IsScanningReporting", false);
 
+            var sItemKeyHasData = oTripData.getProperty("/MovementScenarioItemKey") || "";
+            if (!sItemKeyHasData) {
+              var sMtHas =
+                (oTripData && oTripData.getProperty("/MovementType")) || Mtype || "";
+              var sMsHas =
+                movementScenario !== undefined && movementScenario !== null && movementScenario !== ""
+                  ? movementScenario
+                  : oTripData
+                    ? oTripData.getProperty("/MovementScenario")
+                    : "";
+              sItemKeyHasData = MovementScenarioIcons.getMovementScenarioItemKey(sMtHas, sMsHas);
+            }
+            var bI02Trip =
+              sItemKeyHasData === MovementScenarioIcons.SCANNER_MOVEMENT_SCENARIO_ITEM_KEY;
+            oGlobalModelHasData.setProperty("/DisableRefDocMaterialsActions", !!bI02Trip);
+
             return;
           }
 
@@ -2787,6 +2872,8 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
             sap.ui.getCore().setModel(oGlobalModel, "globalData");
           }
           oGlobalModel.setProperty("/IsScanningReporting", !!bShowScanner);
+          // Trip not yet reported: ref-doc restrictions for I02 come from IsScanningReporting; clear stale flag
+          oGlobalModel.setProperty("/DisableRefDocMaterialsActions", false);
           
           // If scanner is visible, focus on input after a short delay
           if (bShowScanner) {

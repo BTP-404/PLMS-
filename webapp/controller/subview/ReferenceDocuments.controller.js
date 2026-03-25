@@ -9,12 +9,14 @@ sap.ui.define([
 	"sap/ui/model/Filter",
 	"sap/ui/model/FilterOperator",
 	"sap/ui/model/odata/v2/ODataModel",
-], function (Controller, JSONModel, Fragment, MessageToast, MessageBox, SelectDialog, StandardListItem, Filter, FilterOperator, ODataModel) {
+	"com/incresolZ_INC_PLMS/util/MovementScenarioIcons",
+], function (Controller, JSONModel, Fragment, MessageToast, MessageBox, SelectDialog, StandardListItem, Filter, FilterOperator, ODataModel, MovementScenarioIcons) {
 	"use strict";
 
 	return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.ReferenceDocuments", {
 
 	onInit: function () {
+		this._initRefDocMovementScope();
 		this._ensureRefDocModel();
 		this._getRefDocSuggestionModel();
 		this._getMaterialSuggestionModel();
@@ -89,6 +91,11 @@ sap.ui.define([
 			this._bIsRefDocEditMode = false;
 			this._sSelectedDocType = "";
 			this._sSelectedMaterialDocType = "";
+			
+			var oGlobalModel = sap.ui.getCore().getModel("globalData");
+			if (oGlobalModel) {
+				oGlobalModel.setProperty("/DisableRefDocMaterialsActions", false);
+			}
 		},
 
 		_setFragmentI18nModel: function (oDialog) {
@@ -140,6 +147,52 @@ sap.ui.define([
 			}
 
 			oModel.setProperty("/filteredMaterialDetails", aFilteredMaterials);
+		},
+
+		/**
+		 * Gate In embed uses scope "I", Gate Out uses "O". Empty scope = no filter (other usages).
+		 */
+		_initRefDocMovementScope: function () {
+			var oView = this.getView();
+			var aCustom = oView.getCustomData ? oView.getCustomData() : [];
+			var sScope = "";
+			var i;
+			for (i = 0; i < aCustom.length; i++) {
+				var oCd = aCustom[i];
+				if (oCd.getKey && oCd.getKey() === "refDocMovementScope") {
+					sScope = oCd.getValue() || "";
+					break;
+				}
+			}
+			if (!sScope) {
+				var sId = oView.getId() || "";
+				if (sId.indexOf("idRefDocsViewGateOut") >= 0) {
+					sScope = "O";
+				} else if (sId.indexOf("idRefDocsViewGateIn") >= 0) {
+					sScope = "I";
+				}
+			}
+			this._sRefDocMovementScope = this._normalizeMovementType(sScope);
+		},
+
+		_normalizeMovementType: function (v) {
+			return String(v === undefined || v === null ? "" : v).trim().toUpperCase();
+		},
+
+		/**
+		 * @param {string} [vRowMovementType] OData MovementType on OrderDetails / ItemDetails row
+		 */
+		_rowMatchesRefDocMovementScope: function (vRowMovementType) {
+			var sReq = this._sRefDocMovementScope;
+			if (!sReq || (sReq !== "I" && sReq !== "O")) {
+				return true;
+			}
+			var sRow = this._normalizeMovementType(vRowMovementType);
+			if (!sRow) {
+				var oTripData = sap.ui.getCore().getModel("TripData");
+				sRow = this._normalizeMovementType(oTripData && oTripData.getProperty("/MovementType"));
+			}
+			return sRow === sReq;
 		},
 
 		// ============================================================
@@ -1893,8 +1946,11 @@ sap.ui.define([
 		},
 
 
-		_escapeODataValue: function (sValue) {
-			return (sValue || "").replace(/'/g, "''");
+		_escapeODataValue: function (vValue) {
+			if (vValue === null || vValue === undefined) {
+				return "";
+			}
+			return String(vValue).replace(/'/g, "''");
 		},
 
 		// ============================================================
@@ -2660,15 +2716,17 @@ sap.ui.define([
 				return Promise.reject(new Error("Material data missing"));
 			}
 
-			// Build OData entity key path using the correct property names
-			// Always use the current TripNumber from global model to ensure consistency
+			// Build OData key the same way as _updateMaterialDetail: row keys first, then fallbacks.
+			// Preferring global TripNumber here caused key mismatches and "Invalid Key Predicate".
 			var oGlobalModel = sap.ui.getCore().getModel("globalData");
 			var sCurrentTripNumber = oGlobalModel?.getProperty("/TripNumber") || "";
-			
-			var sDocType = this._escapeODataValue(oMaterial.DocType || oMaterial.docType || "");
-			var sTripNumber = this._escapeODataValue(sCurrentTripNumber || oMaterial.TripNumber || oMaterial.tripNumber || "");
-			var sRefDocNo = this._escapeODataValue(oMaterial.RefDocNo || oMaterial.refDocNo || "");
-			var sRefDocItemNo = this._escapeODataValue(oMaterial.RefDocItemNo || oMaterial.refDocItemNo || "");
+
+			var sDocType = this._escapeODataValue(oMaterial.docType || oMaterial.DocType || "");
+			var sTripNumber = this._escapeODataValue(
+				oMaterial.tripNumber || oMaterial.TripNumber || sCurrentTripNumber || ""
+			);
+			var sRefDocNo = this._escapeODataValue(oMaterial.refDocNo || oMaterial.RefDocNo || "");
+			var sRefDocItemNo = this._escapeODataValue(oMaterial.refDocItemNo || oMaterial.RefDocItemNo || "");
 
 			// Validate that we have all required key fields
 			if (!sTripNumber || !sDocType || !sRefDocNo || !sRefDocItemNo) {
@@ -2830,29 +2888,29 @@ sap.ui.define([
 				sap.ui.getCore().setModel(oGlobalModel, "globalData");
 			}
 
-			// Determine if ref doc / material actions must be disabled
-			var sMovementScenarioDesc = oTripData ? (oTripData.getProperty("/MovementScenarioDesc") || "") : "";
-			var bDisableActions = false;
-			if (sMovementScenarioDesc) {
-				var sUpper = sMovementScenarioDesc.toUpperCase();
-				bDisableActions =
-					sUpper.indexOf("DIRECT PURCHASE ORDER ASN") >= 0 ||
-					sUpper.indexOf("SCHEDULING AGREEMENT ASN") >= 0 ||
-					sUpper.indexOf("SUPPLIER PORTAL VENDOR") >= 0;
-			}
-			oGlobalModel.setProperty("/DisableRefDocMaterialsActions", !!bDisableActions);
-
 			// Set TripData model on view if not already set (for binding)
 			if (oTripData && !this.getView().getModel("TripData")) {
 				this.getView().setModel(oTripData, "TripData");
 			}
 
 			if (!oTripData) {
+				oGlobalModel.setProperty("/DisableRefDocMaterialsActions", false);
 				oModel.setProperty("/referenceDocs", []);
 				oModel.setProperty("/materialDetails", []);
 				oModel.setProperty("/filteredMaterialDetails", []);
 				return;
 			}
+
+			// I02 (scanner-first / ASN): keep Add/Edit/Delete ref docs and manual material actions hidden after reporting
+			var sItemKey = oTripData.getProperty("/MovementScenarioItemKey") || "";
+			if (!sItemKey) {
+				sItemKey = MovementScenarioIcons.getMovementScenarioItemKey(
+					oTripData.getProperty("/MovementType") || "",
+					oTripData.getProperty("/MovementScenario")
+				);
+			}
+			var bI02 = sItemKey === MovementScenarioIcons.SCANNER_MOVEMENT_SCENARIO_ITEM_KEY;
+			oGlobalModel.setProperty("/DisableRefDocMaterialsActions", !!bI02);
 			
 			var vOrderDetails = oTripData.getProperty("/OrderDetails");
 			var vItemDetails = oTripData.getProperty("/ItemDetails");
@@ -2905,11 +2963,11 @@ sap.ui.define([
 			if (bItemDetailsAlreadyLoaded === undefined) {
 				bItemDetailsAlreadyLoaded = false;
 			}
-			// Filter out deleted records (Deleted === true)
+			// Filter out deleted records (Deleted === true) and by MovementType (I = Gate In, O = Gate Out)
 			var aRefDocs = (aDocs || [])
 				.filter(function (oDoc) {
-					return !oDoc.Deleted;
-				})
+					return !oDoc.Deleted && this._rowMatchesRefDocMovementScope(oDoc.MovementType);
+				}.bind(this))
 				.map(function (oDoc) {
 					return {
 						// Store both original service values (uppercase) and local model values (lowercase)
@@ -2917,9 +2975,11 @@ sap.ui.define([
 						TripNumber: oDoc.TripNumber || "",
 						DocType: oDoc.DocType || "",
 						DocumentNumber: oDoc.DocumentNumber || "",
+						MovementType: oDoc.MovementType || "",
 						tripNumber: oDoc.TripNumber || "",
 						docType: oDoc.DocType || "",
 						documentNumber: oDoc.DocumentNumber || "",
+						movementType: oDoc.MovementType || "",
 						documentDate: this._formatODataDate(oDoc.DocumentDate),
 						partyCode: oDoc.Vendor || oDoc.Customer || "",
 						partyName: oDoc.Name || "",
@@ -3025,6 +3085,11 @@ sap.ui.define([
 					var oPromise = that._fetchItemDetailsByRefDocNo(sDocType, sRefDocNo)
 						.then(function (aItems) {
 							if (aItems && aItems.length > 0) {
+								aItems = aItems.filter(function (oItem) {
+									return that._rowMatchesRefDocMovementScope(oItem.MovementType);
+								});
+							}
+							if (aItems && aItems.length > 0) {
 								// Filter out materials that already exist
 								var aNewMaterials = aItems.filter(function (oItem) {
 									var sKey = (oItem.TripNumber || "") + "|" + 
@@ -3077,6 +3142,7 @@ sap.ui.define([
 							docType: oItem.DocType || "",
 							refDocNo: oItem.RefDocNo || "",
 							refDocItemNo: oItem.RefDocItemNo || "",
+							movementType: oItem.MovementType || "",
 							materialCode: oItem.MaterialCode || "",
 							materialDescription: oItem.MaterialDescription || "",
 							qty: sQtyDisplay,
@@ -3099,11 +3165,11 @@ sap.ui.define([
 		},
 
 		_setMaterialDetailsFromService: function (aItems) {
-			// Filter out deleted records (IsDeleted === "X")
+			// Filter out deleted records (IsDeleted === "X") and by MovementType (I / O)
 			var aMaterials = (aItems || [])
 				.filter(function (oItem) {
-					return oItem.IsDeleted !== "X";
-				})
+					return oItem.IsDeleted !== "X" && this._rowMatchesRefDocMovementScope(oItem.MovementType);
+				}.bind(this))
 				.map(function (oItem) {
 					return {
 						// Store both original service values (uppercase) and local model values (lowercase)
@@ -3112,10 +3178,12 @@ sap.ui.define([
 						DocType: oItem.DocType || "",
 						RefDocNo: oItem.RefDocNo || "",
 						RefDocItemNo: oItem.RefDocItemNo || "",
+						MovementType: oItem.MovementType || "",
 						tripNumber: oItem.TripNumber || "",
 						docType: oItem.DocType || "",
 						refDocNo: oItem.RefDocNo || "",
 						refDocItemNo: oItem.RefDocItemNo || "",
+						movementType: oItem.MovementType || "",
 						materialCode: oItem.MaterialCode || "",
 						materialDescription: oItem.MaterialDescription || "",
 						qty: (oItem.Quantity === null || oItem.Quantity === undefined) ? "" : String(oItem.Quantity),

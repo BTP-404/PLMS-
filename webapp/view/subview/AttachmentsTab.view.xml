@@ -7,7 +7,7 @@
     xmlns:unified="sap.ui.unified"
 >
 
-    <VBox class="sapUiSizeCompact sapUiTinyMargin">
+    <VBox class="sapUiSizeCompact sapUiSmallMargin">
 
         <!-- ========================================================= -->
         <!-- Upload Section -->
@@ -24,7 +24,7 @@
                 </OverflowToolbar>
             </headerToolbar>
 
-            <VBox class="sapUiSizeCompact sapUiSmallPadding">
+            <VBox class="sapUiSizeCompact sapUiMediumPadding">
                 <layout:Grid
                     defaultSpan="L6 M6 S12"
                     hSpacing="0.5rem"
@@ -114,7 +114,7 @@
                 </OverflowToolbar>
             </headerToolbar>
 
-            <VBox class="sapUiSizeCompact sapUiSmallPadding">
+            <VBox class="sapUiSizeCompact sapUiMediumPadding">
                 <List
                     id="idUploadedFilesList"
                     mode="Delete"

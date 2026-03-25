@@ -33,7 +33,7 @@
 						<Text id="selectedScenarioText" text="" class="cutstomCssSCenarioText"
 							visible="false"/>
 						<!-- IconTabBar -->
-						<IconTabBar id="iconTabBar" expandable="true" expanded="true" enableTabReordering="true" select="onIconTabSelect">
+						<IconTabBar id="iconTabBar" class="homeLikeTabs" expandable="true" expanded="true" enableTabReordering="true" select="onIconTabSelect">
 							<items>
 								<IconTabFilter key="gateIn" text="Gate In" icon="sap-icon://visits" enabled="true">
 									<mvc:XMLView viewName="com.incresolZ_INC_PLMS.view.subview.GateIn"/>

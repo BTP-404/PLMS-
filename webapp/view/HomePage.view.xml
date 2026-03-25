@@ -9,7 +9,7 @@
 >
     <semantic:SemanticPage
         id="TripSemanticPage"
-        class="homeSemanticPage"
+        class="homeSemanticPage sapUiNoContentPadding"
         toggleHeaderOnTitleClick="true"
         preserveHeaderStateOnScroll="true"
         headerPinnable="true"
@@ -44,22 +44,42 @@
         </semantic:titleCustomTextActions>
         <!-- ==================== HEADER FILTER AREA ==================== -->
         <semantic:headerContent>
-            <layout:Grid
+            <VBox
                 width="100%"
-                defaultSpan="XL3 L3 M4 S12"
-                hSpacing="2"
-                vSpacing="1"
-                class="sapUiSizeCompact homeFilterCard"
+                class="homeFilterSection"
             >
+                <Toolbar
+                    design="Transparent"
+                    class="homeFilterToolbar"
+                >
+                    <core:Icon
+                        src="sap-icon://filter"
+                        class="homeFilterToolbarIcon "
+                    />
+                    <Title
+                        text="{i18n>homeFilterSectionTitle}"
+                        level="H3"
+                        class="homeFilterToolbarTitle"
+                    />
+                    <ToolbarSpacer />
+                </Toolbar>
+                <layout:Grid
+                    width="100%"
+                    defaultSpan="XL4 L4 M4 S12"
+                    hSpacing="2"
+                    vSpacing="1"
+                    class="sapUiSizeCompact homeFilterCard"
+                >
                 <!-- Trip Number -->
                 <layout:content>
-                    <VBox>
+                    <VBox class="homeFilterField">
                         <layoutData>
-                            <layout:GridData span="XL3 L3 M4 S12" />
+                            <layout:GridData span="XL4 L4 M4 S12" />
                         </layoutData>
                         <Label
                             design="Bold"
                             text="Trip Number:"
+                            class="homeFilterLabel"
                         />
                         <Input
                             width="100%"
@@ -68,6 +88,8 @@
                             filterSuggests="false"
                             suggestThreshold="1"
                             suggestionItemSelected=".onSuggestionItemSelected"
+                            change=".onFilterInputChange"
+                            liveChange=".onFilterInputLiveChange"
                         >
                             <customData>
                                 <core:CustomData
@@ -80,13 +102,14 @@
                 </layout:content>
                 <!-- Vehicle Number -->
                 <layout:content>
-                    <VBox>
+                    <VBox class="homeFilterField">
                         <layoutData>
-                            <layout:GridData span="XL3 L3 M4 S12" />
+                            <layout:GridData span="XL4 L4 M4 S12" />
                         </layoutData>
                         <Label
                             design="Bold"
                             text="Vehicle Number:"
+                            class="homeFilterLabel"
                         />
                         <Input
                             width="100%"
@@ -95,6 +118,8 @@
                             filterSuggests="false"
                             suggestThreshold="1"
                             suggestionItemSelected=".onSuggestionItemSelected"
+                            change=".onFilterInputChange"
+                            liveChange=".onFilterInputLiveChange"
                         >
                             <customData>
                                 <core:CustomData
@@ -105,53 +130,38 @@
                         </Input>
                     </VBox>
                 </layout:content>
-                <!-- Report date range + Go: wider column (5/12) so range + Go fit; row 11/12 leaves light margin on right -->
+                <!-- Vehicle reported date range; filters apply when dates or Trip/Vehicle inputs change -->
                 <layout:content>
-                    <VBox>
+                    <VBox class="homeFilterField">
                         <layoutData>
-                            <layout:GridData span="XL5 L5 M4 S12" />
+                            <layout:GridData span="XL4 L4 M4 S12" />
                         </layoutData>
                         <Label
                             design="Bold"
                             text="Vehicle Reported Date Range:"
+                            class="homeFilterLabel"
                         />
-                        <HBox
-                            alignItems="Center"
+                        <DateRangeSelection
+                            id="ReportDateRange"
                             width="100%"
-                            justifyContent="Start"
-                        >
-                            <DateRangeSelection
-                                id="ReportDateRange"
-                                width="100%"
-                                displayFormat="medium"
-                                placeholder="{i18n>dateRangePlaceholderExample}"
-                                showCurrentDateButton="true"
-                                showFooter="true"
-                                change=".onReportDateRangeChange"
-                                value="{
-                                    parts: [
-                                        { path: 'homeFilter>/reportDateFrom', type: 'sap.ui.model.type.Date' },
-                                        { path: 'homeFilter>/reportDateTo', type: 'sap.ui.model.type.Date' }
-                                    ],
-                                    type: 'sap.ui.model.type.DateInterval'
-                                }"
-                            >
-                                <layoutData>
-                                    <FlexItemData growFactor="1" />
-                                </layoutData>
-                            </DateRangeSelection>
-                            <Button
-                                text="Go"
-                                type="Emphasized"
-                                width="3rem"
-                                press=".onGoPress"
-                                class="sapUiSmallMarginBegin"
-                            />
-                        </HBox>
+                            displayFormat="medium"
+                            placeholder="{i18n>dateRangePlaceholderExample}"
+                            showCurrentDateButton="true"
+                            showFooter="true"
+                            change=".onReportDateRangeChange"
+                            value="{
+                                parts: [
+                                    { path: 'homeFilter>/reportDateFrom', type: 'sap.ui.model.type.Date' },
+                                    { path: 'homeFilter>/reportDateTo', type: 'sap.ui.model.type.Date' }
+                                ],
+                                type: 'sap.ui.model.type.DateInterval'
+                            }"
+                        />
                     </VBox>
                 </layout:content>
 
-            </layout:Grid>
+                </layout:Grid>
+            </VBox>
         </semantic:headerContent>
         <!-- ==================== CONTENT AREA ==================== -->
         <semantic:content>

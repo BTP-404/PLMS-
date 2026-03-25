@@ -21,7 +21,7 @@
                 </OverflowToolbar>
             </headerToolbar>
 
-            <VBox class="sapUiSmallMargin sapUiSizeCompact">
+            <VBox class="sapUiSizeCompact sapUiMediumPadding">
 
                 <!-- ===================== TABLE SECTION ===================== -->
                 <ScrollContainer

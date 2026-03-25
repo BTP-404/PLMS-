@@ -21,7 +21,7 @@
                 </OverflowToolbar>
             </headerToolbar>
 
-            <VBox class="sapUiSmallMargin sapUiSizeCompact">
+            <VBox class="sapUiSizeCompact sapUiMediumPadding">
                 <ScrollContainer
                     horizontal="true"
                     vertical="false"
@@ -170,7 +170,7 @@
                 </OverflowToolbar>
             </headerToolbar>
 
-            <VBox class="sapUiSmallMargin sapUiSizeCompact">
+            <VBox class="sapUiSizeCompact sapUiMediumPadding">
                 <ScrollContainer
                     horizontal="true"
                     vertical="false"

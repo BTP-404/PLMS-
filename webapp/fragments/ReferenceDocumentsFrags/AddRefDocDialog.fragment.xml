@@ -61,24 +61,28 @@
                 valueFormat="yyyy-MM-dd"
                 displayFormat="medium"
                 placeholder="{i18n>datePlaceholderExample}"
+                editable="false"
             />
 
             <Label text="Sending / Receiving Party Code" />
             <Input
                 id="idRefDocPartyCode"
                 valueLiveUpdate="true"
+                editable="false"
             />
 
             <Label text="Sending / Receiving Party Name" />
             <Input
                 id="idRefDocPartyName"
                 valueLiveUpdate="true"
+                editable="false"
             />
 
             <Label text="EwayBill Number" />
             <Input
                 id="idRefDocEwayBillNumber"
                 valueLiveUpdate="true"
+                editable="false"
             />
 
             <Label text="EwayBill Date" />
@@ -87,18 +91,21 @@
                 valueFormat="yyyy-MM-dd"
                 displayFormat="medium"
                 placeholder="{i18n>datePlaceholderExample}"
+                editable="false"
             />
 
             <Label text="Order Number" />
             <Input
                 id="idRefDocSalesDoc"
                 valueLiveUpdate="true"
+                editable="false"
             />
 
             <Label text="Order Type" />
             <Input
                 id="idRefDocSalesDoctype"
                 valueLiveUpdate="true"
+                editable="false"
             />
 
         </form:SimpleForm>

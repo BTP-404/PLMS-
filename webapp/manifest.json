@@ -51,8 +51,7 @@
     "sap.ui5": {
         "rootView": {
             "viewName": "com.incresolZ_INC_PLMS.view.App",
-            "type": "XML",
-            "id": "app"
+            "type": "XML"
         },
         "dependencies": {
             "minUI5Version": "1.30.0",

@@ -4,7 +4,7 @@
     xmlns="sap.m"
     xmlns:layout="sap.ui.layout"
 >
-    <VBox class="sapUiSizeCompact sapUiTinyMargin">
+    <VBox class="sapUiSizeCompact sapUiSmallMargin">
 
         <!-- ========================================================= -->
         <!-- Notification Banner for New Notes -->
@@ -42,7 +42,7 @@
                 </OverflowToolbar>
             </headerToolbar>
 
-            <VBox class="sapUiSizeCompact sapUiSmallPadding">
+            <VBox class="sapUiSizeCompact sapUiMediumPadding">
                 <TextArea
                     id="idNoteInput"
                     rows="4"
@@ -77,7 +77,7 @@
                 </OverflowToolbar>
             </headerToolbar>
 
-            <VBox class="sapUiSizeCompact sapUiSmallPadding">
+            <VBox class="sapUiSizeCompact sapUiMediumPadding">
                 <VBox class="noteVboxBG sapUiSmallPadding">
                     <FlexBox
                         id="idNotesContainer"

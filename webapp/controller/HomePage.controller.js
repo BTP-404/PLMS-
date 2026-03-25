@@ -63,6 +63,11 @@ sap.ui.define(
       },
 
       onExit: function () {
+        if (this._iFilterInputDebounce) {
+          clearTimeout(this._iFilterInputDebounce);
+          this._iFilterInputDebounce = null;
+        }
+
         this._oEventBus?.unsubscribe(
           "HomePage",
           "RefreshTripTable",
@@ -240,7 +245,10 @@ sap.ui.define(
             var oSelectedItem = oEvt.getParameter("selectedItem");
             if (oSelectedItem) {
               oInput.setValue(oSelectedItem.getTitle());
-              // Filtering will be applied when user clicks Go button
+              var oRange = this._getReportDateRange();
+              if (this._isReportDateRangeOrderValid(oRange.from, oRange.to)) {
+                this._applyTableFilter();
+              }
             }
           }.bind(this),
         });
@@ -263,7 +271,7 @@ sap.ui.define(
       onSuggest: function (oEvent) {
         var oInput = oEvent.getSource();
         var sField = oInput.data("field");
-        var sValue = oEvent.getParameter("suggestValue");
+        var sValue = (oEvent.getParameter("suggestValue") || "").trim();
         var oFieldConfig = this._getFieldConfiguration(sField);
         if (!oFieldConfig) return;
 
@@ -280,30 +288,58 @@ sap.ui.define(
           ]
           : [];
 
-        this.getView()
-          .getModel()
-          .read("/TripDetails", {
-            filters: aFilters,
-            success: function (oData) {
-              oInput.destroySuggestionItems();
-              (oData.results || []).forEach(function (item) {
-                oInput.addSuggestionItem(
-                  new SuggestionItem({
-                    key: item[sKeyField],
-                    text: item[sKeyField],
-                    description: item[sDescField],
-                  })
-                );
-              });
-              // Filtering will be applied when user clicks Go button
-            }.bind(this),
+        var fnApplySuggestions = function (aItems) {
+          oInput.destroySuggestionItems();
+          (aItems || []).forEach(function (item) {
+            oInput.addSuggestionItem(
+              new SuggestionItem({
+                key: item[sKeyField],
+                text: item[sKeyField],
+                description: item[sDescField],
+              })
+            );
           });
+        };
+
+        var fnClientSideFilter = function (aItems, sNeedle) {
+          var sNeedleLower = (sNeedle || "").toLowerCase();
+          if (!sNeedleLower) {
+            return aItems || [];
+          }
+          return (aItems || []).filter(function (oItem) {
+            var sKey = (oItem[sKeyField] || "").toString().toLowerCase();
+            var sDesc = (oItem[sDescField] || "").toString().toLowerCase();
+            return sKey.indexOf(sNeedleLower) > -1 || sDesc.indexOf(sNeedleLower) > -1;
+          });
+        };
+
+        var oModel = this.getView().getModel();
+        oModel.read("/TripDetails", {
+          filters: aFilters,
+          success: function (oData) {
+            fnApplySuggestions(oData.results || []);
+          },
+          error: function () {
+            // Fallback for backends where some fields are not filterable (e.g. VehicleNumber).
+            oModel.read("/TripDetails", {
+              success: function (oDataAll) {
+                fnApplySuggestions(fnClientSideFilter(oDataAll.results || [], sValue));
+              },
+              error: function () {
+                fnApplySuggestions([]);
+              },
+            });
+          },
+        });
       },
 
       onSuggestionItemSelected: function (oEvent) {
         var oInput = oEvent.getSource();
         oInput.setValue(oEvent.getParameter("selectedItem").getText());
-        // Filtering will be applied when user clicks Go button
+        var oRange = this._getReportDateRange();
+        if (this._isReportDateRangeOrderValid(oRange.from, oRange.to)) {
+          this._applyTableFilter();
+        }
       },
 
       /**
@@ -339,7 +375,40 @@ sap.ui.define(
           MessageBox.error(
             "The end date cannot be before the start date. Please choose an end date on or after the start date."
           );
+          return;
         }
+        this._applyTableFilter();
+      },
+
+      /**
+       * When filter text is committed (Enter or focus leaves), re-apply filters (e.g. after clearing).
+       */
+      onFilterInputChange: function () {
+        var oRange = this._getReportDateRange();
+        if (!this._isReportDateRangeOrderValid(oRange.from, oRange.to)) {
+          return;
+        }
+        this._applyTableFilter();
+      },
+
+      /**
+       * While typing in Trip / Vehicle filters, re-apply after a short pause (e.g. user clears text).
+       */
+      onFilterInputLiveChange: function () {
+        if (this._iFilterInputDebounce) {
+          clearTimeout(this._iFilterInputDebounce);
+        }
+        this._iFilterInputDebounce = setTimeout(
+          function () {
+            this._iFilterInputDebounce = null;
+            var oRange = this._getReportDateRange();
+            if (!this._isReportDateRangeOrderValid(oRange.from, oRange.to)) {
+              return;
+            }
+            this._applyTableFilter();
+          }.bind(this),
+          350
+        );
       },
 
       _getReportDateRange: function () {
@@ -351,23 +420,6 @@ sap.ui.define(
           from: oDRS.getDateValue() || null,
           to: oDRS.getSecondDateValue() || null,
         };
-      },
-
-      onGoPress: function () {
-        // Validate date range before applying filters
-        var oRange = this._getReportDateRange();
-        var oDateFrom = oRange.from;
-        var oDateTo = oRange.to;
-
-        if (!this._isReportDateRangeOrderValid(oDateFrom, oDateTo)) {
-          MessageBox.error(
-            "The end date cannot be before the start date. Please choose an end date on or after the start date."
-          );
-          return;
-        }
-
-        // Apply all filters when Go button is clicked
-        this._applyTableFilter();
       },
 
       // --------------------------------------------
@@ -424,7 +476,7 @@ sap.ui.define(
               return;
             }
             var sField = oInput.data("field");
-            var sValue = oInput.getValue ? oInput.getValue() : "";
+            var sValue = (oInput.getValue ? oInput.getValue() : "").trim();
             if (sField && sValue) {
               var oFieldConfig = this._getFieldConfiguration(sField);
               if (oFieldConfig) {

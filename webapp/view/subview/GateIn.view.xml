@@ -15,7 +15,7 @@
         class="sapUiSizeCompact"
     >
         <VBox
-            class="sapUiSizeCompact sapUiTinyMargin"
+            class="sapUiSizeCompact sapUiSmallMargin"
             width="100%"
         >
             <!-- ========================================================= -->
@@ -26,17 +26,21 @@
             <!-- ========================================================= -->
             <!-- =============== Reference Documents (merged) ============= -->
             <!-- ========================================================= -->
-            <mvc:XMLView viewName="com.incresolZ_INC_PLMS.view.subview.ReferenceDocuments" class="sapUiTinyMarginBottom"/>
+            <mvc:XMLView
+                id="idRefDocsViewGateIn"
+                viewName="com.incresolZ_INC_PLMS.view.subview.ReferenceDocuments"
+                class="sapUiTinyMarginBottom"
+            />
 
             <!-- Gate-In and Change History: same margin as Reporting / Reference Documents -->
-            <VBox class="sapUiSmallMargin">
+            <VBox class="sapUiSizeCompact">
             <!-- ========================================================= -->
             <!-- =================== Gate In Info Panel ================== -->
             <!-- ========================================================= -->
             <Panel
                 id="gateInInfoPanel"
                 expandable="true"
-                expanded="true"
+                expanded="false"
                 class="sapUiNoContentPadding"
             >
             <headerToolbar>
@@ -63,8 +67,8 @@
                             />
                             <Select
                                 id="idEntryGateNumber"
-                                enabled="{entryGateSelect>/Enabled}"
-                                editable="{entryGateSelect>/Editable}"
+                                
+                                
                                 forceSelection="false"
                                 selectedKey="{entryGateSelect>/SelectedProduct2}"
                                 change="onEntryGateSelectChange"
@@ -82,8 +86,7 @@
                             />
                             <Select
                                 id="idDelayReasons"
-                                enabled="{delayReasonSelect>/Enabled}"
-                                editable="{delayReasonSelect>/Editable}"
+                               
                                 forceSelection="false"
                                 placeholder="Select Delay Reason"
                                 selectedKey="{delayReasonSelect>/SelectedDelayKey}"
@@ -144,6 +147,26 @@
                                 columns="2"
                                 selectedIndex="{path: 'TripData>/WeighmentRequired', formatter: '.formatWeighmentRequiredIndex'}"
                                 select="onWeighmentRequiredChange"
+                                width="100%"
+                            >
+                                <RadioButton text="Yes" />
+                                <RadioButton text="No" />
+                            </RadioButtonGroup>
+                        </VBox>
+                    </layout:content>
+
+                    <!-- Skip Document (TripDetails RefDocSkip / GateIn RefdocSkip) -->
+                    <layout:content>
+                        <VBox>
+                            <Label
+                                text="Skip Document"
+                                design="Bold"
+                            />
+                            <RadioButtonGroup
+                                id="idSkipDocument"
+                                columns="2"
+                                selectedIndex="{path: 'TripData>/RefDocSkip', formatter: '.formatRefDocSkipIndex'}"
+                                select="onRefDocSkipChange"
                                 width="100%"
                             >
                                 <RadioButton text="Yes" />
@@ -213,7 +236,7 @@
             </headerToolbar>
 
             <VBox
-                class="sapUiSmallPadding sapUiSizeCompact"
+                class="sapUiMediumPadding sapUiSizeCompact"
                 width="100%"
             >
                 <layout:Grid

@@ -24,23 +24,121 @@
     background: var(--plms-neutral-bg-soft) !important;
 }
 
+/* Tighten space between filter header and Trip Details table (SemanticPage uses DynamicPage) */
+.homeSemanticPage.sapUiNoContentPadding .sapFDynamicPageContent,
+.homeSemanticPage.sapUiNoContentPadding .sapFDynamicPageContentFitContainer {
+    padding-top: 0.125rem !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    padding-bottom: 0 !important;
+}
+
+/* Tight top padding — sits directly under title row */
+.homeSemanticPage .sapFDynamicPageHeader.sapFDynamicPageHeaderWithContent {
+    padding-top: 0.25rem !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    padding-bottom: 0 !important;
+}
+
+.homeSemanticPage .sapFDynamicPage-Std-Tablet .sapFDynamicPageHeader.sapFDynamicPageHeaderWithContent,
+.homeSemanticPage .sapFDynamicPage-Std-Phone .sapFDynamicPageHeader.sapFDynamicPageHeaderWithContent {
+    padding-top: 0.25rem !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    padding-bottom: 0 !important;
+}
+
+/* Match tablet/phone DynamicPage content padding overrides */
+.homeSemanticPage .sapFDynamicPage-Std-Tablet .sapFDynamicPageContent,
+.homeSemanticPage .sapFDynamicPage-Std-Tablet .sapFDynamicPageContentFitContainer,
+.homeSemanticPage .sapFDynamicPage-Std-Phone .sapFDynamicPageContent,
+.homeSemanticPage .sapFDynamicPage-Std-Phone .sapFDynamicPageContentFitContainer {
+    padding-top: 0.125rem !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+}
+
+/* Less vertical space between title row ("Trip Status") and expandable header ("Filters") */
+.homeSemanticPage .sapFDynamicPageTitle {
+    padding-top: 0.25rem !important;
+    padding-bottom: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    min-height: 2rem !important;
+}
+
+.homeSemanticPage .sapFDynamicPageTitleMainContent {
+    padding-bottom: 0 !important;
+}
+
+.homeSemanticPage .sapFDynamicPage-Std-Tablet .sapFDynamicPageTitle,
+.homeSemanticPage .sapFDynamicPage-Std-Phone .sapFDynamicPageTitle {
+    padding-top: 0.25rem !important;
+    padding-bottom: 0 !important;
+}
+
 .homePageTitle.sapMTitle {
     font-weight: 700 !important;
     color: var(--plms-primary-text) !important;
     border-left: 4px solid var(--plms-primary);
     padding-left: 0.5rem !important;
+    letter-spacing: 0.02em;
+}
+
+/* Filter bar wrapper + toolbar */
+.homeFilterSection {
+    width: 100%;
+    box-sizing: border-box;
+    margin-bottom: 0 !important;
+}
+
+.homeFilterToolbar.sapMTB {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    min-height: 2rem !important;
+    padding-right: 0 !important;
+    padding-bottom: 0.125rem !important;
+}
+
+.homeFilterToolbar .sapMTBStandard {
+    border-bottom: none !important;
+}
+
+.homeFilterToolbarIcon {
+    color: var(--plms-primary) !important;
+    font-size: 1.125rem !important;
+    line-height: 1 !important;
+}
+
+.homeFilterToolbarTitle.sapMTitle {
+    color: var(--plms-primary-text) !important;
+    font-weight: 600 !important;
+    font-size: 1rem !important;
+    margin: 0 !important;
+}
+
+.homeFilterField {
+    min-width: 0;
+}
+
+.homeFilterLabel.sapMLabel {
+    padding-bottom: 0.375rem !important;
+    font-size: 0.875rem !important;
+    letter-spacing: 0.02em;
 }
 
 .homeFilterCard {
-    background: #ffffff !important;
+    background: linear-gradient(180deg, #fafcfe 0%, #ffffff 55%, #ffffff 100%) !important;
     border-radius: var(--plms-radius) !important;
-    box-shadow: var(--plms-shadow) !important;
+    box-shadow: var(--plms-shadow), inset 0 3px 0 0 var(--plms-primary) !important;
     border: 1px solid var(--plms-neutral-border) !important;
-    padding: 1rem 1.25rem !important;
-    margin-bottom: 0.5rem !important;
+    /* Less padding at bottom — was equal 1.25rem on all sides */
+    padding: 1rem 1.25rem 0.375rem 1.25rem !important;
+    margin-bottom: 0 !important;
     width: 100% !important;
     box-sizing: border-box !important;
-    /* Header strip can inherit light text; keep filter labels/values readable on white */
     color: var(--sapTextColor, #32363a);
 }
 
@@ -77,8 +175,27 @@
     -webkit-text-fill-color: #ffffff !important;
 }
 
-.homePageContent {
-    padding: 0.5rem 0 !important;
+.homeSemanticPage .homePageContent {
+    padding: 0.125rem 0 0.5rem 0 !important;
+}
+
+/* Trip Status: remove stacked left inset from global ScrollContainer + Table rules */
+.homeSemanticPage .homeTripScrollContainer.sapMScrollContainer {
+    padding-left: 0 !important;
+}
+
+.homeSemanticPage .homeTripTable.sapMTable {
+    padding-left: 0 !important;
+}
+
+.homeSemanticPage .homeTripTable.sapMList {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+}
+
+/* Filter Grid uses sap.ui.layout.Grid — global .sapUiLayoutGrid adds margin-left */
+.homeSemanticPage .homeFilterCard.sapUiLayoutGrid {
+    margin-left: 0 !important;
 }
 
 .btnReportVehicle .sapMBtnInner {
@@ -124,8 +241,26 @@
     transform: translateY(0);
 }
 
-.homeFilterCard .sapMInputBase:focus-within,
-.homeFilterCard .sapMInputBaseFocus {
+/* Rounded inputs + date range in filter card */
+.homeFilterCard .sapMInputBaseContentWrapper,
+.homeFilterCard .sapMDRS .sapMInputBaseContentWrapper {
+    border-radius: var(--plms-radius-sm) !important;
+    border: 1px solid #c8d0dd !important;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
+}
+
+.homeFilterCard .sapMInputBase:not(.sapMInputBaseDisabled):hover .sapMInputBaseContentWrapper {
+    border-color: #a8b4c4 !important;
+}
+
+.homeFilterCard .sapMDRS .sapMInputBase:not(.sapMInputBaseDisabled):hover .sapMInputBaseContentWrapper {
+    border-color: #a8b4c4 !important;
+}
+
+.homeFilterCard .sapMInputBase:focus-within .sapMInputBaseContentWrapper,
+.homeFilterCard .sapMInputBase.sapMInputBaseFocus .sapMInputBaseContentWrapper,
+.homeFilterCard .sapMDRS .sapMInputBase:focus-within .sapMInputBaseContentWrapper,
+.homeFilterCard .sapMDRS .sapMInputBase.sapMFocus .sapMInputBaseContentWrapper {
     border-color: var(--plms-primary) !important;
     box-shadow: 0 0 0 2px rgba(0, 112, 242, 0.2) !important;
 }
@@ -2567,4 +2702,314 @@
 .stageContentVBox {
     padding-top: 0.5rem !important; /* breathing room so tabs are not cut from top */
     margin-top: 0 !important;
+}
+
+/* HomePage-like visual framing for Stage tabs */
+#stagePage .homeLikeTabs.sapMITB {
+    margin-left: 0 !important;
+    border-radius: var(--plms-radius-sm);
+}
+
+#stagePage .homeLikeTabs .sapMITBContent {
+    background: var(--plms-neutral-bg-soft) !important;
+    padding: 0.25rem 0.5rem 0.5rem 0.5rem !important;
+}
+
+#stagePage .homeLikeTabs .sapMITBFilter {
+    border-radius: var(--plms-radius-sm) !important;
+}
+
+#stagePage .homeLikeTabs .sapMITBSelected .sapMITBContentArrow::after {
+    background: var(--plms-primary) !important;
+}
+
+/* Make tab forms (Reporting/RefDoc/GateIn/GateOut/others) match HomePage input visual */
+#stagePage .sapMITBContent .sapMPanel .sapMPanelContent {
+    background: linear-gradient(180deg, #fafcfe 0%, #ffffff 55%, #ffffff 100%) !important;
+}
+
+#stagePage .sapMITBContent .sapMLabel,
+#stagePage .sapMITBContent .sapMLabel .sapMLabelInner {
+    color: var(--sapTextColor, #32363a) !important;
+    font-size: 0.875rem !important;
+    letter-spacing: 0.02em !important;
+    padding-bottom: 0.375rem !important;
+}
+
+#stagePage .sapMITBContent .sapMInputBaseContentWrapper,
+#stagePage .sapMITBContent .sapMTextArea .sapMInputBaseContentWrapper,
+#stagePage .sapMITBContent .sapMSlt,
+#stagePage .sapMITBContent .sapMComboBox .sapMInputBaseContentWrapper,
+#stagePage .sapMITBContent .sapMComboBoxBase .sapMInputBaseContentWrapper,
+#stagePage .sapMITBContent .sapMDatePicker .sapMInputBaseContentWrapper,
+#stagePage .sapMITBContent .sapMTimePicker .sapMInputBaseContentWrapper {
+    border: 1px solid #c8d0dd !important;
+    border-radius: 0.75rem !important;
+    background: #ffffff !important;
+    box-shadow: none !important;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
+    overflow: hidden !important;
+}
+
+#stagePage .sapMITBContent .sapMInputBase:not(.sapMInputBaseDisabled):hover .sapMInputBaseContentWrapper,
+#stagePage .sapMITBContent .sapMTextArea:not(.sapMInputBaseDisabled):hover .sapMInputBaseContentWrapper,
+#stagePage .sapMITBContent .sapMSlt:hover,
+#stagePage .sapMITBContent .sapMComboBoxBase:hover .sapMInputBaseContentWrapper {
+    border-color: #a8b4c4 !important;
+}
+
+#stagePage .sapMITBContent .sapMInputBase:focus-within .sapMInputBaseContentWrapper,
+#stagePage .sapMITBContent .sapMInputBase.sapMInputBaseFocus .sapMInputBaseContentWrapper,
+#stagePage .sapMITBContent .sapMComboBoxBase.sapMFocus .sapMInputBaseContentWrapper,
+#stagePage .sapMITBContent .sapMSlt.sapMSltFocused {
+    border-color: var(--plms-primary) !important;
+    box-shadow: 0 0 0 2px rgba(0, 112, 242, 0.2) !important;
+}
+
+/* Ensure inner field corners also stay rounded (SAP theme-safe override) */
+#stagePage .sapMITBContent .sapMInputBaseInner,
+#stagePage .sapMITBContent .sapMTextAreaInner,
+#stagePage .sapMITBContent .sapMSltLabel {
+    border-radius: 0.75rem !important;
+}
+
+/* Keep disabled/read-only fields visually consistent too */
+#stagePage .sapMITBContent .sapMInputBase.sapMInputBaseDisabled .sapMInputBaseContentWrapper,
+#stagePage .sapMITBContent .sapMInputBase[readonly="readonly"] .sapMInputBaseContentWrapper {
+    background: #f8fbff !important;
+    border-color: #d5deea !important;
+}
+
+/* ==================== SUBVIEW VISUAL CONSISTENCY (LIKE HOMEPAGE) ==================== */
+/* Keep all stage subviews on the same visual language as HomePage cards and tables. */
+.sapUiView[data-controller-name*=".controller.subview."] {
+    background: var(--plms-neutral-bg-soft);
+}
+
+.sapUiView[data-controller-name*=".controller.subview."] .sapMVBox.sapUiSmallMargin,
+.sapUiView[data-controller-name*=".controller.subview."] .sapMVBox.sapUiTinyMargin {
+    margin: 0.5rem !important;
+}
+
+.sapUiView[data-controller-name*=".controller.subview."] .sapMPanel {
+    border-radius: var(--plms-radius-sm) !important;
+    border: 1px solid var(--plms-neutral-border) !important;
+    box-shadow: var(--plms-shadow) !important;
+    overflow: hidden;
+    background: #ffffff !important;
+}
+
+.sapUiView[data-controller-name*=".controller.subview."] .sapMPanel + .sapMPanel {
+    margin-top: 0.5rem !important;
+}
+
+.sapUiView[data-controller-name*=".controller.subview."] .sapMPanel .sapMTB {
+    background: var(--plms-neutral-bg) !important;
+    border-bottom: 1px solid var(--plms-neutral-border) !important;
+}
+
+.sapUiView[data-controller-name*=".controller.subview."] .sapMPanel .sapMPanelHdr,
+.sapUiView[data-controller-name*=".controller.subview."] .sapMPanel .sectionPanelTitle {
+    color: var(--plms-primary-text) !important;
+    font-weight: 700 !important;
+}
+
+.sapUiView[data-controller-name*=".controller.subview."] .sapMTable {
+    border-radius: var(--plms-radius-sm);
+    border: 1px solid var(--plms-neutral-border);
+    background: #ffffff;
+}
+
+.sapUiView[data-controller-name*=".controller.subview."] .sapMColumnHeader {
+    background-color: var(--plms-neutral-bg) !important;
+    border-bottom: 2px solid var(--plms-neutral-border) !important;
+}
+
+.sapUiView[data-controller-name*=".controller.subview."] .sapMListTblRow:nth-child(even) {
+    background-color: var(--plms-row-alt);
+}
+
+.sapUiView[data-controller-name*=".controller.subview."] .sapMListTblRow:hover {
+    background-color: var(--plms-row-hover);
+}
+
+.sapUiView[data-controller-name*=".controller.subview."] .sapMInputBaseContentWrapper,
+.sapUiView[data-controller-name*=".controller.subview."] .sapMSelectListItemBase,
+.sapUiView[data-controller-name*=".controller.subview."] .sapMSlt {
+    border-radius: var(--plms-radius-sm) !important;
+}
+
+/* Homepage-like user input styling across all subviews */
+.sapUiView[data-controller-name*=".controller.subview."] .sapMLabel,
+.sapUiView[data-controller-name*=".controller.subview."] .sapMLabel .sapMLabelInner {
+    font-size: 0.875rem !important;
+    letter-spacing: 0.02em;
+    color: var(--sapTextColor, #32363a) !important;
+    padding-bottom: 0.375rem !important;
+}
+
+.sapUiView[data-controller-name*=".controller.subview."] .sapMInputBaseContentWrapper,
+.sapUiView[data-controller-name*=".controller.subview."] .sapMTextArea .sapMInputBaseContentWrapper,
+.sapUiView[data-controller-name*=".controller.subview."] .sapMSelectListItemBase,
+.sapUiView[data-controller-name*=".controller.subview."] .sapMSlt {
+    border: 1px solid #c8d0dd !important;
+    border-radius: var(--plms-radius-sm) !important;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
+    background: #ffffff !important;
+}
+
+.sapUiView[data-controller-name*=".controller.subview."] .sapMInputBase:not(.sapMInputBaseDisabled):hover .sapMInputBaseContentWrapper,
+.sapUiView[data-controller-name*=".controller.subview."] .sapMTextArea:not(.sapMInputBaseDisabled):hover .sapMInputBaseContentWrapper,
+.sapUiView[data-controller-name*=".controller.subview."] .sapMSlt:hover,
+.sapUiView[data-controller-name*=".controller.subview."] .sapMComboBox:hover {
+    border-color: #a8b4c4 !important;
+}
+
+.sapUiView[data-controller-name*=".controller.subview."] .sapMInputBase:focus-within .sapMInputBaseContentWrapper,
+.sapUiView[data-controller-name*=".controller.subview."] .sapMInputBase.sapMInputBaseFocus .sapMInputBaseContentWrapper,
+.sapUiView[data-controller-name*=".controller.subview."] .sapMSlt.sapMSltFocused,
+.sapUiView[data-controller-name*=".controller.subview."] .sapMComboBoxBase.sapMFocus .sapMInputBaseContentWrapper {
+    border-color: var(--plms-primary) !important;
+    box-shadow: 0 0 0 2px rgba(0, 112, 242, 0.2) !important;
+}
+
+.sapUiView[data-controller-name*=".controller.subview."] .sapMInputBaseInner::placeholder,
+.sapUiView[data-controller-name*=".controller.subview."] .sapMTextAreaInner::placeholder {
+    color: var(--sapField_PlaceholderTextColor, #6a6d70) !important;
+    -webkit-text-fill-color: var(--sapField_PlaceholderTextColor, #6a6d70) !important;
+    font-style: italic;
+}
+
+/* Exact control rhythm: height + spacing aligned across all app subviews */
+.sapUiView[data-controller-name*=".controller.subview."] .sapMInputBase,
+.sapUiView[data-controller-name*=".controller.subview."] .sapMSlt,
+.sapUiView[data-controller-name*=".controller.subview."] .sapMComboBoxBase {
+    height: 2.5rem !important;
+    min-height: 2.5rem !important;
+}
+
+.sapUiView[data-controller-name*=".controller.subview."] .sapMInputBaseContentWrapper,
+.sapUiView[data-controller-name*=".controller.subview."] .sapMSlt {
+    min-height: 2.5rem !important;
+}
+
+.sapUiView[data-controller-name*=".controller.subview."] .sapMInputBaseInner,
+.sapUiView[data-controller-name*=".controller.subview."] .sapMSltLabel,
+.sapUiView[data-controller-name*=".controller.subview."] .sapMComboBoxBase .sapMInputBaseInner {
+    height: 2.375rem !important;
+    line-height: 2.375rem !important;
+}
+
+.sapUiView[data-controller-name*=".controller.subview."] .sapMTextArea .sapMInputBaseContentWrapper {
+    min-height: 6rem !important;
+}
+
+.sapUiView[data-controller-name*=".controller.subview."] .sapMTextAreaInner {
+    padding-top: 0.5rem !important;
+    line-height: 1.4 !important;
+}
+
+/* Consistent vertical rhythm between labels and fields */
+.sapUiView[data-controller-name*=".controller.subview."] .sapMVBox > .sapMLabel {
+    margin-bottom: 0.25rem !important;
+}
+
+.sapUiView[data-controller-name*=".controller.subview."] .sapMVBox > .sapMInputBase,
+.sapUiView[data-controller-name*=".controller.subview."] .sapMVBox > .sapMSlt,
+.sapUiView[data-controller-name*=".controller.subview."] .sapMVBox > .sapMComboBoxBase,
+.sapUiView[data-controller-name*=".controller.subview."] .sapMVBox > .sapMTextArea {
+    margin-bottom: 0.5rem !important;
+}
+
+/* Stronger HomePage-like structure for all Stage tab subviews */
+#stagePage .sapMITBContent {
+    background: var(--plms-neutral-bg-soft) !important;
+}
+
+#stagePage .sapMITBContent .sapUiView[data-controller-name*=".controller.subview."] {
+    background: transparent !important;
+}
+
+#stagePage .sapMITBContent .sapUiView[data-controller-name*=".controller.subview."] > .sapMVBox {
+    margin: 0.5rem !important;
+}
+
+#stagePage .sapMITBContent .sapUiView[data-controller-name*=".controller.subview."] .sapMPanel {
+    margin-bottom: 0.75rem !important;
+    border-radius: var(--plms-radius) !important;
+    border: 1px solid var(--plms-neutral-border) !important;
+    box-shadow: var(--plms-shadow) !important;
+    background: #ffffff !important;
+}
+
+#stagePage .sapMITBContent .sapUiView[data-controller-name*=".controller.subview."] .sapMPanel .sapMPanelWrappingDiv,
+#stagePage .sapMITBContent .sapUiView[data-controller-name*=".controller.subview."] .sapMPanel .sapMPanelContent {
+    background: linear-gradient(180deg, #fafcfe 0%, #ffffff 55%, #ffffff 100%) !important;
+}
+
+#stagePage .sapMITBContent .sapUiView[data-controller-name*=".controller.subview."] .sapMPanel .sapMTB {
+    min-height: 2.25rem !important;
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+    background: var(--plms-neutral-bg) !important;
+    border-bottom: 1px solid var(--plms-neutral-border) !important;
+}
+
+#stagePage .sapMITBContent .sapUiView[data-controller-name*=".controller.subview."] .sapMPanel .sapMPanelContent {
+    padding: 1rem 1rem 0.75rem 1rem !important;
+}
+
+#stagePage .sapMITBContent .sapUiView[data-controller-name*=".controller.subview."] .sapUiLayoutGrid {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+}
+
+#stagePage .sapMITBContent .sapUiView[data-controller-name*=".controller.subview."] .sapMPanel .sapMHBox[justify-content="End"] {
+    margin-top: 0.5rem !important;
+    padding-right: 0 !important;
+}
+
+/* ==================== APP-WIDE INPUT LOOK (HOMEPAGE STYLE) ==================== */
+/* Unified rounded inputs/selects/date pickers across the whole application */
+.sapMInputBaseContentWrapper,
+.sapMTextArea .sapMInputBaseContentWrapper,
+.sapMComboBoxBase .sapMInputBaseContentWrapper,
+.sapMDatePicker .sapMInputBaseContentWrapper,
+.sapMTimePicker .sapMInputBaseContentWrapper,
+.sapMDateTimeInput .sapMInputBaseContentWrapper,
+.sapMSlt {
+    border: 1px solid #c8d0dd !important;
+    border-radius: 0.75rem !important;
+    background: #ffffff !important;
+    box-shadow: none !important;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
+    overflow: hidden !important;
+}
+
+.sapMInputBase:not(.sapMInputBaseDisabled):hover .sapMInputBaseContentWrapper,
+.sapMTextArea:not(.sapMInputBaseDisabled):hover .sapMInputBaseContentWrapper,
+.sapMComboBoxBase:not(.sapMComboBoxBaseDisabled):hover .sapMInputBaseContentWrapper,
+.sapMSlt:hover {
+    border-color: #a8b4c4 !important;
+}
+
+.sapMInputBase:focus-within .sapMInputBaseContentWrapper,
+.sapMInputBase.sapMInputBaseFocus .sapMInputBaseContentWrapper,
+.sapMComboBoxBase.sapMFocus .sapMInputBaseContentWrapper,
+.sapMSlt.sapMSltFocused {
+    border-color: var(--plms-primary) !important;
+    box-shadow: 0 0 0 2px rgba(0, 112, 242, 0.2) !important;
+}
+
+.sapMInputBaseInner,
+.sapMTextAreaInner,
+.sapMSltLabel {
+    border-radius: 0.75rem !important;
+}
+
+.sapMInputBaseInner::placeholder,
+.sapMTextAreaInner::placeholder {
+    color: var(--sapField_PlaceholderTextColor, #6a6d70) !important;
+    -webkit-text-fill-color: var(--sapField_PlaceholderTextColor, #6a6d70) !important;
+    font-style: italic;
 }

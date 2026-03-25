@@ -7,11 +7,13 @@
     xmlns:layout="sap.ui.layout"
     displayBlock="true"
 >
-    <VBox class="sapUiSizeCompact sapUiTinyMargin">
-        <!-- Single dropdown input BEFORE Reference Documents (screen-only) -->
+    <VBox class="sapUiSizeCompact sapUiSmallMargin">
+        <!-- Invoice No from OData BillingDocSH (Vbeln); hidden for Inward (MovementType I) -->
         <VBox
-            width="100%"
+            id="idInvoiceNoSection"
+            width="50%"
             class="sapUiSmallMarginBottom"
+            visible="{path: 'TripData>/MovementType', formatter: '.formatInvoiceSectionVisible'}"
         >
             <Label
                 text="Invoice No"
@@ -19,16 +21,23 @@
                 design="Bold"
                 class="sapUiNoMarginBottom"
             />
-            <Select
+            <ComboBox
                 id="idInvoiceNumberDropdown"
-                width="100%"
-                forceSelection="false"
-                selectedKey=""
+                width="50%"
+                editable="true"
+                placeholder="Select invoice"
+                value="{path: 'TripData>/BillingDocument', mode: 'TwoWay'}"
+                selectedKey="{path: 'TripData>/BillingDocument', mode: 'TwoWay'}"
+                items="{invoiceNoModel>/items}"
+                filterParameter="text"
+                change="onInvoiceNoChange"
             >
-                <core:Item key="INV1" text="INV1" />
-                <core:Item key="INV2" text="INV2" />
-                <core:Item key="INV3" text="INV3" />
-            </Select>
+                <core:Item
+                    key="{invoiceNoModel>Vbeln}"
+                    text="{invoiceNoModel>Vbeln}"
+                    templateShareable="false"
+                />
+            </ComboBox>
         </VBox>
 
         <!-- ========================================================= -->
@@ -55,7 +64,7 @@
                 </OverflowToolbar>
             </headerToolbar>
 
-            <VBox class="sapUiSizeCompact sapUiSmallPadding">
+            <VBox class="sapUiSizeCompact sapUiMediumPadding">
                 <!-- ========================= ROW 1 ========================= -->
                 <!-- Verified Docs + Bins Returned (2 columns) -->
                 <layout:Grid
@@ -98,6 +107,58 @@
                                 width="100%"
                                 type="Number"
                                 placeholder="Enter bins returned"
+                                value="{path: 'TripData>/BinsReturned', mode: 'TwoWay'}"
+                            />
+                        </VBox>
+                    </layout:content>
+                </layout:Grid>
+
+                <!-- ========================= ROW 2 ========================= -->
+                <!-- Exit Gate + Short Qty (ShortQty from TripDetails) -->
+                <layout:Grid
+                    defaultSpan="L6 M6 S12"
+                    hSpacing="0.5rem"
+                    vSpacing="0.5rem"
+                    width="100%"
+                    class="sapUiTinyMarginTop"
+                >
+                    <layout:content>
+                        <VBox width="100%">
+                            <Label
+                                text="Exit Gate Number"
+                                required="true"
+                                design="Bold"
+                                class="sapUiNoMarginBottom"
+                            />
+                            <ComboBox
+                                id="idExitGateNumber"
+                                width="100%"
+                                editable="true"
+                                placeholder="Select exit gate"
+                                selectedKey="{path: 'TripData>/ExitGateNum', mode: 'OneWay'}"
+                                items="{exitGateModel>/items}"
+                            >
+                                <core:Item
+                                    key="{exitGateModel>ConfigID}"
+                                    text="{exitGateModel>ConfigID}"
+                                    templateShareable="false"
+                                />
+                            </ComboBox>
+                        </VBox>
+                    </layout:content>
+                    <layout:content>
+                        <VBox width="100%">
+                            <Label
+                                text="Short Quantity"
+                                design="Bold"
+                                class="sapUiNoMarginBottom"
+                            />
+                            <Input
+                                id="idShortQty"
+                                width="100%"
+                                type="Number"
+                                value="{path: 'TripData>/ShortQty', mode: 'TwoWay'}"
+                                placeholder="From trip / enter short qty"
                             />
                         </VBox>
                     </layout:content>

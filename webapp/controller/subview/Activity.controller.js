@@ -439,13 +439,11 @@ sap.ui.define([
 			if (!oDate || isNaN(oDate.getTime())) {
 				return "";
 			}
-			return oDate.toLocaleString(undefined, {
+			// Display date only (no time) for cleaner KPI/timestamp cards.
+			return oDate.toLocaleDateString(undefined, {
 				year: "numeric",
 				month: "short",
-				day: "2-digit",
-				hour: "2-digit",
-				minute: "2-digit",
-				second: "2-digit"
+				day: "2-digit"
 			});
 		},
 

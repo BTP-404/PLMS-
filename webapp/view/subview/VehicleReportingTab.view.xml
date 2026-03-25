@@ -109,17 +109,18 @@
                                 id="idVehicleNumber"
                                 width="100%"
                                 showSuggestion="true"
-                                suggestionItems="{VHModel>/}"
-                                suggest=".onSuggest"
+                                suggestionItems="{vehicleNumberSuggestions>/items}"
+                                suggest="onSuggest"
+                                liveChange="onVehicleNumberLiveChange"
                                 filterSuggests="false"
                                 value="{TripData>/VehicleNumber}"
-                                suggestThreshold="1"
-                                suggestionItemSelected=".onSuggestionItemSelected"
+                                startSuggestion="1"
+                                suggestionItemSelected="onSuggestionItemSelected"
                             >
                                 <suggestionItems>
                                     <core:Item
-                                        text="{VHModel>VehicleNumber}"
-                                        additionalText="{VHModel>TransporterName}"
+                                        text="{vehicleNumberSuggestions>VehicleNumber}"
+                                        additionalText="{vehicleNumberSuggestions>TransporterName}"
                                     />
                                 </suggestionItems>
                                 <customData>
@@ -138,25 +139,22 @@
                                 design="Bold"
                                 required="true"
                             />
-                            <Input
+                            <ComboBox
                                 id="idVehicleType"
                                 width="100%"
-                                showSuggestion="true"
-                                suggest="onVehicleTypeSuggest"
-                                suggestionItemSelected="onVehicleTypeSuggestionSelected"
-                                suggestionItems="{vehicleTypeSuggestions>/items}"
+                                items="{vehicleTypeSuggestions>/items}"
+                                selectedKey="{TripData>/VehicleType}"
                                 value="{TripData>/VehicleTypeDesc}"
-                                editable="true"
-                                liveChange="onVehicleTypeLiveChange"
+                                filterSecondaryValues="false"
+                                showSecondaryValues="false"
+                                selectionChange="onVehicleTypeSelectionChange"
+                                change="onVehicleTypeChange"
                             >
-                                <suggestionItems>
-                                    <core:Item
-                                        key="{vehicleTypeSuggestions>ConfigID}"
-                                        text="{vehicleTypeSuggestions>Description}"
-                                        additionalText="{vehicleTypeSuggestions>ConfigID}"
-                                    />
-                                </suggestionItems>
-                            </Input>
+                                <core:ListItem
+                                    key="{vehicleTypeSuggestions>ConfigID}"
+                                    text="{vehicleTypeSuggestions>Description}"
+                                />
+                            </ComboBox>
                         </VBox>
                     </layout:content>
                     <layout:content>
