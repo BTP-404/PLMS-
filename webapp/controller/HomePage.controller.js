@@ -10,8 +10,7 @@ sap.ui.define(
     "sap/m/StandardListItem",
     "sap/m/SuggestionItem",
     "sap/ui/core/Fragment",
-    "sap/ui/model/json/JSONModel",
-    "com/incresolZ_INC_PLMS/model/ODataBusyHelper"
+    "sap/ui/model/json/JSONModel"
   ],
   function (
     Controller,
@@ -24,8 +23,7 @@ sap.ui.define(
     StandardListItem,
     SuggestionItem,
     Fragment,
-    JSONModel,
-    ODataBusyHelper
+    JSONModel
   ) {
     "use strict";
 
@@ -36,7 +34,6 @@ sap.ui.define(
           useBatch: false,
           defaultBindingMode: "TwoWay",
         });
-        ODataBusyHelper.wireGlobalBusy(oModel);
         this.getView().setModel(oModel);
         this.getView().setModel(
           new JSONModel({

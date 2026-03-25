@@ -6,7 +6,6 @@ sap.ui.define(
         "sap/m/MessageBox",
         "sap/ui/model/json/JSONModel",
         "sap/ui/core/Fragment",
-        "com/incresolZ_INC_PLMS/model/ODataBusyHelper",
     ],
     function (
         Controller,
@@ -14,8 +13,7 @@ sap.ui.define(
         MessageToast,
         MessageBox,
         JSONModel,
-        Fragment,
-        ODataBusyHelper
+        Fragment
     ) {
         "use strict";
 
@@ -26,7 +24,6 @@ sap.ui.define(
                     useBatch: false,
                     defaultBindingMode: "TwoWay",
                 });
-                ODataBusyHelper.wireGlobalBusy(this.oModel);
 
                 this.getView().setModel(this.oModel);
                 this._eventBus = sap.ui.getCore().getEventBus();

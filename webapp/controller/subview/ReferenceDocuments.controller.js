@@ -10,8 +10,7 @@ sap.ui.define([
 	"sap/ui/model/FilterOperator",
 	"sap/ui/model/odata/v2/ODataModel",
 	"com/incresolZ_INC_PLMS/util/MovementScenarioIcons",
-	"com/incresolZ_INC_PLMS/model/ODataBusyHelper",
-], function (Controller, JSONModel, Fragment, MessageToast, MessageBox, SelectDialog, StandardListItem, Filter, FilterOperator, ODataModel, MovementScenarioIcons, ODataBusyHelper) {
+], function (Controller, JSONModel, Fragment, MessageToast, MessageBox, SelectDialog, StandardListItem, Filter, FilterOperator, ODataModel, MovementScenarioIcons) {
 	"use strict";
 
 	return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.ReferenceDocuments", {
@@ -1793,7 +1792,6 @@ sap.ui.define([
 					defaultBindingMode: "TwoWay",
 					json: true // Ensure JSON format is used
 				});
-				ODataBusyHelper.wireGlobalBusy(this._oItemDetailsService);
 			}
 			return this._oItemDetailsService;
 		},
@@ -1943,7 +1941,6 @@ sap.ui.define([
 				this._oOrderDetailsService = new ODataModel("/sap/opu/odata/sap/YIGP_PLMS_SRV/", {
 					useBatch: false
 				});
-				ODataBusyHelper.wireGlobalBusy(this._oOrderDetailsService);
 			}
 			return this._oOrderDetailsService;
 		},
@@ -3380,7 +3377,6 @@ sap.ui.define([
 				this._oConfigValuesService = new ODataModel("/sap/opu/odata/sap/YIGP_PLMS_SRV/", {
 					useBatch: false
 				});
-				ODataBusyHelper.wireGlobalBusy(this._oConfigValuesService);
 			}
 			return this._oConfigValuesService;
 		},

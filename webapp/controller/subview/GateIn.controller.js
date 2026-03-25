@@ -5,15 +5,13 @@ sap.ui.define(
     "sap/m/MessageToast",
     "sap/m/MessageBox",
     "sap/ui/model/json/JSONModel",
-    "com/incresolZ_INC_PLMS/model/ODataBusyHelper",
   ],
   function (
     Controller,
     ODataModel,
     MessageToast,
     MessageBox,
-    JSONModel,
-    ODataBusyHelper
+    JSONModel
   ) {
     "use strict";
 
@@ -26,7 +24,6 @@ sap.ui.define(
             useBatch: false,
             defaultBindingMode: "TwoWay",
           });
-          ODataBusyHelper.wireGlobalBusy(this.oModel);
           this.getView().setModel(this.oModel);
           this._eventBus = sap.ui.getCore().getEventBus();
           this._eventBus.subscribe("TripData", "Updated", this._onTripDataUpdate, this);
@@ -653,14 +650,6 @@ sap.ui.define(
               MessageBox.error(sMessage);
             }.bind(this),
           });
-        },
-        formatTripNumber: function (sTripNumber) {
-          if (!sTripNumber) {
-            return "";
-          }
-          // Convert to string and remove leading zeros (e.g., "0000000014" -> "14")
-          var sStr = String(sTripNumber);
-          return sStr.replace(/^0+/, "") || "0";
         },
         formatTripDate: function (vDate) {
           if (!vDate) {
