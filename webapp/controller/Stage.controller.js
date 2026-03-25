@@ -6,8 +6,9 @@ sap.ui.define([
 	"sap/m/MessageToast",
 	"sap/m/ButtonType",
 	"sap/ui/model/Filter",
-	"sap/ui/model/FilterOperator"
-], function(Controller, JSONModel, ODataModel, MessageBox, MessageToast, ButtonType, Filter, FilterOperator) {
+	"sap/ui/model/FilterOperator",
+	"com/incresolZ_INC_PLMS/model/ODataBusyHelper"
+], function(Controller, JSONModel, ODataModel, MessageBox, MessageToast, ButtonType, Filter, FilterOperator, ODataBusyHelper) {
 	"use strict";
 	return Controller.extend("com.incresolZ_INC_PLMS.controller.Stage", {
 		onInit: function() {
@@ -346,6 +347,7 @@ sap.ui.define([
 					useBatch: false,
 					defaultBindingMode: "TwoWay"
 				});
+				ODataBusyHelper.wireGlobalBusy(this._oTripService);
 			}
 			return this._oTripService;
 		},

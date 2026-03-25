@@ -55,7 +55,7 @@
         <Panel
             id="gateOutPanel"
             expandable="true"
-            expanded="true"
+            expanded="false"
             class="sapUiNoContentPadding"
         >
             <headerToolbar>

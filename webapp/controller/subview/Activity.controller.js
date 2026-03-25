@@ -4,8 +4,9 @@ sap.ui.define([
 	"sap/ui/model/odata/v2/ODataModel",
 	"sap/ui/model/Filter",
 	"sap/ui/model/FilterOperator",
-	"sap/m/MessageToast"
-], function (Controller, JSONModel, ODataModel, Filter, FilterOperator, MessageToast) {
+	"sap/m/MessageToast",
+	"com/incresolZ_INC_PLMS/model/ODataBusyHelper"
+], function (Controller, JSONModel, ODataModel, Filter, FilterOperator, MessageToast, ODataBusyHelper) {
 	"use strict";
 
 	var STAGE_CONFIG = [{
@@ -66,6 +67,7 @@ sap.ui.define([
 			this._oService = new ODataModel("/sap/opu/odata/sap/YIGP_PLMS_SRV/", {
 				useBatch: false
 			});
+			ODataBusyHelper.wireGlobalBusy(this._oService);
 			this._oEventBus = sap.ui.getCore().getEventBus();
 			// Store bound function reference for proper unsubscription
 			this._onTripDataUpdated = function() {

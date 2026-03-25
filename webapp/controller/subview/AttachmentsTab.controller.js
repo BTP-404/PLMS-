@@ -11,8 +11,9 @@ sap.ui.define([
 	"sap/m/Text",
 	"sap/ui/core/HTML",
 	"sap/ui/model/Filter",
-	"sap/ui/model/FilterOperator"
-], function(Controller, JSONModel, ODataModel, MessageBox, MessageToast, StandardListItem, Dialog, Button, Image, Text, HTML, Filter, FilterOperator) {
+	"sap/ui/model/FilterOperator",
+	"com/incresolZ_INC_PLMS/model/ODataBusyHelper"
+], function(Controller, JSONModel, ODataModel, MessageBox, MessageToast, StandardListItem, Dialog, Button, Image, Text, HTML, Filter, FilterOperator, ODataBusyHelper) {
 	"use strict";
 
 	return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.AttachmentsTab", {
@@ -75,6 +76,7 @@ sap.ui.define([
 					useBatch: false,
 					defaultBindingMode: "TwoWay"
 				});
+				ODataBusyHelper.wireGlobalBusy(this._oAttachmentsService);
 			}
 			return this._oAttachmentsService;
 		},

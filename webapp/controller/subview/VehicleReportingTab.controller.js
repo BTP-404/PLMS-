@@ -11,6 +11,7 @@ sap.ui.define(
     "sap/ndc/BarcodeScanner",
     "com/incresolZ_INC_PLMS/util/MovementScenarioIcons",
     "sap/ui/core/format/DateFormat",
+    "com/incresolZ_INC_PLMS/model/ODataBusyHelper",
   ],
   function (
     Controller,
@@ -23,7 +24,8 @@ sap.ui.define(
     FilterOperator,
     BarcodeScanner,
     MovementScenarioIcons,
-    DateFormat
+    DateFormat,
+    ODataBusyHelper
   ) {
     "use strict";
     var movementScenario;
@@ -80,6 +82,7 @@ sap.ui.define(
             useBatch: false,
             defaultBindingMode: "TwoWay",
           });
+          ODataBusyHelper.wireGlobalBusy(oModel);
           this.getView().setModel(oModel);
         },
 

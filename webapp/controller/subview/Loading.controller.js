@@ -9,7 +9,8 @@ sap.ui.define(
     "sap/m/SelectDialog",
     "sap/m/StandardListItem",
     "sap/ui/model/Filter",
-    "sap/ui/model/FilterOperator"
+    "sap/ui/model/FilterOperator",
+    "com/incresolZ_INC_PLMS/model/ODataBusyHelper"
 ],
 function (
     Controller,
@@ -21,7 +22,8 @@ function (
     SelectDialog,
     StandardListItem,
     Filter,
-    FilterOperator
+    FilterOperator,
+    ODataBusyHelper
 ) {
 "use strict";
 
@@ -33,6 +35,7 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Loading", {
             useBatch: false,
             defaultBindingMode: "TwoWay"
         });
+        ODataBusyHelper.wireGlobalBusy(this.oModel);
 
         this.getView().setModel(this.oModel);
 

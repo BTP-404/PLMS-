@@ -7,6 +7,7 @@ sap.ui.define(
     "sap/ui/model/odata/v2/ODataModel",
     "sap/m/SuggestionItem",
     "sap/ui/core/Fragment",
+    "com/incresolZ_INC_PLMS/model/ODataBusyHelper",
   ],
   function (
     Controller,
@@ -15,7 +16,8 @@ sap.ui.define(
     JSONModel,
     ODataModel,
     SuggestionItem,
-    Fragment
+    Fragment,
+    ODataBusyHelper
   ) {
     "use strict";
 
@@ -30,6 +32,7 @@ sap.ui.define(
             useBatch: false,
             defaultBindingMode: "TwoWay",
           });
+          ODataBusyHelper.wireGlobalBusy(this.oModel);
           this.getView().setModel(this.oModel);
 
           this._aBillingDocCache = null;
