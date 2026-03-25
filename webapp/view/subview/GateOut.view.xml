@@ -236,6 +236,81 @@
         </Panel>
 
         <!-- ========================================================= -->
+        <!-- ======================= Bin Details ===================== -->
+        <!-- ========================================================= -->
+        <Panel
+            id="idBinDetailsPanel"
+            expandable="true"
+            expanded="false"
+            class="sapUiNoContentPadding sapUiSmallMarginTop"
+            visible="{path: 'TripData>/MovementScenarioItemKey', formatter: '.formatIsO09Scenario'}"
+        >
+            <headerToolbar>
+                <OverflowToolbar>
+                    <Title text="Bin Details" class="sectionPanelTitle" />
+                </OverflowToolbar>
+            </headerToolbar>
+            <VBox class="sapUiSizeCompact sapUiMediumPadding">
+                <ScrollContainer
+                    horizontal="true"
+                    vertical="false"
+                    width="100%"
+                    class="sapUiNoContentPadding sapUiSmallMarginTop sapUiSizeCompact"
+                >
+                    <Table
+                        id="idBinDetailsTable"
+                        inset="false"
+                        width="auto"
+                        class="sapUiSizeCompact"
+                        fixedLayout="false"
+                        autoPopin="true"
+                        sticky="ColumnHeaders,HeaderToolbar"
+                        growing="true"
+                        growingScrollToLoad="true"
+                        growingThreshold="20"
+                        items="{path: 'refDocModel>/filteredMaterialDetails'}"
+                        noDataText="No bins available"
+                    >
+                        <headerToolbar>
+                            <Toolbar>
+                                <Title text="Bin Details" level="H6" />
+                            </Toolbar>
+                        </headerToolbar>
+                        <columns>
+                            <Column
+                                demandPopin="true"
+                                minScreenWidth="Desktop"
+                                popinDisplay="Inline"
+                            >
+                                <Text text="Material Description" />
+                            </Column>
+                            <Column
+                                demandPopin="true"
+                                minScreenWidth="Desktop"
+                                popinDisplay="Inline"
+                                hAlign="End"
+                            >
+                                <Text text="Bins (Trolleys)" />
+                            </Column>
+                        </columns>
+                        <items>
+                            <ColumnListItem>
+                                <cells>
+                                    <Text
+                                        text="{refDocModel>materialDescription}"
+                                    />
+                                    <Text
+                                        text="{= ${refDocModel>binsTrolleys} || '0' }"
+                                    />
+                                </cells>
+                            </ColumnListItem>
+                        </items>
+                    </Table>
+                </ScrollContainer>
+            </VBox>
+        </Panel>
+
+        <!-- ========================================================= -->
         <!-- ================= Change History Panel ================== -->
         <!-- ========================================================= -->
         <!-- <Panel

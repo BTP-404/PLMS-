@@ -1358,6 +1358,17 @@ sap.ui.define(
           return String(sMovementType).trim().toUpperCase() !== "I";
         },
 
+        /**
+         * Used by bindings in GateOut.view.xml to show/hide "Bin Details".
+         * TripData>/MovementScenarioItemKey is expected to be like "O09".
+         */
+        formatIsO09Scenario: function (sMovementScenarioItemKey) {
+          if (sMovementScenarioItemKey === undefined || sMovementScenarioItemKey === null) {
+            return false;
+          }
+          return String(sMovementScenarioItemKey).trim().toUpperCase() === "O09";
+        },
+
         // User-role-based authorization for GateOut has been removed; buttons are
         // controlled purely by TripData state and standard UI logic.
       }

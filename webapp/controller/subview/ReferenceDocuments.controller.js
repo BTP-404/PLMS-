@@ -316,6 +316,11 @@ sap.ui.define([
 			if (!sDocNumber) {
 				return MessageToast.show("Document Number is missing");
 			}
+
+			// Ensure the main material table is filtered for the same reference document
+			// (button click inside the row may not trigger row selectionChange).
+			this._oSelectedRefDoc = oDocument;
+			this._filterMaterialDetails();
 			
 			this._openSelectMaterialsDialog(sDocType, sDocNumber);
 		},
@@ -530,6 +535,9 @@ sap.ui.define([
 			}
 			
 			// Automatically add all materials for this reference document
+			// Ensure newly added rows are immediately visible in the main material table.
+			this._oSelectedRefDoc = oRefDoc;
+			this._filterMaterialDetails();
 			this._addAllMaterialsFromRefDoc(sDocType, sRefDocNo);
 		},
 
@@ -1016,6 +1024,7 @@ sap.ui.define([
 
 		_loadMaterialsForDocument: function (sDocType, sDocNumber, oDialog) {
 			var that = this;
+			this._beginMaterialsBusy();
 			// Fetch ItemDetails for this document
 			// Force network call when selecting materials (bypass cache)
 			this._fetchItemDetailsByRefDocNo(sDocType, sDocNumber, true)
@@ -1054,6 +1063,9 @@ sap.ui.define([
 					}
 					oModel.setProperty("/items", []);
 					oModel.setProperty("/selectedCount", 0);
+				})
+				.finally(function () {
+					that._endMaterialsBusy();
 				});
 		},
 
@@ -1065,6 +1077,12 @@ sap.ui.define([
 			if (!sTripNumber) {
 				return MessageToast.show("Trip Number missing. Please open a trip first.");
 			}
+
+			// Prevent concurrent "Add Selected Materials" runs.
+			if (this._bIsAddingSelectedMaterials) {
+				return;
+			}
+			this._bIsAddingSelectedMaterials = true;
 			
 			var iTotal = aMaterials.length;
 			var iSuccess = 0;
@@ -1087,6 +1105,8 @@ sap.ui.define([
 						oAddButton.setEnabled(true);
 						oAddButton.setText("Add Selected Materials");
 					}
+
+					this._bIsAddingSelectedMaterials = false;
 					
 					var sMessage = "";
 					if (iSuccess > 0 && iFailed === 0) {
@@ -1124,6 +1144,21 @@ sap.ui.define([
 				that._saveMaterialDetail(oPayload)
 					.then(function (oResponse) {
 						iSuccess++;
+
+						// Show the row immediately (no need to wait for final refresh).
+						// Avoid duplicates if user triggers the action multiple times.
+						var oModel = that._ensureRefDocModel();
+						var aExisting = oModel.getProperty("/materialDetails") || [];
+						var bExists = aExisting.some(function (oMat) {
+							return oMat.tripNumber === oPayload.TripNumber &&
+								oMat.docType === oPayload.DocType &&
+								oMat.refDocNo === oPayload.RefDocNo &&
+								oMat.refDocItemNo === oPayload.RefDocItemNo;
+						});
+						if (!bExists) {
+							that._appendLocalMaterialDetail(oPayload);
+						}
+
 						iIndex++;
 						processNext();
 					})
@@ -1798,6 +1833,7 @@ sap.ui.define([
 
 		_openRefDocValueHelpDialog: function (sDocType) {
 			var that = this;
+			this._beginDocNoBusy();
 			this._fetchOrderDetails(sDocType)
 				.then(function (aDocs) {
 					that._updateRefDocSuggestions(aDocs);
@@ -1820,6 +1856,9 @@ sap.ui.define([
 				})
 				.catch(function () {
 					MessageToast.show("Unable to fetch document reference data");
+				})
+				.finally(function () {
+					that._endDocNoBusy();
 				});
 		},
 
@@ -1945,6 +1984,56 @@ sap.ui.define([
 			return this._oOrderDetailsService;
 		},
 
+		_getDocNoBusyTarget: function () {
+			// Prefer the active dialog; fallback to view
+			return this.byId("idAddRefDocDialog") || this._oRefDocValueHelp || this.getView();
+		},
+
+		_beginDocNoBusy: function () {
+			this._iDocNoBusyCount = (this._iDocNoBusyCount || 0) + 1;
+			var oTarget = this._getDocNoBusyTarget();
+			if (oTarget && oTarget.setBusy) {
+				oTarget.setBusy(true);
+				oTarget.setBusyIndicatorDelay?.(0);
+			}
+		},
+
+		_endDocNoBusy: function () {
+			this._iDocNoBusyCount = Math.max((this._iDocNoBusyCount || 1) - 1, 0);
+			if (this._iDocNoBusyCount > 0) {
+				return;
+			}
+			var oTarget = this._getDocNoBusyTarget();
+			if (oTarget && oTarget.setBusy) {
+				oTarget.setBusy(false);
+			}
+		},
+
+		_getMaterialsBusyTarget: function () {
+			// Prefer materials selection dialog; fallback to the materials table
+			return this.byId("idSelectMaterialsDialog") || this.byId("idMaterialsSelectionTable") || this.getView();
+		},
+
+		_beginMaterialsBusy: function () {
+			this._iMaterialsBusyCount = (this._iMaterialsBusyCount || 0) + 1;
+			var oTarget = this._getMaterialsBusyTarget();
+			if (oTarget && oTarget.setBusy) {
+				oTarget.setBusy(true);
+				oTarget.setBusyIndicatorDelay?.(0);
+			}
+		},
+
+		_endMaterialsBusy: function () {
+			this._iMaterialsBusyCount = Math.max((this._iMaterialsBusyCount || 1) - 1, 0);
+			if (this._iMaterialsBusyCount > 0) {
+				return;
+			}
+			var oTarget = this._getMaterialsBusyTarget();
+			if (oTarget && oTarget.setBusy) {
+				oTarget.setBusy(false);
+			}
+		},
+
 
 		_escapeODataValue: function (vValue) {
 			if (vValue === null || vValue === undefined) {
@@ -2022,6 +2111,7 @@ sap.ui.define([
 				return;
 			}
 			this._sSelectedDocType = sDocType;
+			this._beginDocNoBusy();
 			this._fetchOrderDetails(sDocType)
 				.then(function (aDocs) {
 					this._updateRefDocSuggestions(aDocs);
@@ -2029,6 +2119,9 @@ sap.ui.define([
 				.catch(function () {
 					MessageToast.show("Unable to fetch documents for selected Doc Type");
 					this._updateRefDocSuggestions([]);
+				}.bind(this))
+				.finally(function () {
+					this._endDocNoBusy();
 				}.bind(this));
 		},
 
