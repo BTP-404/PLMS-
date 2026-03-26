@@ -7,7 +7,7 @@
     xmlns:unified="sap.ui.unified"
     displayBlock="true"
 >
-    <VBox class="sapUiSizeCompact sapUiSmallMargin">
+    <VBox class="sapUiSizeCompact">
         <!-- ========================= SCANNER ROW ========================= -->
         <!-- Scanner Input and Button - Only visible for movement scenario I02 / ASN (see VehicleReportingTab.controller) -->
         <VBox 

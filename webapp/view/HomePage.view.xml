@@ -187,7 +187,8 @@
                     sticky="ColumnHeaders,HeaderToolbar"
                     width="100%"
                     autoPopin="true"
-                    fixedLayout="false"
+                    popinLayout="GridSmall"
+                    fixedLayout="true"
                     selectionChange="onTripPress"
                 >
                     <headerToolbar>
@@ -206,7 +207,7 @@
                         <Column
                             id="colTripNumber"
                             demandPopin="true"
-                            minScreenWidth="Tablet"
+                            minScreenWidth="Phone"
                             popinDisplay="Inline"
                         >
                             <Text text="Trip Number" />
@@ -214,7 +215,7 @@
                         <Column
                             id="colVehicleNumber"
                             demandPopin="true"
-                            minScreenWidth="Tablet"
+                            minScreenWidth="Phone"
                             popinDisplay="Inline"
                         >
                             <Text text="Vehicle Number" />
@@ -234,6 +235,14 @@
                             popinDisplay="Inline"
                         >
                             <Text text="Movement Type" />
+                        </Column>
+                        <Column
+                            id="colMovementScenario"
+                            demandPopin="true"
+                            minScreenWidth="Tablet"
+                            popinDisplay="Inline"
+                        >
+                            <Text text="Movement Scenario Description" />
                         </Column>
                         <Column
                             id="colVehicleType"
@@ -319,6 +328,16 @@
                                     text="{
                                         path: 'MovementType',
                                         formatter: '.formatMovementType'
+                                    }"
+                                    wrapping="true"
+                                />
+                                <Text
+                                    text="{
+                                        parts: [
+                                            { path: 'MovementType' },
+                                            { path: 'MovementScenario' }
+                                        ],
+                                        formatter: '.formatMovementScenarioDesc'
                                     }"
                                     wrapping="true"
                                 />

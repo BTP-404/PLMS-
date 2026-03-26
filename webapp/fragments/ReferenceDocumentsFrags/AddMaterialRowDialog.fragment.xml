@@ -56,7 +56,7 @@
                     <core:Item
                         key="{refDocModel>DocumentNumber}"
                         text="{refDocModel>DocumentNumber}"
-                        additionalText="{refDocModel>DocType}"
+                        additionalText="{refDocModel>Name}"
                         templateShareable="false"
                     />
                 </suggestionItems>

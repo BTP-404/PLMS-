@@ -10,7 +10,8 @@ sap.ui.define(
     "sap/m/StandardListItem",
     "sap/m/SuggestionItem",
     "sap/ui/core/Fragment",
-    "sap/ui/model/json/JSONModel"
+    "sap/ui/model/json/JSONModel",
+    "com/incresolZ_INC_PLMS/util/MovementScenarioIcons"
   ],
   function (
     Controller,
@@ -23,7 +24,8 @@ sap.ui.define(
     StandardListItem,
     SuggestionItem,
     Fragment,
-    JSONModel
+    JSONModel,
+    MovementScenarioIcons
   ) {
     "use strict";
 
@@ -35,6 +37,13 @@ sap.ui.define(
           defaultBindingMode: "TwoWay",
         });
         this.getView().setModel(oModel);
+        this._sVehicleNumberNeedleLower = "";
+
+        var oTable = this.getView().byId("tripTable");
+        if (oTable) {
+          // Re-apply client-side VehicleNumber filtering whenever table updates (initial load, refresh, growing).
+          oTable.attachUpdateFinished(this._applyClientSideVehicleNumberFilter, this);
+        }
         this.getView().setModel(
           new JSONModel({
             reportDateFrom: null,
@@ -43,6 +52,7 @@ sap.ui.define(
           "homeFilter"
         );
         this._initializeColumnVisibility();
+        this._loadMovementScenarioDescriptions();
         // this is for refresh the table data when user cancels the trip
         this._oEventBus = sap.ui.getCore().getEventBus();
 
@@ -272,16 +282,21 @@ sap.ui.define(
         var oInput = oEvent.getSource();
         var sField = oInput.data("field");
         var sValue = (oEvent.getParameter("suggestValue") || "").trim();
+        // Normalize certain fields to reduce case-sensitivity (backend may compare case-sensitively)
+        var sFilterValue = sValue;
+        if (sField === "vehicleNumber" && sFilterValue) {
+          sFilterValue = sFilterValue.toUpperCase();
+        }
         var oFieldConfig = this._getFieldConfiguration(sField);
         if (!oFieldConfig) return;
 
         var { sKeyField, sDescField } = oFieldConfig;
-        var aFilters = sValue
+        var aFilters = sFilterValue
           ? [
             new Filter(
               [
-                new Filter(sKeyField, FilterOperator.Contains, sValue),
-                new Filter(sDescField, FilterOperator.Contains, sValue),
+                new Filter(sKeyField, FilterOperator.Contains, sFilterValue),
+                new Filter(sDescField, FilterOperator.Contains, sFilterValue),
               ],
               false
             ),
@@ -441,6 +456,7 @@ sap.ui.define(
         );
 
         var aFilters = [];
+        var sVehicleNeedleLower = "";
 
         // Handle date range first
         var oRange = this._getReportDateRange();
@@ -480,19 +496,54 @@ sap.ui.define(
             if (sField && sValue) {
               var oFieldConfig = this._getFieldConfiguration(sField);
               if (oFieldConfig) {
-                aFilters.push(
-                  new Filter(
-                    oFieldConfig.sKeyField,
-                    FilterOperator.Contains,
-                    sValue
-                  )
-                );
+                if (sField === "vehicleNumber") {
+                  // VehicleNumber is marked as non-filterable in metadata in some systems.
+                  // Also, OData "contains" is often case-sensitive depending on backend.
+                  // So we do a client-side, case-insensitive filter on the already-bound items.
+                  sVehicleNeedleLower = sValue.toLowerCase();
+                } else {
+                  aFilters.push(
+                    new Filter(
+                      oFieldConfig.sKeyField,
+                      FilterOperator.Contains,
+                      sValue
+                    )
+                  );
+                }
               }
             }
           }.bind(this)
         );
 
+        this._sVehicleNumberNeedleLower = sVehicleNeedleLower;
+
         oBinding.filter(aFilters.length ? new Filter(aFilters, true) : []);
+        // Apply immediately for current items (updateFinished will also re-apply after refresh/growing).
+        this._applyClientSideVehicleNumberFilter();
+      },
+
+      /**
+       * Client-side, case-insensitive filter for VehicleNumber (hides/shows table rows).
+       * This avoids backend case-sensitivity and works even if VehicleNumber is not filterable.
+       */
+      _applyClientSideVehicleNumberFilter: function () {
+        var oTable = this.getView().byId("tripTable");
+        if (!oTable) return;
+
+        var sNeedleLower = (this._sVehicleNumberNeedleLower || "").trim().toLowerCase();
+        var aItems = oTable.getItems ? oTable.getItems() : [];
+
+        aItems.forEach(function (oItem) {
+          if (!oItem || !oItem.getBindingContext) return;
+          var oCtx = oItem.getBindingContext();
+          var oObj = oCtx && oCtx.getObject ? oCtx.getObject() : null;
+          var sVeh = (oObj && oObj.VehicleNumber != null) ? String(oObj.VehicleNumber) : "";
+
+          var bMatch = !sNeedleLower || sVeh.toLowerCase().indexOf(sNeedleLower) > -1;
+          if (oItem.setVisible) {
+            oItem.setVisible(bMatch);
+          }
+        });
       },
 
       // --------------------------------------------
@@ -647,8 +698,65 @@ sap.ui.define(
           "colVehicleNumber",
           "colTripStatus",
           "colMovementType",
+          "colMovementScenario",
         ];
         return aDefaultVisible.indexOf(sKey) !== -1;
+      },
+
+      /**
+       * Build mapping: MovementType+MovementScenario -> LongText (scenario description)
+       * Source: OrderTypeSH (already used by VehicleReportingTab for movement scenario details).
+       * @private
+       */
+      _loadMovementScenarioDescriptions: function () {
+        var oModel = this.getView().getModel();
+        if (!oModel) return;
+
+        var that = this;
+        this._mMovementScenarioDescByItemKey = {};
+
+        oModel.read("/OrderTypeSH", {
+          success: function (oData) {
+            var aRows = (oData && oData.results) || [];
+            aRows.forEach(function (row) {
+              if (!row) return;
+              var sKey = MovementScenarioIcons.getMovementScenarioItemKey(
+                row.MovementType,
+                row.MovementScenario
+              );
+              if (sKey) {
+                that._mMovementScenarioDescByItemKey[sKey] =
+                  row.LongText || "";
+              }
+            });
+          },
+          error: function () {
+            that._mMovementScenarioDescByItemKey = {};
+          },
+        });
+      },
+
+      /**
+       * Formatter used by XML cell to show "Moment Scenario Description".
+       */
+      formatMovementScenarioDesc: function (sMovementType, sMovementScenario) {
+        if (!sMovementScenario) return "";
+
+        var sKey = MovementScenarioIcons.getMovementScenarioItemKey(
+          sMovementType,
+          sMovementScenario
+        );
+
+        if (
+          this._mMovementScenarioDescByItemKey &&
+          sKey &&
+          this._mMovementScenarioDescByItemKey[sKey]
+        ) {
+          return this._mMovementScenarioDescByItemKey[sKey];
+        }
+
+        // Fallback: show raw code if descriptions cannot be loaded.
+        return sMovementScenario;
       },
 
       onCloseColumnVisibilityDialog: function () {

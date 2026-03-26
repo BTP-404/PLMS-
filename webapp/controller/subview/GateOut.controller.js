@@ -50,6 +50,14 @@ sap.ui.define(
           // Initialize selected files array
           this._aSelectedFiles = [];
 
+          // Bin details local UI state (edit/save/cancel)
+          if (!this.getView().getModel("binState")) {
+            this.getView().setModel(
+              new JSONModel({ binDetailsEditMode: false }),
+              "binState"
+            );
+          }
+
           // Avoid calling OutwardDoc multiple times for the same invoice selection.
           this._sLastOutwardDocBillingDocument = null;
 
@@ -349,6 +357,28 @@ sap.ui.define(
             // Set initial input state based on whether GateOut data exists
             var oTripData = sap.ui.getCore().getModel("TripData");
             if (oTripData) {
+              // Default Skip Document to "No" when not provided by backend/model.
+              // (UI binding uses formatRefDocSkipIndex: blank/false => index 1 => "No")
+              var vRefDocSkip = oTripData.getProperty("/RefDocSkip");
+              if (
+                vRefDocSkip === undefined ||
+                vRefDocSkip === null ||
+                String(vRefDocSkip).trim() === ""
+              ) {
+                oTripData.setProperty("/RefDocSkip", " ");
+              }
+
+              // Default Verified Documents to "No" when not provided by backend/model.
+              // (UI binding uses formatVerifiedDocsIndex: missing/false => index 1 => "No")
+              var vVerifiedDocs = oTripData.getProperty("/VerifiedDocs");
+              if (
+                vVerifiedDocs === undefined ||
+                vVerifiedDocs === null ||
+                String(vVerifiedDocs).trim() === ""
+              ) {
+                oTripData.setProperty("/VerifiedDocs", 1);
+              }
+
               var sBd = oTripData.getProperty("/BillingDocument");
               var sVb = oTripData.getProperty("/Vbeln");
               if (
@@ -385,6 +415,27 @@ sap.ui.define(
           var oTripData = sap.ui.getCore().getModel("TripData");
           if (oTripData) {
             this.getView().setModel(oTripData, "TripData");
+
+            // Ensure Skip Document defaults to "No" when missing.
+            var vRefDocSkip = oTripData.getProperty("/RefDocSkip");
+            if (
+              vRefDocSkip === undefined ||
+              vRefDocSkip === null ||
+              String(vRefDocSkip).trim() === ""
+            ) {
+              oTripData.setProperty("/RefDocSkip", " ");
+            }
+
+            // Ensure Verified Documents defaults to "No" when missing.
+            var vVerifiedDocs = oTripData.getProperty("/VerifiedDocs");
+            if (
+              vVerifiedDocs === undefined ||
+              vVerifiedDocs === null ||
+              String(vVerifiedDocs).trim() === ""
+            ) {
+              oTripData.setProperty("/VerifiedDocs", 1);
+            }
+
             this.loadExitGateNumber();
             // Disable inputs if GateOut data already exists (display mode)
             var sExistingExitGateNum = oTripData.getProperty("/ExitGateNum");
@@ -639,6 +690,34 @@ sap.ui.define(
             oBinding.filter([]);
           }
         },
+        formatTripNumber: function (sTripNumber) {
+          if (!sTripNumber) {
+            return "";
+          }
+          var sStr = String(sTripNumber);
+          return sStr.replace(/^0+/, "") || "0";
+        },
+        formatRefDocSkipIndex: function (v) {
+          if (v === "X" || v === "Y" || v === "1" || v === true) {
+            return 0;
+          }
+          return 1;
+        },
+        formatVerifiedDocsIndex: function (v) {
+          // Accept both index-like values (0/1) and boolean-ish flags.
+          if (v === 0 || v === "0" || v === "X" || v === "Y" || v === true || v === "true") {
+            return 0; // Yes
+          }
+          return 1; // No (default)
+        },
+        onRefDocSkipChange: function (oEvent) {
+          var iSelectedIndex = oEvent.getParameter("selectedIndex");
+          var sRefDocSkip = iSelectedIndex === 0 ? "X" : " ";
+          var oTripData = sap.ui.getCore().getModel("TripData");
+          if (oTripData) {
+            oTripData.setProperty("/RefDocSkip", sRefDocSkip);
+          }
+        },
         onSaveGateOut: function () {
           var oModel = this.oModel;
           if (!oModel) {
@@ -685,15 +764,21 @@ sap.ui.define(
             oTripData.getProperty("/TripNumber") ||
             "";
 
-          var sRefdocSkip = oTripData.getProperty("/RefDocSkip");
-          if (
-            sRefdocSkip === undefined ||
-            sRefdocSkip === null ||
-            String(sRefdocSkip).trim() === ""
-          ) {
-            sRefdocSkip = " ";
+          var oSkipDocGroup = oView.byId("idSkipDocumentGateOut");
+          var sRefdocSkip = " ";
+          if (oSkipDocGroup) {
+            sRefdocSkip = oSkipDocGroup.getSelectedIndex() === 0 ? "X" : " ";
           } else {
-            sRefdocSkip = String(sRefdocSkip).trim();
+            sRefdocSkip = oTripData.getProperty("/RefDocSkip");
+            if (
+              sRefdocSkip === undefined ||
+              sRefdocSkip === null ||
+              String(sRefdocSkip).trim() === ""
+            ) {
+              sRefdocSkip = " ";
+            } else {
+              sRefdocSkip = String(sRefdocSkip).trim();
+            }
           }
 
           var oShort = oView.byId("idShortQty");
@@ -758,6 +843,7 @@ sap.ui.define(
               var oTd = sap.ui.getCore().getModel("TripData");
               if (oTd) {
                 oTd.setProperty("/ExitGateNum", sExitGateNumber);
+                oTd.setProperty("/RefDocSkip", sRefdocSkip);
                 oTd.setProperty("/VerifiedDocs", bVerifiedDocs ? 0 : 1);
                 oTd.setProperty("/BinsReturned", sBinsReturned);
                 oTd.setProperty("/BillingDocument", sBillingDocument);
@@ -832,6 +918,8 @@ sap.ui.define(
               }
             }
 
+            var oRelatedTripReadOnly = this.getView().byId("idGateOutRelatedTripNumber");
+
             var oPanel = this.getView().byId("gateOutPanel");
             if (!oPanel) return;
             
@@ -851,6 +939,17 @@ sap.ui.define(
 
               // Don't override the invoice input editability (see comment above).
               if (oInvoiceSelect && ctrl === oInvoiceSelect) return;
+
+              // Related trip / gate pass display is always read-only.
+              if (oRelatedTripReadOnly && ctrl === oRelatedTripReadOnly) {
+                if (ctrl.setEnabled) {
+                  ctrl.setEnabled(false);
+                }
+                if (ctrl.setEditable) {
+                  ctrl.setEditable(false);
+                }
+                return;
+              }
 
               // Keep dropdowns as non-editable; only enable/disable them.
               if (ctrl.isA && ctrl.isA("sap.m.ComboBox")) {
@@ -1367,6 +1466,134 @@ sap.ui.define(
             return false;
           }
           return String(sMovementScenarioItemKey).trim().toUpperCase() === "O09";
+        },
+
+        _getRefDocModel: function () {
+          return (
+            this.getView().getModel("refDocModel") ||
+            sap.ui.getCore().getModel("refDocModel")
+          );
+        },
+
+        _buildBinDetailsRowKey: function (oRow) {
+          if (!oRow) return "";
+          return [
+            oRow.tripNumber || "",
+            oRow.docType || "",
+            oRow.refDocNo || "",
+            oRow.refDocItemNo || "",
+            oRow.materialCode || "",
+          ].join("|");
+        },
+
+        _snapshotBinDetailsBins: function () {
+          var oRefModel = this._getRefDocModel();
+          if (!oRefModel) return;
+
+          var aFiltered = oRefModel.getProperty("/filteredMaterialDetails") || [];
+          this._aBinDetailsOriginalBinsSnapshot = aFiltered.map(function (oRow) {
+            return {
+              key: this._buildBinDetailsRowKey(oRow),
+              binsTrolleys: oRow.binsTrolleys,
+            };
+          }.bind(this));
+        },
+
+        _restoreBinDetailsBins: function () {
+          var oRefModel = this._getRefDocModel();
+          if (!oRefModel) return;
+
+          if (!this._aBinDetailsOriginalBinsSnapshot) return;
+
+          var aMaterials = oRefModel.getProperty("/materialDetails") || [];
+          var aSnapshot = this._aBinDetailsOriginalBinsSnapshot;
+
+          // Restore values by matching keys in materialDetails (shared objects with filtered list).
+          aMaterials.forEach(function (oMat) {
+            var sKey = this._buildBinDetailsRowKey(oMat);
+            var oEntry = aSnapshot.find(function (e) {
+              return e.key === sKey;
+            });
+            if (oEntry) {
+              oMat.binsTrolleys = oEntry.binsTrolleys;
+            }
+          }.bind(this));
+
+          // Force refresh to ensure bindings update.
+          oRefModel.setProperty("/materialDetails", aMaterials, true);
+        },
+
+        _setBinInputsEditable: function (bEditable) {
+          var oTable = this.getView().byId("idBinDetailsTable");
+          if (!oTable) return;
+          var aChildren = oTable.findAggregatedObjects(true) || [];
+          aChildren.forEach(function (oCtrl) {
+            if (oCtrl && oCtrl.isA && oCtrl.isA("sap.m.Input")) {
+              if (oCtrl.setEditable) oCtrl.setEditable(!!bEditable);
+              if (oCtrl.setEnabled) oCtrl.setEnabled(!!bEditable);
+            }
+          });
+        },
+
+        onEditBinDetails: function () {
+          var oGlobalModel = sap.ui.getCore().getModel("globalData");
+          if (
+            oGlobalModel &&
+            (oGlobalModel.getProperty("/IsScanningReporting") ||
+              oGlobalModel.getProperty("/DisableRefDocMaterialsActions"))
+          ) {
+            MessageToast.show(
+              "Editing bins is disabled for this movement scenario."
+            );
+            return;
+          }
+
+          this._snapshotBinDetailsBins();
+          var oState = this.getView().getModel("binState");
+          if (oState) {
+            oState.setProperty("/binDetailsEditMode", true);
+          }
+          this._setBinInputsEditable(true);
+        },
+
+        onCancelBinDetails: function () {
+          this._restoreBinDetailsBins();
+          var oState = this.getView().getModel("binState");
+          if (oState) {
+            oState.setProperty("/binDetailsEditMode", false);
+          }
+          // No need to disable inputs explicitly; they become hidden.
+          MessageToast.show("Bin details edit cancelled");
+        },
+
+        onSaveBinDetails: function () {
+          var oRefModel = this._getRefDocModel();
+          var oTripData = sap.ui.getCore().getModel("TripData");
+          if (!oRefModel || !oTripData) {
+            MessageToast.show("Unable to save bins (missing models).");
+            return;
+          }
+
+          var aFiltered = oRefModel.getProperty("/filteredMaterialDetails") || [];
+          var iTotalBins = 0;
+
+          aFiltered.forEach(function (oRow) {
+            var v = oRow && oRow.binsTrolleys;
+            var n = v === null || v === undefined || v === "" ? 0 : Number(v);
+            if (!isNaN(n)) {
+              iTotalBins += n;
+            }
+          });
+
+          // Keep GateOut payload consistent: it already sends `BinsReturned`.
+          oTripData.setProperty("/BinsReturned", iTotalBins);
+
+          var oState = this.getView().getModel("binState");
+          if (oState) {
+            oState.setProperty("/binDetailsEditMode", false);
+          }
+
+          MessageToast.show("Bins saved. Total updated.");
         },
 
         // User-role-based authorization for GateOut has been removed; buttons are

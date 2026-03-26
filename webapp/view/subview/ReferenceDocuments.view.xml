@@ -5,7 +5,7 @@
     xmlns:core="sap.ui.core"
     displayBlock="true">
 
-    <VBox class="sapUiSizeCompact sapUiSmallMargin">
+    <VBox class="sapUiSizeCompact">
 
         <!-- ========================================================= -->
         <!-- =============== Reference Documents Panel =============== -->
@@ -63,46 +63,46 @@
                             </headerToolbar>
 
                             <columns>
-                                <Column id="colRefDocType" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colRefDocType" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
                                     <Text text="Doc Type"/>
                                 </Column>
-                                <Column id="colRefDocNumber" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colRefDocNumber" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
                                     <Text text="Document Number"/>
                                 </Column>
-                                <Column id="colRefDocDate" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colRefDocDate" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
                                     <Text text="Document Date"/>
                                 </Column>
-                                <Column id="colEwayBillNumber" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline" visible="true">
+                                <Column id="colEwayBillNumber" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline" visible="true">
                                     <Text text="EwayBill Number"/>
                                 </Column>
-                                <Column id="colEwayBillDate" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline" visible="true">
+                                <Column id="colEwayBillDate" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline" visible="true">
                                     <Text text="EwayBill Date"/>
                                 </Column>
-                                <Column id="colRefDocPartyCode" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colRefDocPartyCode" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
                                     <Text text="Sending / Receiving Party Code"/>
                                 </Column>
-                                <Column id="colRefDocPartyName" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colRefDocPartyName" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
                                     <Text text="Sending / Receiving Party Name"/>
                                 </Column>
-                                <Column id="colRefDocCreatedBy" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colRefDocCreatedBy" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
                                     <Text text="Created By"/>
                                 </Column>
-                                <Column id="colRefDocCreatedOnDate" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colRefDocCreatedOnDate" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
                                     <Text text="Created On Date"/>
                                 </Column>
-                                <Column id="colRefDocCreatedOnTime" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colRefDocCreatedOnTime" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
                                     <Text text="Created On Time"/>
                                 </Column>
-                                <Column id="colRefDocChangedBy" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colRefDocChangedBy" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
                                     <Text text="Changed By"/>
                                 </Column>
-                                <Column id="colRefDocChangedOnDate" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colRefDocChangedOnDate" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
                                     <Text text="Changed On Date"/>
                                 </Column>
-                                <Column id="colRefDocChangedOnTime" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colRefDocChangedOnTime" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
                                     <Text text="Changed On Time"/>
                                 </Column>
-                                <Column id="colRefDocAction" hAlign="Center" width="12rem" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colRefDocAction" hAlign="Center" width="12rem" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
                                     <Text text="Action"/>
                                 </Column>
                             </columns>
@@ -202,55 +202,55 @@
                             </headerToolbar>
 
                             <columns>
-                                <Column id="colMaterialCode" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colMaterialCode" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
                                     <Text text="Material Code"/>
                                 </Column>
-                                <Column id="colMaterialRefDocNo" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colMaterialRefDocNo" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
                                     <Text text="Ref Doc No"/>
                                 </Column>
-                                <Column id="colMaterialRefDocItemNo" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colMaterialRefDocItemNo" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
                                     <Text text="Ref Doc Item No"/>
                                 </Column>
-                                <Column id="colMaterialDescription" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colMaterialDescription" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
                                     <Text text="Material Description"/>
                                 </Column>
-                                <Column id="colMaterialQuantity" hAlign="End" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colMaterialQuantity" hAlign="End" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
                                     <Text text="Quantity"/>
                                 </Column>
-                                <Column id="colDispatchQty" hAlign="End" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colDispatchQty" hAlign="End" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
                                     <Text text="Dispatch Qty"/>
                                 </Column>
-                                <Column id="colRemainQty" hAlign="End" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colRemainQty" hAlign="End" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
                                     <Text text="Remain Qty"/>
                                 </Column>
-                                <Column id="colDispatchDate" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colDispatchDate" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
                                     <Text text="Dispatch Date"/>
                                 </Column>
-                                <Column id="colMaterialUoM" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colMaterialUoM" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
                                     <Text text="UoM"/>
                                 </Column>
-                                <Column id="colMaterialBinsTrolleys" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline" hAlign="End">
+                                <Column id="colMaterialBinsTrolleys" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline" hAlign="End">
                                     <Text text="Bins (Trolleys)"/>
                                 </Column>
-                                <Column id="colMaterialCreatedBy" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colMaterialCreatedBy" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
                                     <Text text="Created By"/>
                                 </Column>
-                                <Column id="colMaterialCreatedOnDate" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colMaterialCreatedOnDate" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
                                     <Text text="Created On Date"/>
                                 </Column>
-                                <Column id="colMaterialCreatedOnTime" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colMaterialCreatedOnTime" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
                                     <Text text="Created On Time"/>
                                 </Column>
-                                <Column id="colMaterialChangedBy" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colMaterialChangedBy" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
                                     <Text text="Changed By"/>
                                 </Column>
-                                <Column id="colMaterialChangedOnDate" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colMaterialChangedOnDate" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
                                     <Text text="Changed On Date"/>
                                 </Column>
-                                <Column id="colMaterialChangedOnTime" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colMaterialChangedOnTime" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
                                     <Text text="Changed On Time"/>
                                 </Column>
-                                <Column id="colMaterialAction" hAlign="Center" width="8rem" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colMaterialAction" hAlign="Center" width="8rem" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
                                     <Text text="Action"/>
                                 </Column>
                             </columns>

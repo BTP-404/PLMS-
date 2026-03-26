@@ -35,25 +35,28 @@
             </Select>
 
             <Label text="Document Number" />
-            <Input
+            <ComboBox
                 id="idRefDocNumber"
                 valueLiveUpdate="true"
-                showValueHelp="true"
-                valueHelpRequest=".onRefDocValueHelp"
+                allowCustomValue="true"
                 showSuggestion="true"
-                filterSuggests="true"
+                filterSuggests="false"
+                suggest=".onRefDocNumberSuggest"
                 suggestionItemSelected=".onRefDocSuggestionSelected"
-                suggestionItems="{refDocSuggestions>/items}"
+                showSecondaryValues="true"
+                filterSecondaryValues="true"
+                selectionChange=".onRefDocSuggestionSelected"
+                items="{
+                    path: 'refDocSuggestions>/items',
+                    sorter: { path: 'DocumentNumber' }
+                }"
             >
-                <suggestionItems>
-                    <core:Item
-                        key="{refDocSuggestions>DocumentNumber}"
-                        text="{refDocSuggestions>DocumentNumber}"
-                        additionalText="{refDocSuggestions>DocType}"
-                        templateShareable="false"
-                    />
-                </suggestionItems>
-            </Input>
+                <core:ListItem
+                    key="{refDocSuggestions>DocumentNumber}"
+                    text="{refDocSuggestions>DocumentNumber}"
+                    additionalText="{refDocSuggestions>Name}"
+                />
+            </ComboBox>
 
             <Label text="Document Date" />
             <DatePicker

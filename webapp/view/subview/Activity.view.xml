@@ -11,8 +11,12 @@
                 
                 <!-- ==================== KEY METRICS CARDS ==================== -->
                 <Panel 
-                    headerText="Trip Analysis Dashboard"
                     class="sapUiNoContentPadding sapUiTinyMarginBottom">
+                    <headerToolbar>
+                        <OverflowToolbar>
+                            <Title text="Trip Analysis Dashboard" class="sectionPanelTitle" />
+                        </OverflowToolbar>
+                    </headerToolbar>
                     <content>
                         <layout:Grid 
                             defaultSpan="L4 M4 S12" 
@@ -95,10 +99,14 @@
 
                 <!-- ==================== ACTIVITY TIMELINE PANEL ==================== -->
                 <Panel 
-                    headerText="Activity Timeline"
                     class="sapUiNoContentPadding sapUiTinyMarginTop activityTimelinePanel"
                     expandable="true"
                     expanded="true">
+                    <headerToolbar>
+                        <OverflowToolbar>
+                            <Title text="Activity Timeline" class="sectionPanelTitle" />
+                        </OverflowToolbar>
+                    </headerToolbar>
                     <content>
                         <VBox class="sapUiSmallMargin" style="padding-left: 0.25rem;">
                             <suite:ProcessFlow
@@ -143,21 +151,20 @@
 
                 <!-- ==================== EVENTS DETAILS WITH ICONS ==================== -->
                 <Panel 
-                    headerText="Event Details"
                     class="sapUiTinyMarginTop sapUiNoContentPadding"
                     expandable="true"
                     expanded="true">
+                    <headerToolbar>
+                        <OverflowToolbar>
+                            <Title text="Event Details" class="sectionPanelTitle" />
+                        </OverflowToolbar>
+                    </headerToolbar>
                     <content>
                         <VBox class="sapUiSmallMargin">
-                            <ScrollContainer
-                                horizontal="true"
-                                vertical="true"
-                                width="100%"
-                                height="500px"
-                                class="sapUiNoContentPadding">
                                 <List
                                     id="activityDetailsList"
                                     items="{activityModel>/events}"
+                                    width="100%"
                                     class="sapUiNoContentPadding">
                                     <CustomListItem class="eventDetailItem">
                                         <HBox alignItems="Center" class="sapUiSmallMargin eventDetailContent">
@@ -208,7 +215,6 @@
                                         </HBox>
                                     </CustomListItem>
                                 </List>
-                            </ScrollContainer>
                         </VBox>
                     </content>
                 </Panel>

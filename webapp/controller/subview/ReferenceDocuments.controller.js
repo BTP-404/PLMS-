@@ -6,17 +6,17 @@ sap.ui.define([
 	"sap/m/MessageBox",
 	"sap/m/SelectDialog",
 	"sap/m/StandardListItem",
+	"sap/m/SuggestionItem",
 	"sap/ui/model/Filter",
 	"sap/ui/model/FilterOperator",
 	"sap/ui/model/odata/v2/ODataModel",
 	"com/incresolZ_INC_PLMS/util/MovementScenarioIcons",
-], function (Controller, JSONModel, Fragment, MessageToast, MessageBox, SelectDialog, StandardListItem, Filter, FilterOperator, ODataModel, MovementScenarioIcons) {
+], function (Controller, JSONModel, Fragment, MessageToast, MessageBox, SelectDialog, StandardListItem, SuggestionItem, Filter, FilterOperator, ODataModel, MovementScenarioIcons) {
 	"use strict";
 
 	return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.ReferenceDocuments", {
 
 	onInit: function () {
-		this._initRefDocMovementScope();
 		this._ensureRefDocModel();
 		this._getRefDocSuggestionModel();
 		this._getMaterialSuggestionModel();
@@ -149,52 +149,6 @@ sap.ui.define([
 			oModel.setProperty("/filteredMaterialDetails", aFilteredMaterials);
 		},
 
-		/**
-		 * Gate In embed uses scope "I", Gate Out uses "O". Empty scope = no filter (other usages).
-		 */
-		_initRefDocMovementScope: function () {
-			var oView = this.getView();
-			var aCustom = oView.getCustomData ? oView.getCustomData() : [];
-			var sScope = "";
-			var i;
-			for (i = 0; i < aCustom.length; i++) {
-				var oCd = aCustom[i];
-				if (oCd.getKey && oCd.getKey() === "refDocMovementScope") {
-					sScope = oCd.getValue() || "";
-					break;
-				}
-			}
-			if (!sScope) {
-				var sId = oView.getId() || "";
-				if (sId.indexOf("idRefDocsViewGateOut") >= 0) {
-					sScope = "O";
-				} else if (sId.indexOf("idRefDocsViewGateIn") >= 0) {
-					sScope = "I";
-				}
-			}
-			this._sRefDocMovementScope = this._normalizeMovementType(sScope);
-		},
-
-		_normalizeMovementType: function (v) {
-			return String(v === undefined || v === null ? "" : v).trim().toUpperCase();
-		},
-
-		/**
-		 * @param {string} [vRowMovementType] OData MovementType on OrderDetails / ItemDetails row
-		 */
-		_rowMatchesRefDocMovementScope: function (vRowMovementType) {
-			var sReq = this._sRefDocMovementScope;
-			if (!sReq || (sReq !== "I" && sReq !== "O")) {
-				return true;
-			}
-			var sRow = this._normalizeMovementType(vRowMovementType);
-			if (!sRow) {
-				var oTripData = sap.ui.getCore().getModel("TripData");
-				sRow = this._normalizeMovementType(oTripData && oTripData.getProperty("/MovementType"));
-			}
-			return sRow === sReq;
-		},
-
 		// ============================================================
 		// Reference Documents Dialog Handlers
 		// ============================================================
@@ -234,11 +188,82 @@ sap.ui.define([
 		},
 
 		onRefDocSuggestionSelected: function (oEvent) {
-			var oItem = oEvent.getParameter("selectedItem");
-			var oCtx = oItem?.getBindingContext("refDocSuggestions");
-			if (oCtx) {
-				this._applySelectedReferenceDoc(oCtx.getObject());
+			var oItem = oEvent?.getParameter?.("selectedItem");
+			var oSource = oEvent?.getSource?.();
+
+			var sDocNumber = "";
+			if (oItem) {
+				if (typeof oItem.getKey === "function") {
+					sDocNumber = oItem.getKey() || "";
+				}
+				if (!sDocNumber && typeof oItem.getText === "function") {
+					sDocNumber = oItem.getText() || "";
+				}
 			}
+
+			if (!sDocNumber && oSource) {
+				if (typeof oSource.getSelectedKey === "function") {
+					sDocNumber = oSource.getSelectedKey() || "";
+				} else if (typeof oSource.getValue === "function") {
+					sDocNumber = oSource.getValue() || "";
+				}
+			}
+
+			sDocNumber = (sDocNumber || "").toString();
+			if (!sDocNumber) {
+				return;
+			}
+
+			var oModel = this.getView().getModel("refDocSuggestions");
+			var aItems = oModel?.getProperty("/items") || [];
+			var sDocNumberLower = sDocNumber.toLowerCase();
+			var oMatch = aItems.find(function (o) {
+				var v = (o?.DocumentNumber || "").toString();
+				return v && v.toLowerCase() === sDocNumberLower;
+			});
+
+			if (oMatch) {
+				this._applySelectedReferenceDoc(oMatch);
+			}
+		},
+
+		onRefDocNumberSuggest: function (oEvent) {
+			var oInput = oEvent.getSource();
+			var sValue = (oEvent.getParameter("suggestValue") || "").trim();
+
+			var oModel = this.getView().getModel("refDocSuggestions");
+			var aDocs = oModel?.getProperty("/items") || [];
+
+			// Always clear and re-fill suggestion items from the already-loaded JSON model
+			oInput.destroySuggestionItems();
+
+			if (!aDocs || !aDocs.length) {
+				return;
+			}
+
+			var aMatch;
+			if (!sValue) {
+				aMatch = aDocs.slice(0, 15);
+			} else {
+				var sNeedle = sValue.toLowerCase();
+				aMatch = aDocs.filter(function (oDoc) {
+					var sDocNo = (oDoc?.DocumentNumber || "").toString().toLowerCase();
+					var sName = (oDoc?.Name || "").toString().toLowerCase();
+					return sDocNo.includes(sNeedle) || sName.includes(sNeedle);
+				});
+			}
+
+			(aMatch || []).slice(0, 15).forEach(function (oDoc) {
+				var sDocNo = oDoc?.DocumentNumber || "";
+				if (!sDocNo) return;
+				oInput.addSuggestionItem(
+					new SuggestionItem({
+						key: sDocNo,
+						text: sDocNo,
+						description: oDoc?.Name || ""
+					})
+				);
+			});
 		},
 
 		onDocTypeValueHelp: function () {
@@ -279,7 +304,10 @@ sap.ui.define([
 		onSelectMaterials: function () {
 			var oSelect = this.byId("idRefDocType");
 			var sDocType = this._sSelectedDocType || (oSelect?.getSelectedItem()?.getKey() || oSelect?.getValue()?.trim());
-			var sDocNumber = this.byId("idRefDocNumber")?.getValue()?.trim();
+			var oDocNumberCtrl = this.byId("idRefDocNumber");
+			var sDocNumber = (oDocNumberCtrl && oDocNumberCtrl.isA && oDocNumberCtrl.isA("sap.m.ComboBox"))
+				? ((oDocNumberCtrl.getSelectedKey() || oDocNumberCtrl.getValue() || "").trim())
+				: (oDocNumberCtrl?.getValue()?.trim() || "");
 			
 			if (!sDocType) {
 				return MessageToast.show("Please select a Doc Type first");
@@ -842,7 +870,7 @@ sap.ui.define([
 			var that = this;
 			return new Promise(function (resolve, reject) {
 				// Ensure doc types are loaded before opening dialog
-				that._loadDocTypes().then(function () {
+				that._loadDocTypes().then(function (aDocTypes) {
 					if (!that._oAddRefDocDialog) {
 						Fragment.load({
 							id: that.getView().getId(),
@@ -876,6 +904,7 @@ sap.ui.define([
 										oBinding.refresh();
 									}
 								}
+								that._setDefaultRefDocTypeIfEmpty(aDocTypes);
 							}, 100);
 							resolve(oDialog);
 						}.bind(that))
@@ -894,6 +923,9 @@ sap.ui.define([
 						}
 						that._loadRefDocSuggestions(that._sSelectedDocType);
 						that._oAddRefDocDialog.open();
+						setTimeout(function () {
+							that._setDefaultRefDocTypeIfEmpty(aDocTypes);
+						}, 0);
 						resolve(that._oAddRefDocDialog);
 					}
 				}).catch(function (oError) {
@@ -919,6 +951,9 @@ sap.ui.define([
 							}
 							that._loadRefDocSuggestions(that._sSelectedDocType);
 							oDialog.open();
+							setTimeout(function () {
+								that._setDefaultRefDocTypeIfEmpty();
+							}, 0);
 							resolve(oDialog);
 						}.bind(that));
 					} else {
@@ -930,10 +965,45 @@ sap.ui.define([
 						}
 						that._loadRefDocSuggestions(that._sSelectedDocType);
 						that._oAddRefDocDialog.open();
+						setTimeout(function () {
+							that._setDefaultRefDocTypeIfEmpty();
+						}, 0);
 						resolve(that._oAddRefDocDialog);
 					}
 				});
 			}.bind(this));
+		},
+
+		_setDefaultRefDocTypeIfEmpty: function (aDocTypes) {
+			// Only apply a default in "Add" mode, and only if user hasn't chosen anything yet.
+			if (this._bIsRefDocEditMode) {
+				return;
+			}
+
+			var oSelect = this.byId("idRefDocType");
+			if (!oSelect) {
+				return;
+			}
+
+			var sExistingKey = (oSelect.getSelectedKey && oSelect.getSelectedKey()) || "";
+			if (sExistingKey) {
+				return;
+			}
+
+			// Prefer the freshly loaded list; fallback to model data if not provided.
+			var aItems = Array.isArray(aDocTypes) ? aDocTypes : (this._getDocTypeModel()?.getProperty("/items") || []);
+			if (!Array.isArray(aItems) || aItems.length === 0) {
+				return;
+			}
+
+			var sFirstKey = aItems[0]?.ConfigID || "";
+			if (!sFirstKey) {
+				return;
+			}
+
+			oSelect.setSelectedKey(sFirstKey);
+			this._sSelectedDocType = sFirstKey;
+			this._loadRefDocSuggestions(sFirstKey);
 		},
 
 		_openAddMaterialDialog: function () {
@@ -1254,7 +1324,12 @@ sap.ui.define([
 				oDocTypeSelect.setSelectedKey(oRefDoc.docType || "");
 			}
 			this._sSelectedDocType = oRefDoc.docType || "";
-			this.byId("idRefDocNumber")?.setValue(oRefDoc.documentNumber || "");
+			var oDocNumberCtrl = this.byId("idRefDocNumber");
+			if (oDocNumberCtrl && oDocNumberCtrl.isA && oDocNumberCtrl.isA("sap.m.ComboBox")) {
+				oDocNumberCtrl.setSelectedKey(oRefDoc.documentNumber || "");
+			} else {
+				oDocNumberCtrl?.setValue?.(oRefDoc.documentNumber || "");
+			}
 			this.byId("idRefDocDate")?.setValue(oRefDoc.documentDate || "");
 			this.byId("idRefDocPartyCode")?.setValue(oRefDoc.partyCode || "");
 			this.byId("idRefDocPartyName")?.setValue(oRefDoc.partyName || "");
@@ -1940,7 +2015,12 @@ sap.ui.define([
 				oDocTypeSelect.setSelectedKey(oDoc.DocType || "");
 			}
 			this._sSelectedDocType = oDoc.DocType || this._sSelectedDocType;
-			this.byId("idRefDocNumber")?.setValue(oDoc.DocumentNumber || "");
+			var oDocNumberCtrl = this.byId("idRefDocNumber");
+			if (oDocNumberCtrl && oDocNumberCtrl.isA && oDocNumberCtrl.isA("sap.m.ComboBox")) {
+				oDocNumberCtrl.setSelectedKey(oDoc.DocumentNumber || "");
+			} else {
+				oDocNumberCtrl?.setValue?.(oDoc.DocumentNumber || "");
+			}
 			this.byId("idRefDocDate")?.setValue(this._formatODataDate(oDoc.DocumentDate));
 			this.byId("idRefDocPartyCode")?.setValue(oDoc.Vendor || oDoc.Customer || "");
 			this.byId("idRefDocPartyName")?.setValue(oDoc.Name || "");
@@ -2388,7 +2468,10 @@ sap.ui.define([
 
 			var oDocTypeSelect = this.byId("idRefDocType");
 			var sDocType = (oDocTypeSelect?.getSelectedItem()?.getKey() || oDocTypeSelect?.getValue() || "").trim();
-			var sDocNumber = this.byId("idRefDocNumber")?.getValue().trim() || "";
+			var oDocNumberCtrl = this.byId("idRefDocNumber");
+			var sDocNumber = (oDocNumberCtrl && oDocNumberCtrl.isA && oDocNumberCtrl.isA("sap.m.ComboBox"))
+				? (oDocNumberCtrl.getSelectedKey() || "").trim()
+				: (oDocNumberCtrl?.getValue()?.trim() || "");
 			var sPartyCode = this.byId("idRefDocPartyCode")?.getValue().trim() || "";
 			var sPartyName = this.byId("idRefDocPartyName")?.getValue().trim() || "";
 			var sEwayBillNumber = this.byId("idRefDocEwayBillNumber")?.getValue().trim() || "";
@@ -2707,7 +2790,10 @@ sap.ui.define([
 
 			var oDocTypeSelect = this.byId("idRefDocType");
 			var sDialogDocType = (oDocTypeSelect?.getSelectedItem()?.getKey() || oDocTypeSelect?.getValue() || "");
-			var sDialogDocNumber = this.byId("idRefDocNumber")?.getValue() || "";
+			var oDocNumberCtrl = this.byId("idRefDocNumber");
+			var sDialogDocNumber = (oDocNumberCtrl && oDocNumberCtrl.isA && oDocNumberCtrl.isA("sap.m.ComboBox"))
+				? (oDocNumberCtrl.getSelectedKey() || "")
+				: (oDocNumberCtrl?.getValue?.() || "");
 			var sDialogPartyCode = this.byId("idRefDocPartyCode")?.getValue() || "";
 			var sDialogPartyName = this.byId("idRefDocPartyName")?.getValue() || "";
 			var sDialogDate = this.byId("idRefDocDate")?.getValue() || "";
@@ -3056,11 +3142,11 @@ sap.ui.define([
 			if (bItemDetailsAlreadyLoaded === undefined) {
 				bItemDetailsAlreadyLoaded = false;
 			}
-			// Filter out deleted records (Deleted === true) and by MovementType (I = Gate In, O = Gate Out)
+			// Filter out deleted records (Deleted === true)
 			var aRefDocs = (aDocs || [])
 				.filter(function (oDoc) {
-					return !oDoc.Deleted && this._rowMatchesRefDocMovementScope(oDoc.MovementType);
-				}.bind(this))
+					return !oDoc.Deleted;
+				})
 				.map(function (oDoc) {
 					return {
 						// Store both original service values (uppercase) and local model values (lowercase)
@@ -3178,11 +3264,6 @@ sap.ui.define([
 					var oPromise = that._fetchItemDetailsByRefDocNo(sDocType, sRefDocNo)
 						.then(function (aItems) {
 							if (aItems && aItems.length > 0) {
-								aItems = aItems.filter(function (oItem) {
-									return that._rowMatchesRefDocMovementScope(oItem.MovementType);
-								});
-							}
-							if (aItems && aItems.length > 0) {
 								// Filter out materials that already exist
 								var aNewMaterials = aItems.filter(function (oItem) {
 									var sKey = (oItem.TripNumber || "") + "|" + 
@@ -3229,6 +3310,8 @@ sap.ui.define([
 					var aMaterialsToAdd = aAllNewMaterials.map(function (oItem) {
 						var vQty = oItem.Quantity;
 						var sQtyDisplay = (vQty === null || vQty === undefined || vQty === "") ? "" : String(vQty);
+						var vCases = oItem.Cases;
+						var sCasesDisplay = (vCases === null || vCases === undefined || vCases === "") ? "" : String(vCases);
 						
 						return {
 							tripNumber: oItem.TripNumber || "",
@@ -3239,6 +3322,8 @@ sap.ui.define([
 							materialCode: oItem.MaterialCode || "",
 							materialDescription: oItem.MaterialDescription || "",
 							qty: sQtyDisplay,
+							// Backend ItemDetails "Cases" shown as "Bins (Trolleys)" in UI
+							binsTrolleys: sCasesDisplay,
 							uom: oItem.UoM || "",
 							createdBy: oItem.CreatedBy || "",
 							createdOnDate: that._formatODataDate(oItem.CreatedOn),
@@ -3258,12 +3343,14 @@ sap.ui.define([
 		},
 
 		_setMaterialDetailsFromService: function (aItems) {
-			// Filter out deleted records (IsDeleted === "X") and by MovementType (I / O)
+			// Filter out deleted records (IsDeleted === "X")
 			var aMaterials = (aItems || [])
 				.filter(function (oItem) {
-					return oItem.IsDeleted !== "X" && this._rowMatchesRefDocMovementScope(oItem.MovementType);
-				}.bind(this))
+					return oItem.IsDeleted !== "X";
+				})
 				.map(function (oItem) {
+					var vCases = oItem.Cases;
+					var sCasesDisplay = (vCases === null || vCases === undefined || vCases === "") ? "" : String(vCases);
 					return {
 						// Store both original service values (uppercase) and local model values (lowercase)
 						// This ensures we can use the correct values for OData operations
@@ -3272,6 +3359,7 @@ sap.ui.define([
 						RefDocNo: oItem.RefDocNo || "",
 						RefDocItemNo: oItem.RefDocItemNo || "",
 						MovementType: oItem.MovementType || "",
+						Cases: sCasesDisplay,
 						tripNumber: oItem.TripNumber || "",
 						docType: oItem.DocType || "",
 						refDocNo: oItem.RefDocNo || "",
@@ -3280,6 +3368,8 @@ sap.ui.define([
 						materialCode: oItem.MaterialCode || "",
 						materialDescription: oItem.MaterialDescription || "",
 						qty: (oItem.Quantity === null || oItem.Quantity === undefined) ? "" : String(oItem.Quantity),
+						// Backend ItemDetails "Cases" shown as "Bins (Trolleys)" in UI
+						binsTrolleys: sCasesDisplay,
 						uom: oItem.UoM || "",
 						// New dispatch-related fields (populated only when backend provides them)
 						dispatchQty: (oItem.DispatchQty === null || oItem.DispatchQty === undefined) ? "" : String(oItem.DispatchQty),

@@ -847,7 +847,7 @@
     }
     
     /* Reduce VBox padding for Activity Timeline on desktop */
-    .sapUiView[data-controller-name*="Activity"] .sapMPanel[header-text*="Activity Timeline"] .sapMVBox {
+    .sapUiView[data-controller-name*="Activity"] .activityTimelinePanel .sapMVBox {
         padding: 0.5rem 0.5rem 0.5rem 0.25rem !important;
     }
     
@@ -1162,29 +1162,7 @@
     padding: 0.5rem 0;
 }
 
-.sapMPanel[header-text*="Trip Analysis Dashboard"] .sapMPanelHdr {
-    background: linear-gradient(135deg, #0070f2 0%, #0051d5 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    font-size: 1.3rem;
-}
-
 .sapMPanel[header-text*="Stage Summary"] .sapMPanelHdr {
-    background: linear-gradient(135deg, #4caf50 0%, #388e3c 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-}
-
-.sapMPanel[header-text*="Activity Timeline"] .sapMPanelHdr {
-    background: linear-gradient(135deg, #2196f3 0%, #1976d2 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-}
-
-.sapMPanel[header-text*="Event Details"] .sapMPanelHdr {
     background: linear-gradient(135deg, #4caf50 0%, #388e3c 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -1365,37 +1343,11 @@
     font-size: 0.875rem;
 }
 
-/* Compact spacing for Analysis page - Beautiful Background */
-.sapUiView[data-controller-name*="Activity"] {
-    background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 50%, #f0f4f8 100%);
-    min-height: 100vh;
-    padding: 1rem;
-}
-
-.sapUiView[data-controller-name*="Activity"] .sapMVBox {
-    background: transparent;
-}
-
-.sapUiView[data-controller-name*="Activity"] .sapMPanel {
-    margin-bottom: 1rem;
-    border-radius: 12px;
-    overflow: hidden;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-    border: 1px solid rgba(0, 112, 242, 0.1);
-    background: #ffffff;
-}
-
+/* Analysis tab: inherit subview background (see .controller.subview.); metric cards keep their own headers */
 .sapUiView[data-controller-name*="Activity"] .sapMPanelHdr {
-    background: linear-gradient(135deg, rgba(0, 112, 242, 0.05) 0%, rgba(0, 112, 242, 0.02) 100%);
-    padding: 1rem;
-    border-bottom: 2px solid rgba(0, 112, 242, 0.1);
-}
-
-.sapUiView[data-controller-name*="Activity"] .sapMPanelContent {
-    max-height: 400px;
-    overflow-y: auto;
-    background: #ffffff;
-    padding: 1rem;
+    background: var(--plms-neutral-bg);
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--plms-neutral-border);
 }
 
 /* Beautiful Scrollbar */
@@ -2932,6 +2884,11 @@
 
 #stagePage .sapMITBContent .sapUiView[data-controller-name*=".controller.subview."] > .sapMVBox {
     margin: 0.5rem !important;
+}
+
+/* Bold Document Number in ReferenceDocuments "Document Number" ComboBox dropdown */
+.plmsRefDocNumberBold {
+    font-weight: 700 !important;
 }
 
 #stagePage .sapMITBContent .sapUiView[data-controller-name*=".controller.subview."] .sapMPanel {

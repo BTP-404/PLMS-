@@ -55,7 +55,7 @@
         <Panel
             id="gateOutPanel"
             expandable="true"
-            expanded="true"
+            expanded="false"
             class="sapUiNoContentPadding"
         >
             <headerToolbar>
@@ -64,63 +64,13 @@
                 </OverflowToolbar>
             </headerToolbar>
 
-            <VBox class="sapUiSizeCompact sapUiMediumPadding">
-                <!-- ========================= ROW 1 ========================= -->
-                <!-- Verified Docs + Bins Returned (2 columns) -->
+            <VBox class="sapUiSizeCompact sapUiMediumPadding plmsGateOutForm">
+                <!-- Row 1: Exit Gate | Related Trip (Gate Pass No) | Verified Documents -->
                 <layout:Grid
-                    defaultSpan="L6 M6 S12"
+                    defaultSpan="L4 M4 S12"
                     hSpacing="0.5rem"
                     vSpacing="0.5rem"
                     width="100%"
-                >
-                    <!-- Verified Docs -->
-                    <layout:content>
-                        <VBox width="100%">
-                            <Label
-                                text="Verified the Documents?"
-                                required="true"
-                                design="Bold"
-                                class="sapUiNoMarginBottom"
-                            />
-                            <RadioButtonGroup
-                                id="idVerifiedDocs"
-                                columns="2"
-                                selectedIndex="0"
-                                width="100%"
-                            >
-                                <RadioButton text="Yes" />
-                                <RadioButton text="No" />
-                            </RadioButtonGroup>
-                        </VBox>
-                    </layout:content>
-
-                    <!-- Bins Returned -->
-                    <layout:content>
-                        <VBox width="100%">
-                            <Label
-                                text="Bins Returned"
-                                design="Bold"
-                                class="sapUiNoMarginBottom"
-                            />
-                            <Input
-                                id="idBinsReturned"
-                                width="100%"
-                                type="Number"
-                                placeholder="Enter bins returned"
-                                value="{path: 'TripData>/BinsReturned', mode: 'TwoWay'}"
-                            />
-                        </VBox>
-                    </layout:content>
-                </layout:Grid>
-
-                <!-- ========================= ROW 2 ========================= -->
-                <!-- Exit Gate + Short Qty (ShortQty from TripDetails) -->
-                <layout:Grid
-                    defaultSpan="L6 M6 S12"
-                    hSpacing="0.5rem"
-                    vSpacing="0.5rem"
-                    width="100%"
-                    class="sapUiTinyMarginTop"
                 >
                     <layout:content>
                         <VBox width="100%">
@@ -149,6 +99,88 @@
                     <layout:content>
                         <VBox width="100%">
                             <Label
+                                text="Related Trip Number (Gate Pass No)"
+                                design="Bold"
+                                class="sapUiNoMarginBottom"
+                            />
+                            <Input
+                                id="idGateOutRelatedTripNumber"
+                                width="100%"
+                                value="{
+                                    path: 'TripData>/TripNumber',
+                                    formatter: '.formatTripNumber'
+                                }"
+                                enabled="false"
+                            />
+                        </VBox>
+                    </layout:content>
+                    <layout:content>
+                        <VBox width="100%">
+                            <Label
+                                text="Verified the Documents?"
+                                required="true"
+                                design="Bold"
+                                class="sapUiNoMarginBottom"
+                            />
+                            <RadioButtonGroup
+                                id="idVerifiedDocs"
+                                columns="2"
+                                selectedIndex="{path: 'TripData>/VerifiedDocs', formatter: '.formatVerifiedDocsIndex'}"
+                                width="100%"
+                            >
+                                <RadioButton text="Yes" />
+                                <RadioButton text="No" />
+                            </RadioButtonGroup>
+                        </VBox>
+                    </layout:content>
+                </layout:Grid>
+
+                <!-- Row 2: Skip Document | Bins Returned | Short Quantity -->
+                <layout:Grid
+                    defaultSpan="L4 M4 S12"
+                    hSpacing="0.5rem"
+                    vSpacing="0.5rem"
+                    width="100%"
+                    class="sapUiTinyMarginTop"
+                >
+                    <layout:content>
+                        <VBox width="100%">
+                            <Label
+                                text="Skip Document"
+                                design="Bold"
+                                class="sapUiNoMarginBottom"
+                            />
+                            <RadioButtonGroup
+                                id="idSkipDocumentGateOut"
+                                columns="2"
+                                selectedIndex="{path: 'TripData>/RefDocSkip', formatter: '.formatRefDocSkipIndex'}"
+                                select="onRefDocSkipChange"
+                                width="100%"
+                            >
+                                <RadioButton text="Yes" />
+                                <RadioButton text="No" />
+                            </RadioButtonGroup>
+                        </VBox>
+                    </layout:content>
+                    <layout:content>
+                        <VBox width="100%">
+                            <Label
+                                text="Bins Returned"
+                                design="Bold"
+                                class="sapUiNoMarginBottom"
+                            />
+                            <Input
+                                id="idBinsReturned"
+                                width="100%"
+                                type="Number"
+                                placeholder="Enter bins returned"
+                                value="{path: 'TripData>/BinsReturned', mode: 'TwoWay'}"
+                            />
+                        </VBox>
+                    </layout:content>
+                    <layout:content>
+                        <VBox width="100%">
+                            <Label
                                 text="Short Quantity"
                                 design="Bold"
                                 class="sapUiNoMarginBottom"
@@ -164,8 +196,7 @@
                     </layout:content>
                 </layout:Grid>
 
-                <!-- ========================= ROW 3 ========================= -->
-                <!-- Remarks + Additional Info -->
+                <!-- Row 3: Remarks | Additional Info -->
                 <layout:Grid
                     defaultSpan="L6 M6 S12"
                     hSpacing="0.5rem"
@@ -173,7 +204,6 @@
                     width="100%"
                     class="sapUiTinyMarginTop"
                 >
-                    <!-- Remarks -->
                     <layout:content>
                         <VBox width="100%">
                             <Label
@@ -184,13 +214,13 @@
                             <TextArea
                                 id="idGateOutRemarks"
                                 rows="4"
+                                growing="true"
+                                growingMaxLines="8"
                                 placeholder="Enter any remarks"
                                 width="100%"
                             />
                         </VBox>
                     </layout:content>
-
-                    <!-- Additional Info -->
                     <layout:content>
                         <VBox width="100%">
                             <Label
@@ -201,8 +231,9 @@
                             <TextArea
                                 id="idGateOutAdditionalInfo"
                                 rows="4"
-                                placeholder="Enter additional information"
                                 growing="true"
+                                growingMaxLines="12"
+                                placeholder="Enter additional information"
                                 width="100%"
                             />
                         </VBox>
@@ -248,6 +279,29 @@
             <headerToolbar>
                 <OverflowToolbar>
                     <Title text="Bin Details" class="sectionPanelTitle" />
+                    <ToolbarSpacer />
+                    <Button
+                        text="Edit"
+                        icon="sap-icon://edit"
+                        type="Transparent"
+                        press="onEditBinDetails"
+                        visible="{= ${binState>/binDetailsEditMode} ? false : true }"
+                    />
+                    <Button
+                        text="Save"
+                        icon="sap-icon://save"
+                        type="Accept"
+                        press="onSaveBinDetails"
+                        visible="{binState>/binDetailsEditMode}"
+                        class="sapUiTinyMarginBegin"
+                    />
+                    <Button
+                        text="Cancel"
+                        icon="sap-icon://decline"
+                        type="Transparent"
+                        press="onCancelBinDetails"
+                        visible="{binState>/binDetailsEditMode}"
+                    />
                 </OverflowToolbar>
             </headerToolbar>
             <VBox class="sapUiSizeCompact sapUiMediumPadding">
@@ -301,6 +355,13 @@
                                     />
                                     <Text
                                         text="{= ${refDocModel>binsTrolleys} || '0' }"
+                                        visible="{= ${binState>/binDetailsEditMode} ? false : true }"
+                                    />
+                                    <Input
+                                        value="{path: 'refDocModel>binsTrolleys', mode: 'TwoWay'}"
+                                        type="Number"
+                                        width="100%"
+                                        visible="{binState>/binDetailsEditMode}"
                                     />
                                 </cells>
                             </ColumnListItem>
