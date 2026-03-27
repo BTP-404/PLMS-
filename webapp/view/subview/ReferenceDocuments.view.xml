@@ -14,7 +14,7 @@
             expandable="true"
             expanded="false"
             width="100%"
-            class="sapUiNoContentPadding">
+            class="sapUiNoContentPadding sapUiTinyMarginBottom">
 
             <headerToolbar>
                 <OverflowToolbar>
@@ -23,31 +23,25 @@
             </headerToolbar>
 
             <VBox class="sapUiSizeCompact sapUiMediumPadding" width="100%">
-                <ScrollContainer
-                    horizontal="false"
-                    vertical="false"
+                <Table
+                    id="idReferenceDocsTable"
+                    inset="false"
+                    mode="SingleSelectMaster"
                     width="100%"
-                    class="sapUiNoContentPadding sapUiSmallMarginTop sapUiSizeCompact">
-                        <Table
-                            id="idReferenceDocsTable"
-                            inset="false"
-                            mode="SingleSelectMaster"
-                            width="100%"
-                            class="sapUiSizeCompact"
-                            fixedLayout="true"
-                            autoPopin="true"
-                            popinLayout="GridSmall"
-                            sticky="ColumnHeaders,HeaderToolbar"
-                            growing="true"
-                            growingScrollToLoad="true"
-                            growingThreshold="20"
-                            items="{path: 'refDocModel>/referenceDocs'}"
-                            selectionChange="onRefDocSelectionChange"
-                            noDataText="No reference documents added yet">
+                    class="sapUiSizeCompact"
+                    fixedLayout="true"
+                    autoPopin="true"
+                    popinLayout="GridSmall"
+                    sticky="ColumnHeaders,HeaderToolbar"
+                    growing="true"
+                    growingScrollToLoad="true"
+                    growingThreshold="20"
+                    items="{path: 'refDocModel>/referenceDocs'}"
+                    selectionChange="onRefDocSelectionChange"
+                    noDataText="No reference documents added yet">
 
                             <headerToolbar>
                                 <Toolbar>
-                                    <Title text="Reference Documents" level="H6"/>
                                     <ToolbarSpacer/>
                                     <Button
                                         id="idRefDocColumnsButton"
@@ -84,14 +78,16 @@
                                     id="colInvRefNo"
                                     demandPopin="true"
                                     minScreenWidth="Desktop"
-                                    popinDisplay="Block">
+                                    popinDisplay="Block"
+                                    visible="{path: 'TripData>/MovementType', formatter: '.formatInvRefColumnsVisible'}">
                                     <Text text="Invoice Ref. No" wrapping="false"/>
                                 </Column>
                                 <Column
                                     id="colInvRefDate"
                                     demandPopin="true"
                                     minScreenWidth="Desktop"
-                                    popinDisplay="Block">
+                                    popinDisplay="Block"
+                                    visible="{path: 'TripData>/MovementType', formatter: '.formatInvRefColumnsVisible'}">
                                     <Text text="Invoice Document Date" wrapping="false"/>
                                 </Column>
                                 <Column id="colRefDocPartyCode" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Block">
@@ -131,8 +127,8 @@
                                         <Text text="{refDocModel>documentDate}"/>
                                         <Text text="{refDocModel>ewayBillNumber}"/>
                                         <Text text="{path: 'refDocModel>ewayBillDate', formatter: '.formatEwayBillDate'}"/>
-                                        <Text text="{refDocModel>invRefNo}"/>
-                                        <Text text="{refDocModel>invRefDate}"/>
+                                        <Text text="{refDocModel>invRefNo}" visible="{path: 'TripData>/MovementType', formatter: '.formatInvRefColumnsVisible'}"/>
+                                        <Text text="{refDocModel>invRefDate}" visible="{path: 'TripData>/MovementType', formatter: '.formatInvRefColumnsVisible'}"/>
                                         <Text text="{refDocModel>partyCode}"/>
                                         <Text text="{refDocModel>partyName}"/>
                                         <Text text="{refDocModel>createdBy}"/>
@@ -166,8 +162,7 @@
                                 </ColumnListItem>
                             </items>
 
-                        </Table>
-                </ScrollContainer>
+                </Table>
             </VBox>
         </Panel>
 
@@ -180,7 +175,7 @@
             expandable="true"
             expanded="false"
             width="100%"
-            class="sapUiNoContentPadding sapUiSmallMarginTop">
+            class="sapUiNoContentPadding sapUiTinyMarginBottom">
 
             <headerToolbar>
                 <OverflowToolbar>
@@ -189,28 +184,22 @@
             </headerToolbar>
 
             <VBox class="sapUiSizeCompact sapUiMediumPadding" width="100%">
-                <ScrollContainer
-                    horizontal="false"
-                    vertical="false"
+                <Table
+                    id="idMaterialDetailsTable"
+                    inset="false"
                     width="100%"
-                    class="sapUiNoContentPadding sapUiSmallMarginTop sapUiSizeCompact">
-                        <Table
-                            id="idMaterialDetailsTable"
-                            inset="false"
-                            width="100%"
-                            class="sapUiSizeCompact"
-                            fixedLayout="true"
-                            autoPopin="true"
-                            popinLayout="GridSmall"
-                            sticky="ColumnHeaders,HeaderToolbar"
-                            growing="true"
-                            growingScrollToLoad="true"
-                            items="{path: 'refDocModel>/filteredMaterialDetails'}"
-                            noDataText="No material rows added yet">
+                    class="sapUiSizeCompact"
+                    fixedLayout="true"
+                    autoPopin="true"
+                    popinLayout="GridSmall"
+                    sticky="ColumnHeaders,HeaderToolbar"
+                    growing="true"
+                    growingScrollToLoad="true"
+                    items="{path: 'refDocModel>/filteredMaterialDetails'}"
+                    noDataText="No material rows added yet">
 
                             <headerToolbar>
                                 <Toolbar>
-                                    <Title text="Material Details" level="H6"/>
                                     <ToolbarSpacer/>
                                     <Button
                                         id="idMaterialColumnsButton"
@@ -313,8 +302,7 @@
                                 </ColumnListItem>
                             </items>
 
-                        </Table>
-                </ScrollContainer>
+                </Table>
             </VBox>
         </Panel>
 

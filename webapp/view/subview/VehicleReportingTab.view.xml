@@ -7,12 +7,13 @@
     xmlns:unified="sap.ui.unified"
     displayBlock="true"
 >
-    <VBox class="sapUiSizeCompact">
+    <VBox class="sapUiSizeCompact" width="100%">
         <!-- ========================= SCANNER ROW ========================= -->
         <!-- Scanner Input and Button - Only visible for movement scenario I02 / ASN (see VehicleReportingTab.controller) -->
         <VBox 
             id="idReportingScannerVBox"
-            class="sapUiSmallMarginBottom"
+            class="sapUiTinyMarginBottom"
+            width="100%"
             visible="false">
             <Label
                 text="Scanner Input"
@@ -43,14 +44,15 @@
             id="reportingDetailsPanel"
             expandable="true"
             expanded="true"
-            class="sapUiNoContentPadding"
+            class="sapUiNoContentPadding sapUiTinyMarginBottom"
+            width="100%"
         >
             <headerToolbar>
                 <OverflowToolbar>
                     <Title text="Reporting Details" class="sectionPanelTitle" />
                 </OverflowToolbar>
             </headerToolbar>
-            <VBox class="sapUiSizeCompact sapUiMediumPadding">
+            <VBox class="sapUiSizeCompact sapUiMediumPadding" width="100%">
                 <layout:Grid
                     defaultSpan="L4 M6 S12"
                     hSpacing="2"
@@ -346,7 +348,7 @@
                         </VBox>
                     </layout:content>
                 </layout:Grid>
-                <HBox justifyContent="End" class="sapUiSmallMarginTop">
+                <HBox justifyContent="End" class="sapUiSmallMarginTop" width="100%">
                     <Button
                         id="btnEditReporting"
                         text="Edit"
@@ -370,7 +372,8 @@
             id="changeHistoryPanel"
             expandable="true"
             expanded="false"
-            class="sapUiNoContentPadding"
+            class="sapUiNoContentPadding sapUiTinyMarginBottom"
+            width="100%"
             visible="false"
         >
             <headerToolbar>
@@ -379,7 +382,8 @@
                 </OverflowToolbar>
             </headerToolbar>
             <VBox
-                class="sapUiSmallMargin sapUiMediumPadding sapUiSizeCompact"
+                class="sapUiMediumPadding sapUiSizeCompact"
+                width="100%"
                 binding="{TripData>/}"
             >
                 <HBox justifyContent="SpaceBetween">

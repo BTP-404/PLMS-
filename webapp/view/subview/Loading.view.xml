@@ -5,14 +5,15 @@
     xmlns:layout="sap.ui.layout"
     displayBlock="true"
 >
-    <VBox class="sapUiSmallMargin sapUiSizeCompact" width="100%">
+    <VBox class="sapUiSizeCompact" width="100%">
 
         <!-- ===================== MATERIAL DETAILS PANEL ===================== -->
         <Panel
             id="materialDetailsPanel"
             expandable="true"
             expanded="true"
-            class="sapUiNoContentPadding"
+            class="sapUiNoContentPadding sapUiTinyMarginBottom"
+            width="100%"
             stickyHeader="true"
         >
             <headerToolbar>
@@ -21,27 +22,23 @@
                 </OverflowToolbar>
             </headerToolbar>
 
-            <VBox class="sapUiSizeCompact sapUiMediumPadding">
+            <VBox class="sapUiSizeCompact sapUiMediumPadding" width="100%">
 
                 <!-- ===================== TABLE SECTION ===================== -->
-                <ScrollContainer
-                    horizontal="true"
-                    vertical="false"
+                <Table
+                    id="idLoadingMaterialTable"
+                    inset="false"
                     width="100%"
-                    class="sapUiNoContentPadding sapUiSmallMarginTop sapUiSizeCompact">
-                        <Table
-                            id="idLoadingMaterialTable"
-                            inset="false"
-                            width="auto"
-                            class="sapUiSizeCompact"
-                            fixedLayout="false"
-                            autoPopin="true"
-                            sticky="ColumnHeaders,HeaderToolbar"
-                            growing="true"
-                            growingScrollToLoad="true"
-                            growingThreshold="20"
-                            items="{tableModel>/materials}"
-                            noDataText="No materials loaded yet">
+                    class="sapUiSizeCompact"
+                    fixedLayout="true"
+                    autoPopin="true"
+                    popinLayout="GridSmall"
+                    sticky="ColumnHeaders,HeaderToolbar"
+                    growing="true"
+                    growingScrollToLoad="true"
+                    growingThreshold="20"
+                    items="{tableModel>/materials}"
+                    noDataText="No materials loaded yet">
                             <headerToolbar>
                                 <Toolbar>
                                     <Title text="Material Details" level="H6" />
@@ -239,14 +236,13 @@
                                     </cells>
                                 </ColumnListItem>
                             </items>
-                        </Table>
-                </ScrollContainer>
+                </Table>
 
             </VBox>
         </Panel>
 
         <!-- ===================== BUTTONS AT BOTTOM ===================== -->
-        <HBox justifyContent="End" class="sapUiSmallMarginTop sapUiSmallMarginEnd">
+        <HBox justifyContent="End" class="sapUiSmallMarginTop" width="100%">
             <!-- Save Loading (weights/quantities/remark) -->
             <Button 
                 id="btnSaveLoading" 

@@ -59,7 +59,7 @@ sap.ui.define([
 				}],
 				events: [],
 				timelineCards: [],
-				timelineViewMode: "processflow" // "processflow" or "cards"
+				timelineViewMode: "cards" // "processflow" or "cards"
 			});
 			this.getView().setModel(this._oActivityModel, "activityModel");
 
@@ -105,7 +105,9 @@ sap.ui.define([
 						text: "Trip Activity",
 						state: "Positive"
 					}],
-					events: []
+					events: [],
+					timelineCards: [],
+					timelineViewMode: "cards"
 				});
 			}
 		},

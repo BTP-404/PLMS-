@@ -4,7 +4,7 @@
     xmlns="sap.m"
     xmlns:layout="sap.ui.layout"
 >
-    <VBox class="sapUiSizeCompact sapUiSmallMargin" width="100%">
+    <VBox class="sapUiSizeCompact" width="100%">
 
         <!-- ========================================================= -->
         <!-- Notification Banner for New Notes -->
@@ -15,7 +15,7 @@
             class="sapUiTinyMarginBottom newNoteNotificationBar"
         >
             <contentLeft>
-                <Text text="{notesModel>/notificationText}" class="sapUiSmallMarginBegin" />
+                <Text text="{notesModel>/notificationText}" />
             </contentLeft>
             <contentRight>
                 <Button
@@ -34,7 +34,8 @@
             id="addNotePanel"
             expandable="true"
             expanded="true"
-            class="sapUiNoContentPadding"
+            class="sapUiNoContentPadding sapUiTinyMarginBottom"
+            width="100%"
         >
             <headerToolbar>
                 <OverflowToolbar>
@@ -42,7 +43,7 @@
                 </OverflowToolbar>
             </headerToolbar>
 
-            <VBox class="sapUiSizeCompact sapUiMediumPadding">
+            <VBox class="sapUiSizeCompact sapUiMediumPadding" width="100%">
                 <TextArea
                     id="idNoteInput"
                     rows="4"
@@ -51,7 +52,7 @@
                     class="sapUiTinyMarginBottom"
                 />
 
-                <HBox justifyContent="End" class="sapUiTinyMarginTop">
+                <HBox justifyContent="End" class="sapUiSmallMarginTop" width="100%">
                     <Button
                         text="Save Note"
                         type="Accept"
@@ -69,7 +70,8 @@
             id="savedNotesPanel"
             expandable="true"
             expanded="true"
-            class="sapUiNoContentPadding sapUiTinyMarginTop"
+            class="sapUiNoContentPadding sapUiTinyMarginBottom"
+            width="100%"
         >
             <headerToolbar>
                 <OverflowToolbar>
@@ -77,8 +79,8 @@
                 </OverflowToolbar>
             </headerToolbar>
 
-            <VBox class="sapUiSizeCompact sapUiMediumPadding">
-                <VBox class="noteVboxBG sapUiSmallPadding">
+            <VBox class="sapUiSizeCompact sapUiMediumPadding" width="100%">
+                <VBox class="noteVboxBG" width="100%">
                     <FlexBox
                         id="idNotesContainer"
                         wrap="Wrap"

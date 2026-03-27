@@ -12,7 +12,6 @@
 										path: 'pageTitleModel>/tripNumber',
 										formatter: '.formatTripNumber'
 									}"
-									
 								/>
 								<Text
 									text="Vehicle No: {pageTitleModel>/vehicleNumber}"
@@ -20,7 +19,6 @@
 								/>
 								<Text
 									text="Trip status : {pageTitleModel>/tripStatus}"
-									class="sapUiSmallMarginEnd"
 									textAlign="Right"
 								/>
 							</HBox>
@@ -33,7 +31,7 @@
 						<Text id="selectedScenarioText" text="" class="cutstomCssSCenarioText"
 							visible="false"/>
 						<!-- IconTabBar -->
-						<IconTabBar id="iconTabBar" width="100%" class="sapUiNoContentPadding" expandable="true" expanded="true" enableTabReordering="true" select="onIconTabSelect">
+						<IconTabBar id="iconTabBar" class="homeLikeTabs" expandable="true" expanded="true" enableTabReordering="true" select="onIconTabSelect">
 							<items>
 								<IconTabFilter key="gateIn" text="Gate In" icon="sap-icon://visits" enabled="true">
 									<mvc:XMLView viewName="com.incresolZ_INC_PLMS.view.subview.GateIn"/>

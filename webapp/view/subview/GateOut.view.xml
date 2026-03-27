@@ -7,12 +7,12 @@
     xmlns:layout="sap.ui.layout"
     displayBlock="true"
 >
-    <VBox class="sapUiSizeCompact sapUiSmallMargin" width="100%">
+    <VBox class="sapUiSizeCompact" width="100%">
         <!-- Invoice No from OData BillingDocSH (Vbeln); hidden for Inward (MovementType I) -->
         <VBox
             id="idInvoiceNoSection"
             width="50%"
-            class="sapUiSmallMarginBottom"
+            class="sapUiTinyMarginBottom"
             visible="{path: 'TripData>/MovementType', formatter: '.formatInvoiceSectionVisible'}"
         >
             <Label
@@ -52,7 +52,8 @@
             id="gateOutPanel"
             expandable="true"
             expanded="false"
-            class="sapUiNoContentPadding"
+            class="sapUiNoContentPadding sapUiTinyMarginBottom"
+            width="100%"
         >
             <headerToolbar>
                 <OverflowToolbar>
@@ -64,9 +65,10 @@
                 <!-- Row 1: Exit Gate | Related Trip (Gate Pass No) | Verified Documents -->
                 <layout:Grid
                     defaultSpan="L4 M4 S12"
-                    hSpacing="0.5rem"
-                    vSpacing="0.5rem"
+                    hSpacing="2"
+                    vSpacing="2"
                     width="100%"
+                    class="sapUiTinyMarginTop"
                 >
                     <layout:content>
                         <VBox width="100%">
@@ -134,8 +136,8 @@
                 <!-- Row 2: Skip Document | Bins Returned | Short Quantity -->
                 <layout:Grid
                     defaultSpan="L4 M4 S12"
-                    hSpacing="0.5rem"
-                    vSpacing="0.5rem"
+                    hSpacing="2"
+                    vSpacing="2"
                     width="100%"
                     class="sapUiTinyMarginTop"
                 >
@@ -195,8 +197,8 @@
                 <!-- Row 3: Remarks | Additional Info -->
                 <layout:Grid
                     defaultSpan="L6 M6 S12"
-                    hSpacing="0.5rem"
-                    vSpacing="0.5rem"
+                    hSpacing="2"
+                    vSpacing="2"
                     width="100%"
                     class="sapUiTinyMarginTop"
                 >
@@ -240,7 +242,7 @@
                 <!-- Right aligned bottom buttons -->
                 <HBox
                     justifyContent="End"
-                    class="sapUiTinyMarginTop"
+                    class="sapUiSmallMarginTop"
                     width="100%"
                 >
                     <Button
@@ -269,7 +271,8 @@
             id="idBinDetailsPanel"
             expandable="true"
             expanded="false"
-            class="sapUiNoContentPadding sapUiSmallMarginTop"
+            class="sapUiNoContentPadding sapUiTinyMarginBottom"
+            width="100%"
             visible="{path: 'TripData>/MovementScenarioItemKey', formatter: '.formatIsO09Scenario'}"
         >
             <headerToolbar>
@@ -301,31 +304,21 @@
                 </OverflowToolbar>
             </headerToolbar>
             <VBox class="sapUiSizeCompact sapUiMediumPadding">
-                <ScrollContainer
-                    horizontal="true"
-                    vertical="false"
+                <Table
+                    id="idBinDetailsTable"
+                    inset="false"
                     width="100%"
-                    class="sapUiNoContentPadding sapUiSmallMarginTop sapUiSizeCompact"
+                    class="sapUiSizeCompact"
+                    fixedLayout="true"
+                    autoPopin="true"
+                    popinLayout="GridSmall"
+                    sticky="ColumnHeaders,HeaderToolbar"
+                    growing="true"
+                    growingScrollToLoad="true"
+                    growingThreshold="20"
+                    items="{path: 'refDocModel>/filteredMaterialDetails'}"
+                    noDataText="No bins available"
                 >
-                    <Table
-                        id="idBinDetailsTable"
-                        inset="false"
-                        width="auto"
-                        class="sapUiSizeCompact"
-                        fixedLayout="false"
-                        autoPopin="true"
-                        sticky="ColumnHeaders,HeaderToolbar"
-                        growing="true"
-                        growingScrollToLoad="true"
-                        growingThreshold="20"
-                        items="{path: 'refDocModel>/filteredMaterialDetails'}"
-                        noDataText="No bins available"
-                    >
-                        <headerToolbar>
-                            <Toolbar>
-                                <Title text="Bin Details" level="H6" />
-                            </Toolbar>
-                        </headerToolbar>
                         <columns>
                             <Column
                                 demandPopin="true"
@@ -362,8 +355,7 @@
                                 </cells>
                             </ColumnListItem>
                         </items>
-                    </Table>
-                </ScrollContainer>
+                </Table>
             </VBox>
         </Panel>
 

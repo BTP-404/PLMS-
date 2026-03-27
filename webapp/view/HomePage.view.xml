@@ -67,8 +67,8 @@
                     width="100%"
                     defaultSpan="XL4 L4 M4 S12"
                     hSpacing="2"
-                    vSpacing="1"
-                    class="sapUiSizeCompact homeFilterCard"
+                    vSpacing="2"
+                    class="sapUiTinyMarginTop homeFilterCard"
                 >
                 <!-- Trip Number -->
                 <layout:content>
@@ -165,32 +165,24 @@
         </semantic:headerContent>
         <!-- ==================== CONTENT AREA ==================== -->
         <semantic:content>
-            <ScrollContainer
+            <Table
+                id="tripTable"
+                inset="false"
+                mode="SingleSelectMaster"
+                items="{
+                    path: '/TripDetails'
+                }"
+                class="sapUiSizeCompact homeTripTable"
+                growing="true"
+                growingScrollToLoad="true"
+                growingThreshold="25"
+                sticky="ColumnHeaders,HeaderToolbar"
                 width="100%"
-                horizontal="false"
-                vertical="false"
-                height="auto"
-                class="homePageContent homeTripScrollContainer"
+                autoPopin="true"
+                popinLayout="GridSmall"
+                fixedLayout="true"
+                selectionChange="onTripPress"
             >
-                <Table
-                    id="tripTable"
-                    inset="false"
-                    mode="SingleSelectMaster"
-                    items="{
-                        path: '/TripDetails'
-                    }"
-                    headerText="Trip Details"
-                    class="sapUiSizeCompact homeTripTable"
-                    growing="true"
-                    growingScrollToLoad="false"
-                    growingThreshold="25"
-                    sticky="ColumnHeaders,HeaderToolbar"
-                    width="100%"
-                    autoPopin="true"
-                    popinLayout="GridSmall"
-                    fixedLayout="true"
-                    selectionChange="onTripPress"
-                >
                     <headerToolbar>
                     <Toolbar>
                         <Title text="Trip Details" class="sectionPanelTitle" />
@@ -379,7 +371,6 @@
                         </ColumnListItem>
                     </items>
                 </Table>
-            </ScrollContainer>
         </semantic:content>
     </semantic:SemanticPage>
 </mvc:View>

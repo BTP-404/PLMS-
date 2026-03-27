@@ -4597,6 +4597,18 @@ sap.ui.define([
 			return this._blankIfInvalidDate(this._formatODataDate(vDate));
 		},
 
+		/**
+		 * Invoice reference fields apply to Inward flows only (MovementType = "I").
+		 * @param {string} sMovementType TripData MovementType (I/O per OData)
+		 * @returns {boolean}
+		 */
+		formatInvRefColumnsVisible: function (sMovementType) {
+			if (sMovementType === undefined || sMovementType === null || sMovementType === "") {
+				return false;
+			}
+			return String(sMovementType).trim().toUpperCase() === "I";
+		},
+
 		_formatODataTime: function (vTime) {
 			var iMs = NaN;
 
