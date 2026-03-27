@@ -80,6 +80,20 @@
                                 <Column id="colEwayBillDate" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Block" visible="true">
                                     <Text text="EWB Date" wrapping="false"/>
                                 </Column>
+                                <Column
+                                    id="colInvRefNo"
+                                    demandPopin="true"
+                                    minScreenWidth="Desktop"
+                                    popinDisplay="Block">
+                                    <Text text="Invoice Ref. No" wrapping="false"/>
+                                </Column>
+                                <Column
+                                    id="colInvRefDate"
+                                    demandPopin="true"
+                                    minScreenWidth="Desktop"
+                                    popinDisplay="Block">
+                                    <Text text="Invoice Document Date" wrapping="false"/>
+                                </Column>
                                 <Column id="colRefDocPartyCode" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Block">
                                     <Text text="Party Code" wrapping="false"/>
                                 </Column>
@@ -116,7 +130,9 @@
                                         <Text text="{refDocModel>documentNumber}"/>
                                         <Text text="{refDocModel>documentDate}"/>
                                         <Text text="{refDocModel>ewayBillNumber}"/>
-                                        <Text text="{refDocModel>ewayBillDate}"/>
+                                        <Text text="{path: 'refDocModel>ewayBillDate', formatter: '.formatEwayBillDate'}"/>
+                                        <Text text="{refDocModel>invRefNo}"/>
+                                        <Text text="{refDocModel>invRefDate}"/>
                                         <Text text="{refDocModel>partyCode}"/>
                                         <Text text="{refDocModel>partyName}"/>
                                         <Text text="{refDocModel>createdBy}"/>

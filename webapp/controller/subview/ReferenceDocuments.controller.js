@@ -3927,10 +3927,14 @@ sap.ui.define([
 						TripNumber: oDoc.TripNumber || "",
 						DocType: oDoc.DocType || "",
 						DocumentNumber: oDoc.DocumentNumber || "",
+						InvRefNo: oDoc.InvRefNo || "",
+						InvRefDate: oDoc.InvRefDate || "",
 						MovementType: oDoc.MovementType || "",
 						tripNumber: oDoc.TripNumber || "",
 						docType: oDoc.DocType || "",
 						documentNumber: oDoc.DocumentNumber || "",
+						invRefNo: oDoc.InvRefNo || "",
+						invRefDate: this._formatODataDate(oDoc.InvRefDate),
 						movementType: oDoc.MovementType || "",
 						documentDate: this._formatODataDate(oDoc.DocumentDate),
 						partyCode: oDoc.Vendor || oDoc.Customer || "",
@@ -3940,7 +3944,7 @@ sap.ui.define([
 						// New E-way bill fields (populated only when backend provides them)
 						// Backend fields (metadata): EwayBill (string), EwaybillDate (string)
 						ewayBillNumber: oDoc.EwayBill || "",
-						ewayBillDate: oDoc.EwaybillDate || "",
+						ewayBillDate: this._blankIfInvalidDate(this._formatODataDate(oDoc.EwaybillDate)),
 						createdBy: oDoc.CreatedBy || "",
 						createdOnDate: this._formatODataDate(oDoc.CreatedOnDate),
 						createdOnTime: this._formatODataTime(oDoc.CreatedOnTime),
@@ -4568,6 +4572,29 @@ sap.ui.define([
 				}
 			}
 			return vDate;
+		},
+
+		_blankIfInvalidDate: function (vDate) {
+			if (vDate === null || vDate === undefined) {
+				return "";
+			}
+
+			var s = String(vDate).trim();
+			if (!s) {
+				return "";
+			}
+
+			// Common backend "empty date" placeholders
+			if (s === "0000-00-00" || s === "00000000" || s.indexOf("0000-00-00") === 0) {
+				return "";
+			}
+
+			return s;
+		},
+
+		// Formatter for XML bindings
+		formatEwayBillDate: function (vDate) {
+			return this._blankIfInvalidDate(this._formatODataDate(vDate));
 		},
 
 		_formatODataTime: function (vTime) {
