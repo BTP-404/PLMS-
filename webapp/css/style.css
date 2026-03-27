@@ -1,9 +1,9 @@
 /* ==================== DESIGN TOKENS ==================== */
 :root {
-    --plms-primary: #0070f2;
-    --plms-primary-dark: #0051d5;
-    --plms-primary-darker: #0854a0;
-    --plms-primary-text: #1c4e80;
+    --plms-primary: #00bfa5;
+    --plms-primary-dark: #0aa08f;
+    --plms-primary-darker: #0b6b62;
+    --plms-primary-text: #0b4f49;
     --plms-success: #4caf50;
     --plms-success-dark: #388e3c;
     --plms-warning: #ff9800;
@@ -2715,15 +2715,15 @@
 /* ==================== STAGE CONTENT ==================== */
 #stagePage .sapMPageContent {
     padding-top: 0 !important;
-    padding-left: 0 !important; /* remove left gutter for Stage */
-    padding-right: 0 !important;
+    padding-left: 0.25rem !important; /* keep small left gutter */
+    padding-right: 0.25rem !important;
 }
 
 /* Remove internal scroll-wrapper gutters inside scroll-enabled Page */
 #stagePage.sapMPageEnableScrolling .sapMPageScroll,
 #stagePage > section {
-    padding-left: 0 !important;
-    padding-right: 0 !important;
+    padding-left: 0.25rem !important;
+    padding-right: 0.25rem !important;
 }
 
 .stageContentVBox {
@@ -2743,8 +2743,19 @@
     margin-left: 0 !important; /* override global .sapMITB margin-left */
 }
 
+/* Soften selected tab color (avoid strong default blue) */
+#stagePage .sapMITBSelected .sapMITBFilterIcon,
+#stagePage .sapMITBSelected .sapMITBText {
+    color: var(--plms-primary-darker) !important;
+}
+
+#stagePage .sapMITBSelected .sapMITBContentArrow::after,
+#stagePage .homeLikeTabs .sapMITBSelected .sapMITBContentArrow::after {
+    background: var(--plms-primary) !important;
+}
+
 #stagePage .sapMITBContent {
-    padding: 0 !important; /* remove all internal IconTabBar content padding */
+    padding: 0.25rem 0 !important;
 }
 
 #stagePage .homeLikeTabs .sapMITBContent {
@@ -3069,4 +3080,177 @@
 .plmsInvoiceVHD .sapMDialogScrollCont,
 .plmsInvoiceVHD .sapMDialogScroll {
     max-width: 20rem !important;
+}
+
+/* ==================== COLORFUL APP THEME LAYER ==================== */
+:root {
+    --plms-accent-purple: #7c4dff;
+    --plms-accent-pink: #ff4fa3;
+    --plms-accent-orange: #ff9f40;
+    --plms-accent-teal: #10bfbf;
+}
+
+/* Soft colorful base across app shell */
+.sapUiBody,
+html,
+body,
+#content {
+    background: linear-gradient(135deg, #f6f4ff 0%, #fff7fb 45%, #f4fffc 100%) !important;
+}
+
+.sapMShell,
+.sapMApp,
+.sapMPage {
+    background: linear-gradient(135deg, #f6f4ff 0%, #fff7fb 45%, #f4fffc 100%) !important;
+}
+
+/* UI5 often applies background on the page "section" element */
+.sapMPageBgStandard,
+.sapMPageBgSolid,
+.sapMPageBgList,
+.sapMPageBgTransparent,
+.sapMPage > section {
+    background: linear-gradient(135deg, #f6f4ff 0%, #fff7fb 45%, #f4fffc 100%) !important;
+}
+
+/* Colorful stage header strip */
+#stagePage .sapMPageHeader::after {
+    content: "";
+    display: block;
+    height: 0.25rem;
+    background: linear-gradient(90deg, var(--plms-primary) 0%, var(--plms-accent-purple) 38%, var(--plms-accent-pink) 72%, var(--plms-accent-orange) 100%);
+}
+
+/* Rich tab treatment */
+#stagePage .sapMITBHead .sapMITBItem {
+    transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+}
+
+#stagePage .sapMITBFilterDefault {
+    border-radius: 0.75rem !important;
+    margin: 0.125rem 0.2rem !important;
+}
+
+#stagePage .sapMITBSelected .sapMITBFilterDefault {
+    background: linear-gradient(120deg, rgba(0, 112, 242, 0.14), rgba(124, 77, 255, 0.18), rgba(255, 79, 163, 0.14)) !important;
+    border: 1px solid rgba(124, 77, 255, 0.35) !important;
+    box-shadow: 0 4px 10px rgba(124, 77, 255, 0.18) !important;
+}
+
+#stagePage .sapMITBHead .sapMITBItem:hover {
+    transform: translateY(-1px) !important;
+}
+
+/* Section toolbars get colorful left border + subtle tint */
+#stagePage .sapMITBContent .sapMPanel .sapMTB {
+    border-left: 0.25rem solid var(--plms-accent-purple) !important;
+    background: linear-gradient(90deg, rgba(124, 77, 255, 0.08), rgba(16, 191, 191, 0.06), rgba(255, 159, 64, 0.06)) !important;
+}
+
+/* Primary buttons with stronger colorful identity */
+.sapMBtnEmphasized {
+    background: linear-gradient(135deg, var(--plms-primary) 0%, var(--plms-accent-purple) 45%, var(--plms-accent-pink) 100%) !important;
+    border-color: transparent !important;
+    box-shadow: 0 6px 14px rgba(124, 77, 255, 0.28) !important;
+}
+
+.sapMBtnEmphasized:hover {
+    filter: saturate(1.08) brightness(1.02) !important;
+}
+
+/* Inputs keep existing shape but get a tiny color wash */
+.sapMInputBaseContentWrapper,
+.sapMTextArea .sapMInputBaseContentWrapper,
+.sapMComboBoxBase .sapMInputBaseContentWrapper,
+.sapMSlt {
+    background: linear-gradient(180deg, #ffffff 0%, #fcfbff 100%) !important;
+}
+
+/* ==================== VIVID COLOR FIX (HIGHEST PRIORITY) ==================== */
+#stagePage.sapMPage,
+#stagePage.sapMPage > section,
+#stagePage .sapMITBContainerContent,
+#stagePage .sapMITBContainerContent > section,
+#stagePage .sapMITBContent {
+    background: linear-gradient(135deg, #f3f0ff 0%, #fff2f9 48%, #effffc 100%) !important;
+}
+
+#stagePage .sapMITBHead {
+    background: linear-gradient(90deg, rgba(124, 77, 255, 0.09), rgba(255, 79, 163, 0.08), rgba(16, 191, 191, 0.08)) !important;
+    border-radius: 0.9rem !important;
+    padding: 0.3rem 0.35rem !important;
+}
+
+#stagePage .sapMITBSelected .sapMITBText,
+#stagePage .sapMITBSelected .sapUiIcon {
+    color: #6a1b9a !important;
+}
+
+#stagePage .sapMPanel {
+    border-radius: 0.85rem !important;
+    border: 1px solid rgba(124, 77, 255, 0.2) !important;
+    box-shadow: 0 4px 14px rgba(124, 77, 255, 0.12) !important;
+    overflow: hidden !important;
+}
+
+#stagePage .sapMPanel .sapMPanelHdr,
+#stagePage .sapMPanel .sapMTB {
+    background: linear-gradient(90deg, rgba(124, 77, 255, 0.14), rgba(255, 79, 163, 0.1), rgba(255, 159, 64, 0.1)) !important;
+}
+
+#stagePage .sapMBtnReject {
+    background: linear-gradient(135deg, #d32f2f 0%, #b71c1c 100%) !important;
+    border-color: transparent !important;
+    box-shadow: 0 6px 14px rgba(211, 47, 47, 0.25) !important;
+}
+
+/* ==================== HOMEPAGE: MORE COLORFUL + ATTRACTIVE ==================== */
+/* Add a colorful accent strip under the SemanticPage title area */
+.homeSemanticPage .sapFDynamicPageTitle::after {
+    content: "";
+    display: block;
+    height: 0.25rem;
+    margin-top: 0.25rem;
+    border-radius: 999px;
+    background: linear-gradient(
+        90deg,
+        var(--plms-primary) 0%,
+        var(--plms-accent-purple) 35%,
+        var(--plms-accent-pink) 70%,
+        var(--plms-accent-orange) 100%
+    );
+}
+
+/* Make HomePage title feel more premium */
+.homeSemanticPage .homePageTitle.sapMTitle {
+    background: linear-gradient(135deg, var(--plms-primary-darker) 0%, var(--plms-accent-purple) 55%, var(--plms-accent-pink) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    border-left: 0 !important; /* replace old solid bar with gradient text */
+    padding-left: 0 !important;
+}
+
+/* Report Vehicle button: make it look like a primary action */
+.homeSemanticPage .btnReportVehicle.sapMBtn .sapMBtnInner {
+    background: linear-gradient(135deg, var(--plms-primary) 0%, var(--plms-accent-purple) 45%, var(--plms-accent-pink) 100%) !important;
+    border-color: transparent !important;
+    box-shadow: 0 6px 14px rgba(124, 77, 255, 0.22) !important;
+}
+
+.homeSemanticPage .btnReportVehicle.sapMBtn .sapMBtnContent,
+.homeSemanticPage .btnReportVehicle.sapMBtn .sapMBtnIcon {
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
+}
+
+/* Trip Details toolbar: subtle colorful wash */
+.homeSemanticPage .homeTripTable .sapMTB {
+    background: linear-gradient(90deg, rgba(124, 77, 255, 0.1), rgba(16, 191, 191, 0.08), rgba(255, 159, 64, 0.08)) !important;
+    border-bottom: 1px solid rgba(124, 77, 255, 0.18) !important;
+}
+
+/* Table header cells: slightly richer */
+.homeSemanticPage .homeTripTable .sapMColumnHeader {
+    background: linear-gradient(180deg, rgba(124, 77, 255, 0.08) 0%, var(--plms-neutral-bg) 100%) !important;
 }
