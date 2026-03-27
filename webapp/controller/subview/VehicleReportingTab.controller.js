@@ -289,6 +289,9 @@ sap.ui.define(
           // Store driver photo separately in Attachments, not in TripDetails
           var sDriverPhoto = oData.DriverPhoto;
           delete oData.DriverPhoto; // Remove from TripDetails payload
+          // TripDetails has no `VerifiedDocs` property in service metadata.
+          // (VerifiedDocuments is only a GateOut function import parameter.)
+          delete oData.VerifiedDocs;
           delete oData.MovementScenarioItemKey;
 
           oData.MovementScenario =
@@ -399,6 +402,9 @@ sap.ui.define(
           var sDriverPhoto = oUpdateData.DriverPhoto;
           var sDriverName = oUpdateData.DriverName;
           delete oUpdateData.DriverPhoto; // Remove from TripDetails payload
+          // TripDetails has no `VerifiedDocs` property in service metadata.
+          // (VerifiedDocuments is only a GateOut function import parameter.)
+          delete oUpdateData.VerifiedDocs;
 
           // Remove navigation properties / deferred / collections
           delete oUpdateData.ActivityHistory;
@@ -2825,14 +2831,14 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
                     : "";
               sItemKeyHasData = MovementScenarioIcons.getMovementScenarioItemKey(sMtHas, sMsHas);
             }
-            var bI02Trip =
-              sItemKeyHasData === MovementScenarioIcons.SCANNER_MOVEMENT_SCENARIO_ITEM_KEY;
-            oGlobalModelHasData.setProperty("/DisableRefDocMaterialsActions", !!bI02Trip);
+            var bScannerTrip =
+              MovementScenarioIcons.isScannerMovementScenarioItemKey(sItemKeyHasData);
+            oGlobalModelHasData.setProperty("/DisableRefDocMaterialsActions", !!bScannerTrip);
 
             return;
           }
 
-          // Scanner mode: only I02 (Inward + scenario 02 — ASN), same as bar-code icon mapping
+          // Scanner mode: scanner-enabled ASN scenarios, same as bar-code icon mapping
           var sItemKey = "";
           if (oTripData) {
             sItemKey = oTripData.getProperty("/MovementScenarioItemKey") || "";
@@ -2850,7 +2856,7 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
           }
 
           var bShowScanner =
-            sItemKey === MovementScenarioIcons.SCANNER_MOVEMENT_SCENARIO_ITEM_KEY;
+            MovementScenarioIcons.isScannerMovementScenarioItemKey(sItemKey);
 
           // Update scanner visibility
           oScannerVBox.setVisible(bShowScanner);

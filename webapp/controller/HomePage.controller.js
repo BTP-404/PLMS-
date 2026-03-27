@@ -729,6 +729,14 @@ sap.ui.define(
                   row.LongText || "";
               }
             });
+
+            // Descriptions are loaded asynchronously; trigger re-evaluation of the formatter bindings
+            // so the table replaces raw codes with the resolved LongText.
+            try {
+              oModel.updateBindings(true);
+            } catch (e) {
+              // ignore - best effort refresh
+            }
           },
           error: function () {
             that._mMovementScenarioDescByItemKey = {};

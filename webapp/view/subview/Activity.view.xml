@@ -178,6 +178,11 @@
                                                 <!-- Event -->
                                                 <HBox alignItems="Center" class="sapUiTinyMarginBottom">
                                                     <Text text="Event: " class="eventDescription eventDetailLabel"/>
+                                                    <Text text="{activityModel>eventDescription}" class="eventDescription" wrapping="true"/>
+                                                </HBox>
+                                                <!-- Stage (derived) -->
+                                                <HBox alignItems="Center" class="sapUiTinyMarginBottom">
+                                                    <Text text="Stage: " class="eventDescription eventDetailLabel"/>
                                                     <Text text="{activityModel>stageTitle}" class="eventDescription" wrapping="true"/>
                                                 </HBox>
                                                 <!-- TAT -->

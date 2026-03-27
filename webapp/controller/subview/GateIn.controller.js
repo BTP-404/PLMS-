@@ -28,6 +28,7 @@ sap.ui.define(
           this._eventBus = sap.ui.getCore().getEventBus();
           this._eventBus.subscribe("TripData", "Updated", this._onTripDataUpdate, this);
           this._eventBus.subscribe("Stage", "ClearAllTabs", this._clearAllData, this);
+          this._bGateInEditMode = false;
           
           // Initialize weighment required if not set (default to "No")
           var oTripData = sap.ui.getCore().getModel("TripData");
@@ -74,12 +75,14 @@ sap.ui.define(
           // Load delay reasons first; entry gates load in the same chain (avoids parallel OData races)
           this.loadDelayReason();
           
-          // Set initial input state based on whether GateIn data exists
+          // Keep edit mode sticky across rerender; otherwise use normal create/display logic
           var oTripData = sap.ui.getCore().getModel("TripData");
           if (oTripData) {
             var sExistingEntryGateNum = oTripData.getProperty("/EntryGateNum") ||
               oTripData.getProperty("/EntryGateNumber") || "";
-            if (sExistingEntryGateNum && sExistingEntryGateNum.trim() !== "") {
+            if (this._bGateInEditMode) {
+              this._setInputsEnabled(true);
+            } else if (sExistingEntryGateNum && sExistingEntryGateNum.trim() !== "") {
               // GateIn exists - disable inputs (display mode)
               this._setInputsEnabled(false);
             } else {
@@ -99,6 +102,7 @@ sap.ui.define(
         },
         
         _clearAllData: function () {
+          this._bGateInEditMode = false;
           // Clear attachments model
           if (this._oGateInAttachmentsModel) {
             this._oGateInAttachmentsModel.setData({ attachments: [] });
@@ -165,10 +169,12 @@ sap.ui.define(
             this._syncEntryGateSelectionFromTripData();
             this._syncDelayReasonSelectionFromTripData();
             this._refreshGateSelectKeysFromModels();
-            // Disable inputs if GateIn data already exists (display mode)
+            // Keep edit mode sticky until save; otherwise use normal create/display logic
             var sExistingEntryGateNum = oTripData.getProperty("/EntryGateNum") ||
               oTripData.getProperty("/EntryGateNumber") || "";
-            if (sExistingEntryGateNum && sExistingEntryGateNum.trim() !== "") {
+            if (this._bGateInEditMode) {
+              this._setInputsEnabled(true);
+            } else if (sExistingEntryGateNum && sExistingEntryGateNum.trim() !== "") {
               this._setInputsEnabled(false);
             } else {
               // First time - enable inputs
@@ -615,6 +621,7 @@ sap.ui.define(
                     MessageBox.warning("Some attachments failed to upload.");
                   }
                   // Disable inputs after successful save
+                  this._bGateInEditMode = false;
                   this._setInputsEnabled(false);
                   // Reload attachments list
                   this._loadGateInAttachments();
@@ -622,6 +629,7 @@ sap.ui.define(
               } else {
                 MessageBox.success(sMessage);
                 // Disable inputs after successful save
+                this._bGateInEditMode = false;
                 this._setInputsEnabled(false);
               }
             }.bind(this),
@@ -726,15 +734,12 @@ sap.ui.define(
           return 1;
         },
         onRefDocSkipChange: function (oEvent) {
-          var iSelectedIndex = oEvent.getParameter("selectedIndex");
-          var sRefDocSkip = iSelectedIndex === 0 ? "X" : " ";
-          var oTripData = sap.ui.getCore().getModel("TripData");
-          if (oTripData) {
-            oTripData.setProperty("/RefDocSkip", sRefDocSkip);
-          }
+          // Keep UI interaction smooth: defer TripData mutation until Save.
+          // Save flow already reads the radio selection directly from the control.
         },
         onEditGateInInfo: function () {
           // Enable inputs for edit mode (authorization checks removed)
+          this._bGateInEditMode = true;
           this._setInputsEnabled(true);
           MessageToast.show("Edit mode activated");
         },
@@ -1306,7 +1311,7 @@ sap.ui.define(
           // Read complete TripDetails with expanded data
           oModel.read("/TripDetails('" + sTripNumber + "')", {
             urlParameters: {
-              "$expand": "OrderDetails,ItemDetails"
+              "$expand": "OrderDetails,ItemDetails,ActivityHistory"
             },
             success: function (oData) {
               

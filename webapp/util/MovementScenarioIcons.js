@@ -2,7 +2,9 @@ sap.ui.define([], function () {
   "use strict";
 
   var iconMap = {
+    I01: "sap-icon://bar-code",
     I02: "sap-icon://bar-code",
+    I03: "sap-icon://bar-code",
     I04: "sap-icon://factory",
     I05: "sap-icon://request",
     I08: "sap-icon://shipping-status",
@@ -72,14 +74,25 @@ sap.ui.define([], function () {
     });
   }
 
-  /** Movement scenario that uses scanner-first reporting (matches bar-code icon I02 / ASN). */
+  /** Movement scenarios that use scanner-first reporting (ASN variants). */
+  var SCANNER_MOVEMENT_SCENARIO_ITEM_KEYS = ["I01", "I02", "I03"];
   var SCANNER_MOVEMENT_SCENARIO_ITEM_KEY = "I02";
+
+  function isScannerMovementScenarioItemKey(sItemKey) {
+    if (!sItemKey) {
+      return false;
+    }
+    var sKey = String(sItemKey).trim().toUpperCase();
+    return SCANNER_MOVEMENT_SCENARIO_ITEM_KEYS.indexOf(sKey) !== -1;
+  }
 
   return {
     iconMap: iconMap,
     getMovementScenarioItemKey: getMovementScenarioItemKey,
     getIconForItemKey: getIconForItemKey,
     enrichOrderTypeRows: enrichOrderTypeRows,
+    isScannerMovementScenarioItemKey: isScannerMovementScenarioItemKey,
+    SCANNER_MOVEMENT_SCENARIO_ITEM_KEYS: SCANNER_MOVEMENT_SCENARIO_ITEM_KEYS,
     SCANNER_MOVEMENT_SCENARIO_ITEM_KEY: SCANNER_MOVEMENT_SCENARIO_ITEM_KEY,
   };
 });

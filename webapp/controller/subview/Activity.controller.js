@@ -118,15 +118,54 @@ sap.ui.define([
 				return;
 			}
 
-			// Get ActivityHistory from TripData (loaded via $expand)
+			// 1) Fast path: render whatever is already in TripData (if any)
 			var oTripData = sap.ui.getCore().getModel("TripData");
+			var bRenderedFromTripData = false;
 			if (oTripData) {
 				var vActivityHistory = oTripData.getProperty("/ActivityHistory");
 				var aActivityHistory = this._extractActivityHistoryResults(vActivityHistory);
-				this._setActivityData(aActivityHistory);
-			} else {
-				this._setActivityData([]);
+				if (aActivityHistory && aActivityHistory.length) {
+					this._setActivityData(aActivityHistory);
+					bRenderedFromTripData = true;
+				}
 			}
+
+			// 2) Always refresh from backend on updates so Analysis reflects new events immediately
+			// (some events are created asynchronously and may not be present in TripData yet)
+			var fnFetch = function () {
+				this._readActivityHistoryFromBackend(sTripNumber);
+			}.bind(this);
+
+			if (bDelay) {
+				clearTimeout(this._activityReloadTimer);
+				this._activityReloadTimer = setTimeout(fnFetch, 400);
+			} else if (!bRenderedFromTripData) {
+				fnFetch();
+			}
+		},
+
+		_readActivityHistoryFromBackend: function (sTripNumber) {
+			if (!sTripNumber) {
+				this._setActivityData([]);
+				return;
+			}
+
+			this._oService.read("/ActivityHistory", {
+				filters: [
+					new Filter("TripNumber", FilterOperator.EQ, sTripNumber)
+				],
+				success: function (oData) {
+					var aResults = (oData && Array.isArray(oData.results)) ? oData.results : [];
+					this._setActivityData(aResults);
+				}.bind(this),
+				error: function () {
+					// Keep existing UI if any; otherwise clear.
+					var aExisting = this._oActivityModel?.getProperty("/events") || [];
+					if (!aExisting || !aExisting.length) {
+						this._setActivityData([]);
+					}
+				}.bind(this)
+			});
 		},
 
 		_extractActivityHistoryResults: function (vData) {
@@ -227,56 +266,11 @@ sap.ui.define([
 				return [];
 			}
 			var that = this;
-			// Count occurrences of each stage to make titles unique
-			var oStageCounts = {};
-			aEvents.forEach(function(oItem) {
-				var sStage = oItem._stage || "unknown";
-				oStageCounts[sStage] = (oStageCounts[sStage] || 0) + 1;
-			});
-			var oStageIndices = {};
-			// Track all titles to ensure uniqueness - count BEFORE processing
-			var oTitleUsage = {};
-			// Pre-count all titles
-			aEvents.forEach(function(oItem) {
-				var sStageTitle = that._getStageTitle(oItem._stage);
-				if (sStageTitle) {
-					oTitleUsage[sStageTitle] = (oTitleUsage[sStageTitle] || 0) + 1;
-				}
-			});
-			// Reset counters for sequential numbering
-			var oTitleCounters = {};
+			// Titles should reflect backend EventDescription (not derived stage names).
 			
 			return aEvents.map(function (oItem, index) {
-				var sStageTitle = that._getStageTitle(oItem._stage);
-				
-				// Use stage title as main title (e.g., "Reporting", "Gate In", etc.)
-				var sDisplayTitle = "";
-				if (sStageTitle) {
-					var sStage = oItem._stage || "unknown";
-					oStageIndices[sStage] = (oStageIndices[sStage] || 0) + 1;
-					var iStageIndex = oStageIndices[sStage];
-					var iStageCount = oStageCounts[sStage] || 1;
-					
-					// Track sequential usage of this title
-					if (!oTitleCounters[sStageTitle]) {
-						oTitleCounters[sStageTitle] = 0;
-					}
-					oTitleCounters[sStageTitle]++;
-					var iTitleCount = oTitleCounters[sStageTitle];
-					var iTotalTitleUsage = oTitleUsage[sStageTitle] || 1;
-					
-					// If this title appears multiple times, always number them
-					if (iTotalTitleUsage > 1) {
-						sDisplayTitle = sStageTitle + " #" + iTitleCount;
-					} else {
-						sDisplayTitle = sStageTitle;
-					}
-				} else if (oItem.eventDescription) {
-					// Use EventDescription if no stage title
-					sDisplayTitle = oItem.eventDescription;
-				} else {
-					sDisplayTitle = oItem.stageTitle || "";
-				}
+				var sStageTitle = that._getStageTitle(oItem._stage) || "";
+				var sDisplayTitle = oItem.eventDescription || sStageTitle || oItem.stageTitle || "";
 				
 				// Determine state based on position (last one is highlighted)
 				var sState = index === aEvents.length - 1 ? "Positive" : "Positive";
@@ -317,6 +311,10 @@ sap.ui.define([
 				}
 				if (oItem.createdBy) {
 					sStateText += (sStateText ? " • " : "") + oItem.createdBy;
+				}
+				// Add derived stage as context (keeps node title clean).
+				if (sStageTitle) {
+					sStateText += (sStateText ? " • " : "") + sStageTitle;
 				}
 				
 				return {
@@ -666,33 +664,9 @@ sap.ui.define([
 				return [];
 			}
 			var that = this;
-			// Count occurrences of each stage to make titles unique
-			var oTitleCounters = {};
-			
 			return aEvents.map(function (oItem, index) {
-				var sStageTitle = that._getStageTitle(oItem._stage);
-				var sDisplayTitle = "";
-				
-				if (sStageTitle) {
-					if (!oTitleCounters[sStageTitle]) {
-						oTitleCounters[sStageTitle] = 0;
-					}
-					oTitleCounters[sStageTitle]++;
-					var iTitleCount = oTitleCounters[sStageTitle];
-					
-					// Check if this title appears multiple times
-					var iTotalUsage = aEvents.filter(function(e) {
-						return that._getStageTitle(e._stage) === sStageTitle;
-					}).length;
-					
-					if (iTotalUsage > 1) {
-						sDisplayTitle = sStageTitle + " #" + iTitleCount;
-					} else {
-						sDisplayTitle = sStageTitle;
-					}
-				} else {
-					sDisplayTitle = oItem.eventDescription || oItem.stageTitle || "Unknown";
-				}
+				var sStageTitle = that._getStageTitle(oItem._stage) || "";
+				var sDisplayTitle = oItem.eventDescription || sStageTitle || oItem.stageTitle || "Unknown";
 				
 				return {
 					id: "card" + index,
@@ -700,7 +674,7 @@ sap.ui.define([
 					timestamp: oItem.displayTimestamp || "",
 					icon: oItem._icon || "sap-icon://activities",
 					iconColor: "#107e3e",
-					description: oItem.eventDescription || "",
+					description: sStageTitle || "",
 					movementType: oItem.movementTypeDesc || "",
 					movementScenario: oItem.movementScenarioDesc || "",
 					createdBy: oItem.createdBy || "",

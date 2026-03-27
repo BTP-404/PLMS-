@@ -2,7 +2,7 @@
 	xmlns:form="sap.ui.layout.form" xmlns:unified="sap.ui.unified" xmlns:html="http://www.w3.org/1999/xhtml" displayBlock="true">
 	<App>
 		<pages>
-			<Page id="stagePage" enableScrolling="true">
+			<Page id="stagePage" enableScrolling="true" class="sapUiNoContentPadding">
 				<customHeader>
 					<Bar id="headerBar" design="Header" class="stageHeaderBar">
 						<contentMiddle>
@@ -12,7 +12,7 @@
 										path: 'pageTitleModel>/tripNumber',
 										formatter: '.formatTripNumber'
 									}"
-									class="sapUiSmallMarginBegin"
+									
 								/>
 								<Text
 									text="Vehicle No: {pageTitleModel>/vehicleNumber}"
@@ -28,12 +28,12 @@
 					</Bar>
 				</customHeader>
 				<content>
-					<VBox class="stageContentVBox">
+					<VBox class="stageContentVBox" width="100%">
 						<!-- Selected Scenario Info (no layout space when hidden) -->
 						<Text id="selectedScenarioText" text="" class="cutstomCssSCenarioText"
 							visible="false"/>
 						<!-- IconTabBar -->
-						<IconTabBar id="iconTabBar" class="homeLikeTabs" expandable="true" expanded="true" enableTabReordering="true" select="onIconTabSelect">
+						<IconTabBar id="iconTabBar" width="100%" class="sapUiNoContentPadding" expandable="true" expanded="true" enableTabReordering="true" select="onIconTabSelect">
 							<items>
 								<IconTabFilter key="gateIn" text="Gate In" icon="sap-icon://visits" enabled="true">
 									<mvc:XMLView viewName="com.incresolZ_INC_PLMS.view.subview.GateIn"/>

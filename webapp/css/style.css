@@ -359,41 +359,54 @@
 
 /* Reduce left margin for common SAPUI5 margin classes (default is ~1rem) */
 .sapUiSmallMargin {
-    margin-left: 0.5rem !important;
+    margin-left: 0.255rem !important;
+    margin-right: 0.255rem !important;
 }
 
 .sapUiMediumMargin {
     margin-left: 0.75rem !important;
+    margin-right: 0.75rem !important;
 }
 
 .sapUiLargeMargin {
     margin-left: 1rem !important;
+    margin-right: 1rem !important;
 }
 
 /* Reduce left padding for Page content */
 .sapMPage .sapMPageContent {
     padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+    box-sizing: border-box;
 }
 
 /* Reduce left padding for IconTabBar content */
 .sapMITBContent {
     padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+    box-sizing: border-box;
+    max-width: 100%;
 }
 
 /* Reduce left margin for VBox/HBox with margin classes */
 .sapMVBox.sapUiSmallMargin,
 .sapMHBox.sapUiSmallMargin {
     margin-left: 0.5rem !important;
+    margin-right: 0.5rem !important;
 }
 
 /* Reduce left padding for Panel content (but keep some for readability) */
 .sapMPanelContent {
     padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+    box-sizing: border-box;
 }
 
 /* Reduce left margin for IconTabBar filter content */
 .sapMITBFilter .sapMITBContent {
     padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+    box-sizing: border-box;
 }
 
 /* ==================== PANEL SECTION TITLES ==================== */
@@ -407,36 +420,46 @@
 /* Reduce left margin for common layout containers */
 .sapUiLayoutGrid {
     margin-left: 0.5rem !important;
+    margin-right: 0.5rem !important;
 }
 
 /* Reduce left padding for ScrollContainer */
 .sapMScrollContainer {
     padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+    box-sizing: border-box;
 }
 
 /* Reduce left margin for List items */
 .sapMList {
     margin-left: 0.5rem !important;
+    margin-right: 0.5rem !important;
 }
 
 /* Reduce left padding for Table (but keep some for column alignment) */
 .sapMTable {
     padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+    box-sizing: border-box;
 }
 
 /* Reduce left margin for Form containers */
 .sapUiForm {
     margin-left: 0.5rem !important;
+    margin-right: 0.5rem !important;
 }
 
 /* Reduce left padding for Form containers */
 .sapUiFormContainer {
     padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+    box-sizing: border-box;
 }
 
 /* Reduce left margin for IconTabBar itself */
 .sapMITB {
     margin-left: 0.5rem !important;
+    margin-right: 0.5rem !important;
 }
 
 /* Stage view specific - reduce left margin for main VBox */
@@ -458,32 +481,75 @@
 
     .sapUiSmallMargin {
         margin-left: 0.25rem !important;
+        margin-right: 0.25rem !important;
     }
     
     .sapMPage .sapMPageContent {
         padding-left: 0.25rem !important;
+        padding-right: 0.25rem !important;
     }
     
     .sapMITBContent {
         padding-left: 0.25rem !important;
+        padding-right: 0.25rem !important;
     }
     
     .sapMPanelContent {
         padding-left: 0.25rem !important;
+        padding-right: 0.25rem !important;
     }
     
     .sapMVBox.sapUiSmallMargin,
     .sapMHBox.sapUiSmallMargin {
         margin-left: 0.25rem !important;
+        margin-right: 0.25rem !important;
     }
     
     .sapUiLayoutGrid {
         margin-left: 0.25rem !important;
+        margin-right: 0.25rem !important;
     }
     
     .sapMScrollContainer {
         padding-left: 0.25rem !important;
+        padding-right: 0.25rem !important;
     }
+}
+
+/* ==================== STAGE TABS: FULL-WIDTH, NO CROPPING ==================== */
+/* Prevent right-edge clipping inside Stage IconTabBar content */
+#stagePage .stageContentVBox,
+#stagePage .homeLikeTabs,
+#stagePage .sapMITBContent,
+#stagePage .sapMITBContainerContent,
+#stagePage .sapMITBContainerContent > div,
+#stagePage .sapMITBContainerContent > section {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+/* Remove left/right gutters caused by Begin/End margin helper classes inside Stage */
+#stagePage .sapUiTinyMarginBegin,
+#stagePage .sapUiSmallMarginBegin,
+#stagePage .sapUiMediumMarginBegin,
+#stagePage .sapUiLargeMarginBegin {
+    margin-left: 0.25rem !important;
+}
+
+#stagePage .sapUiTinyMarginEnd,
+#stagePage .sapUiSmallMarginEnd,
+#stagePage .sapUiMediumMarginEnd,
+#stagePage .sapUiLargeMarginEnd {
+    margin-right: 0.25rem !important;
+}
+
+/* Remove extra left strip in Stage tab content */
+#stagePage .sapMITBContent .sapUiSmallMargin,
+#stagePage .sapMITBContent .sapUiMediumMargin,
+#stagePage .sapMITBContent .sapUiLargeMargin,
+#stagePage .sapMITBContent .sapUiTinyMargin {
+    margin-left: 0 !important;
 }
 
 /* Main sticky note container */
@@ -2649,11 +2715,22 @@
 /* ==================== STAGE CONTENT ==================== */
 #stagePage .sapMPageContent {
     padding-top: 0 !important;
+    padding-left: 0 !important; /* remove left gutter for Stage */
+    padding-right: 0 !important;
+}
+
+/* Remove internal scroll-wrapper gutters inside scroll-enabled Page */
+#stagePage.sapMPageEnableScrolling .sapMPageScroll,
+#stagePage > section {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
 }
 
 .stageContentVBox {
     padding-top: 0.5rem !important; /* breathing room so tabs are not cut from top */
     margin-top: 0 !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
 }
 
 /* HomePage-like visual framing for Stage tabs */
@@ -2662,9 +2739,17 @@
     border-radius: var(--plms-radius-sm);
 }
 
+#stagePage .sapMITB {
+    margin-left: 0 !important; /* override global .sapMITB margin-left */
+}
+
+#stagePage .sapMITBContent {
+    padding: 0 !important; /* remove all internal IconTabBar content padding */
+}
+
 #stagePage .homeLikeTabs .sapMITBContent {
     background: var(--plms-neutral-bg-soft) !important;
-    padding: 0.25rem 0.5rem 0.5rem 0.5rem !important;
+    padding: 0 !important;
 }
 
 #stagePage .homeLikeTabs .sapMITBFilter {
@@ -2923,7 +3008,8 @@
 
 #stagePage .sapMITBContent .sapUiView[data-controller-name*=".controller.subview."] .sapMPanel .sapMHBox[justify-content="End"] {
     margin-top: 0.5rem !important;
-    padding-right: 0 !important;
+    padding-right: 0.75rem !important;
+    box-sizing: border-box !important;
 }
 
 /* ==================== APP-WIDE INPUT LOOK (HOMEPAGE STYLE) ==================== */
@@ -2969,4 +3055,18 @@
     color: var(--sapField_PlaceholderTextColor, #6a6d70) !important;
     -webkit-text-fill-color: var(--sapField_PlaceholderTextColor, #6a6d70) !important;
     font-style: italic;
+}
+
+/* ==================== VALUE HELP DIALOG SIZING OVERRIDES ==================== */
+/* Force a narrower Invoice ValueHelpDialog (UI5 may enforce min-width otherwise) */
+.plmsInvoiceVHD.sapMDialog,
+.plmsInvoiceVHD.sapMDialog.sapMDialogStretched {
+    width: 20rem !important;
+    max-width: 20rem !important;
+}
+
+.plmsInvoiceVHD .sapMDialogSection,
+.plmsInvoiceVHD .sapMDialogScrollCont,
+.plmsInvoiceVHD .sapMDialogScroll {
+    max-width: 20rem !important;
 }

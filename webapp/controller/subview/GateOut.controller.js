@@ -5,8 +5,18 @@ sap.ui.define(
     "sap/m/MessageBox",
     "sap/ui/model/json/JSONModel",
     "sap/ui/model/odata/v2/ODataModel",
+    "sap/ui/model/Filter",
+    "sap/ui/model/FilterOperator",
     "sap/m/SuggestionItem",
     "sap/ui/core/Fragment",
+    "sap/ui/comp/valuehelpdialog/ValueHelpDialog",
+    "sap/ui/comp/filterbar/FilterBar",
+    "sap/m/SearchField",
+    "sap/m/Table",
+    "sap/m/Column",
+    "sap/m/ColumnListItem",
+    "sap/m/Text",
+    "sap/m/Label",
   ],
   function (
     Controller,
@@ -14,8 +24,18 @@ sap.ui.define(
     MessageBox,
     JSONModel,
     ODataModel,
+    Filter,
+    FilterOperator,
     SuggestionItem,
-    Fragment
+    Fragment,
+    ValueHelpDialog,
+    FilterBar,
+    SearchField,
+    Table,
+    Column,
+    ColumnListItem,
+    Text,
+    Label
   ) {
     "use strict";
 
@@ -32,14 +52,13 @@ sap.ui.define(
           });
           this.getView().setModel(this.oModel);
 
+          // Invoice value help uses OData binding with growing (no preload cache needed).
           this._aBillingDocCache = null;
-          this._loadBillingDocSHCache();
           
           // Initialize attachments model
           this._initGateOutAttachmentsModel();
 
-          // Invoice dropdown model (ComboBox items)
-          this._initInvoiceNoModel();
+          // (Legacy) Invoice dropdown model for ComboBox is no longer required.
 
           // Exit gate dropdown model (ComboBox items)
           if (!this._oExitGateModel) {
@@ -57,12 +76,262 @@ sap.ui.define(
               "binState"
             );
           }
+          
+          // Ensure GateOut view can bind to the shared Reference Documents model
+          // (refDocModel is created in ReferenceDocuments controller and also set on Core).
+          var oRefDocModel = sap.ui.getCore().getModel("refDocModel");
+          if (oRefDocModel && !this.getView().getModel("refDocModel")) {
+            this.getView().setModel(oRefDocModel, "refDocModel");
+          }
 
           // Avoid calling OutwardDoc multiple times for the same invoice selection.
           this._sLastOutwardDocBillingDocument = null;
 
-          // ComboBox often does not fire `change` on blur (only Enter / list pick). Commit on focusout too.
-          this._attachInvoiceComboFocusOutCommit();
+          // No ComboBox focusout/paging hooks needed for Input + ValueHelpDialog.
+        },
+
+        // ============================================================
+        // Invoice ValueHelpDialog (Gate Out)
+        // ============================================================
+        onInvoiceValueHelpRequest: function () {
+          if (!this._oInvoiceVHD) {
+            this._oInvoiceVHD = this._createInvoiceValueHelpDialog();
+          }
+          this._applyInvoiceVhFilters({ searchTerm: "" });
+          this._oInvoiceVHD.open();
+        },
+
+        onInvoiceSuggest: function (oEvent) {
+          var oInput = oEvent.getSource();
+          var sValue = (oEvent.getParameter("suggestValue") || "").toString().trim();
+
+          if (!oInput) return;
+          oInput.destroySuggestionItems();
+
+          // Keep suggestions lightweight; only query backend when user types.
+          if (!sValue) {
+            return;
+          }
+
+          this._iInvoiceSuggestReqId = (this._iInvoiceSuggestReqId || 0) + 1;
+          var iReqId = this._iInvoiceSuggestReqId;
+          var that = this;
+
+          this._fetchBillingDocSH({ searchTerm: sValue, top: 50 })
+            .then(function (aMatch) {
+              if (iReqId !== that._iInvoiceSuggestReqId) return;
+
+              (aMatch || []).forEach(function (o) {
+                var sV = (o && o.Vbeln) ? String(o.Vbeln).trim() : "";
+                if (!sV) return;
+                oInput.addSuggestionItem(
+                  new SuggestionItem({
+                    key: sV,
+                    text: sV,
+                  })
+                );
+              });
+            })
+            .catch(function () {
+              // ignore
+            });
+        },
+
+        onInvoiceSuggestionItemSelected: function (oEvent) {
+          var oItem = oEvent.getParameter("selectedItem");
+          var sText = oItem ? (oItem.getText() || "") : "";
+          sText = String(sText || "").trim();
+
+          var oTripData =
+            this.getView().getModel("TripData") ||
+            sap.ui.getCore().getModel("TripData");
+          if (oTripData) {
+            oTripData.setProperty("/BillingDocument", sText);
+          }
+
+          // Commit outward doc side-effects immediately on selection
+          var oInv = this.byId("idInvoiceNumberDropdown");
+          this._commitInvoiceOutwardDoc(oInv);
+        },
+
+        _createInvoiceValueHelpDialog: function () {
+          var that = this;
+
+          var oVHD = new ValueHelpDialog({
+            title: "Select Invoice",
+            contentWidth: "20rem",
+            contentHeight: "30rem",
+            stretch: false,
+            resizable: true,
+            draggable: true,
+            supportMultiselect: false,
+            key: "Vbeln",
+            descriptionKey: "Vbeln",
+            ok: function (oEvent) {
+              that._onInvoiceVhOk(oEvent);
+            },
+            cancel: function () {
+              oVHD.close();
+            },
+          });
+          oVHD.addStyleClass("plmsInvoiceVHD");
+
+          var oBasicSearch = new SearchField({
+            width: "100%",
+            search: function (oEvent) {
+              var sTerm = (oEvent.getParameter("query") || "").toString().trim();
+              that._applyInvoiceVhFilters({ searchTerm: sTerm });
+            },
+            liveChange: function (oEvent) {
+              if (that._iInvoiceVhSearchDebounce) {
+                clearTimeout(that._iInvoiceVhSearchDebounce);
+              }
+              var sVal = (oEvent.getParameter("newValue") || "").toString();
+              that._iInvoiceVhSearchDebounce = setTimeout(function () {
+                that._iInvoiceVhSearchDebounce = null;
+                that._applyInvoiceVhFilters({ searchTerm: sVal.trim() });
+              }, 250);
+            },
+          });
+
+          var oFilterBar = new FilterBar({
+            advancedMode: false,
+            filterBarExpanded: false,
+            showGoOnFB: false,
+            showFilterConfiguration: false,
+            useToolbar: true,
+            basicSearch: oBasicSearch,
+          });
+          oVHD.setFilterBar(oFilterBar);
+
+          var oTable = new Table({
+            mode: "SingleSelectMaster",
+            growing: true,
+            growingThreshold: 50,
+            growingScrollToLoad: true,
+            columns: [
+              new Column({ header: new Label({ text: "Invoice No" }) }),
+            ],
+          });
+
+          // Bind directly to OData so growing pages automatically.
+          oTable.setModel(this.oModel);
+          oTable.bindItems({
+            path: "/BillingDocSH",
+            template: new ColumnListItem({
+              cells: [new Text({ text: "{Vbeln}" })],
+            }),
+          });
+
+          oVHD.setTable(oTable);
+          // Enforce width on the underlying Dialog as well (some UI5 versions stretch by default)
+          try {
+            oVHD.setContentWidth("20rem");
+            oVHD.setContentHeight("30rem");
+            if (typeof oVHD.setStretch === "function") {
+              oVHD.setStretch(false);
+            }
+          } catch (e) {
+            // ignore
+          }
+          this.getView().addDependent(oVHD);
+          return oVHD;
+        },
+
+        _applyInvoiceVhFilters: function (mOpts) {
+          var oVHD = this._oInvoiceVHD;
+          if (!oVHD) return;
+          var oTable = oVHD.getTable && oVHD.getTable();
+          var oBinding = oTable && oTable.getBinding && oTable.getBinding("items");
+          if (!oBinding) return;
+
+          var m = mOpts || {};
+          if (m.searchTerm !== undefined) {
+            this._sInvoiceVhSearchTerm = (m.searchTerm || "").toString().trim();
+          }
+          var sTerm = (this._sInvoiceVhSearchTerm || "").toString().trim();
+
+          var aFilters = [];
+          if (sTerm) {
+            aFilters.push(new Filter("Vbeln", FilterOperator.Contains, sTerm));
+          }
+          oBinding.filter(aFilters);
+        },
+
+        _onInvoiceVhOk: function (oEvent) {
+          var oVHD = oEvent.getSource && oEvent.getSource();
+          var oTable = oVHD && oVHD.getTable && oVHD.getTable();
+          var oSelected = oTable && oTable.getSelectedItem && oTable.getSelectedItem();
+          var oCtx = oSelected && oSelected.getBindingContext && oSelected.getBindingContext();
+          var oObj = oCtx && oCtx.getObject && oCtx.getObject();
+
+          var sVbeln = (oObj && oObj.Vbeln) ? String(oObj.Vbeln).trim() : "";
+          if (!sVbeln) {
+            var aTokens = oEvent.getParameter("tokens") || [];
+            sVbeln = aTokens[0]?.getKey?.() || "";
+            sVbeln = String(sVbeln || "").trim();
+          }
+
+          var oTripData =
+            this.getView().getModel("TripData") || sap.ui.getCore().getModel("TripData");
+          if (oTripData) {
+            oTripData.setProperty("/BillingDocument", sVbeln);
+          }
+
+          // Commit outward doc side-effects using the same path as change handler
+          var oInv = this.byId("idInvoiceNumberDropdown");
+          this._commitInvoiceOutwardDoc(oInv);
+
+          oVHD?.close?.();
+        },
+
+        _initInvoicePagingState: function () {
+          // Legacy ComboBox paging (no longer used after switching to Input + ValueHelpDialog).
+        },
+
+        _getComboBoxPickerList: function (oCombo) {
+          if (!oCombo) return null;
+          var oPicker = null;
+          try {
+            oPicker = oCombo.getPicker && oCombo.getPicker();
+          } catch (e) {
+            oPicker = null;
+          }
+          if (!oPicker) return null;
+
+          var aContent = [];
+          try {
+            aContent =
+              (typeof oPicker.getContent === "function" && oPicker.getContent()) ||
+              [];
+          } catch (e2) {
+            aContent = [];
+          }
+          var oList = aContent && aContent[0];
+          if (oList && typeof oList.setGrowing === "function") {
+            return oList;
+          }
+          return null;
+        },
+
+        _attachInvoiceComboPaging: function () {
+          // Legacy ComboBox paging (no longer used).
+        },
+
+        _resetInvoicePaging: function () {
+          // Legacy ComboBox paging (no longer used).
+        },
+
+        _loadMoreInvoiceDropdownPage: function () {
+          // Legacy ComboBox paging (no longer used).
+        },
+
+        /**
+         * ComboBox `loadItems` handler for Invoice No dropdown list.
+         * Loads the first page if empty; additional pages load via list growing on scroll.
+         */
+        onInvoiceLoadItems: function () {
+          // Legacy ComboBox event (no longer used).
         },
 
         /**
@@ -70,6 +339,8 @@ sap.ui.define(
          * Skips while the suggestion list is open so opening the list does not trigger a POST.
          */
         _attachInvoiceComboFocusOutCommit: function () {
+          // Legacy ComboBox blur-commit (no longer used with Input + ValueHelpDialog).
+          return;
           if (this._bInvoiceFocusOutDelegateAdded) {
             return;
           }
@@ -105,108 +376,153 @@ sap.ui.define(
           );
         },
 
-        /**
-         * Loads BillingDocSH once; Invoice No suggestions filter this list as the user types.
-         */
-        _loadBillingDocSHCache: function () {
+        _fetchBillingDocSH: function (mOpts) {
           var that = this;
+          var m = mOpts || {};
+          var sSearch = (m.searchTerm || "").toString().trim();
+          var iTop = m.top;
+          var iSkip = m.skip;
+
           if (!this.oModel) {
-            return;
+            return Promise.resolve([]);
           }
-          this.oModel.read("/BillingDocSH", {
-            urlParameters: {
-              $top: "5000",
-            },
-            success: function (oData) {
-              that._aBillingDocCache = oData.results || [];
-              that._initInvoiceNoSuggestionItems();
-            },
-            error: function () {
-              that._aBillingDocCache = [];
-              that._initInvoiceNoSuggestionItems();
-            },
+
+          var aFilters = [];
+          if (sSearch) {
+            aFilters.push(new Filter("Vbeln", FilterOperator.Contains, sSearch));
+          }
+
+          var mUrl = {};
+          if (iTop !== undefined && iTop !== null && String(iTop).trim() !== "") {
+            mUrl.$top = String(iTop);
+          }
+          if (iSkip !== undefined && iSkip !== null && String(iSkip).trim() !== "") {
+            mUrl.$skip = String(iSkip);
+          }
+
+          return new Promise(function (resolve, reject) {
+            that.oModel.read("/BillingDocSH", {
+              filters: aFilters,
+              urlParameters: mUrl,
+              success: function (oData) {
+                resolve((oData && oData.results) || []);
+              },
+              error: function (oError) {
+                reject(oError);
+              },
+            });
           });
+        },
+
+        _fetchBillingDocSHPaged: function (mOpts) {
+          var m = mOpts || {};
+          var iPageSize = Number(m.pageSize || 500);
+          var iMax =
+            m.max === undefined || m.max === null || String(m.max).trim() === ""
+              ? Infinity
+              : Number(m.max);
+          var sSearchTerm = (m.searchTerm || "").toString().trim();
+
+          // For typed suggestions we intentionally keep it small.
+          if (sSearchTerm) {
+            return this._fetchBillingDocSH({
+              searchTerm: sSearchTerm,
+              top: m.top || 50,
+              skip: 0,
+            });
+          }
+
+          var that = this;
+          var aAll = [];
+          var iSkip = 0;
+          var iPageGuard = 0;
+          var sPrevSig = null;
+
+          function pageSignature(aPage) {
+            if (!aPage || aPage.length === 0) {
+              return "empty";
+            }
+            var oFirst = aPage[0] || {};
+            var oLast = aPage[aPage.length - 1] || {};
+
+            // BillingDocSH key is typically Vbeln
+            var k1 = (oFirst.Vbeln ?? oFirst.DocumentNumber ?? oFirst.Id ?? "") + "";
+            var k2 = (oLast.Vbeln ?? oLast.DocumentNumber ?? oLast.Id ?? "") + "";
+
+            if (!k1 && !k2) {
+              try {
+                k1 = JSON.stringify(oFirst).slice(0, 200);
+                k2 = JSON.stringify(oLast).slice(0, 200);
+              } catch (e) {
+                k1 = String(aPage.length);
+                k2 = String(aPage.length);
+              }
+            }
+            return k1 + "…" + k2 + "@" + String(aPage.length);
+          }
+
+          function next() {
+            iPageGuard += 1;
+            if (iPageGuard > 10000) {
+              return Promise.resolve(aAll);
+            }
+
+            var iRemaining = iMax - aAll.length;
+            if (iRemaining <= 0) {
+              return Promise.resolve(aAll);
+            }
+
+            var iTop = iMax === Infinity ? iPageSize : Math.min(iPageSize, iRemaining);
+            return that._fetchBillingDocSH({ top: iTop, skip: iSkip }).then(function (
+              aPage
+            ) {
+              var a = aPage || [];
+              var sSig = pageSignature(a);
+              if (sPrevSig !== null && sSig === sPrevSig) {
+                // Backend likely ignored $skip and repeated same page
+                return aAll;
+              }
+              sPrevSig = sSig;
+
+              aAll = aAll.concat(a);
+              var iPrevSkip = iSkip;
+              iSkip += a.length;
+
+              // Safety: avoid infinite loops if service keeps returning same page
+              if (a.length === 0 || iSkip === iPrevSkip) {
+                return aAll;
+              }
+
+              // Stop if server returned less than requested (no more pages)
+              if (a.length < iTop) {
+                return aAll;
+              }
+              return next();
+            });
+          }
+
+          return next();
         },
 
         _initInvoiceNoModel: function () {
           if (!this._oInvoiceNoModel) {
             this._oInvoiceNoModel = new JSONModel({ items: [] });
+            // Allow large dropdown lists (UI5 JSONModel default is small)
+            this._oInvoiceNoModel.setSizeLimit(1000000);
             this.getView().setModel(this._oInvoiceNoModel, "invoiceNoModel");
           }
         },
 
-        _initInvoiceNoSuggestionItems: function () {
-          try {
-            if (!this.getView) return;
-            if (!this._oInvoiceNoModel) this._initInvoiceNoModel();
-
-            // Preload ComboBox items so the arrow/dropdown works immediately.
-            if (this._bInvoiceSuggestionsPreloaded) return;
-
-            if (!this._aBillingDocCache || !this._aBillingDocCache.length) {
-              return;
-            }
-
-            var aTop = this._aBillingDocCache.slice(0, 200); // keep UI responsive
-            this._oInvoiceNoModel.setProperty(
-              "/items",
-              aTop
-                .map(function (o) {
-                  return { Vbeln: (o.Vbeln || "").toString() };
-                })
-                .filter(function (o) {
-                  return !!o.Vbeln;
-                })
-            );
-
-            this._bInvoiceSuggestionsPreloaded = true;
-          } catch (e) {
-            // Non-blocking; suggestions on typing will still work.
-          }
+        _preloadInvoiceDropdownItems: function () {
+          // Legacy ComboBox preload (no longer used).
         },
 
-        onInvoiceNoSuggest: function (oEvent) {
-          var oInput = oEvent.getSource();
-          var sValue = (oEvent.getParameter("suggestValue") || "").trim();
-          var aAll = this._aBillingDocCache;
-
-          oInput.destroySuggestionItems();
-
-          if (!aAll || !aAll.length) {
-            return;
-          }
-
-          var aMatch;
-          if (sValue.length === 0) {
-            aMatch = aAll.slice();
-          } else {
-            var sLower = sValue.toLowerCase();
-            aMatch = aAll.filter(function (o) {
-              var v = o.Vbeln || "";
-              return String(v).toLowerCase().indexOf(sLower) !== -1;
-            });
-          }
-
-          aMatch.forEach(function (o) {
-            var sV = o.Vbeln || "";
-            oInput.addSuggestionItem(
-              new SuggestionItem({
-                key: sV,
-                text: sV,
-              })
-            );
-          });
+        onInvoiceNoSuggest: function () {
+          // Legacy ComboBox suggest (no longer used).
         },
 
-        onInvoiceNoSuggestionItemSelected: function (oEvent) {
-          var oItem = oEvent.getParameter("selectedItem");
-          var sText = oItem ? oItem.getText() : "";
-          var oTripData =
-            this.getView().getModel("TripData") ||
-            sap.ui.getCore().getModel("TripData");
-          if (oTripData) {
-            oTripData.setProperty("/BillingDocument", sText);
-          }
+        onInvoiceNoSuggestionItemSelected: function () {
+          // Legacy ComboBox selection (no longer used).
         },
 
         /**
@@ -310,7 +626,7 @@ sap.ui.define(
 
           this.oModel.read("/TripDetails('" + sTripNumber + "')", {
             urlParameters: {
-              "$expand": "OrderDetails,ItemDetails",
+              "$expand": "OrderDetails,ItemDetails,ActivityHistory",
             },
             success: function (oData) {
               var oTripDataModel = new JSONModel(oData);
@@ -352,7 +668,7 @@ sap.ui.define(
             this.tripNumber = oGlobalModel ? oGlobalModel.getProperty("/TripNumber") || "" : "";
             
             this.loadExitGateNumber();
-            this._initInvoiceNoSuggestionItems();
+            // Invoice is now selected via ValueHelpDialog (no preload).
 
             // Set initial input state based on whether GateOut data exists
             var oTripData = sap.ui.getCore().getModel("TripData");
@@ -415,6 +731,12 @@ sap.ui.define(
           var oTripData = sap.ui.getCore().getModel("TripData");
           if (oTripData) {
             this.getView().setModel(oTripData, "TripData");
+            
+            // Keep refDocModel available for Bin Details bindings.
+            var oRefDocModel = sap.ui.getCore().getModel("refDocModel");
+            if (oRefDocModel) {
+              this.getView().setModel(oRefDocModel, "refDocModel");
+            }
 
             // Ensure Skip Document defaults to "No" when missing.
             var vRefDocSkip = oTripData.getProperty("/RefDocSkip");
@@ -437,6 +759,7 @@ sap.ui.define(
             }
 
             this.loadExitGateNumber();
+            this._normalizeTripDataItemDetails();
             // Disable inputs if GateOut data already exists (display mode)
             var sExistingExitGateNum = oTripData.getProperty("/ExitGateNum");
             if (sExistingExitGateNum && sExistingExitGateNum.trim() !== "") {
@@ -445,6 +768,22 @@ sap.ui.define(
               // First time - enable inputs
               this._setInputsEnabled(true);
             }
+          }
+        },
+        _extractResults: function (vData) {
+          if (!vData) return null;
+          if (Array.isArray(vData)) return vData;
+          if (Array.isArray(vData.results)) return vData.results;
+          if (vData.__deferred) return null;
+          return [];
+        },
+        _normalizeTripDataItemDetails: function () {
+          var oTripData = sap.ui.getCore().getModel("TripData");
+          if (!oTripData) return;
+          var aItems = this._extractResults(oTripData.getProperty("/ItemDetails"));
+          if (Array.isArray(aItems)) {
+            // Ensure XML can bind directly to TripData>/ItemDetails
+            oTripData.setProperty("/ItemDetails", aItems);
           }
         },
         _getTripNumber: function () {
@@ -1475,14 +1814,18 @@ sap.ui.define(
           );
         },
 
+        _getTripDataModel: function () {
+          return this.getView().getModel("TripData") || sap.ui.getCore().getModel("TripData");
+        },
+
         _buildBinDetailsRowKey: function (oRow) {
           if (!oRow) return "";
           return [
-            oRow.tripNumber || "",
-            oRow.docType || "",
-            oRow.refDocNo || "",
-            oRow.refDocItemNo || "",
-            oRow.materialCode || "",
+            oRow.tripNumber || oRow.TripNumber || "",
+            oRow.docType || oRow.DocType || "",
+            oRow.refDocNo || oRow.RefDocNo || "",
+            oRow.refDocItemNo || oRow.RefDocItemNo || "",
+            oRow.materialCode || oRow.MaterialCode || "",
           ].join("|");
         },
 
@@ -1567,17 +1910,17 @@ sap.ui.define(
         },
 
         onSaveBinDetails: function () {
+          var oTripData = this._getTripDataModel();
           var oRefModel = this._getRefDocModel();
-          var oTripData = sap.ui.getCore().getModel("TripData");
-          if (!oRefModel || !oTripData) {
+          if (!oTripData || !oRefModel) {
             MessageToast.show("Unable to save bins (missing models).");
             return;
           }
 
-          var aFiltered = oRefModel.getProperty("/filteredMaterialDetails") || [];
+          var aItems = oRefModel.getProperty("/filteredMaterialDetails") || [];
           var iTotalBins = 0;
 
-          aFiltered.forEach(function (oRow) {
+          aItems.forEach(function (oRow) {
             var v = oRow && oRow.binsTrolleys;
             var n = v === null || v === undefined || v === "" ? 0 : Number(v);
             if (!isNaN(n)) {

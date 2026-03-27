@@ -145,7 +145,7 @@
                             id="ReportDateRange"
                             width="100%"
                             displayFormat="medium"
-                            placeholder="{i18n>dateRangePlaceholderExample}"
+                            placeholder=""
                             showCurrentDateButton="true"
                             showFooter="true"
                             change=".onReportDateRangeChange"

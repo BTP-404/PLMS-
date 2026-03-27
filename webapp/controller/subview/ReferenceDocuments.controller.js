@@ -7,11 +7,40 @@ sap.ui.define([
 	"sap/m/SelectDialog",
 	"sap/m/StandardListItem",
 	"sap/m/SuggestionItem",
+	"sap/ui/comp/valuehelpdialog/ValueHelpDialog",
+	"sap/ui/comp/filterbar/FilterBar",
 	"sap/ui/model/Filter",
 	"sap/ui/model/FilterOperator",
 	"sap/ui/model/odata/v2/ODataModel",
+	"sap/m/Table",
+	"sap/m/Column",
+	"sap/m/ColumnListItem",
+	"sap/m/Text",
+	"sap/m/Label",
+	"sap/m/SearchField",
 	"com/incresolZ_INC_PLMS/util/MovementScenarioIcons",
-], function (Controller, JSONModel, Fragment, MessageToast, MessageBox, SelectDialog, StandardListItem, SuggestionItem, Filter, FilterOperator, ODataModel, MovementScenarioIcons) {
+], function (
+	Controller,
+	JSONModel,
+	Fragment,
+	MessageToast,
+	MessageBox,
+	SelectDialog,
+	StandardListItem,
+	SuggestionItem,
+	ValueHelpDialog,
+	FilterBar,
+	Filter,
+	FilterOperator,
+	ODataModel,
+	Table,
+	Column,
+	ColumnListItem,
+	Text,
+	Label,
+	SearchField,
+	MovementScenarioIcons
+) {
 	"use strict";
 
 	return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.ReferenceDocuments", {
@@ -34,8 +63,345 @@ sap.ui.define([
 		this._oEventBus.subscribe("Stage", "ClearAllTabs", this._clearAllData, this);
 		// this._onTripDataUpdated(); // Initial load
 		this._initializeColumnVisibility();
+		this._initDocNoPagingState();
 		// Apply any view-related initialization after render using delegates if needed
 	},
+
+		_initDocNoPagingState: function () {
+			// Pagination state for "Document Number" ComboBox dropdown list (arrow open + scroll).
+			// Typeahead suggestions remain handled by `onRefDocNumberSuggest`.
+			if (!this._mDocNoPaging) {
+				this._mDocNoPaging = {
+					pageSize: 50,
+					loading: false,
+					done: false,
+					docType: "",
+					searchTerm: ""
+				};
+			}
+		},
+
+		_getComboBoxPickerList: function (oCombo) {
+			// Best-effort access to the underlying List used in the ComboBox picker.
+			// Different UI5 versions render either a Popover with a List/SelectList inside.
+			if (!oCombo) return null;
+			var oPicker = null;
+			try {
+				oPicker = oCombo.getPicker && oCombo.getPicker();
+			} catch (e) {
+				oPicker = null;
+			}
+			if (!oPicker) return null;
+
+			var aContent = [];
+			try {
+				aContent = (typeof oPicker.getContent === "function" && oPicker.getContent()) || [];
+			} catch (e2) {
+				aContent = [];
+			}
+			var oList = aContent && aContent[0];
+			if (oList && typeof oList.setGrowing === "function") {
+				return oList;
+			}
+
+			// Fallback: some versions wrap the list deeper.
+			try {
+				if (oPicker.getSubHeader && oPicker.getSubHeader() && oPicker.getSubHeader().getContent) {
+					var a = oPicker.getSubHeader().getContent() || [];
+					if (a[0] && typeof a[0].setGrowing === "function") return a[0];
+				}
+			} catch (e3) {
+				// ignore
+			}
+			return null;
+		},
+
+		_attachDocNoComboPaging: function () {
+			var oCombo = this.byId("idRefDocNumber");
+			if (!oCombo || oCombo._plmsDocNoPagingAttached) {
+				return;
+			}
+			oCombo._plmsDocNoPagingAttached = true;
+
+			var oList = this._getComboBoxPickerList(oCombo);
+			if (!oList) {
+				return;
+			}
+
+			// Enable list growing and load-on-scroll (no UI changes unless list supports it).
+			try {
+				oList.setGrowing(true);
+				oList.setGrowingScrollToLoad(true);
+				oList.setGrowingThreshold(this._mDocNoPaging?.pageSize || 50);
+			} catch (e) {
+				// ignore
+			}
+
+			var that = this;
+			if (typeof oList.attachGrowingStarted === "function") {
+				oList.attachGrowingStarted(function () {
+					that._loadMoreDocNoDropdownPage();
+				});
+			}
+		},
+
+		_resetDocNoPaging: function (sDocType, sSearchTerm) {
+			this._initDocNoPagingState();
+			this._mDocNoPaging.docType = (sDocType || "").toString().trim();
+			this._mDocNoPaging.searchTerm = (sSearchTerm || "").toString().trim();
+			this._mDocNoPaging.loading = false;
+			this._mDocNoPaging.done = false;
+		},
+
+		_loadMoreDocNoDropdownPage: function () {
+			this._initDocNoPagingState();
+			var mState = this._mDocNoPaging;
+
+			var sDocType = (mState.docType || "").toString().trim();
+			if (!sDocType) {
+				// Determine current doc type if state wasn't initialized yet
+				var oDocTypeSelect = this.byId("idRefDocType");
+				sDocType = this._sSelectedDocType ||
+					(oDocTypeSelect?.getSelectedItem?.()?.getKey?.() || oDocTypeSelect?.getSelectedKey?.() || "");
+				sDocType = (sDocType || "").toString().trim();
+				mState.docType = sDocType;
+			}
+			if (!sDocType) return;
+
+			if (mState.loading || mState.done) return;
+			mState.loading = true;
+
+			var oModel = this._getRefDocSuggestionModel();
+			var aExisting = (oModel?.getProperty("/items") || []).slice();
+			var iSkip = aExisting.length;
+			var iTop = Number(mState.pageSize || 50);
+
+			// Busy indicator on the field itself (dialog/view busy is handled separately below)
+			var oCombo = this.byId("idRefDocNumber");
+			this._iDocNoFieldBusyCount = (this._iDocNoFieldBusyCount || 0) + 1;
+			if (oCombo && oCombo.setBusy) {
+				oCombo.setBusy(true);
+				oCombo.setBusyIndicatorDelay?.(0);
+			}
+
+			this._beginDocNoBusy();
+			this._fetchOrderDetails(sDocType, { top: iTop, skip: iSkip })
+				.then(function (aPage) {
+					var a = aPage || [];
+					if (a.length === 0) {
+						mState.done = true;
+						return;
+					}
+					// Append unique DocumentNumber entries (avoid duplicates when backend ignores $skip)
+					var mSeen = new Set(aExisting.map(function (o) { return (o && o.DocumentNumber) ? String(o.DocumentNumber) : ""; }));
+					var aAppend = a.filter(function (o) {
+						var k = (o && o.DocumentNumber) ? String(o.DocumentNumber) : "";
+						if (!k) return false;
+						if (mSeen.has(k)) return false;
+						mSeen.add(k);
+						return true;
+					});
+					oModel?.setProperty("/items", aExisting.concat(aAppend));
+
+					// If server returned less than requested, mark as done.
+					if (a.length < iTop || aAppend.length === 0) {
+						mState.done = true;
+					}
+				}.bind(this))
+				.catch(function () {
+					// ignore; keep existing items
+				})
+				.finally(function () {
+					mState.loading = false;
+					this._iDocNoFieldBusyCount = Math.max((this._iDocNoFieldBusyCount || 1) - 1, 0);
+					if (this._iDocNoFieldBusyCount === 0) {
+						var oC = this.byId("idRefDocNumber");
+						if (oC && oC.setBusy) {
+							oC.setBusy(false);
+						}
+					}
+					this._endDocNoBusy();
+				}.bind(this));
+		},
+
+		// ============================================================
+		// ValueHelpDialog for "Document Number" (ComboBox replacement)
+		// ============================================================
+		onRefDocNumberValueHelpRequest: function () {
+			var oDocTypeSelect = this.byId("idRefDocType");
+			var sDocType =
+				this._sSelectedDocType ||
+				(oDocTypeSelect?.getSelectedItem?.()?.getKey?.() ||
+					oDocTypeSelect?.getSelectedKey?.() ||
+					"");
+			sDocType = (sDocType || "").toString().trim();
+
+			if (!sDocType) {
+				return MessageToast.show("Select a Doc Type first");
+			}
+
+			if (!this._oRefDocNumberValueHelp) {
+				this._oRefDocNumberValueHelp = this._createRefDocNumberValueHelpDialog();
+			}
+
+			// Reset filters for the new DocType context
+			this._applyRefDocNumberVhFilters({ docType: sDocType, searchTerm: "" });
+			this._oRefDocNumberValueHelp.open();
+		},
+
+		_createRefDocNumberValueHelpDialog: function () {
+			var that = this;
+
+			var oVHD = new ValueHelpDialog({
+				title: "Select Document",
+				supportMultiselect: false,
+				key: "DocumentNumber",
+				descriptionKey: "Name",
+				ok: function (oEvent) {
+					that._onRefDocNumberValueHelpOk(oEvent);
+				},
+				cancel: function () {
+					oVHD.close();
+				},
+			});
+
+			// FilterBar with basic search (server-side contains on DocumentNumber/Name)
+			var oBasicSearch = new SearchField({
+				width: "100%",
+				search: function (oEvent) {
+					var sTerm = (oEvent.getParameter("query") || "").toString().trim();
+					that._applyRefDocNumberVhFilters({ searchTerm: sTerm });
+				},
+				liveChange: function (oEvent) {
+					// keep it responsive without hammering too hard (simple debounce)
+					if (that._iRefDocVhSearchDebounce) {
+						clearTimeout(that._iRefDocVhSearchDebounce);
+					}
+					var sVal = (oEvent.getParameter("newValue") || "").toString();
+					that._iRefDocVhSearchDebounce = setTimeout(function () {
+						that._iRefDocVhSearchDebounce = null;
+						that._applyRefDocNumberVhFilters({ searchTerm: sVal.trim() });
+					}, 250);
+				},
+			});
+
+			var oFilterBar = new FilterBar({
+				advancedMode: false,
+				filterBarExpanded: false,
+				showGoOnFB: false,
+				showFilterConfiguration: false,
+				useToolbar: true,
+				basicSearch: oBasicSearch,
+			});
+
+			oVHD.setFilterBar(oFilterBar);
+
+			var oTable = new Table({
+				mode: "SingleSelectMaster",
+				growing: true,
+				growingThreshold: 20,
+				growingScrollToLoad: true,
+				columns: [
+					new Column({
+						header: new Label({ text: "Document Number" }),
+					}),
+					new Column({
+						header: new Label({ text: "Name" }),
+					}),
+				],
+			});
+
+			// Bind directly to OData so growing triggers server paging automatically
+			oTable.setModel(this._getOrderDetailsService());
+			oTable.bindItems({
+				path: "/OrderDetails",
+				template: new ColumnListItem({
+					cells: [
+						new Text({ text: "{DocumentNumber}" }),
+						new Text({ text: "{Name}" }),
+					],
+				}),
+			});
+
+			oVHD.setTable(oTable);
+			this.getView().addDependent(oVHD);
+
+			return oVHD;
+		},
+
+		_applyRefDocNumberVhFilters: function (mOpts) {
+			var oVHD = this._oRefDocNumberValueHelp;
+			if (!oVHD) return;
+
+			var m = mOpts || {};
+			var sDocType = (m.docType !== undefined) ? m.docType : null;
+			var sSearch = (m.searchTerm !== undefined) ? m.searchTerm : null;
+
+			if (sDocType !== null) {
+				this._sSelectedDocType = (sDocType || "").toString().trim();
+			}
+
+			var oTable = oVHD.getTable && oVHD.getTable();
+			if (!oTable) return;
+
+			var oBinding = oTable.getBinding && oTable.getBinding("items");
+			if (!oBinding) return;
+
+			var oGlobalModel = sap.ui.getCore().getModel("globalData");
+			var sTripNumber = (oGlobalModel?.getProperty("/TripNumber") || "").toString().trim();
+			var sDT = (this._sSelectedDocType || "").toString().trim();
+
+			var aFilters = [];
+			if (sTripNumber) {
+				aFilters.push(new Filter("TripNumber", FilterOperator.EQ, sTripNumber));
+			}
+			if (sDT) {
+				aFilters.push(new Filter("DocType", FilterOperator.EQ, sDT));
+			}
+
+			if (sSearch !== null) {
+				this._sRefDocVhSearchTerm = (sSearch || "").toString().trim();
+			}
+			var sTerm = (this._sRefDocVhSearchTerm || "").toString().trim();
+			if (sTerm) {
+				aFilters.push(
+					new Filter(
+						[
+							new Filter("DocumentNumber", FilterOperator.Contains, sTerm),
+							new Filter("Name", FilterOperator.Contains, sTerm),
+						],
+						false
+					)
+				);
+			}
+
+			oBinding.filter(aFilters);
+		},
+
+		_onRefDocNumberValueHelpOk: function (oEvent) {
+			var oVHD = oEvent.getSource && oEvent.getSource();
+			var oTable = oVHD && oVHD.getTable && oVHD.getTable();
+
+			// Prefer selected row object from the table binding context (contains full backend fields)
+			var oSelectedItem = oTable && oTable.getSelectedItem && oTable.getSelectedItem();
+			var oCtx = oSelectedItem && oSelectedItem.getBindingContext && oSelectedItem.getBindingContext();
+			var oObj = oCtx && oCtx.getObject && oCtx.getObject();
+
+			if (oObj) {
+				this._applySelectedReferenceDoc(oObj);
+				oVHD?.close?.();
+				return;
+			}
+
+			// Fallback to token key if selection wasn't accessible
+			var aTokens = oEvent.getParameter("tokens") || [];
+			var sDocNo = aTokens[0]?.getKey?.() || "";
+			sDocNo = (sDocNo || "").toString();
+			if (sDocNo) {
+				this.byId("idRefDocNumber")?.setValue?.(sDocNo);
+			}
+			oVHD?.close?.();
+		},
 
 		onExit: function () {
 			this._oAddRefDocDialog?.destroy();
@@ -170,10 +536,12 @@ sap.ui.define([
 			if (sSelectedKey) {
 				this._sSelectedDocType = sSelectedKey;
 				this._loadRefDocSuggestions(sSelectedKey);
+				this._resetDocNoPaging(sSelectedKey, "");
 			} else {
 				// Handle case when selection is cleared
 				this._sSelectedDocType = "";
 				this._loadRefDocSuggestions("");
+				this._resetDocNoPaging("", "");
 			}
 		},
 
@@ -231,39 +599,85 @@ sap.ui.define([
 			var oInput = oEvent.getSource();
 			var sValue = (oEvent.getParameter("suggestValue") || "").trim();
 
-			var oModel = this.getView().getModel("refDocSuggestions");
-			var aDocs = oModel?.getProperty("/items") || [];
-
-			// Always clear and re-fill suggestion items from the already-loaded JSON model
+			// Always clear and re-fill suggestion items
 			oInput.destroySuggestionItems();
 
-			if (!aDocs || !aDocs.length) {
+			// Read current Doc Type; server-side suggestion depends on it
+			var oDocTypeSelect = this.byId("idRefDocType");
+			var sDocType = this._sSelectedDocType || (oDocTypeSelect?.getSelectedItem?.()?.getKey?.() || oDocTypeSelect?.getSelectedKey?.() || "");
+			sDocType = (sDocType || "").toString().trim();
+			if (!sDocType) {
 				return;
 			}
 
-			var aMatch;
+			// Ensure dropdown paging is wired (for arrow-open scrolling list)
+			this._resetDocNoPaging(sDocType, sValue);
+			this._attachDocNoComboPaging();
+
+			// If nothing typed, just show a small "recent" set from whatever is already loaded in the model
 			if (!sValue) {
-				aMatch = aDocs.slice(0, 15);
-			} else {
-				var sNeedle = sValue.toLowerCase();
-				aMatch = aDocs.filter(function (oDoc) {
-					var sDocNo = (oDoc?.DocumentNumber || "").toString().toLowerCase();
-					var sName = (oDoc?.Name || "").toString().toLowerCase();
-					return sDocNo.includes(sNeedle) || sName.includes(sNeedle);
+				var aCached = this.getView().getModel("refDocSuggestions")?.getProperty("/items") || [];
+				(aCached || []).slice(0, 15).forEach(function (oDoc) {
+					var sDocNo = oDoc?.DocumentNumber || "";
+					if (!sDocNo) return;
+					oInput.addSuggestionItem(
+						new SuggestionItem({
+							key: sDocNo,
+							text: sDocNo,
+							description: oDoc?.Name || ""
+						})
+					);
 				});
+				return;
 			}
 
-			(aMatch || []).slice(0, 15).forEach(function (oDoc) {
-				var sDocNo = oDoc?.DocumentNumber || "";
-				if (!sDocNo) return;
-				oInput.addSuggestionItem(
-					new SuggestionItem({
-						key: sDocNo,
-						text: sDocNo,
-						description: oDoc?.Name || ""
-					})
-				);
-			});
+			// Server-side search so we can handle very large datasets (100k+)
+			this._iRefDocSuggestReqId = (this._iRefDocSuggestReqId || 0) + 1;
+			var iReqId = this._iRefDocSuggestReqId;
+			var that = this;
+
+			this._fetchOrderDetails(sDocType, { searchTerm: sValue, top: 50 })
+				.then(function (aDocs) {
+					// Ignore stale responses if user typed again
+					if (iReqId !== that._iRefDocSuggestReqId) {
+						return;
+					}
+					// Keep dropdown list reasonably sized (arrow button) with latest search results
+					that._updateRefDocSuggestions(aDocs);
+
+					// Populate suggest list (max 15)
+					(aDocs || []).slice(0, 15).forEach(function (oDoc) {
+						var sDocNo = oDoc?.DocumentNumber || "";
+						if (!sDocNo) return;
+						oInput.addSuggestionItem(
+							new SuggestionItem({
+								key: sDocNo,
+								text: sDocNo,
+								description: oDoc?.Name || ""
+							})
+						);
+					});
+				})
+				.catch(function () {
+					// Non-blocking: just leave suggestions empty
+				});
+		},
+
+		/**
+		 * ComboBox `loadItems` handler for Document Number dropdown list.
+		 * Loads the first page if the list is empty; additional pages are loaded via list growing on scroll.
+		 */
+		_onRefDocNumberLoadItems: function () {
+			this._initDocNoPagingState();
+			this._attachDocNoComboPaging();
+
+			var oModel = this._getRefDocSuggestionModel();
+			var aExisting = oModel?.getProperty("/items") || [];
+			if (aExisting.length > 0) {
+				return;
+			}
+			// Load first page for the currently selected doc type
+			this._loadMoreDocNoDropdownPage();
 		},
 
 		onDocTypeValueHelp: function () {
@@ -640,11 +1054,13 @@ sap.ui.define([
 			if (!sDocType) {
 				return MessageToast.show("Select a Doc Type first");
 			}
-			var aRefDocs = this._getMaterialRefDocNumbersFromRefDocs(sDocType);
-			if (!aRefDocs || aRefDocs.length === 0) {
-				return MessageToast.show("No document numbers found for the selected Doc Type.");
+
+			// New: ValueHelpDialog bound to OData /OrderDetails with growing + server-side search
+			if (!this._oMaterialRefDocNoVHD) {
+				this._oMaterialRefDocNoVHD = this._createMaterialRefDocNoVHD();
 			}
-			this._openMaterialRefDocNoValueHelpDialog(sDocType);
+			this._applyMaterialRefDocNoVhFilters({ docType: sDocType, searchTerm: "" });
+			this._oMaterialRefDocNoVHD.open();
 		},
 
 		onMaterialRefDocNoSuggestionSelected: function (oEvent) {
@@ -681,7 +1097,222 @@ sap.ui.define([
 				return MessageToast.show("Select a Ref Doc Number first");
 			}
 			
-			this._openMaterialItemValueHelpDialog(sDocType, sRefDocNo);
+			// New: ValueHelpDialog bound to OData /ItemDetails with growing + server-side search
+			if (!this._oMaterialItemVHD) {
+				this._oMaterialItemVHD = this._createMaterialItemVHD();
+			}
+			this._applyMaterialItemVhFilters({ docType: sDocType, refDocNo: sRefDocNo, searchTerm: "" });
+			this._oMaterialItemVHD.open();
+		},
+
+		_createMaterialRefDocNoVHD: function () {
+			var that = this;
+			var oVHD = new ValueHelpDialog({
+				title: "Select Reference Document",
+				supportMultiselect: false,
+				key: "DocumentNumber",
+				descriptionKey: "Name",
+				ok: function (oEvent) {
+					var oDlg = oEvent.getSource && oEvent.getSource();
+					var oTable = oDlg && oDlg.getTable && oDlg.getTable();
+					var oSel = oTable && oTable.getSelectedItem && oTable.getSelectedItem();
+					var oCtx = oSel && oSel.getBindingContext && oSel.getBindingContext();
+					var oObj = oCtx && oCtx.getObject && oCtx.getObject();
+					if (oObj) {
+						that._applySelectedRefDocForMaterial(oObj);
+					}
+					oDlg?.close?.();
+				},
+				cancel: function () {
+					oVHD.close();
+				},
+			});
+
+			var oBasicSearch = new SearchField({
+				width: "100%",
+				search: function (oEvent) {
+					that._applyMaterialRefDocNoVhFilters({ searchTerm: (oEvent.getParameter("query") || "").trim() });
+				},
+				liveChange: function (oEvent) {
+					if (that._iMatRefDocVhDebounce) clearTimeout(that._iMatRefDocVhDebounce);
+					var sVal = (oEvent.getParameter("newValue") || "").toString();
+					that._iMatRefDocVhDebounce = setTimeout(function () {
+						that._iMatRefDocVhDebounce = null;
+						that._applyMaterialRefDocNoVhFilters({ searchTerm: sVal.trim() });
+					}, 250);
+				},
+			});
+			var oFB = new sap.ui.comp.filterbar.FilterBar({
+				advancedMode: false,
+				filterBarExpanded: false,
+				showGoOnFB: false,
+				showFilterConfiguration: false,
+				useToolbar: true,
+				basicSearch: oBasicSearch,
+			});
+			oVHD.setFilterBar(oFB);
+
+			var oTable = new Table({
+				mode: "SingleSelectMaster",
+				growing: true,
+				growingThreshold: 20,
+				growingScrollToLoad: true,
+				columns: [
+					new Column({ header: new Label({ text: "Document Number" }) }),
+					new Column({ header: new Label({ text: "Name" }) }),
+				],
+			});
+			oTable.setModel(this._getOrderDetailsService());
+			oTable.bindItems({
+				path: "/OrderDetails",
+				template: new ColumnListItem({
+					cells: [new Text({ text: "{DocumentNumber}" }), new Text({ text: "{Name}" })],
+				}),
+			});
+
+			oVHD.setTable(oTable);
+			this.getView().addDependent(oVHD);
+			return oVHD;
+		},
+
+		_applyMaterialRefDocNoVhFilters: function (mOpts) {
+			var oVHD = this._oMaterialRefDocNoVHD;
+			if (!oVHD) return;
+			var oTable = oVHD.getTable && oVHD.getTable();
+			var oBinding = oTable && oTable.getBinding && oTable.getBinding("items");
+			if (!oBinding) return;
+
+			var m = mOpts || {};
+			if (m.docType !== undefined) {
+				this._sSelectedMaterialDocType = (m.docType || "").toString().trim();
+			}
+			if (m.searchTerm !== undefined) {
+				this._sMatRefDocSearch = (m.searchTerm || "").toString().trim();
+			}
+
+			var oGlobalModel = sap.ui.getCore().getModel("globalData");
+			var sTripNumber = (oGlobalModel?.getProperty("/TripNumber") || "").toString().trim();
+			var sDocType = (this._sSelectedMaterialDocType || "").toString().trim();
+			var sTerm = (this._sMatRefDocSearch || "").toString().trim();
+
+			var aFilters = [];
+			if (sTripNumber) aFilters.push(new Filter("TripNumber", FilterOperator.EQ, sTripNumber));
+			if (sDocType) aFilters.push(new Filter("DocType", FilterOperator.EQ, sDocType));
+			if (sTerm) {
+				aFilters.push(new Filter([new Filter("DocumentNumber", FilterOperator.Contains, sTerm), new Filter("Name", FilterOperator.Contains, sTerm)], false));
+			}
+			oBinding.filter(aFilters);
+		},
+
+		_createMaterialItemVHD: function () {
+			var that = this;
+			var oVHD = new ValueHelpDialog({
+				title: "Select Material Item",
+				supportMultiselect: false,
+				key: "RefDocItemNo",
+				descriptionKey: "MaterialCode",
+				ok: function (oEvent) {
+					var oDlg = oEvent.getSource && oEvent.getSource();
+					var oTable = oDlg && oDlg.getTable && oDlg.getTable();
+					var oSel = oTable && oTable.getSelectedItem && oTable.getSelectedItem();
+					var oCtx = oSel && oSel.getBindingContext && oSel.getBindingContext();
+					var oObj = oCtx && oCtx.getObject && oCtx.getObject();
+					if (oObj) {
+						that._applySelectedMaterialItem(oObj);
+					}
+					oDlg?.close?.();
+				},
+				cancel: function () {
+					oVHD.close();
+				},
+			});
+
+			var oBasicSearch = new SearchField({
+				width: "100%",
+				search: function (oEvent) {
+					that._applyMaterialItemVhFilters({ searchTerm: (oEvent.getParameter("query") || "").trim() });
+				},
+				liveChange: function (oEvent) {
+					if (that._iMatItemVhDebounce) clearTimeout(that._iMatItemVhDebounce);
+					var sVal = (oEvent.getParameter("newValue") || "").toString();
+					that._iMatItemVhDebounce = setTimeout(function () {
+						that._iMatItemVhDebounce = null;
+						that._applyMaterialItemVhFilters({ searchTerm: sVal.trim() });
+					}, 250);
+				},
+			});
+			var oFB = new sap.ui.comp.filterbar.FilterBar({
+				advancedMode: false,
+				filterBarExpanded: false,
+				showGoOnFB: false,
+				showFilterConfiguration: false,
+				useToolbar: true,
+				basicSearch: oBasicSearch,
+			});
+			oVHD.setFilterBar(oFB);
+
+			var oTable = new Table({
+				mode: "SingleSelectMaster",
+				growing: true,
+				growingThreshold: 20,
+				growingScrollToLoad: true,
+				columns: [
+					new Column({ header: new Label({ text: "Ref Doc Item No" }) }),
+					new Column({ header: new Label({ text: "Material" }) }),
+					new Column({ header: new Label({ text: "Description" }) }),
+				],
+			});
+
+			oTable.setModel(this._getItemDetailsService());
+			oTable.bindItems({
+				path: "/ItemDetails",
+				template: new ColumnListItem({
+					cells: [
+						new Text({ text: "{RefDocItemNo}" }),
+						new Text({ text: "{MaterialCode}" }),
+						new Text({ text: "{MaterialDescription}" }),
+					],
+				}),
+			});
+
+			oVHD.setTable(oTable);
+			this.getView().addDependent(oVHD);
+			return oVHD;
+		},
+
+		_applyMaterialItemVhFilters: function (mOpts) {
+			var oVHD = this._oMaterialItemVHD;
+			if (!oVHD) return;
+			var oTable = oVHD.getTable && oVHD.getTable();
+			var oBinding = oTable && oTable.getBinding && oTable.getBinding("items");
+			if (!oBinding) return;
+
+			var m = mOpts || {};
+			if (m.docType !== undefined) this._sMatItemDocType = (m.docType || "").toString().trim();
+			if (m.refDocNo !== undefined) this._sMatItemRefDocNo = (m.refDocNo || "").toString().trim();
+			if (m.searchTerm !== undefined) this._sMatItemSearch = (m.searchTerm || "").toString().trim();
+
+			var oGlobalModel = sap.ui.getCore().getModel("globalData");
+			var sTripNumber = (oGlobalModel?.getProperty("/TripNumber") || "").toString().trim();
+			var sDocType = (this._sMatItemDocType || "").toString().trim();
+			var sRefDocNo = (this._sMatItemRefDocNo || "").toString().trim();
+			var sTerm = (this._sMatItemSearch || "").toString().trim();
+
+			var aFilters = [];
+			if (sTripNumber) aFilters.push(new Filter("TripNumber", FilterOperator.EQ, sTripNumber));
+			if (sDocType) aFilters.push(new Filter("DocType", FilterOperator.EQ, sDocType));
+			if (sRefDocNo) aFilters.push(new Filter("RefDocNo", FilterOperator.EQ, sRefDocNo));
+			aFilters.push(new Filter("IsDeleted", FilterOperator.NE, "X"));
+
+			if (sTerm) {
+				aFilters.push(new Filter([
+					new Filter("RefDocItemNo", FilterOperator.Contains, sTerm),
+					new Filter("MaterialCode", FilterOperator.Contains, sTerm),
+					new Filter("MaterialDescription", FilterOperator.Contains, sTerm)
+				], false));
+			}
+
+			oBinding.filter(aFilters);
 		},
 
 		onMaterialItemSuggestionSelected: function (oEvent) {
@@ -1057,7 +1688,21 @@ sap.ui.define([
 		},
 
 		_closeMaterialDialog: function () {
-			this._oAddMaterialDialog?.close();
+			var oDlg = this._oAddMaterialDialog || this.byId("idAddMaterialDialog");
+			if (oDlg && oDlg.close) {
+				oDlg.close();
+				// Some UI5 versions re-render dialog content during model updates;
+				// schedule a second close to ensure it is really dismissed.
+				setTimeout(function () {
+					try {
+						if (oDlg && oDlg.isOpen && oDlg.isOpen()) {
+							oDlg.close();
+						}
+					} catch (e) {
+						// ignore
+					}
+				}, 0);
+			}
 		},
 
 		_openSelectMaterialsDialog: function (sDocType, sDocNumber) {
@@ -1176,7 +1821,7 @@ sap.ui.define([
 						oAddButton.setText("Add Selected Materials");
 					}
 
-					this._bIsAddingSelectedMaterials = false;
+					that._bIsAddingSelectedMaterials = false;
 					
 					var sMessage = "";
 					if (iSuccess > 0 && iFailed === 0) {
@@ -2028,11 +2673,16 @@ sap.ui.define([
 			this.byId("idRefDocSalesDoctype")?.setValue(oDoc.SalesDoctype || "");
 		},
 
-		_fetchOrderDetails: function (sDocType) {
+		_fetchOrderDetails: function (sDocType, mOpts) {
 			return new Promise(function (resolve, reject) {
 				var oService = this._getOrderDetailsService();
 				var oGlobalModel = sap.ui.getCore().getModel("globalData");
 				var sTripNumber = oGlobalModel?.getProperty("/TripNumber") || "";
+
+				var m = mOpts || {};
+				var sSearchTerm = (m.searchTerm || "").toString().trim();
+				var iTop = m.top;
+				var iSkip = m.skip;
 
 				var aFilters = [];
 				if (sTripNumber) {
@@ -2042,8 +2692,28 @@ sap.ui.define([
 					aFilters.push(new Filter("DocType", FilterOperator.EQ, sDocType));
 				}
 
+				// When user types, filter on DocumentNumber OR Name
+				if (sSearchTerm) {
+					aFilters.push(new Filter({
+						filters: [
+							new Filter("DocumentNumber", FilterOperator.Contains, sSearchTerm),
+							new Filter("Name", FilterOperator.Contains, sSearchTerm)
+						],
+						and: false
+					}));
+				}
+
+				var mUrlParameters = {};
+				if (iTop !== undefined && iTop !== null && String(iTop).trim() !== "") {
+					mUrlParameters.$top = String(iTop);
+				}
+				if (iSkip !== undefined && iSkip !== null && String(iSkip).trim() !== "") {
+					mUrlParameters.$skip = String(iSkip);
+				}
+
 				oService.read("/OrderDetails", {
 					filters: aFilters,
+					urlParameters: mUrlParameters,
 					success: function (oData) {
 						var aResults = oData.results || [];
 						resolve(aResults);
@@ -2053,6 +2723,92 @@ sap.ui.define([
 					}
 				});
 			}.bind(this));
+		},
+
+		_fetchOrderDetailsPaged: function (sDocType, mOpts) {
+			var m = mOpts || {};
+			var iPageSize = Number(m.pageSize || 500);
+			var iMax =
+				m.max === undefined || m.max === null || String(m.max).trim() === ""
+					? Infinity
+					: Number(m.max);
+			var sSearchTerm = (m.searchTerm || "").toString().trim();
+
+			// For typed suggestions we intentionally keep results small (handled elsewhere).
+			if (sSearchTerm) {
+				return this._fetchOrderDetails(sDocType, { searchTerm: sSearchTerm, top: m.top || 50, skip: 0 });
+			}
+
+			var that = this;
+			var aAll = [];
+			var iSkip = 0;
+			var iPageGuard = 0;
+			var sPrevSig = null;
+
+			function pageSignature(aPage) {
+				if (!aPage || aPage.length === 0) {
+					return "empty";
+				}
+				var oFirst = aPage[0] || {};
+				var oLast = aPage[aPage.length - 1] || {};
+
+				// Prefer stable business keys if present
+				var k1 = (oFirst.DocumentNumber ?? oFirst.DocNo ?? oFirst.Vbeln ?? oFirst.Id ?? "") + "";
+				var k2 = (oLast.DocumentNumber ?? oLast.DocNo ?? oLast.Vbeln ?? oLast.Id ?? "") + "";
+
+				// Fallback to a small JSON sample (avoid huge stringify)
+				if (!k1 && !k2) {
+					try {
+						k1 = JSON.stringify(oFirst).slice(0, 200);
+						k2 = JSON.stringify(oLast).slice(0, 200);
+					} catch (e) {
+						k1 = String(aPage.length);
+						k2 = String(aPage.length);
+					}
+				}
+				return k1 + "…" + k2 + "@" + String(aPage.length);
+			}
+
+			function next() {
+				iPageGuard += 1;
+				if (iPageGuard > 10000) {
+					return Promise.resolve(aAll);
+				}
+
+				var iRemaining = iMax - aAll.length;
+				if (iRemaining <= 0) {
+					return Promise.resolve(aAll);
+				}
+
+				var iTop = iMax === Infinity ? iPageSize : Math.min(iPageSize, iRemaining);
+				return that._fetchOrderDetails(sDocType, { top: iTop, skip: iSkip })
+					.then(function (aPage) {
+						var a = aPage || [];
+						var sSig = pageSignature(a);
+						if (sPrevSig !== null && sSig === sPrevSig) {
+							// Backend likely ignored $skip and repeated same page
+							return aAll;
+						}
+						sPrevSig = sSig;
+
+						aAll = aAll.concat(a);
+						var iPrevSkip = iSkip;
+						iSkip += a.length;
+
+						// Safety: avoid infinite loops if service keeps returning same page
+						if (a.length === 0 || iSkip === iPrevSkip) {
+							return aAll;
+						}
+
+						// Stop if server returned less than requested (no more pages)
+						if (a.length < iTop) {
+							return aAll;
+						}
+						return next();
+					});
+			}
+
+			return next();
 		},
 
 		_getOrderDetailsService: function () {
@@ -2156,6 +2912,8 @@ sap.ui.define([
 		_getRefDocSuggestionModel: function () {
 			if (!this._oRefDocSuggestionsModel) {
 				this._oRefDocSuggestionsModel = new JSONModel({ items: [] });
+				// Allow large dropdown lists (UI5 JSONModel default is small)
+				this._oRefDocSuggestionsModel.setSizeLimit(1000000);
 				this.getView().setModel(this._oRefDocSuggestionsModel, "refDocSuggestions");
 			}
 			return this._oRefDocSuggestionsModel;
@@ -2191,10 +2949,18 @@ sap.ui.define([
 				return;
 			}
 			this._sSelectedDocType = sDocType;
+			this._resetDocNoPaging(sDocType, "");
 			this._beginDocNoBusy();
-			this._fetchOrderDetails(sDocType)
+			// Load first page for dropdown list; remaining pages load on scroll via ComboBox list growing.
+			// Note: live suggestions while typing stay limited via onRefDocNumberSuggest (top 50).
+			var iTop = Number(this._mDocNoPaging?.pageSize || 50);
+			this._fetchOrderDetails(sDocType, { top: iTop, skip: 0 })
 				.then(function (aDocs) {
 					this._updateRefDocSuggestions(aDocs);
+					// If backend returns less than page size, there are no more pages.
+					if (!aDocs || aDocs.length < iTop) {
+						this._mDocNoPaging.done = true;
+					}
 				}.bind(this))
 				.catch(function () {
 					MessageToast.show("Unable to fetch documents for selected Doc Type");
@@ -2222,7 +2988,14 @@ sap.ui.define([
 		},
 
 		_updateRefDocSuggestions: function (aDocs) {
-			this._getRefDocSuggestionModel().setProperty("/items", aDocs || []);
+			var oM = this._getRefDocSuggestionModel();
+			// Ensure binding is not truncated by sizeLimit
+			try {
+				oM.setSizeLimit(Math.max(oM.getSizeLimit?.() || 0, (aDocs || []).length, 1000));
+			} catch (e) {
+				// ignore
+			}
+			oM.setProperty("/items", aDocs || []);
 		},
 
 		_updateMaterialSuggestions: function (aItems) {
@@ -3080,7 +3853,7 @@ sap.ui.define([
 				return;
 			}
 
-			// I02 (scanner-first / ASN): keep Add/Edit/Delete ref docs and manual material actions hidden after reporting
+			// Scanner-first ASN scenarios: keep Add/Edit/Delete ref docs and manual material actions hidden after reporting
 			var sItemKey = oTripData.getProperty("/MovementScenarioItemKey") || "";
 			if (!sItemKey) {
 				sItemKey = MovementScenarioIcons.getMovementScenarioItemKey(
@@ -3088,8 +3861,8 @@ sap.ui.define([
 					oTripData.getProperty("/MovementScenario")
 				);
 			}
-			var bI02 = sItemKey === MovementScenarioIcons.SCANNER_MOVEMENT_SCENARIO_ITEM_KEY;
-			oGlobalModel.setProperty("/DisableRefDocMaterialsActions", !!bI02);
+			var bScannerScenario = MovementScenarioIcons.isScannerMovementScenarioItemKey(sItemKey);
+			oGlobalModel.setProperty("/DisableRefDocMaterialsActions", !!bScannerScenario);
 			
 			var vOrderDetails = oTripData.getProperty("/OrderDetails");
 			var vItemDetails = oTripData.getProperty("/ItemDetails");

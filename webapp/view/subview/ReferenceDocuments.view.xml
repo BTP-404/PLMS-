@@ -5,7 +5,7 @@
     xmlns:core="sap.ui.core"
     displayBlock="true">
 
-    <VBox class="sapUiSizeCompact">
+    <VBox class="sapUiSizeCompact" width="100%">
 
         <!-- ========================================================= -->
         <!-- =============== Reference Documents Panel =============== -->
@@ -13,6 +13,7 @@
         <Panel
             expandable="true"
             expanded="false"
+            width="100%"
             class="sapUiNoContentPadding">
 
             <headerToolbar>
@@ -21,9 +22,9 @@
                 </OverflowToolbar>
             </headerToolbar>
 
-            <VBox class="sapUiSizeCompact sapUiMediumPadding">
+            <VBox class="sapUiSizeCompact sapUiMediumPadding" width="100%">
                 <ScrollContainer
-                    horizontal="true"
+                    horizontal="false"
                     vertical="false"
                     width="100%"
                     class="sapUiNoContentPadding sapUiSmallMarginTop sapUiSizeCompact">
@@ -31,10 +32,11 @@
                             id="idReferenceDocsTable"
                             inset="false"
                             mode="SingleSelectMaster"
-                            width="auto"
+                            width="100%"
                             class="sapUiSizeCompact"
-                            fixedLayout="false"
+                            fixedLayout="true"
                             autoPopin="true"
+                            popinLayout="GridSmall"
                             sticky="ColumnHeaders,HeaderToolbar"
                             growing="true"
                             growingScrollToLoad="true"
@@ -63,47 +65,47 @@
                             </headerToolbar>
 
                             <columns>
-                                <Column id="colRefDocType" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
-                                    <Text text="Doc Type"/>
+                                <Column id="colRefDocType" demandPopin="true" minScreenWidth="Phone" popinDisplay="Inline">
+                                    <Text text="Doc Type" wrapping="false"/>
                                 </Column>
-                                <Column id="colRefDocNumber" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
-                                    <Text text="Document Number"/>
+                                <Column id="colRefDocNumber" demandPopin="true" minScreenWidth="Phone" popinDisplay="Inline">
+                                    <Text text="Document Number" wrapping="false"/>
                                 </Column>
                                 <Column id="colRefDocDate" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
-                                    <Text text="Document Date"/>
+                                    <Text text="Document Date" wrapping="false"/>
                                 </Column>
-                                <Column id="colEwayBillNumber" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline" visible="true">
-                                    <Text text="EwayBill Number"/>
+                                <Column id="colEwayBillNumber" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Block" visible="true">
+                                    <Text text="EWB No" wrapping="false"/>
                                 </Column>
-                                <Column id="colEwayBillDate" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline" visible="true">
-                                    <Text text="EwayBill Date"/>
+                                <Column id="colEwayBillDate" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Block" visible="true">
+                                    <Text text="EWB Date" wrapping="false"/>
                                 </Column>
-                                <Column id="colRefDocPartyCode" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
-                                    <Text text="Sending / Receiving Party Code"/>
+                                <Column id="colRefDocPartyCode" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Block">
+                                    <Text text="Party Code" wrapping="false"/>
                                 </Column>
-                                <Column id="colRefDocPartyName" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
-                                    <Text text="Sending / Receiving Party Name"/>
+                                <Column id="colRefDocPartyName" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Block">
+                                    <Text text="Party Name" wrapping="false"/>
                                 </Column>
-                                <Column id="colRefDocCreatedBy" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
-                                    <Text text="Created By"/>
+                                <Column id="colRefDocCreatedBy" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                    <Text text="Created By" wrapping="false"/>
                                 </Column>
-                                <Column id="colRefDocCreatedOnDate" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
-                                    <Text text="Created On Date"/>
+                                <Column id="colRefDocCreatedOnDate" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                    <Text text="Created On Date" wrapping="false"/>
                                 </Column>
-                                <Column id="colRefDocCreatedOnTime" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
-                                    <Text text="Created On Time"/>
+                                <Column id="colRefDocCreatedOnTime" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                    <Text text="Created On Time" wrapping="false"/>
                                 </Column>
-                                <Column id="colRefDocChangedBy" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
-                                    <Text text="Changed By"/>
+                                <Column id="colRefDocChangedBy" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                    <Text text="Changed By" wrapping="false"/>
                                 </Column>
-                                <Column id="colRefDocChangedOnDate" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
-                                    <Text text="Changed On Date"/>
+                                <Column id="colRefDocChangedOnDate" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                    <Text text="Changed On Date" wrapping="false"/>
                                 </Column>
-                                <Column id="colRefDocChangedOnTime" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
-                                    <Text text="Changed On Time"/>
+                                <Column id="colRefDocChangedOnTime" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                    <Text text="Changed On Time" wrapping="false"/>
                                 </Column>
                                 <Column id="colRefDocAction" hAlign="Center" width="12rem" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
-                                    <Text text="Action"/>
+                                    <Text text="Action" wrapping="false"/>
                                 </Column>
                             </columns>
 
@@ -129,7 +131,6 @@
                                             width="100%"
                                             visible="{= ${globalData>/IsScanningReporting} || ${globalData>/DisableRefDocMaterialsActions} ? false : true }">
                                             <Button
-                                                text="Select Materials"
                                                 icon="sap-icon://list"
                                                 type="Transparent"
                                                 tooltip="Select Materials"
@@ -162,6 +163,7 @@
         <Panel
             expandable="true"
             expanded="false"
+            width="100%"
             class="sapUiNoContentPadding sapUiSmallMarginTop">
 
             <headerToolbar>
@@ -170,19 +172,20 @@
                 </OverflowToolbar>
             </headerToolbar>
 
-            <VBox class="sapUiSizeCompact sapUiMediumPadding">
+            <VBox class="sapUiSizeCompact sapUiMediumPadding" width="100%">
                 <ScrollContainer
-                    horizontal="true"
+                    horizontal="false"
                     vertical="false"
                     width="100%"
                     class="sapUiNoContentPadding sapUiSmallMarginTop sapUiSizeCompact">
                         <Table
                             id="idMaterialDetailsTable"
                             inset="false"
-                            width="auto"
+                            width="100%"
                             class="sapUiSizeCompact"
-                            fixedLayout="false"
+                            fixedLayout="true"
                             autoPopin="true"
+                            popinLayout="GridSmall"
                             sticky="ColumnHeaders,HeaderToolbar"
                             growing="true"
                             growingScrollToLoad="true"
@@ -202,56 +205,56 @@
                             </headerToolbar>
 
                             <columns>
-                                <Column id="colMaterialCode" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
-                                    <Text text="Material Code"/>
+                                <Column id="colMaterialCode" demandPopin="true" minScreenWidth="Phone" popinDisplay="Inline">
+                                    <Text text="Material Code" wrapping="false"/>
                                 </Column>
                                 <Column id="colMaterialRefDocNo" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
-                                    <Text text="Ref Doc No"/>
+                                    <Text text="Ref Doc No" wrapping="false"/>
                                 </Column>
-                                <Column id="colMaterialRefDocItemNo" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
-                                    <Text text="Ref Doc Item No"/>
+                                <Column id="colMaterialRefDocItemNo" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                    <Text text="Ref Doc Item No" wrapping="false"/>
                                 </Column>
                                 <Column id="colMaterialDescription" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
-                                    <Text text="Material Description"/>
+                                    <Text text="Material Description" wrapping="false"/>
                                 </Column>
                                 <Column id="colMaterialQuantity" hAlign="End" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
-                                    <Text text="Quantity"/>
+                                    <Text text="Quantity" wrapping="false"/>
                                 </Column>
                                 <Column id="colDispatchQty" hAlign="End" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
-                                    <Text text="Dispatch Qty"/>
+                                    <Text text="Dispatch Qty" wrapping="false"/>
                                 </Column>
                                 <Column id="colRemainQty" hAlign="End" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
-                                    <Text text="Remain Qty"/>
+                                    <Text text="Remain Qty" wrapping="false"/>
                                 </Column>
-                                <Column id="colDispatchDate" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
-                                    <Text text="Dispatch Date"/>
+                                <Column id="colDispatchDate" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                    <Text text="Dispatch Date" wrapping="false"/>
                                 </Column>
-                                <Column id="colMaterialUoM" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
-                                    <Text text="UoM"/>
+                                <Column id="colMaterialUoM" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                    <Text text="UoM" wrapping="false"/>
                                 </Column>
-                                <Column id="colMaterialBinsTrolleys" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline" hAlign="End">
-                                    <Text text="Bins (Trolleys)"/>
+                                <Column id="colMaterialBinsTrolleys" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline" hAlign="End">
+                                    <Text text="Bins (Trolleys)" wrapping="false"/>
                                 </Column>
-                                <Column id="colMaterialCreatedBy" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
-                                    <Text text="Created By"/>
+                                <Column id="colMaterialCreatedBy" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                    <Text text="Created By" wrapping="false"/>
                                 </Column>
-                                <Column id="colMaterialCreatedOnDate" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
-                                    <Text text="Created On Date"/>
+                                <Column id="colMaterialCreatedOnDate" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                    <Text text="Created On Date" wrapping="false"/>
                                 </Column>
-                                <Column id="colMaterialCreatedOnTime" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
-                                    <Text text="Created On Time"/>
+                                <Column id="colMaterialCreatedOnTime" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                    <Text text="Created On Time" wrapping="false"/>
                                 </Column>
-                                <Column id="colMaterialChangedBy" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
-                                    <Text text="Changed By"/>
+                                <Column id="colMaterialChangedBy" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                    <Text text="Changed By" wrapping="false"/>
                                 </Column>
-                                <Column id="colMaterialChangedOnDate" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
-                                    <Text text="Changed On Date"/>
+                                <Column id="colMaterialChangedOnDate" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                    <Text text="Changed On Date" wrapping="false"/>
                                 </Column>
-                                <Column id="colMaterialChangedOnTime" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
-                                    <Text text="Changed On Time"/>
+                                <Column id="colMaterialChangedOnTime" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                    <Text text="Changed On Time" wrapping="false"/>
                                 </Column>
                                 <Column id="colMaterialAction" hAlign="Center" width="8rem" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
-                                    <Text text="Action"/>
+                                    <Text text="Action" wrapping="false"/>
                                 </Column>
                             </columns>
 

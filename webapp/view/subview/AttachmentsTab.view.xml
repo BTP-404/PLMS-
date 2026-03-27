@@ -7,7 +7,7 @@
     xmlns:unified="sap.ui.unified"
 >
 
-    <VBox class="sapUiSizeCompact sapUiSmallMargin">
+    <VBox class="sapUiSizeCompact sapUiSmallMargin" width="100%">
 
         <!-- ========================================================= -->
         <!-- Upload Section -->

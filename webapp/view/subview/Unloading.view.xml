@@ -5,7 +5,7 @@
     xmlns:layout="sap.ui.layout"
     displayBlock="true"
 >
-    <VBox class="sapUiSmallMargin sapUiSizeCompact">
+    <VBox class="sapUiSmallMargin sapUiSizeCompact" width="100%">
 
         <!-- ===================== MATERIAL DETAILS PANEL ===================== -->
         <Panel

@@ -7,7 +7,7 @@
     xmlns:layout="sap.ui.layout"
     displayBlock="true"
 >
-    <VBox class="sapUiSizeCompact sapUiSmallMargin">
+    <VBox class="sapUiSizeCompact sapUiSmallMargin" width="100%">
         <!-- Invoice No from OData BillingDocSH (Vbeln); hidden for Inward (MovementType I) -->
         <VBox
             id="idInvoiceNoSection"
@@ -21,23 +21,19 @@
                 design="Bold"
                 class="sapUiNoMarginBottom"
             />
-            <ComboBox
+            <Input
                 id="idInvoiceNumberDropdown"
                 width="50%"
-                editable="true"
                 placeholder="Select invoice"
                 value="{path: 'TripData>/BillingDocument', mode: 'TwoWay'}"
-                selectedKey="{path: 'TripData>/BillingDocument', mode: 'TwoWay'}"
-                items="{invoiceNoModel>/items}"
-                filterParameter="text"
+                showValueHelp="true"
+                valueHelpRequest="onInvoiceValueHelpRequest"
+                showSuggestion="true"
+                filterSuggests="false"
+                suggest="onInvoiceSuggest"
+                suggestionItemSelected="onInvoiceSuggestionItemSelected"
                 change="onInvoiceNoChange"
-            >
-                <core:Item
-                    key="{invoiceNoModel>Vbeln}"
-                    text="{invoiceNoModel>Vbeln}"
-                    templateShareable="false"
-                />
-            </ComboBox>
+            />
         </VBox>
 
         <!-- ========================================================= -->

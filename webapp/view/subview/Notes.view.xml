@@ -4,7 +4,7 @@
     xmlns="sap.m"
     xmlns:layout="sap.ui.layout"
 >
-    <VBox class="sapUiSizeCompact sapUiSmallMargin">
+    <VBox class="sapUiSizeCompact sapUiSmallMargin" width="100%">
 
         <!-- ========================================================= -->
         <!-- Notification Banner for New Notes -->
