@@ -67,9 +67,13 @@ sap.ui.define([], function () {
         row.MovementType,
         row.MovementScenario
       );
+      var sMt = String(row.MovementType || "").trim().toUpperCase();
+      var sGroup =
+        sMt === "O" ? "Outgoing Materials" : "Incoming Materials";
       return Object.assign({}, row, {
         ItemKey: itemKey,
         Icon: getIconForItemKey(itemKey),
+        Group: sGroup,
       });
     });
   }

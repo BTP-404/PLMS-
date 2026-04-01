@@ -1291,6 +1291,13 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
               var aEnriched = MovementScenarioIcons.enrichOrderTypeRows(
                 oData.results || []
               );
+              aEnriched.sort(function (a, b) {
+                var g = (a.Group || "").localeCompare(b.Group || "");
+                if (g !== 0) {
+                  return g;
+                }
+                return (a.LongText || "").localeCompare(b.LongText || "");
+              });
               that
                 .getView()
                 .setModel(new JSONModel(aEnriched), "movementScenarioItems");

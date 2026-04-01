@@ -133,6 +133,7 @@
                                 icon="sap-icon://bar-code"
                                 type="Emphasized"
                                 press=".onIncomingDialogScanPress"
+                                tabIndex="-1"
                                 class="plmsRvScannerBtn plmsRvScanBtn"
                             />
                         </HBox>

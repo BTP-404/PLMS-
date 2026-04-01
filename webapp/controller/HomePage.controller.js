@@ -361,6 +361,34 @@ sap.ui.define(
         this._sPendingOrderDetailPo = null;
       },
 
+      /**
+       * Puts focus on the PO or scan field for the incoming dialog (matches selectedKey).
+       * Uses two timeouts so focus survives MessageBox close and short UI5 rerenders.
+       * @param {number} [iDelay] First focus attempt delay in ms (default 100).
+       */
+      _focusIncomingEntryMethodPrimaryInput: function (iDelay) {
+        var that = this;
+        var iMs = typeof iDelay === "number" ? iDelay : 100;
+        var fnFocus = function () {
+          if (!that._oIncomingEntryMethodDialog) {
+            return;
+          }
+          var sViewId = that.getView().getId();
+          var sKey = that._oIncomingEntryMethodModel
+            ? that._oIncomingEntryMethodModel.getProperty("/selectedKey")
+            : "";
+          var oFocus =
+            sKey === "SCAN"
+              ? Fragment.byId(sViewId, "idIncomingDialogScanInput")
+              : Fragment.byId(sViewId, "idIncomingDialogPoInput");
+          if (oFocus && oFocus.focus) {
+            oFocus.focus();
+          }
+        };
+        setTimeout(fnFocus, iMs);
+        setTimeout(fnFocus, iMs + 120);
+      },
+
       onContinueReportVehicleCombinedDialog: function () {
         var oGlobalModel = sap.ui.getCore().getModel("globalData");
         if (!oGlobalModel) {
@@ -488,7 +516,12 @@ sap.ui.define(
 
         // Validation: PO should be there OR Skip Document should be Yes
         if (!sPo && !bSkip) {
-          MessageBox.error("Enter/select a PO number or choose Skip Document.");
+          var thatVal = this;
+          MessageBox.error("Enter/select a PO number or choose Skip Document.", {
+            onClose: function () {
+              thatVal._focusIncomingEntryMethodPrimaryInput(150);
+            },
+          });
           return;
         }
 
@@ -666,6 +699,7 @@ sap.ui.define(
         var oOpts = this._oIncomingEntryMethodModel;
         if (!oOpts || !oOpts.getProperty("/entryComplete")) {
           MessageToast.show("Complete PO submit or scan successfully first.");
+          this._focusIncomingEntryMethodPrimaryInput(150);
           return;
         }
 
@@ -673,6 +707,7 @@ sap.ui.define(
         var sTripNo = oTrip ? oTrip.getProperty("/TripNumber") : "";
         if (!sTripNo) {
           MessageToast.show("Trip number is missing.");
+          this._focusIncomingEntryMethodPrimaryInput(150);
           return;
         }
         this._navigateToTripFromIncomingDialog(sTripNo);
@@ -769,6 +804,7 @@ sap.ui.define(
         var sTrip = String(sTripNo || "").trim();
         if (!sTrip) {
           MessageToast.show("Trip number is missing.");
+          this._focusIncomingEntryMethodPrimaryInput(150);
           return;
         }
         var sTab = String(sTabKey || "").trim();
@@ -801,12 +837,14 @@ sap.ui.define(
         var sPo = oIn && oIn.getValue ? String(oIn.getValue() || "").trim() : "";
         if (!sPo) {
           MessageToast.show("Enter or select a PO number");
+          this._focusIncomingEntryMethodPrimaryInput(150);
           return;
         }
 
         var oModel = this.getView().getModel();
         if (!oModel) {
           MessageToast.show("Backend model is not available.");
+          this._focusIncomingEntryMethodPrimaryInput(150);
           return;
         }
 
@@ -837,6 +875,7 @@ sap.ui.define(
             var sTripNumber = (oRow && oRow.TripNumber) ? String(oRow.TripNumber).trim() : "";
             if (!sTripNumber) {
               MessageToast.show("No PO matched with the entered PO number.");
+              that._focusIncomingEntryMethodPrimaryInput(150);
               return;
             }
 
@@ -900,6 +939,9 @@ sap.ui.define(
             that._clearIncomingDialogScanInput(false);
           }
         );
+        // UI5 leaves focus on the scan button after press; move it back to the input
+        // (same pattern as cancel/error callbacks so typing/scan flow stays in the field).
+        that._clearIncomingDialogScanInput(false);
       },
 
       _incomingDialogParseKeyValueString: function (sString) {
@@ -948,9 +990,12 @@ sap.ui.define(
           if (bClear !== false) {
             oIn.setValue("");
           }
-          setTimeout(function () {
+          var fnFocus = function () {
             oIn.focus();
-          }, 100);
+          };
+          setTimeout(fnFocus, 0);
+          setTimeout(fnFocus, 100);
+          setTimeout(fnFocus, 250);
         }
       },
 
@@ -1051,6 +1096,7 @@ sap.ui.define(
         var sPoNumber = String(sPo || "").trim();
         if (!sPoNumber) {
           MessageToast.show("Enter or select a PO number");
+          this._focusIncomingEntryMethodPrimaryInput(150);
           return;
         }
 
@@ -1217,6 +1263,8 @@ sap.ui.define(
                 "SCAN"
             ) {
               that._clearIncomingDialogScanInput();
+            } else {
+              that._focusIncomingEntryMethodPrimaryInput(150);
             }
           },
         });

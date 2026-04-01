@@ -110,14 +110,20 @@
                                 design="Bold"
                                 required="true"
                             />
-                            <Select
+                            <ComboBox
                                 id="idMovementScenario"
                                 width="100%"
                                 tooltip="Select movement scenario"
-                                items="{movementScenarioItems>/}"
+                                items="{
+                                    path: 'movementScenarioItems>/',
+                                    sorter: {
+                                        path: 'Group',
+                                        descending: false,
+                                        group: true
+                                    }
+                                }"
                                 selectedKey="{path: 'TripData>/MovementScenarioItemKey', mode: 'TwoWay'}"
                                 change="onMovementScenarioComboChange"
-                                forceSelection="false"
                                 enabled="{= !String(${TripData>/MovementScenarioDesc} || '').trim() }"
                             >
                                 <core:ListItem
@@ -125,7 +131,7 @@
                                     text="{movementScenarioItems>LongText}"
                                     icon="{movementScenarioItems>Icon}"
                                 />
-                            </Select>
+                            </ComboBox>
                         </VBox>
                     </layout:content>
                     <layout:content>
