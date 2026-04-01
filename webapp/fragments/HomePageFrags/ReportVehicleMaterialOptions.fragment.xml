@@ -1,0 +1,46 @@
+<core:FragmentDefinition
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+>
+    <Dialog
+        id="reportVehicleMaterialDialog"
+        title="Report Vehicle"
+        contentWidth="22rem"
+        draggable="true"
+        resizable="false"
+        verticalScrolling="false"
+        afterOpen=".onReportVehicleMaterialDialogAfterOpen"
+    >
+        <content>
+            <VBox class="sapUiSmallMarginTop sapUiSmallMarginBegin sapUiSmallMarginEnd">
+                <Label
+                    text="Movement Type"
+                    labelFor="GroupA"
+                />
+                <RadioButtonGroup
+                    id="GroupA"
+                    select=".onReportVehicleMaterialRadioSelect"
+                >
+                    <RadioButton text="Incoming Materials" />
+                    <RadioButton text="Outgoing Materials" />
+                </RadioButtonGroup>
+            </VBox>
+        </content>
+
+        <beginButton>
+            <Button
+                text="Cancel"
+                press=".onCancelReportVehicleMaterialDialog"
+            />
+        </beginButton>
+
+        <endButton>
+            <Button
+                text="Continue"
+                type="Emphasized"
+                enabled="{= Number(${reportVehicleMatOpts>/selectedIndex}) >= 0 }"
+                press=".onContinueReportVehicleMaterialDialog"
+            />
+        </endButton>
+    </Dialog>
+</core:FragmentDefinition>

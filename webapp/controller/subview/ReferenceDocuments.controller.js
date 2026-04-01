@@ -2678,6 +2678,7 @@ sap.ui.define([
 				var oService = this._getOrderDetailsService();
 				var oGlobalModel = sap.ui.getCore().getModel("globalData");
 				var sTripNumber = oGlobalModel?.getProperty("/TripNumber") || "";
+				var sIncomingPo = (oGlobalModel?.getProperty("/IncomingPoNumber") || "").toString().trim();
 
 				var m = mOpts || {};
 				var sSearchTerm = (m.searchTerm || "").toString().trim();
@@ -2690,6 +2691,12 @@ sap.ui.define([
 				}
 				if (sDocType) {
 					aFilters.push(new Filter("DocType", FilterOperator.EQ, sDocType));
+				}
+
+				// Gate entry / create mode: TripNumber isn't available yet.
+				// If Home flow provided a PO number, scope OrderDetails to that PO so "Add Document" is prefilled.
+				if (!sTripNumber && sIncomingPo) {
+					aFilters.push(new Filter("DocumentNumber", FilterOperator.EQ, sIncomingPo));
 				}
 
 				// When user types, filter on DocumentNumber OR Name

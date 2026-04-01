@@ -17,6 +17,7 @@ sap.ui.define(
     "sap/m/ColumnListItem",
     "sap/m/Text",
     "sap/m/Label",
+    "com/incresolZ_INC_PLMS/util/PanelAccordion",
   ],
   function (
     Controller,
@@ -35,7 +36,8 @@ sap.ui.define(
     Column,
     ColumnListItem,
     Text,
-    Label
+    Label,
+    PanelAccordion
   ) {
     "use strict";
 
@@ -88,6 +90,7 @@ sap.ui.define(
           this._sLastOutwardDocBillingDocument = null;
 
           // No ComboBox focusout/paging hooks needed for Input + ValueHelpDialog.
+          PanelAccordion.attach(this.getView());
         },
 
         // ============================================================

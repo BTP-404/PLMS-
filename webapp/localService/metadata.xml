@@ -176,6 +176,16 @@
                     </Key>
                     <Property Name="Vbeln" Type="Edm.String" Nullable="false" MaxLength="10" sap:unicode="false" sap:label="SD Document" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
                 </EntityType>
+                <EntityType Name="PoNumberSH" sap:content-version="1">
+                    <Key>
+                        <PropertyRef Name="Ebeln"/>
+                    </Key>
+                    <Property Name="Ebeln" Type="Edm.String" Nullable="false" MaxLength="10" sap:unicode="false" sap:label="Purchasing Doc." sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="Vendor" Type="Edm.String" Nullable="false" MaxLength="10" sap:unicode="false" sap:label="Vendor" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="VendorName" Type="Edm.String" Nullable="false" MaxLength="35" sap:unicode="false" sap:label="Vendor Name" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="MovementType" Type="Edm.String" Nullable="false" sap:unicode="false" sap:label="Movement Type" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="MovementScenario" Type="Edm.String" Nullable="false" sap:unicode="false" sap:label="Movement Scenario" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                </EntityType>
                 <ComplexType Name="Events">
                     <Property Name="Type" Type="Edm.String" Nullable="false" MaxLength="1" sap:label="Type(Inward/Outward)" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
                     <Property Name="Subtype" Type="Edm.String" Nullable="false" MaxLength="2" sap:label="SubType" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
@@ -249,6 +259,7 @@
                     <EntitySet Name="ActivityHistory" EntityType="YIGP_PLMS_SRV.ActivityHistory" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:pageable="false" sap:addressable="false" sap:content-version="1"/>
                     <EntitySet Name="AsnDetails" EntityType="YIGP_PLMS_SRV.AsnDetails" sap:creatable="true" sap:updatable="false" sap:deletable="false" sap:pageable="false" sap:addressable="false" sap:content-version="1"/>
                     <EntitySet Name="BillingDocSH" EntityType="YIGP_PLMS_SRV.BillingDocSH" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:pageable="false" sap:addressable="false" sap:content-version="1"/>
+                    <EntitySet Name="PoNumberSH" EntityType="YIGP_PLMS_SRV.PoNumberSH" sap:creatable="true" sap:updatable="false" sap:deletable="false" sap:pageable="false" sap:addressable="false" sap:content-version="1"/>
                     <AssociationSet Name="TripDetails_ItemDetailsSet" Association="YIGP_PLMS_SRV.TripDetails_ItemDetails" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:content-version="1">
                         <End EntitySet="TripDetails" Role="FromRole_TripDetails_ItemDetails"/>
                         <End EntitySet="ItemDetails" Role="ToRole_TripDetails_ItemDetails"/>

@@ -41,6 +41,7 @@ sap.ui.define(
           this._loadVehicleTypeSuggestions();
           this._loadVehicleSizeSuggestions();
           this.getView().setModel(new JSONModel([]), "movementScenarioItems");
+          this.getView().setModel(new JSONModel({ items: [] }), "poNumberSuggestions");
           this._loadMovementScenarioItems();
 
           const oRouter = this.getOwnerComponent().getRouter();
@@ -58,6 +59,10 @@ sap.ui.define(
         },
 
         onExit: function () {
+          if (this._iPoSuggestTimeout) {
+            clearTimeout(this._iPoSuggestTimeout);
+            this._iPoSuggestTimeout = null;
+          }
           // Unsubscribe from event bus to prevent memory leaks
           if (this._oEventBus) {
             this._oEventBus.unsubscribe("Stage", "ClearAllTabs", this._clearAllData, this);
@@ -534,6 +539,15 @@ sap.ui.define(
           this._loadVehicleSuggestions();
           this._loadVehicleTypeSuggestions();
           this._loadVehicleSizeSuggestions();
+
+          const oPoSugg = this.getView().getModel("poNumberSuggestions");
+          if (oPoSugg) {
+            oPoSugg.setData({ items: [] });
+          }
+          const oPoInput = this.byId("idReportingPoSearchInput");
+          if (oPoInput) {
+            oPoInput.setValue("");
+          }
         },
 
         /* ===========================================================
@@ -2576,6 +2590,93 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
         },
 
         //---------------------------------------------
+        // INCOMING — PO SEARCH (OrderDetails suggestions)
+        //---------------------------------------------
+        onPoNumberSuggest: function (oEvent) {
+          var sValue = (oEvent.getParameter("suggestValue") || "").trim();
+          if (this._iPoSuggestTimeout) {
+            clearTimeout(this._iPoSuggestTimeout);
+          }
+          var that = this;
+          this._iPoSuggestTimeout = setTimeout(function () {
+            that._loadPoNumberSuggestions(sValue);
+          }, 300);
+        },
+
+        _loadPoNumberSuggestions: function (sTerm) {
+          var oModel = this.getView().getModel();
+          var oSuggModel = this.getView().getModel("poNumberSuggestions");
+          if (!oModel || !oSuggModel) {
+            return;
+          }
+          if (!sTerm || sTerm.length < 1) {
+            oSuggModel.setProperty("/items", []);
+            return;
+          }
+
+          var aFilters = [
+            new Filter("MovementType", FilterOperator.EQ, "I"),
+            new Filter({
+              filters: [
+                new Filter("DocumentNumber", FilterOperator.Contains, sTerm),
+                new Filter("Name", FilterOperator.Contains, sTerm),
+              ],
+              and: false,
+            }),
+          ];
+
+          oModel.read("/OrderDetails", {
+            filters: aFilters,
+            urlParameters: { $top: "40" },
+            success: function (oData) {
+              var a = oData.results || [];
+              var mSeen = {};
+              var aItems = [];
+              a.forEach(function (o) {
+                var n =
+                  (o.DocumentNumber && String(o.DocumentNumber).trim()) || "";
+                if (n && !mSeen[n]) {
+                  mSeen[n] = true;
+                  aItems.push({
+                    DocumentNumber: n,
+                    Name: o.Name || "",
+                  });
+                }
+              });
+              oSuggModel.setProperty("/items", aItems);
+            },
+            error: function () {
+              oSuggModel.setProperty("/items", []);
+            },
+          });
+        },
+
+        onPoNumberSuggestionSelected: function (oEvent) {
+          var oItem = oEvent.getParameter("selectedItem");
+          if (!oItem) {
+            return;
+          }
+          var sPo = oItem.getText();
+          var oInput = oEvent.getSource();
+          oInput.setValue(sPo);
+          this._submitPoNumberFromSearch(sPo);
+        },
+
+        onPoNumberSubmitPress: function () {
+          var oInput = this.byId("idReportingPoSearchInput");
+          var sPo = oInput ? (oInput.getValue() || "").trim() : "";
+          this._submitPoNumberFromSearch(sPo);
+        },
+
+        _submitPoNumberFromSearch: function (sPo) {
+          if (!sPo) {
+            MessageToast.show("Enter or select a PO number");
+            return;
+          }
+          this._postAsnDetails(null, null, sPo);
+        },
+
+        //---------------------------------------------
         // SCANNER LOGIC
         //---------------------------------------------
         onScanSuccess: function () {
@@ -2776,7 +2877,8 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
 
         _updateScannerVisibility: function () {
           var oScannerVBox = this.getView().byId("idReportingScannerVBox");
-          
+          var oPoSearchVBox = this.getView().byId("idReportingPoSearchVBox");
+
           if (!oScannerVBox) {
             return;
           }
@@ -2804,6 +2906,9 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
           // If there's data, hide the scanner and show the form and save button
           if (bHasData) {
             oScannerVBox.setVisible(false);
+            if (oPoSearchVBox) {
+              oPoSearchVBox.setVisible(false);
+            }
             if (oReportingPanel) {
               oReportingPanel.setVisible(true);
             }
@@ -2836,6 +2941,46 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
             oGlobalModelHasData.setProperty("/DisableRefDocMaterialsActions", !!bScannerTrip);
 
             return;
+          }
+
+          var oGlobalForMode = sap.ui.getCore().getModel("globalData");
+          var bIncomingFlow =
+            oGlobalForMode && oGlobalForMode.getProperty("/HasIncomingMaterials");
+          var sIncomingMethod = oGlobalForMode
+            ? oGlobalForMode.getProperty("/IncomingReportingMethod")
+            : null;
+          var bPoSearchMode =
+            !!bIncomingFlow && sIncomingMethod === "PO_SEARCH";
+
+          if (bPoSearchMode) {
+            oScannerVBox.setVisible(false);
+            if (oPoSearchVBox) {
+              oPoSearchVBox.setVisible(true);
+            }
+            if (oReportingPanel) {
+              oReportingPanel.setVisible(false);
+            }
+            if (oSaveButton) {
+              oSaveButton.setVisible(false);
+            }
+            if (oGlobalForMode) {
+              oGlobalForMode.setProperty("/IsScanningReporting", false);
+              oGlobalForMode.setProperty("/DisableRefDocMaterialsActions", false);
+            }
+            setTimeout(
+              function () {
+                var oPoInput = this.byId("idReportingPoSearchInput");
+                if (oPoInput) {
+                  oPoInput.focus();
+                }
+              }.bind(this),
+              300
+            );
+            return;
+          }
+
+          if (oPoSearchVBox) {
+            oPoSearchVBox.setVisible(false);
           }
 
           // Scanner mode: scanner-enabled ASN scenarios, same as bar-code icon mapping

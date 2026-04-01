@@ -64,6 +64,8 @@ sap.ui.define([
 
 		var oArgs = oEvent.getParameter("arguments") || {};
 		var sTripNumber = oArgs.tripNo || "";
+		var oQuery = oArgs["?query"] || {};
+		var sRequestedTabKey = (oQuery && oQuery.tab) ? String(oQuery.tab).trim() : "";
 	
 		// Safely get matched route name
 		var sRouteName = "";
@@ -91,7 +93,36 @@ sap.ui.define([
 			this._sCurrentTripNumber = "";
 	
 			sap.ui.getCore().getModel("globalData")?.setProperty("/TripNumber", "");
-			sap.ui.getCore().setModel(null, "TripData");
+			// Create mode normally clears TripData; however, for Incoming-materials gate entry
+			// we may want to prefill Reporting/Gate-In fields (e.g. MovementScenarioDesc, Skip Document).
+			var oGlobal = sap.ui.getCore().getModel("globalData");
+			var sIncomingDesc = (oGlobal?.getProperty("/IncomingMovementScenarioDesc") || "").toString();
+			var sIncomingSkip = (oGlobal?.getProperty("/IncomingRefDocSkip") || " ").toString();
+			var sIncomingPo = (oGlobal?.getProperty("/IncomingPoNumber") || "").toString().trim();
+			var sIncomingMt = (oGlobal?.getProperty("/IncomingMovementType") || "").toString().trim();
+			var sIncomingMs = (oGlobal?.getProperty("/IncomingMovementScenario") || "").toString().trim();
+
+			if (sIncomingPo || sIncomingDesc || sIncomingMt || sIncomingMs || (sIncomingSkip && sIncomingSkip.trim() === "X")) {
+				var sMtDesc = "";
+				if (sIncomingMt && sIncomingMt.toUpperCase() === "I") {
+					sMtDesc = "Inward";
+				} else if (sIncomingMt && sIncomingMt.toUpperCase() === "O") {
+					sMtDesc = "Outward";
+				}
+				sap.ui.getCore().setModel(
+					new JSONModel({
+						MovementScenarioDesc: sIncomingDesc || "",
+						RefDocSkip: (sIncomingSkip && sIncomingSkip.trim() === "X") ? "X" : " ",
+						MovementType: sIncomingMt || "",
+						MovementScenario: sIncomingMs || "",
+						MovementTypeDesc: sMtDesc || "",
+					}),
+					"TripData"
+				);
+				sap.ui.getCore().getEventBus().publish("TripData", "Updated");
+			} else {
+				sap.ui.getCore().setModel(null, "TripData");
+			}
 	
 		this.resetPageTitleModel();   // ← finally clears
 		this._setIconTabSelection("gateIn");
@@ -112,6 +143,11 @@ sap.ui.define([
 			this._sCurrentTripNumber = sTripNumber;
 	
 			sap.ui.getCore().getModel("globalData")?.setProperty("/TripNumber", sTripNumber);
+
+			// If caller requested a specific tab (e.g. Gate In), honor it.
+			if (sRequestedTabKey) {
+				this._setIconTabSelection(sRequestedTabKey);
+			}
 	
 		this._refreshPageTitleModel();
 		this._updateCancelButtonVisibility();

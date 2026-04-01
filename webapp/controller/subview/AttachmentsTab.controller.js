@@ -11,8 +11,9 @@ sap.ui.define([
 	"sap/m/Text",
 	"sap/ui/core/HTML",
 	"sap/ui/model/Filter",
-	"sap/ui/model/FilterOperator"
-], function(Controller, JSONModel, ODataModel, MessageBox, MessageToast, StandardListItem, Dialog, Button, Image, Text, HTML, Filter, FilterOperator) {
+	"sap/ui/model/FilterOperator",
+	"com/incresolZ_INC_PLMS/util/PanelAccordion"
+], function(Controller, JSONModel, ODataModel, MessageBox, MessageToast, StandardListItem, Dialog, Button, Image, Text, HTML, Filter, FilterOperator, PanelAccordion) {
 	"use strict";
 
 	return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.AttachmentsTab", {
@@ -25,6 +26,7 @@ sap.ui.define([
 			this._oEventBus = sap.ui.getCore().getEventBus();
 			this._oEventBus.subscribe("TripData", "Updated", this._loadAttachments, this);
 			this._oEventBus.subscribe("Stage", "ClearAllTabs", this._clearAllData, this);
+			PanelAccordion.attach(this.getView());
 			
 			// Removed direct call - will be triggered by event subscription when TripData is available
 		},

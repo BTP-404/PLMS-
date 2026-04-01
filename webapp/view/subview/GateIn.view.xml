@@ -33,6 +33,7 @@
                 expanded="false"
                 class="sapUiNoContentPadding sapUiTinyMarginBottom"
                 width="100%"
+                visible="{= !!String(${globalData>/TripNumber} || '').trim() }"
             >
             <headerToolbar>
                 <OverflowToolbar>
@@ -87,11 +88,11 @@
                         </VBox>
                     </layout:content>
 
-                    <!-- Related Trip Number (display only) -->
+                    <!-- Gate Pass No (display only) -->
                     <layout:content>
                         <VBox>
                             <Label
-                                text="Related Trip Number (Gate Pass No)"
+                                text="Gate Pass No"
                                 design="Bold"
                             />
                             <Input

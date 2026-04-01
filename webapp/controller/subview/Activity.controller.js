@@ -4,8 +4,9 @@ sap.ui.define([
 	"sap/ui/model/odata/v2/ODataModel",
 	"sap/ui/model/Filter",
 	"sap/ui/model/FilterOperator",
-	"sap/m/MessageToast"
-], function (Controller, JSONModel, ODataModel, Filter, FilterOperator, MessageToast) {
+	"sap/m/MessageToast",
+	"com/incresolZ_INC_PLMS/util/PanelAccordion"
+], function (Controller, JSONModel, ODataModel, Filter, FilterOperator, MessageToast, PanelAccordion) {
 	"use strict";
 
 	var STAGE_CONFIG = [{
@@ -79,6 +80,7 @@ sap.ui.define([
 			this._loadActivityHistory();
 
 			this._oEventBus.subscribe("Stage", "ClearAllTabs", this._clearAllData, this);
+			PanelAccordion.attach(this.getView());
 		},
 
 		onExit: function () {

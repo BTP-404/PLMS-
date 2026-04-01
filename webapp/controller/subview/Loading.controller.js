@@ -9,7 +9,8 @@ sap.ui.define(
     "sap/m/SelectDialog",
     "sap/m/StandardListItem",
     "sap/ui/model/Filter",
-    "sap/ui/model/FilterOperator"
+    "sap/ui/model/FilterOperator",
+    "com/incresolZ_INC_PLMS/util/PanelAccordion"
 ],
 function (
     Controller,
@@ -21,7 +22,8 @@ function (
     SelectDialog,
     StandardListItem,
     Filter,
-    FilterOperator
+    FilterOperator,
+    PanelAccordion
 ) {
 "use strict";
 
@@ -66,6 +68,7 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Loading", {
         
         // Initialize column visibility
         this._initializeLoadingColumnVisibility();
+        PanelAccordion.attach(this.getView());
         
         // DISABLED: Button enable/disable logic removed
         // Initialize button states based on TripDetails

@@ -6,6 +6,7 @@ sap.ui.define(
         "sap/m/MessageBox",
         "sap/ui/model/json/JSONModel",
         "sap/ui/core/Fragment",
+        "com/incresolZ_INC_PLMS/util/PanelAccordion",
     ],
     function (
         Controller,
@@ -13,7 +14,8 @@ sap.ui.define(
         MessageToast,
         MessageBox,
         JSONModel,
-        Fragment
+        Fragment,
+        PanelAccordion
     ) {
         "use strict";
 
@@ -48,6 +50,7 @@ sap.ui.define(
                 this._aPendingNotes = [];
                 // Flag to prevent clearing immediate notes
                 this._bJustAddedNote = false;
+                PanelAccordion.attach(this.getView());
             },
 
             onExit: function () {
@@ -83,7 +86,7 @@ sap.ui.define(
             loadNotes: function () {
                 const sTripNumber = this.TripNumber;
                 if (!sTripNumber) {
-                    MessageBox.warning("Trip number not available. Please select a trip first.");
+                    // In create-mode (no trip yet), notes are simply not available.
                     return;
                 }
 

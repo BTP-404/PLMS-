@@ -40,6 +40,48 @@
             </HBox>
         </VBox>
 
+        <!-- PO search (incoming + "Search PO No" from home flow) — suggestions from OrderDetails -->
+        <VBox
+            id="idReportingPoSearchVBox"
+            class="sapUiTinyMarginBottom"
+            width="100%"
+            visible="false"
+        >
+            <Label
+                text="Search PO No"
+                design="Bold"
+                class="sapUiNoMarginBottom"
+            />
+            <HBox alignItems="Center" width="100%">
+                <Input
+                    id="idReportingPoSearchInput"
+                    placeholder="Type PO number (suggestions from open orders)"
+                    width="100%"
+                    showSuggestion="true"
+                    suggestionItems="{poNumberSuggestions>/items}"
+                    suggest="onPoNumberSuggest"
+                    suggestionItemSelected="onPoNumberSuggestionSelected"
+                    filterSuggests="false"
+                    startSuggestion="1"
+                    class="sapUiTinyMarginEnd"
+                >
+                    <suggestionItems>
+                        <core:Item
+                            text="{poNumberSuggestions>DocumentNumber}"
+                            additionalText="{poNumberSuggestions>Name}"
+                        />
+                    </suggestionItems>
+                </Input>
+                <Button
+                    id="idReportingPoSearchSubmit"
+                    text="Submit"
+                    type="Emphasized"
+                    press="onPoNumberSubmitPress"
+                    class="sapUiTinyMarginBegin"
+                />
+            </HBox>
+        </VBox>
+
         <Panel
             id="reportingDetailsPanel"
             expandable="true"
@@ -76,6 +118,7 @@
                                 selectedKey="{path: 'TripData>/MovementScenarioItemKey', mode: 'TwoWay'}"
                                 change="onMovementScenarioComboChange"
                                 forceSelection="false"
+                                enabled="{= !String(${TripData>/MovementScenarioDesc} || '').trim() }"
                             >
                                 <core:ListItem
                                     key="{movementScenarioItems>ItemKey}"
@@ -319,7 +362,7 @@
                     <layout:content>
                         <VBox>
                             <Label
-                                text="Related Trip Number (Gate Pass No)"
+                                text="Gate Pass No"
                                 design="Bold"
                             />
                             <Input

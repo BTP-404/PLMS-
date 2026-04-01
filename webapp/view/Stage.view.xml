@@ -4,26 +4,33 @@
 		<pages>
 			<Page id="stagePage" enableScrolling="true" class="sapUiNoContentPadding">
 				<customHeader>
-					<Bar id="headerBar" design="Header" class="stageHeaderBar">
-						<contentMiddle>
-							<HBox width="100%" justifyContent="SpaceBetween" alignItems="Center">
-								<Text
-									text="Trip No: {
-										path: 'pageTitleModel>/tripNumber',
-										formatter: '.formatTripNumber'
-									}"
-								/>
-								<Text
-									text="Vehicle No: {pageTitleModel>/vehicleNumber}"
-									textAlign="Center"
-								/>
-								<Text
-									text="Trip status : {pageTitleModel>/tripStatus}"
-									textAlign="Right"
-								/>
-							</HBox>
-						</contentMiddle>
-					</Bar>
+					<OverflowToolbar id="headerBar" class="stageHeaderBar">
+
+						<!-- LEFT -->
+						<Text
+							text="Trip No: {
+								path: 'pageTitleModel>/tripNumber',
+								formatter: '.formatTripNumber'
+							}"
+						/>
+
+						<!-- SPACE PUSH -->
+						<ToolbarSpacer />
+
+						<!-- CENTER -->
+						<Text
+							text="Vehicle No: {pageTitleModel>/vehicleNumber}"
+						/>
+
+						<ToolbarSpacer />
+
+						<!-- RIGHT -->
+						<Text
+							text="Trip status : {pageTitleModel>/tripStatus}"
+							wrapping="false"
+						/>
+
+					</OverflowToolbar>
 				</customHeader>
 				<content>
 					<VBox class="stageContentVBox" width="100%">

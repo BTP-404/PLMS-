@@ -5,13 +5,15 @@ sap.ui.define(
     "sap/m/MessageToast",
     "sap/m/MessageBox",
     "sap/ui/model/json/JSONModel",
+    "com/incresolZ_INC_PLMS/util/PanelAccordion",
   ],
   function (
     Controller,
     ODataModel,
     MessageToast,
     MessageBox,
-    JSONModel
+    JSONModel,
+    PanelAccordion
   ) {
     "use strict";
 
@@ -63,6 +65,7 @@ sap.ui.define(
           
           // Initialize selected files array
           this._aSelectedFiles = [];
+          PanelAccordion.attach(this.getView());
         },
         
         _initGateInAttachmentsModel: function () {
