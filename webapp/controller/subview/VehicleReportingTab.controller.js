@@ -2683,22 +2683,18 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
           var that = this;
           BarcodeScanner.scan(
             function (oResult) {
-              if (!oResult.cancelled) {
-                var sScannedCode = oResult.text;
-                // Parse code if it contains pipe separator (e.g., "GATE001|Entry Gate 1")
-                var sParsedCode = sScannedCode.split("|")[0];
-                that._processScannedCode(sParsedCode);
+              if (oResult.cancelled) {
+                that._clearAndRefocusScanner(false);
+                return;
               }
+              var sScannedCode = oResult.text;
+              // Parse code if it contains pipe separator (e.g., "GATE001|Entry Gate 1")
+              var sParsedCode = sScannedCode.split("|")[0];
+              that._processScannedCode(sParsedCode);
             }.bind(this),
             function (oError) {
-              // Scan failed
               MessageToast.show("Scan failed: " + (oError.message || oError));
-              setTimeout(function() {
-                var oScannerInput = that.getView().byId("idReportingScannerInput");
-                if (oScannerInput) {
-                  oScannerInput.focus();
-                }
-              }, 200);
+              that._clearAndRefocusScanner(false);
             }.bind(this)
           );
         },
@@ -2729,6 +2725,7 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
         _processScannedCode: function (sScannedCode) {
           if (!sScannedCode || sScannedCode.trim() === "") {
             MessageToast.show("Invalid scan code");
+            this._clearAndRefocusScanner();
             return;
           }
 
@@ -2781,10 +2778,15 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
           }
         },
 
-        _clearAndRefocusScanner: function () {
+        /**
+         * @param {boolean} [bClear=true] When false, only refocus (e.g. after camera cancel or error toast).
+         */
+        _clearAndRefocusScanner: function (bClear) {
           var oScannerInput = this.getView().byId("idReportingScannerInput");
           if (oScannerInput) {
-            oScannerInput.setValue("");
+            if (bClear !== false) {
+              oScannerInput.setValue("");
+            }
             setTimeout(function() {
               oScannerInput.focus();
             }, 100);
@@ -2869,8 +2871,11 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
                 }
               }
               
-              MessageBox.error(sErrorMessage);
-              that._clearAndRefocusScanner();
+              MessageBox.error(sErrorMessage, {
+                onClose: function () {
+                  that._clearAndRefocusScanner();
+                },
+              });
             }
           });
         },

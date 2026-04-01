@@ -510,9 +510,16 @@ sap.ui.define(
           that._incomingDialogSetGateEntryModels({
             po: sPo,
             refDocSkip: sRefDocSkip,
-            movementScenarioDesc: m.movementScenarioDesc || "",
-            movementType: m.movementType || "",
-            movementScenario: m.movementScenario || "",
+            movementScenarioDesc:
+              m.movementScenarioDesc !== undefined && m.movementScenarioDesc !== null
+                ? m.movementScenarioDesc
+                : "",
+            movementType:
+              m.movementType !== undefined && m.movementType !== null ? m.movementType : "",
+            movementScenario:
+              m.movementScenario !== undefined && m.movementScenario !== null
+                ? m.movementScenario
+                : "",
           });
           fnCloseAndNav();
         };
@@ -534,18 +541,56 @@ sap.ui.define(
         }
 
         var fnParsePoRow = function (oRow) {
-          // Backend variants:
-          // - key field may be PoNumber or Ebeln
-          // - description may be MovementDescription or MovementScenarioDesc
-          var sMt = (oRow && oRow.MovementType != null) ? String(oRow.MovementType).trim() : "";
-          var sMs = (oRow && oRow.MovementScenario != null) ? String(oRow.MovementScenario).trim() : "";
+          // PoNumberSH (YIGP_PLMS_SRV): MovementType (I/O), MovementScenario (e.g. "04"),
+          // scenario text in MovementDescription (preferred) or MovementScenarioDesc / LongText.
+          if (!oRow) {
+            return { movementType: "", movementScenario: "", movementScenarioDesc: "" };
+          }
+          var sMt =
+            oRow.MovementType !== undefined && oRow.MovementType !== null
+              ? String(oRow.MovementType).trim()
+              : "";
+          var sMs =
+            oRow.MovementScenario !== undefined && oRow.MovementScenario !== null
+              ? String(oRow.MovementScenario).trim()
+              : "";
           var sDesc = "";
-          if (oRow && oRow.MovementDescription != null) {
+          if (oRow.MovementDescription != null && String(oRow.MovementDescription).trim() !== "") {
             sDesc = String(oRow.MovementDescription).trim();
-          } else if (oRow && oRow.MovementScenarioDesc != null) {
+          } else if (
+            oRow.MovementScenarioDesc != null &&
+            String(oRow.MovementScenarioDesc).trim() !== ""
+          ) {
             sDesc = String(oRow.MovementScenarioDesc).trim();
+          } else if (oRow.LongText != null && String(oRow.LongText).trim() !== "") {
+            sDesc = String(oRow.LongText).trim();
           }
           return { movementType: sMt, movementScenario: sMs, movementScenarioDesc: sDesc };
+        };
+
+        var fnReadPoNumberShCollection = function (sFilterProp, fnNextFallback) {
+          oModel.read("/PoNumberSH", {
+            filters: [new Filter(sFilterProp, FilterOperator.EQ, sPo)],
+            urlParameters: { $top: "1" },
+            success: function (oData2) {
+              var oRow2 =
+                oData2 && oData2.results && oData2.results[0] ? oData2.results[0] : null;
+              if (oRow2) {
+                fnApplyAndNav(fnParsePoRow(oRow2));
+              } else if (fnNextFallback) {
+                fnNextFallback();
+              } else {
+                fnApplyAndNav({});
+              }
+            },
+            error: function () {
+              if (fnNextFallback) {
+                fnNextFallback();
+              } else {
+                fnApplyAndNav({});
+              }
+            },
+          });
         };
 
         // Prefer direct key read: PoNumberSH('<selectedPo>')
@@ -556,19 +601,8 @@ sap.ui.define(
             fnApplyAndNav(fnParsePoRow(oRow));
           },
           error: function () {
-            // Fallback: older metadata uses Ebeln, and returns collection
-            oModel.read("/PoNumberSH", {
-              filters: [new Filter("Ebeln", FilterOperator.EQ, sPo)],
-              urlParameters: { $top: "1" },
-              success: function (oData2) {
-                var oRow2 =
-                  oData2 && oData2.results && oData2.results[0] ? oData2.results[0] : oData2;
-                fnApplyAndNav(fnParsePoRow(oRow2));
-              },
-              error: function () {
-                fnApplyAndNav({});
-              },
-            });
+        // Fallback: filter by Ebeln (PO number field in metadata)
+        fnReadPoNumberShCollection("Ebeln");
           },
         });
       },
@@ -670,8 +704,8 @@ sap.ui.define(
         }
         this._sIncomingDialogPoSuggestLastTerm = sTerm;
 
-        // Try to search by PO number OR Vendor Name to minimize user effort.
-        // Some backends may not support filtering on VendorName; we fall back to PO-only in that case.
+        // PoNumberSH: PO number field in metadata is typically Ebeln.
+        // Search by PO number (Ebeln) or vendor name.
         var oOrFilter = new Filter(
           [
             new Filter("Ebeln", FilterOperator.Contains, sTerm),
@@ -686,11 +720,15 @@ sap.ui.define(
           var mSeen = {};
           var aItems = [];
           a.forEach(function (o) {
-            var n = (o.Ebeln && String(o.Ebeln).trim()) || "";
+            var n =
+              (o.Ebeln && String(o.Ebeln).trim()) ||
+              (o.PoNumber && String(o.PoNumber).trim()) ||
+              "";
             if (n && !mSeen[n]) {
               mSeen[n] = true;
               aItems.push({
                 Ebeln: n,
+                PoNumber: n, // keep alias for backends that return PoNumber
                 VendorName: (o.VendorName && String(o.VendorName).trim()) || "",
               });
             }
@@ -778,7 +816,14 @@ sap.ui.define(
 
         var that = this;
         oModel.read("/PoNumberSH", {
-          filters: [new Filter("Ebeln", FilterOperator.EQ, sPo)],
+          filters: [
+            new Filter({
+              filters: [
+                new Filter("Ebeln", FilterOperator.EQ, sPo),
+              ],
+              and: false,
+            }),
+          ],
           urlParameters: { $top: "1" },
           success: function (oData) {
             if (that._oIncomingEntryMethodDialog) {
@@ -840,25 +885,19 @@ sap.ui.define(
         var that = this;
         BarcodeScanner.scan(
           function (oResult) {
-            if (!oResult.cancelled) {
-              var sParsed = (oResult.text || "").split("|")[0];
-              that._incomingDialogProcessScannedCode(sParsed);
-              that._clearIncomingDialogScanInput();
+            if (oResult.cancelled) {
+              that._clearIncomingDialogScanInput(false);
+              return;
             }
+            var sParsed = (oResult.text || "").split("|")[0];
+            that._incomingDialogProcessScannedCode(sParsed);
+            that._clearIncomingDialogScanInput();
           },
           function (oError) {
             MessageToast.show(
               "Scan failed: " + (oError.message || oError)
             );
-            setTimeout(function () {
-              var oIn = Fragment.byId(
-                that.getView().getId(),
-                "idIncomingDialogScanInput"
-              );
-              if (oIn) {
-                oIn.focus();
-              }
-            }, 200);
+            that._clearIncomingDialogScanInput(false);
           }
         );
       },
@@ -882,6 +921,7 @@ sap.ui.define(
       _incomingDialogProcessScannedCode: function (sScannedCode) {
         if (!sScannedCode || !sScannedCode.trim()) {
           MessageToast.show("Invalid scan code");
+          this._clearIncomingDialogScanInput();
           return;
         }
         var oScannedData = null;
@@ -896,13 +936,18 @@ sap.ui.define(
         this._incomingDialogPostAsnDetails(sAsnId, sOrgId, sPo);
       },
 
-      _clearIncomingDialogScanInput: function () {
+      /**
+       * @param {boolean} [bClear=true] When false, only refocus (e.g. after camera cancel or error toast).
+       */
+      _clearIncomingDialogScanInput: function (bClear) {
         var oIn = Fragment.byId(
           this.getView().getId(),
           "idIncomingDialogScanInput"
         );
         if (oIn) {
-          oIn.setValue("");
+          if (bClear !== false) {
+            oIn.setValue("");
+          }
           setTimeout(function () {
             oIn.focus();
           }, 100);
@@ -1000,31 +1045,32 @@ sap.ui.define(
       },
 
       /**
-       * POST /PoNumberSH with key Ebeln — PO entry / scan-as-PO path.
+       * POST /PoNumberSH — PO number is typically Ebeln in metadata.
        */
       _incomingDialogPostPoNumber: function (sPo) {
-        var sEbeln = String(sPo || "").trim();
-        if (!sEbeln) {
+        var sPoNumber = String(sPo || "").trim();
+        if (!sPoNumber) {
           MessageToast.show("Enter or select a PO number");
           return;
         }
 
         var oModel = this.getView().getModel();
         var that = this;
-        this._sPendingOrderDetailPo = sEbeln;
+        this._sPendingOrderDetailPo = sPoNumber;
         if (this._oIncomingEntryMethodDialog) {
           this._oIncomingEntryMethodDialog.setBusy(true);
         }
-        oModel.create("/PoNumberSH", { Ebeln: sEbeln }, {
+        // Send both fields for compatibility across backend variants.
+        oModel.create("/PoNumberSH", { Ebeln: sPoNumber, PoNumber: sPoNumber }, {
           headers: { "X-Requested-With": "X" },
           success: function (oResponse) {
             that._onIncomingIdentificationCreateSuccess(oResponse);
           },
-          error: function (oError) {
+            error: function (oError) {
             that._onIncomingIdentificationCreateError(
               oError,
               "Failed to post PO Number",
-              sEbeln
+              sPoNumber
             );
           },
         });
@@ -1162,13 +1208,18 @@ sap.ui.define(
             sErrorMessage += ": " + oError.message;
           }
         }
-        MessageBox.error(sErrorMessage);
-        if (
-          this._oIncomingEntryMethodModel &&
-          this._oIncomingEntryMethodModel.getProperty("/selectedKey") === "SCAN"
-        ) {
-          this._clearIncomingDialogScanInput();
-        }
+        var that = this;
+        MessageBox.error(sErrorMessage, {
+          onClose: function () {
+            if (
+              that._oIncomingEntryMethodModel &&
+              that._oIncomingEntryMethodModel.getProperty("/selectedKey") ===
+                "SCAN"
+            ) {
+              that._clearIncomingDialogScanInput();
+            }
+          },
+        });
       },
 
       /**

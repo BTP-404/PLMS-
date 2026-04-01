@@ -178,13 +178,18 @@
                 </EntityType>
                 <EntityType Name="PoNumberSH" sap:content-version="1">
                     <Key>
-                        <PropertyRef Name="Ebeln"/>
+                        <PropertyRef Name="PoNumber"/>
                     </Key>
-                    <Property Name="Ebeln" Type="Edm.String" Nullable="false" MaxLength="10" sap:unicode="false" sap:label="Purchasing Doc." sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
-                    <Property Name="Vendor" Type="Edm.String" Nullable="false" MaxLength="10" sap:unicode="false" sap:label="Vendor" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
-                    <Property Name="VendorName" Type="Edm.String" Nullable="false" MaxLength="35" sap:unicode="false" sap:label="Vendor Name" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
-                    <Property Name="MovementType" Type="Edm.String" Nullable="false" sap:unicode="false" sap:label="Movement Type" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
-                    <Property Name="MovementScenario" Type="Edm.String" Nullable="false" sap:unicode="false" sap:label="Movement Scenario" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="PoNumber" Type="Edm.String" Nullable="false" MaxLength="10" sap:unicode="false" sap:label="PO Number" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="Ebeln" Type="Edm.String" Nullable="true" MaxLength="10" sap:unicode="false" sap:label="Purchasing Doc." sap:creatable="true" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="Vendor" Type="Edm.String" Nullable="true" MaxLength="10" sap:unicode="false" sap:label="Vendor" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="VendorName" Type="Edm.String" Nullable="true" MaxLength="35" sap:unicode="false" sap:label="Vendor Name" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="DocDate" Type="Edm.DateTime" Nullable="true" Precision="7" sap:unicode="false" sap:label="Document Date" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="DocCategory" Type="Edm.String" Nullable="true" MaxLength="1" sap:unicode="false" sap:label="Doc. Category" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="OrderType" Type="Edm.String" Nullable="true" MaxLength="4" sap:unicode="false" sap:label="Order Type" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="MovementType" Type="Edm.String" Nullable="true" MaxLength="1" sap:unicode="false" sap:label="Movement Type" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="MovementScenario" Type="Edm.String" Nullable="true" MaxLength="2" sap:unicode="false" sap:label="Movement Scenario" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="MovementDescription" Type="Edm.String" Nullable="true" MaxLength="80" sap:unicode="false" sap:label="Movement Description" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
                 </EntityType>
                 <ComplexType Name="Events">
                     <Property Name="Type" Type="Edm.String" Nullable="false" MaxLength="1" sap:label="Type(Inward/Outward)" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>

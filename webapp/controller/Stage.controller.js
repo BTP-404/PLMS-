@@ -6,8 +6,9 @@ sap.ui.define([
 	"sap/m/MessageToast",
 	"sap/m/ButtonType",
 	"sap/ui/model/Filter",
-	"sap/ui/model/FilterOperator"
-], function(Controller, JSONModel, ODataModel, MessageBox, MessageToast, ButtonType, Filter, FilterOperator) {
+	"sap/ui/model/FilterOperator",
+	"com/incresolZ_INC_PLMS/util/MovementScenarioIcons"
+], function(Controller, JSONModel, ODataModel, MessageBox, MessageToast, ButtonType, Filter, FilterOperator, MovementScenarioIcons) {
 	"use strict";
 	return Controller.extend("com.incresolZ_INC_PLMS.controller.Stage", {
 		onInit: function() {
@@ -109,12 +110,15 @@ sap.ui.define([
 				} else if (sIncomingMt && sIncomingMt.toUpperCase() === "O") {
 					sMtDesc = "Outward";
 				}
+				var sScenarioItemKey =
+					MovementScenarioIcons.getMovementScenarioItemKey(sIncomingMt, sIncomingMs) || "";
 				sap.ui.getCore().setModel(
 					new JSONModel({
 						MovementScenarioDesc: sIncomingDesc || "",
 						RefDocSkip: (sIncomingSkip && sIncomingSkip.trim() === "X") ? "X" : " ",
 						MovementType: sIncomingMt || "",
 						MovementScenario: sIncomingMs || "",
+						MovementScenarioItemKey: sScenarioItemKey,
 						MovementTypeDesc: sMtDesc || "",
 					}),
 					"TripData"
