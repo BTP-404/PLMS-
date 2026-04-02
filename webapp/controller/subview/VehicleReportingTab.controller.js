@@ -10,6 +10,7 @@ sap.ui.define(
     "sap/ui/model/FilterOperator",
     "sap/ndc/BarcodeScanner",
     "com/incresolZ_INC_PLMS/util/MovementScenarioIcons",
+    "com/incresolZ_INC_PLMS/util/MovementScenarioConfig",
     "sap/ui/core/format/DateFormat",
   ],
   function (
@@ -23,6 +24,7 @@ sap.ui.define(
     FilterOperator,
     BarcodeScanner,
     MovementScenarioIcons,
+    MovementScenarioConfig,
     DateFormat
   ) {
     "use strict";
@@ -43,6 +45,7 @@ sap.ui.define(
           this.getView().setModel(new JSONModel([]), "movementScenarioItems");
           this.getView().setModel(new JSONModel({ items: [] }), "poNumberSuggestions");
           this._loadMovementScenarioItems();
+          this._syncOutgoingDirectSaleScenarioFromConfig();
 
           const oRouter = this.getOwnerComponent().getRouter();
           oRouter
@@ -171,6 +174,12 @@ sap.ui.define(
 
               movementScenario = oData.MovementScenario;
               Mtype = oData.MovementType;
+
+              MovementScenarioConfig.syncOutgoingDirectSaleFromConfig(
+                oModel,
+                sTripNumber,
+                that.getView()
+              );
             },
             error: function () {
               // Even if loading fails, try to update header with trip number
@@ -224,6 +233,12 @@ sap.ui.define(
               setTimeout(function() {
                 that._updateScannerVisibility();
               }, 500);
+
+              MovementScenarioConfig.syncOutgoingDirectSaleFromConfig(
+                oModel,
+                sTripNumber,
+                that.getView()
+              );
             },
             error: function () {
               that._setButtonStates(true, true); // Still re-enable even on error
@@ -1278,6 +1293,15 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
           } else {
             this._mValueHelps.VHVehicleSize.open();
           }
+        },
+
+        _syncOutgoingDirectSaleScenarioFromConfig: function () {
+          var oModel = this.getView().getModel();
+          MovementScenarioConfig.syncOutgoingDirectSaleFromConfig(
+            oModel,
+            this._getTripNumber(),
+            this.getView()
+          );
         },
 
         _loadMovementScenarioItems: function () {

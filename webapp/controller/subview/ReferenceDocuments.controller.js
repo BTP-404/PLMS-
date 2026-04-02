@@ -2760,8 +2760,8 @@ sap.ui.define([
 				var oLast = aPage[aPage.length - 1] || {};
 
 				// Prefer stable business keys if present
-				var k1 = (oFirst.DocumentNumber ?? oFirst.DocNo ?? oFirst.Vbeln ?? oFirst.Id ?? "") + "";
-				var k2 = (oLast.DocumentNumber ?? oLast.DocNo ?? oLast.Vbeln ?? oLast.Id ?? "") + "";
+				var k1 = (oFirst.DocumentNumber ?? oFirst.DocNo ?? oFirst.BillingDoc ?? oFirst.Vbeln ?? oFirst.Id ?? "") + "";
+				var k2 = (oLast.DocumentNumber ?? oLast.DocNo ?? oLast.BillingDoc ?? oLast.Vbeln ?? oLast.Id ?? "") + "";
 
 				// Fallback to a small JSON sample (avoid huge stringify)
 				if (!k1 && !k2) {

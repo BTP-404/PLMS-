@@ -8,7 +8,7 @@
 
 						<!-- LEFT -->
 						<Text
-							text="Trip No: {
+							text="Gate Pass No: {
 								path: 'pageTitleModel>/tripNumber',
 								formatter: '.formatTripNumber'
 							}"

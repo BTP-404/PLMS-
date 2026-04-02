@@ -172,9 +172,18 @@
                 </EntityType>
                 <EntityType Name="BillingDocSH" sap:content-version="1">
                     <Key>
-                        <PropertyRef Name="Vbeln"/>
+                        <PropertyRef Name="BillingDoc"/>
                     </Key>
-                    <Property Name="Vbeln" Type="Edm.String" Nullable="false" MaxLength="10" sap:unicode="false" sap:label="SD Document" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="BillingDoc" Type="Edm.String" Nullable="false" MaxLength="10" sap:unicode="false" sap:label="Billing Doc." sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="BillingType" Type="Edm.String" Nullable="false" MaxLength="4" sap:unicode="false" sap:label="Billing Type" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="SoldToParty" Type="Edm.String" Nullable="false" MaxLength="10" sap:unicode="false" sap:label="Sold-to Party" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="Payer" Type="Edm.String" Nullable="false" MaxLength="10" sap:unicode="false" sap:label="Payer" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="BillingDate" Type="Edm.DateTime" Precision="7" sap:unicode="false" sap:label="Billing Date" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="SalesOrg" Type="Edm.String" Nullable="false" MaxLength="4" sap:unicode="false" sap:label="Sales Org." sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="DistributionChannel" Type="Edm.String" Nullable="false" MaxLength="2" sap:unicode="false" sap:label="Distr. Channel" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="MovementType" Type="Edm.String" Nullable="false" sap:unicode="false" sap:label="Movement Type" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="MovementScenario" Type="Edm.String" Nullable="false" sap:unicode="false" sap:label="Movement Scenario" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="MovementDescription" Type="Edm.String" Nullable="false" sap:unicode="false" sap:label="Movement Description" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
                 </EntityType>
                 <EntityType Name="PoNumberSH" sap:content-version="1">
                     <Key>

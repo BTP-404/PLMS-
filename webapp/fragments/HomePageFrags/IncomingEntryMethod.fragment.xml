@@ -31,9 +31,7 @@
                     <RadioButton text="Outgoing Materials" />
                 </RadioButtonGroup>
 
-                <!-- Info Text -->
-               
-
+                <!-- ========== Incoming (same layout order as before) ========== -->
                 <!-- Search By Panel -->
                 <Panel
                     expandable="false"
@@ -135,6 +133,115 @@
                                 press=".onIncomingDialogScanPress"
                                 tabIndex="-1"
                                 class="plmsRvScannerBtn plmsRvScanBtn"
+                            />
+                        </HBox>
+                    </content>
+                </Panel>
+
+                <!-- ========== Outgoing (mirror Incoming: Search by → detail row with Skip Document) ========== -->
+                <Panel
+                    expandable="false"
+                    backgroundDesign="Transparent"
+                    visible="{= ${reportVehicleMatOpts>/selectedIndex} === 1 }"
+                    class="sapUiNoContentPadding plmsRvSection"
+                >
+                    <headerToolbar>
+                        <Toolbar design="Transparent">
+                            <Title text="Search by" level="H5" />
+                        </Toolbar>
+                    </headerToolbar>
+                    <content>
+                        <Select
+                            id="idOutgoingEntrySearchSelect"
+                            width="100%"
+                            selectedKey="{outgoingEntryMethod>/selectedKey}"
+                            change=".onOutgoingEntryMethodSelectChange"
+                        >
+                            <core:ListItem key="INVOICE" text="Invoice" />
+                            <core:ListItem key="PO" text="PO number" />
+                        </Select>
+                    </content>
+                </Panel>
+
+                <Panel
+                    expandable="false"
+                    backgroundDesign="Transparent"
+                    visible="{= ${reportVehicleMatOpts>/selectedIndex} === 1 &amp;&amp; ${outgoingEntryMethod>/selectedKey} === 'INVOICE' }"
+                    class="sapUiNoContentPadding plmsRvSection"
+                >
+                    <headerToolbar>
+                        <Toolbar design="Transparent">
+                            <Title text="Invoice" level="H5" />
+                        </Toolbar>
+                    </headerToolbar>
+                    <content>
+                        <HBox alignItems="Center" width="100%" class="sapUiTinyMarginTop plmsRvScanRow" wrap="Wrap">
+                            <Input
+                                id="idOutgoingDialogInvoiceInput"
+                                width="100%"
+                                placeholder="Type or select invoice"
+                                value="{outgoingEntryMethod>/billingDocument}"
+                                showSuggestion="true"
+                                filterSuggests="false"
+                                suggestionItems="{outgoingInvoiceSuggest>/items}"
+                                suggest=".onOutgoingReportInvoiceSuggest"
+                                suggestionItemSelected=".onOutgoingReportInvoiceSuggestionSelected"
+                                change=".onOutgoingReportInvoiceChange"
+                                class="sapUiTinyMarginEnd plmsRvFieldGrow plmsRvScanInput"
+                            >
+                                <suggestionItems>
+                                    <SuggestionItem
+                                        text="{outgoingInvoiceSuggest>BillingDoc}"
+                                        description="{outgoingInvoiceSuggest>MovementDescription}"
+                                    />
+                                </suggestionItems>
+                            </Input>
+                            <CheckBox
+                                id="idOutgoingSkipDocumentInvoice"
+                                text="Skip Document"
+                                selected="{outgoingEntryMethod>/skipDocumentInvoice}"
+                                class="plmsRvCheckbox"
+                            />
+                        </HBox>
+                    </content>
+                </Panel>
+
+                <Panel
+                    expandable="false"
+                    backgroundDesign="Transparent"
+                    visible="{= ${reportVehicleMatOpts>/selectedIndex} === 1 &amp;&amp; ${outgoingEntryMethod>/selectedKey} === 'PO' }"
+                    class="sapUiNoContentPadding plmsRvSection"
+                >
+                    <headerToolbar>
+                        <Toolbar design="Transparent">
+                            <Title text="Purchase order" level="H5" />
+                        </Toolbar>
+                    </headerToolbar>
+                    <content>
+                        <HBox alignItems="Center" width="100%" class="sapUiTinyMarginTop plmsRvScanRow" wrap="Wrap">
+                            <Input
+                                id="idOutgoingDialogPoInput"
+                                width="100%"
+                                placeholder="Type PO number"
+                                value="{outgoingEntryMethod>/poNumber}"
+                                showSuggestion="true"
+                                suggestionItems="{outgoingPoSuggest>/items}"
+                                suggest=".onOutgoingDialogPoSuggest"
+                                suggestionItemSelected=".onOutgoingDialogPoSuggestionSelected"
+                                class="sapUiTinyMarginEnd plmsRvFieldGrow plmsRvScanInput"
+                            >
+                                <suggestionItems>
+                                    <SuggestionItem
+                                        text="{outgoingPoSuggest>Ebeln}"
+                                        description="{outgoingPoSuggest>VendorName}"
+                                    />
+                                </suggestionItems>
+                            </Input>
+                            <CheckBox
+                                id="idOutgoingSkipDocumentPo"
+                                text="Skip Document"
+                                selected="{outgoingEntryMethod>/skipDocumentPo}"
+                                class="plmsRvCheckbox"
                             />
                         </HBox>
                     </content>

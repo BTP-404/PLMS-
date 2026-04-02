@@ -21,6 +21,25 @@ sap.ui.define([], function () {
 
   var DEFAULT_ICON = "sap-icon://message-information";
 
+  /**
+   * ConfigValues: customizing group for movement scenario codes (ConfigID = scenario segment, e.g. "09").
+   * Backend should maintain a row with ConfigID matching the OrderType MovementScenario for O/W Direct Sale.
+   */
+  var CONFIG_GROUP_MOVEMENT_SCENARIO = "MovementScenario";
+
+  /**
+   * ConfigID in ConfigValues for outbound direct-sale / bin (maps to MovementScenario "09" and item key O09).
+   * Resolved at runtime via ConfigValues read; falls back to this literal.
+   */
+  var MOVEMENT_SCENARIO_CONFIG_ID_OUTGOING_DIRECT_SALE = "09";
+
+  /** Optional override after /ConfigValues read (two-char scenario segment). */
+  var _sOutgoingDirectSaleScenarioCode = null;
+
+  /**
+   * Normalize scenario to a two-character segment for ItemKey (e.g. I01, O09).
+   * Aligns with OrderType: "01".."09". Handles OData quirks: 9, "9", "09", "009".
+   */
   function padScenario(sScenario) {
     if (sScenario === undefined || sScenario === null) {
       return "";
@@ -28,6 +47,19 @@ sap.ui.define([], function () {
     var s = String(sScenario).trim();
     if (s.length === 0) {
       return "";
+    }
+    if (/^\d+$/.test(s)) {
+      var n = parseInt(s, 10);
+      if (isNaN(n) || n < 0) {
+        return "";
+      }
+      if (n <= 99) {
+        var t = String(n);
+        return t.length === 1 ? "0" + t : t;
+      }
+      var m = n % 100;
+      var u = String(m);
+      return u.length === 1 ? "0" + u : u;
     }
     if (s.length === 1) {
       return "0" + s;
@@ -49,6 +81,47 @@ sap.ui.define([], function () {
       return "";
     }
     return mt + ps;
+  }
+
+  /**
+   * Map ConfigValues.ConfigID (or similar) to MovementScenario segment — must match OrderType MovementScenario.
+   */
+  function resolveMovementScenarioFromConfigId(sConfigId) {
+    return padScenario(sConfigId);
+  }
+
+  function getOutgoingDirectSaleScenarioCode() {
+    return (
+      _sOutgoingDirectSaleScenarioCode ||
+      resolveMovementScenarioFromConfigId(MOVEMENT_SCENARIO_CONFIG_ID_OUTGOING_DIRECT_SALE)
+    );
+  }
+
+  /**
+   * Call after reading ConfigValues so Bin Details / O09 checks use the same code as customizing.
+   */
+  function setOutgoingDirectSaleScenarioCodeFromConfig(sScenarioCodeOrConfigId) {
+    if (sScenarioCodeOrConfigId === undefined || sScenarioCodeOrConfigId === null) {
+      _sOutgoingDirectSaleScenarioCode = null;
+      return;
+    }
+    var s = resolveMovementScenarioFromConfigId(sScenarioCodeOrConfigId);
+    _sOutgoingDirectSaleScenarioCode = s || null;
+  }
+
+  function getOutgoingDirectSaleItemKey() {
+    return getMovementScenarioItemKey("O", getOutgoingDirectSaleScenarioCode()) || "";
+  }
+
+  function isOutgoingDirectSaleScenarioItemKey(sItemKey) {
+    if (sItemKey === undefined || sItemKey === null || sItemKey === "") {
+      return false;
+    }
+    var sExpected = getOutgoingDirectSaleItemKey();
+    if (!sExpected) {
+      return false;
+    }
+    return String(sItemKey).trim().toUpperCase() === sExpected;
   }
 
   function getIconForItemKey(sItemKey) {
@@ -98,5 +171,13 @@ sap.ui.define([], function () {
     isScannerMovementScenarioItemKey: isScannerMovementScenarioItemKey,
     SCANNER_MOVEMENT_SCENARIO_ITEM_KEYS: SCANNER_MOVEMENT_SCENARIO_ITEM_KEYS,
     SCANNER_MOVEMENT_SCENARIO_ITEM_KEY: SCANNER_MOVEMENT_SCENARIO_ITEM_KEY,
+    CONFIG_GROUP_MOVEMENT_SCENARIO: CONFIG_GROUP_MOVEMENT_SCENARIO,
+    MOVEMENT_SCENARIO_CONFIG_ID_OUTGOING_DIRECT_SALE:
+      MOVEMENT_SCENARIO_CONFIG_ID_OUTGOING_DIRECT_SALE,
+    resolveMovementScenarioFromConfigId: resolveMovementScenarioFromConfigId,
+    setOutgoingDirectSaleScenarioCodeFromConfig: setOutgoingDirectSaleScenarioCodeFromConfig,
+    getOutgoingDirectSaleScenarioCode: getOutgoingDirectSaleScenarioCode,
+    getOutgoingDirectSaleItemKey: getOutgoingDirectSaleItemKey,
+    isOutgoingDirectSaleScenarioItemKey: isOutgoingDirectSaleScenarioItemKey,
   };
 });

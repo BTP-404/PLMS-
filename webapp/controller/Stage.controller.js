@@ -52,7 +52,7 @@ sap.ui.define([
 		},
 		
 	_onClearAllTabs: function () {
-		// Clear page title header (Trip No, Vehicle No, Trip status)
+		// Clear page title header (Gate Pass No, Vehicle No, Trip status)
 		this.resetPageTitleModel();
 		// Set create mode to ensure header stays clear
 		this._bCreateMode = true;
@@ -120,6 +120,27 @@ sap.ui.define([
 						MovementScenario: sIncomingMs || "",
 						MovementScenarioItemKey: sScenarioItemKey,
 						MovementTypeDesc: sMtDesc || "",
+					}),
+					"TripData"
+				);
+				sap.ui.getCore().getEventBus().publish("TripData", "Updated");
+			} else if (oGlobal && oGlobal.getProperty("/OutgoingReportPrefill")) {
+				var sOgDesc = (oGlobal.getProperty("/OutgoingMovementScenarioDesc") || "").toString();
+				var sOgSkip = (oGlobal.getProperty("/OutgoingRefDocSkip") || " ").toString();
+				var sOgMs = (oGlobal.getProperty("/OutgoingMovementScenario") || "").toString().trim();
+				var sOgItemKey = (oGlobal.getProperty("/OutgoingMovementScenarioItemKey") || "").toString().trim();
+				var sOgBd = (oGlobal.getProperty("/OutgoingBillingDocument") || "").toString().trim();
+				oGlobal.setProperty("/OutgoingReportPrefill", false);
+				var sOgKeySync = sOgItemKey || MovementScenarioIcons.getMovementScenarioItemKey("O", sOgMs) || "";
+				sap.ui.getCore().setModel(
+					new JSONModel({
+						MovementScenarioDesc: sOgDesc || "",
+						RefDocSkip: (sOgSkip && sOgSkip.trim() === "X") ? "X" : " ",
+						MovementType: "O",
+						MovementScenario: sOgMs || "",
+						MovementScenarioItemKey: sOgKeySync,
+						MovementTypeDesc: "Outward",
+						BillingDocument: sOgBd || "",
 					}),
 					"TripData"
 				);
@@ -478,7 +499,7 @@ sap.ui.define([
 
 		/**
 		 * Update Header Visibility for Create Mode
-		 * Hide the header (Trip No, Vehicle No, Trip status) when creating a new vehicle
+		 * Hide the header (Gate Pass No, Vehicle No, Trip status) when creating a new vehicle
 		 */
 		_updateHeaderVisibilityForCreateMode: function () {
 			var oHeaderBar = this.byId("headerBar");

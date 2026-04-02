@@ -82,6 +82,18 @@ sap.ui.define(
           skipDocument: false,
         });
         this._oIncomingPoSuggestModel = new JSONModel({ items: [] });
+        this._oOutgoingPoSuggestModel = new JSONModel({ items: [] });
+        this._oOutgoingInvoiceSuggestModel = new JSONModel({ items: [] });
+        this._oOutgoingEntryMethodModel = new JSONModel({
+          selectedKey: "INVOICE",
+          billingDocument: "",
+          poNumber: "",
+          skipDocumentInvoice: false,
+          skipDocumentPo: false,
+          invoiceMovementType: "",
+          invoiceMovementScenario: "",
+          invoiceMovementDescription: "",
+        });
         this._sLastPostedPoNumber = null;
         this._sPendingOrderDetailPo = null;
       },
@@ -94,6 +106,14 @@ sap.ui.define(
         if (this._iIncomingDialogPoSuggestTimeout) {
           clearTimeout(this._iIncomingDialogPoSuggestTimeout);
           this._iIncomingDialogPoSuggestTimeout = null;
+        }
+        if (this._iOutgoingDialogPoSuggestTimeout) {
+          clearTimeout(this._iOutgoingDialogPoSuggestTimeout);
+          this._iOutgoingDialogPoSuggestTimeout = null;
+        }
+        if (this._iOutgoingInvoiceSuggestTimeout) {
+          clearTimeout(this._iOutgoingInvoiceSuggestTimeout);
+          this._iOutgoingInvoiceSuggestTimeout = null;
         }
 
         if (this._oReportVehicleMaterialDialog) {
@@ -158,47 +178,6 @@ sap.ui.define(
         }
       },
 
-      onContinueReportVehicleCombinedDialog: function () {
-        var oOpts = this._oReportVehicleMatOptsModel;
-        if (!oOpts) {
-          return;
-        }
-
-        var iSel = oOpts.getProperty("/selectedIndex");
-        if (iSel === undefined || iSel === null || iSel < 0) {
-          MessageToast.show("Select an option before continuing.");
-          return;
-        }
-
-        var bIncoming = iSel === 0;
-        var bOutgoing = iSel === 1;
-
-        var oGlobalModel = sap.ui.getCore().getModel("globalData");
-        if (!oGlobalModel) {
-          oGlobalModel = new JSONModel({
-            TripNumber: "",
-            HasIncomingMaterials: bIncoming,
-            HasOutgoingMaterials: bOutgoing,
-            IncomingReportingMethod: null,
-          });
-          sap.ui.getCore().setModel(oGlobalModel, "globalData");
-        } else {
-          oGlobalModel.setProperty("/TripNumber", "");
-          oGlobalModel.setProperty("/HasIncomingMaterials", bIncoming);
-          oGlobalModel.setProperty("/HasOutgoingMaterials", bOutgoing);
-        }
-
-        if (bIncoming) {
-          this.onContinueIncomingEntryMethodDialog();
-        } else {
-          if (this._oIncomingEntryMethodDialog) {
-            this._oIncomingEntryMethodDialog.close();
-          }
-          oGlobalModel.setProperty("/IncomingReportingMethod", null);
-          this._executeNewReportVehicleNavigation();
-        }
-      },
-
       onCancelReportVehicleMaterialDialog: function () {
         if (this._oReportVehicleMaterialDialog) {
           this._oReportVehicleMaterialDialog.close();
@@ -223,6 +202,28 @@ sap.ui.define(
             "/selectedIndex",
             iSelected
           );
+        }
+        if (iSelected === 0 && this._oOutgoingEntryMethodModel) {
+          this._oOutgoingEntryMethodModel.setData({
+            selectedKey: "INVOICE",
+            billingDocument: "",
+            poNumber: "",
+            skipDocumentInvoice: false,
+            skipDocumentPo: false,
+            invoiceMovementType: "",
+            invoiceMovementScenario: "",
+            invoiceMovementDescription: "",
+          });
+        }
+        var that = this;
+        if (iSelected === 1) {
+          setTimeout(function () {
+            that._focusOutgoingEntryMethodPrimaryInput(150);
+          }, 0);
+        } else if (iSelected === 0) {
+          setTimeout(function () {
+            that._focusIncomingEntryMethodPrimaryInput(150);
+          }, 0);
         }
       },
 
@@ -306,6 +307,18 @@ sap.ui.define(
                 this._oIncomingPoSuggestModel,
                 "incomingPoSuggest"
               );
+              oDialog.setModel(
+                this._oOutgoingEntryMethodModel,
+                "outgoingEntryMethod"
+              );
+              oDialog.setModel(
+                this._oOutgoingPoSuggestModel,
+                "outgoingPoSuggest"
+              );
+              oDialog.setModel(
+                this._oOutgoingInvoiceSuggestModel,
+                "outgoingInvoiceSuggest"
+              );
               oDialog.open();
             }.bind(this)
           );
@@ -318,18 +331,51 @@ sap.ui.define(
         this._resetIncomingEntryMethodDialogFields();
         var that = this;
         setTimeout(function () {
+          var sViewId = that.getView().getId();
+          var iMv = that._oReportVehicleMatOptsModel
+            ? that._oReportVehicleMatOptsModel.getProperty("/selectedIndex")
+            : 0;
+          if (iMv === 1) {
+            that._focusOutgoingEntryMethodPrimaryInput(150);
+            return;
+          }
           var sKey = that._oIncomingEntryMethodModel
             ? that._oIncomingEntryMethodModel.getProperty("/selectedKey")
             : "";
-          var sViewId = that.getView().getId();
-          var oFocus =
+          var oFocusIn =
             sKey === "SCAN"
               ? Fragment.byId(sViewId, "idIncomingDialogScanInput")
               : Fragment.byId(sViewId, "idIncomingDialogPoInput");
+          if (oFocusIn && oFocusIn.focus) {
+            oFocusIn.focus();
+          }
+        }, 150);
+      },
+
+      /**
+       * Outgoing counterpart to _focusIncomingEntryMethodPrimaryInput: Invoice vs PO field, two timeouts after MessageBox / rerender.
+       */
+      _focusOutgoingEntryMethodPrimaryInput: function (iDelay) {
+        var that = this;
+        var iMs = typeof iDelay === "number" ? iDelay : 100;
+        var fnFocus = function () {
+          if (!that._oIncomingEntryMethodDialog) {
+            return;
+          }
+          var sViewId = that.getView().getId();
+          var sKey = that._oOutgoingEntryMethodModel
+            ? that._oOutgoingEntryMethodModel.getProperty("/selectedKey")
+            : "INVOICE";
+          var oFocus =
+            sKey === "PO"
+              ? Fragment.byId(sViewId, "idOutgoingDialogPoInput")
+              : Fragment.byId(sViewId, "idOutgoingDialogInvoiceInput");
           if (oFocus && oFocus.focus) {
             oFocus.focus();
           }
-        }, 150);
+        };
+        setTimeout(fnFocus, iMs);
+        setTimeout(fnFocus, iMs + 120);
       },
 
       _resetIncomingEntryMethodDialogFields: function () {
@@ -353,6 +399,36 @@ sap.ui.define(
         }
         if (this._oIncomingPoSuggestModel) {
           this._oIncomingPoSuggestModel.setProperty("/items", []);
+        }
+        var oOutSel = Fragment.byId(sViewId, "idOutgoingEntrySearchSelect");
+        if (oOutSel && oOutSel.setSelectedKey) {
+          oOutSel.setSelectedKey("INVOICE");
+        }
+        if (this._oOutgoingEntryMethodModel) {
+          this._oOutgoingEntryMethodModel.setData({
+            selectedKey: "INVOICE",
+            billingDocument: "",
+            poNumber: "",
+            skipDocumentInvoice: false,
+            skipDocumentPo: false,
+            invoiceMovementType: "",
+            invoiceMovementScenario: "",
+            invoiceMovementDescription: "",
+          });
+        }
+        if (this._oOutgoingPoSuggestModel) {
+          this._oOutgoingPoSuggestModel.setProperty("/items", []);
+        }
+        if (this._oOutgoingInvoiceSuggestModel) {
+          this._oOutgoingInvoiceSuggestModel.setProperty("/items", []);
+        }
+        var oOutInv = Fragment.byId(sViewId, "idOutgoingDialogInvoiceInput");
+        if (oOutInv) {
+          oOutInv.setValue("");
+        }
+        var oOutPo = Fragment.byId(sViewId, "idOutgoingDialogPoInput");
+        if (oOutPo) {
+          oOutPo.setValue("");
         }
         if (this._oIncomingEntryMethodDialog) {
           this._oIncomingEntryMethodDialog.setBusy(false);
@@ -414,6 +490,10 @@ sap.ui.define(
 
         if (bOutgoing) {
           oGlobalModel.setProperty("/IncomingReportingMethod", null);
+          this._clearIncomingGlobalForOutgoing();
+          if (!this._validateAndNavigateOutgoingReportVehicle()) {
+            return;
+          }
           if (this._oIncomingEntryMethodDialog) {
             this._oIncomingEntryMethodDialog.close();
           }
@@ -688,6 +768,7 @@ sap.ui.define(
           oGlobal.setProperty("/IncomingReportingMethod", null);
           oGlobal.setProperty("/IncomingPoNumber", "");
         }
+        this._clearOutgoingGlobalPrefill();
         sap.ui.getCore().setModel(null, "TripData");
         if (this._oIncomingEntryMethodDialog) {
           this._oIncomingEntryMethodDialog.setBusy(false);
@@ -1270,6 +1351,469 @@ sap.ui.define(
         });
       },
 
+      _clearIncomingGlobalForOutgoing: function () {
+        var oG = sap.ui.getCore().getModel("globalData");
+        if (!oG) {
+          return;
+        }
+        oG.setProperty("/IncomingPoNumber", "");
+        oG.setProperty("/IncomingMovementScenarioDesc", "");
+        oG.setProperty("/IncomingMovementType", "");
+        oG.setProperty("/IncomingMovementScenario", "");
+        oG.setProperty("/IncomingRefDocSkip", " ");
+      },
+
+      onOutgoingEntryMethodSelectChange: function () {
+        var sViewId = this.getView().getId();
+        var oSelect = Fragment.byId(sViewId, "idOutgoingEntrySearchSelect");
+        var sKey = oSelect ? oSelect.getSelectedKey() : "";
+        if (this._oOutgoingEntryMethodModel) {
+          this._oOutgoingEntryMethodModel.setProperty("/selectedKey", sKey || "INVOICE");
+          this._oOutgoingEntryMethodModel.setProperty("/skipDocumentInvoice", false);
+          this._oOutgoingEntryMethodModel.setProperty("/skipDocumentPo", false);
+          this._oOutgoingEntryMethodModel.setProperty("/billingDocument", "");
+          this._oOutgoingEntryMethodModel.setProperty("/poNumber", "");
+          this._oOutgoingEntryMethodModel.setProperty("/invoiceMovementType", "");
+          this._oOutgoingEntryMethodModel.setProperty("/invoiceMovementScenario", "");
+          this._oOutgoingEntryMethodModel.setProperty("/invoiceMovementDescription", "");
+        }
+        var oInv = Fragment.byId(sViewId, "idOutgoingDialogInvoiceInput");
+        if (oInv) {
+          oInv.setValue("");
+        }
+        var oPo = Fragment.byId(sViewId, "idOutgoingDialogPoInput");
+        if (oPo) {
+          oPo.setValue("");
+        }
+        if (this._oOutgoingPoSuggestModel) {
+          this._oOutgoingPoSuggestModel.setProperty("/items", []);
+        }
+        if (this._oOutgoingInvoiceSuggestModel) {
+          this._oOutgoingInvoiceSuggestModel.setProperty("/items", []);
+        }
+        var that = this;
+        var fnFocus = function () {
+          var oFocus =
+            sKey === "PO"
+              ? Fragment.byId(that.getView().getId(), "idOutgoingDialogPoInput")
+              : Fragment.byId(that.getView().getId(), "idOutgoingDialogInvoiceInput");
+          if (oFocus && oFocus.focus) {
+            oFocus.focus();
+          }
+        };
+        setTimeout(fnFocus, 100);
+        setTimeout(fnFocus, 250);
+      },
+
+      _setOutgoingGlobalPrefill: function (m) {
+        var oG = sap.ui.getCore().getModel("globalData");
+        if (!oG) {
+          oG = new JSONModel({});
+          sap.ui.getCore().setModel(oG, "globalData");
+        }
+        var mT = m || {};
+        oG.setProperty("/OutgoingReportPrefill", true);
+        oG.setProperty(
+          "/OutgoingMovementScenario",
+          mT.movementScenario !== undefined ? mT.movementScenario : ""
+        );
+        oG.setProperty(
+          "/OutgoingMovementScenarioDesc",
+          mT.movementScenarioDesc !== undefined ? mT.movementScenarioDesc : ""
+        );
+        oG.setProperty(
+          "/OutgoingMovementScenarioItemKey",
+          mT.movementScenarioItemKey !== undefined ? mT.movementScenarioItemKey : ""
+        );
+        oG.setProperty(
+          "/OutgoingBillingDocument",
+          mT.billingDocument !== undefined ? mT.billingDocument : ""
+        );
+        oG.setProperty(
+          "/OutgoingRefDocSkip",
+          mT.refDocSkip !== undefined ? mT.refDocSkip : " "
+        );
+        oG.setProperty("/OutgoingPoNumber", mT.poNumber !== undefined ? mT.poNumber : "");
+      },
+
+      _clearOutgoingGlobalPrefill: function () {
+        var oG = sap.ui.getCore().getModel("globalData");
+        if (!oG) {
+          return;
+        }
+        oG.setProperty("/OutgoingReportPrefill", false);
+        oG.setProperty("/OutgoingMovementScenario", "");
+        oG.setProperty("/OutgoingMovementScenarioDesc", "");
+        oG.setProperty("/OutgoingMovementScenarioItemKey", "");
+        oG.setProperty("/OutgoingBillingDocument", "");
+        oG.setProperty("/OutgoingRefDocSkip", " ");
+        oG.setProperty("/OutgoingPoNumber", "");
+      },
+
+      /**
+       * Outgoing Report Vehicle — same rules as incoming PO/invoice:
+       * PO with number: scenario from PoNumberSH (see _incomingDialogNavigateToGateEntryWithPo).
+       * PO skip-only / Invoice / Invoice skip: scenario empty here; user picks on Reporting (OrderTypeSH), like incoming skip-only.
+       * Returns true if sync navigation may proceed; PO-with-number path is async and returns false.
+       */
+      _validateAndNavigateOutgoingReportVehicle: function () {
+        var oOut = this._oOutgoingEntryMethodModel;
+        if (!oOut) {
+          return false;
+        }
+        var sSearch = (oOut.getProperty("/selectedKey") || "INVOICE").toString();
+
+        if (sSearch === "PO") {
+          var sViewId = this.getView().getId();
+          var oPoIn = Fragment.byId(sViewId, "idOutgoingDialogPoInput");
+          var sPo =
+            oPoIn && oPoIn.getValue
+              ? String(oPoIn.getValue() || "").trim()
+              : String(oOut.getProperty("/poNumber") || "").trim();
+          var bSkipPo = !!oOut.getProperty("/skipDocumentPo");
+          if (!sPo && !bSkipPo) {
+            var thatOut = this;
+            MessageBox.error("Enter/select a PO number or choose Skip document.", {
+              onClose: function () {
+                thatOut._focusOutgoingEntryMethodPrimaryInput(150);
+              },
+            });
+            return false;
+          }
+          if (sPo) {
+            this._outgoingNavigateToGateEntryWithPo();
+            return false;
+          }
+          var sRefSkip = bSkipPo ? "X" : " ";
+          this._setOutgoingGlobalPrefill({
+            movementScenario: "",
+            movementScenarioDesc: "",
+            movementScenarioItemKey: "",
+            billingDocument: "",
+            refDocSkip: sRefSkip,
+            poNumber: "",
+          });
+          return true;
+        }
+
+        var sInv =
+          String(oOut.getProperty("/billingDocument") || "").trim();
+        var bSkipInv = !!oOut.getProperty("/skipDocumentInvoice");
+        if (!sInv && !bSkipInv) {
+          var thatInv = this;
+          MessageBox.error("Enter an invoice number or select Skip document.", {
+            onClose: function () {
+              thatInv._focusOutgoingEntryMethodPrimaryInput(150);
+            },
+          });
+          return false;
+        }
+        var sRefSkipInv = bSkipInv ? "X" : " ";
+        var sInvMs = oOut.getProperty("/invoiceMovementScenario") || "";
+        var sInvDesc = oOut.getProperty("/invoiceMovementDescription") || "";
+        var sInvItemKey = sInvMs
+          ? MovementScenarioIcons.getMovementScenarioItemKey("O", sInvMs) || ""
+          : "";
+        this._setOutgoingGlobalPrefill({
+          movementScenario: sInvMs,
+          movementScenarioDesc: sInvDesc,
+          movementScenarioItemKey: sInvItemKey,
+          billingDocument: sInv,
+          refDocSkip: sRefSkipInv,
+          poNumber: "",
+        });
+        return true;
+      },
+
+      _outgoingNavigateToGateEntryWithPo: function () {
+        var sViewId = this.getView().getId();
+        var oIn = Fragment.byId(sViewId, "idOutgoingDialogPoInput");
+        var sPo = oIn && oIn.getValue ? String(oIn.getValue() || "").trim() : "";
+        var bSkip = !!(this._oOutgoingEntryMethodModel &&
+          this._oOutgoingEntryMethodModel.getProperty("/skipDocumentPo"));
+        var sRefDocSkip = bSkip ? "X" : " ";
+        var oModel = this.getView().getModel();
+        var that = this;
+
+        var fnParsePoRow = function (oRow) {
+          if (!oRow) {
+            return { movementType: "", movementScenario: "", movementScenarioDesc: "" };
+          }
+          var sMt =
+            oRow.MovementType !== undefined && oRow.MovementType !== null
+              ? String(oRow.MovementType).trim()
+              : "";
+          var sMs =
+            oRow.MovementScenario !== undefined && oRow.MovementScenario !== null
+              ? String(oRow.MovementScenario).trim()
+              : "";
+          var sDesc = "";
+          if (oRow.MovementDescription != null && String(oRow.MovementDescription).trim() !== "") {
+            sDesc = String(oRow.MovementDescription).trim();
+          } else if (
+            oRow.MovementScenarioDesc != null &&
+            String(oRow.MovementScenarioDesc).trim() !== ""
+          ) {
+            sDesc = String(oRow.MovementScenarioDesc).trim();
+          } else if (oRow.LongText != null && String(oRow.LongText).trim() !== "") {
+            sDesc = String(oRow.LongText).trim();
+          }
+          return { movementType: sMt, movementScenario: sMs, movementScenarioDesc: sDesc };
+        };
+
+        var fnCloseAndNav = function () {
+          if (that._oIncomingEntryMethodDialog) {
+            that._oIncomingEntryMethodDialog.setBusy(false);
+            that._oIncomingEntryMethodDialog.close();
+          }
+          sap.ui.core.UIComponent.getRouterFor(that).navTo("Stage");
+          sap.ui.getCore().getEventBus().publish("HomePage", "RefreshTripTable");
+        };
+
+        var fnApplyFromApiRow = function (mParsed) {
+          var m = mParsed || {};
+          if (m.movementType && String(m.movementType).toUpperCase() !== "O") {
+            MessageBox.error(
+              "This PO is not for an outward movement. Choose another PO."
+            );
+            if (that._oIncomingEntryMethodDialog) {
+              that._oIncomingEntryMethodDialog.setBusy(false);
+            }
+            return;
+          }
+          var sMs = m.movementScenario || "";
+          var sDesc = m.movementScenarioDesc || "";
+          var sItemKey = MovementScenarioIcons.getMovementScenarioItemKey("O", sMs) || "";
+          that._setOutgoingGlobalPrefill({
+            movementScenario: sMs,
+            movementScenarioDesc: sDesc,
+            movementScenarioItemKey: sItemKey,
+            billingDocument: "",
+            refDocSkip: sRefDocSkip,
+            poNumber: sPo,
+          });
+          fnCloseAndNav();
+        };
+
+        if (!oModel) {
+          fnApplyFromApiRow(fnParsePoRow(null));
+          return;
+        }
+
+        if (this._oIncomingEntryMethodDialog) {
+          this._oIncomingEntryMethodDialog.setBusy(true);
+        }
+
+        var fnReadPoNumberShCollection = function (sFilterProp, fnNextFallback) {
+          oModel.read("/PoNumberSH", {
+            filters: [new Filter(sFilterProp, FilterOperator.EQ, sPo)],
+            urlParameters: { $top: "1" },
+            success: function (oData2) {
+              var oRow2 =
+                oData2 && oData2.results && oData2.results[0] ? oData2.results[0] : null;
+              if (oRow2) {
+                fnApplyFromApiRow(fnParsePoRow(oRow2));
+              } else if (fnNextFallback) {
+                fnNextFallback();
+              } else {
+                fnApplyFromApiRow(fnParsePoRow(null));
+              }
+            },
+            error: function () {
+              if (fnNextFallback) {
+                fnNextFallback();
+              } else {
+                fnApplyFromApiRow(fnParsePoRow(null));
+              }
+            },
+          });
+        };
+
+        oModel.read("/PoNumberSH('" + encodeURIComponent(sPo) + "')", {
+          success: function (oData) {
+            var oRow = oData && oData.d ? oData.d : oData;
+            fnApplyFromApiRow(fnParsePoRow(oRow));
+          },
+          error: function () {
+            fnReadPoNumberShCollection("Ebeln");
+          },
+        });
+      },
+
+      /**
+       * Same pattern as onOutgoingDialogPoSuggest: debounce then load JSONModel for suggestionItems.
+       */
+      onOutgoingReportInvoiceSuggest: function (oEvent) {
+        var sValue = (oEvent.getParameter("suggestValue") || "").trim();
+        if (this._iOutgoingInvoiceSuggestTimeout) {
+          clearTimeout(this._iOutgoingInvoiceSuggestTimeout);
+        }
+        var that = this;
+        this._iOutgoingInvoiceSuggestTimeout = setTimeout(function () {
+          that._loadOutgoingInvoiceSuggestions(sValue);
+        }, 300);
+      },
+
+      _loadOutgoingInvoiceSuggestions: function (sTerm) {
+        var oModel = this.getView().getModel();
+        if (!oModel || !this._oOutgoingInvoiceSuggestModel) {
+          return;
+        }
+        if (!sTerm || sTerm.length < 2) {
+          this._oOutgoingInvoiceSuggestModel.setProperty("/items", []);
+          return;
+        }
+        var that = this;
+        oModel.read("/BillingDocSH", {
+          filters: [new Filter("BillingDoc", FilterOperator.Contains, sTerm)],
+          urlParameters: { $top: "40" },
+          success: function (oData) {
+            var a = (oData && oData.results) || [];
+            var mSeen = {};
+            var aItems = [];
+            a.forEach(function (o) {
+              var sV =
+                o && o.BillingDoc ? String(o.BillingDoc).trim() : "";
+              if (!sV || mSeen[sV]) {
+                return;
+              }
+              mSeen[sV] = true;
+              aItems.push({
+                BillingDoc: sV,
+                MovementType:
+                  o && o.MovementType
+                    ? String(o.MovementType).trim()
+                    : "",
+                MovementScenario:
+                  o && o.MovementScenario
+                    ? String(o.MovementScenario).trim()
+                    : "",
+                MovementDescription:
+                  o && o.MovementDescription
+                    ? String(o.MovementDescription).trim()
+                    : "",
+              });
+            });
+            that._oOutgoingInvoiceSuggestModel.setProperty("/items", aItems);
+          },
+          error: function () {
+            that._oOutgoingInvoiceSuggestModel.setProperty("/items", []);
+          },
+        });
+      },
+
+      onOutgoingReportInvoiceSuggestionSelected: function (oEvent) {
+        var oItem = oEvent.getParameter("selectedItem");
+        var sText = oItem ? (oItem.getText() || "") : "";
+        sText = String(sText || "").trim();
+        if (this._oOutgoingEntryMethodModel && sText) {
+          this._oOutgoingEntryMethodModel.setProperty("/billingDocument", sText);
+        }
+
+        var oCtx = oItem && oItem.getBindingContext("outgoingInvoiceSuggest");
+        var oRow = oCtx ? oCtx.getObject() : null;
+        if (this._oOutgoingEntryMethodModel && oRow) {
+          this._oOutgoingEntryMethodModel.setProperty(
+            "/invoiceMovementType",
+            oRow.MovementType || ""
+          );
+          this._oOutgoingEntryMethodModel.setProperty(
+            "/invoiceMovementScenario",
+            oRow.MovementScenario || ""
+          );
+          this._oOutgoingEntryMethodModel.setProperty(
+            "/invoiceMovementDescription",
+            oRow.MovementDescription || ""
+          );
+        }
+      },
+
+      onOutgoingReportInvoiceChange: function (oEvent) {
+        var sVal = oEvent.getParameter("value") || "";
+        if (this._oOutgoingEntryMethodModel) {
+          this._oOutgoingEntryMethodModel.setProperty(
+            "/billingDocument",
+            String(sVal || "").trim()
+          );
+        }
+      },
+
+      onOutgoingDialogPoSuggest: function (oEvent) {
+        var sValue = (oEvent.getParameter("suggestValue") || "").trim();
+        if (this._iOutgoingDialogPoSuggestTimeout) {
+          clearTimeout(this._iOutgoingDialogPoSuggestTimeout);
+        }
+        var that = this;
+        this._iOutgoingDialogPoSuggestTimeout = setTimeout(function () {
+          that._loadOutgoingDialogPoSuggestions(sValue);
+        }, 300);
+      },
+
+      _loadOutgoingDialogPoSuggestions: function (sTerm) {
+        var oModel = this.getView().getModel();
+        if (!oModel || !this._oOutgoingPoSuggestModel) {
+          return;
+        }
+        if (!sTerm || sTerm.length < 2) {
+          this._oOutgoingPoSuggestModel.setProperty("/items", []);
+          return;
+        }
+        var oOrFilter = new Filter(
+          [
+            new Filter("Ebeln", FilterOperator.Contains, sTerm),
+            new Filter("VendorName", FilterOperator.Contains, sTerm),
+          ],
+          false
+        );
+        var that = this;
+        var fnSuccess = function (oData) {
+          var a = (oData && oData.results) || [];
+          var mSeen = {};
+          var aItems = [];
+          a.forEach(function (o) {
+            var n =
+              (o.Ebeln && String(o.Ebeln).trim()) ||
+              (o.PoNumber && String(o.PoNumber).trim()) ||
+              "";
+            if (n && !mSeen[n]) {
+              mSeen[n] = true;
+              aItems.push({
+                Ebeln: n,
+                PoNumber: n,
+                VendorName: (o.VendorName && String(o.VendorName).trim()) || "",
+              });
+            }
+          });
+          that._oOutgoingPoSuggestModel.setProperty("/items", aItems);
+        };
+        oModel.read("/PoNumberSH", {
+          filters: [oOrFilter],
+          urlParameters: { $top: "40" },
+          success: fnSuccess,
+          error: function () {
+            that._oOutgoingPoSuggestModel.setProperty("/items", []);
+          },
+        });
+      },
+
+      onOutgoingDialogPoSuggestionSelected: function (oEvent) {
+        var oItem = oEvent.getParameter("selectedItem");
+        if (!oItem) {
+          return;
+        }
+        var sPo = oItem.getText();
+        if (this._oOutgoingEntryMethodModel) {
+          this._oOutgoingEntryMethodModel.setProperty("/poNumber", sPo);
+        }
+        var oIn = Fragment.byId(
+          this.getView().getId(),
+          "idOutgoingDialogPoInput"
+        );
+        if (oIn && oIn.setValue) {
+          oIn.setValue(sPo);
+        }
+      },
+
       /**
        * Clears trip context and navigates to Stage for a new vehicle report.
        * @private
@@ -1308,6 +1852,7 @@ sap.ui.define(
         oGlobalModel.setProperty("/IncomingReportingMethod", null);
 
         var oTripDataModel = new JSONModel(oRowData);
+        this._syncMovementScenarioItemKeyOnTripDataHome(oTripDataModel);
         sap.ui.getCore().setModel(oTripDataModel, "TripData");
         sap.ui.getCore().getEventBus().publish("TripData", "Updated");
 
