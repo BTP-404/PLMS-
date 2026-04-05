@@ -1,3 +1,11 @@
+/* ==================== APP SHELL: NO STRAY HORIZONTAL PAGE SCROLL ==================== */
+html,
+body.sapUiBody,
+body#content {
+    overflow-x: hidden;
+    max-width: 100%;
+}
+
 /* ==================== DESIGN TOKENS ==================== */
 :root {
     --plms-primary: #0070f2;
@@ -330,54 +338,30 @@
     box-shadow: 0 0 0 2px rgba(0, 112, 242, 0.2) !important;
 }
 
-/* ==================== HIDE UNNECESSARY HORIZONTAL SCROLLBARS ==================== */
-
-/* Hide horizontal scrollbar by default, show only on hover or when scrolling */
+/* ==================== SCROLL CONTAINERS: NO UNWANTED HORIZONTAL SCROLL ==================== */
+/* UI5 adds sapMScrollContV (vertical), sapMScrollContH (horizontal), sapMScrollContVH (both).
+   Global overflow-x:auto on every ScrollContainer caused horizontal scrollbars app-wide. */
 .sapMScrollContainer {
-    overflow-x: auto !important;
+    overflow-x: hidden !important;
     overflow-y: hidden !important;
-    scrollbar-width: none; /* Firefox - hide by default */
-    -ms-overflow-style: none; /* IE and Edge - hide by default */
+    scrollbar-width: thin;
+    -ms-overflow-style: auto;
 }
 
-/* Webkit browsers (Chrome, Safari, Edge) - hide horizontal scrollbar by default */
-.sapMScrollContainer::-webkit-scrollbar:horizontal {
-    height: 0px !important;
-    background: transparent !important;
+/* Horizontal or bidirectional scrolling (card timeline, previews with horizontal:true, etc.) */
+.sapMScrollContainer.sapMScrollContH,
+.sapMScrollContainer.sapMScrollContVH,
+.plmsCardTimelineScroll.sapMScrollContainer {
+    overflow-x: auto !important;
 }
 
-.sapMScrollContainer::-webkit-scrollbar-track:horizontal {
-    background: transparent !important;
+/* Wide content in dialogs may scroll horizontally; vertical-only stays clipped */
+.sapMDialog .sapMScrollContainer {
+    overflow-x: auto !important;
 }
 
-.sapMScrollContainer::-webkit-scrollbar-thumb:horizontal {
-    background: transparent !important;
-}
-
-/* Show scrollbar on hover, active, or focus (Webkit) */
-.sapMScrollContainer:hover::-webkit-scrollbar:horizontal,
-.sapMScrollContainer:active::-webkit-scrollbar:horizontal,
-.sapMScrollContainer:focus::-webkit-scrollbar:horizontal {
-    height: 8px !important;
-    background: transparent !important;
-}
-
-.sapMScrollContainer:hover::-webkit-scrollbar-track:horizontal,
-.sapMScrollContainer:active::-webkit-scrollbar-track:horizontal {
-    background: #f1f1f1 !important;
-    border-radius: 4px;
-}
-
-.sapMScrollContainer:hover::-webkit-scrollbar-thumb:horizontal,
-.sapMScrollContainer:active::-webkit-scrollbar-thumb:horizontal {
-    background: #0070f2 !important;
-    border-radius: 4px;
-}
-
-/* Firefox - show scrollbar on hover */
-.sapMScrollContainer:hover {
-    scrollbar-width: thin !important;
-    scrollbar-color: #0070f2 #f1f1f1 !important;
+.sapMDialog .sapMScrollContainer.sapMScrollContV {
+    overflow-x: hidden !important;
 }
 
 /* For tables inside ScrollContainer - ensure proper width */
@@ -391,10 +375,27 @@
     min-width: 100%;
 }
 
-/* Input suggestion popup (Trip Number, Vehicle Number, etc.): the global
-   .sapMScrollContainer rules above force overflow-x:auto and overflow-y:hidden,
-   which conflicts with sap.m.Input's sapMSuggestionsPopover and tends to show
-   both scrollbars. Popover also enables horizontal scrolling by default. */
+/* Stage / Gate panels: Reference Documents, Material Details, Bin/Trolley tables.
+   Global .sapMTable padding-left + min-width:100% inside scroll wrappers often
+   triggers a near-full-width horizontal scrollbar even when columns fit. */
+.sapMScrollContainer .plmsPanelDataTable {
+    min-width: 0 !important;
+}
+
+.plmsPanelDataTable {
+    padding-left: 0 !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+}
+
+.plmsPanelDataTable .sapMListTblCnt,
+.plmsPanelDataTable .sapMSticky .sapMListTblCnt {
+    overflow-x: hidden !important;
+}
+
+/* Input suggestion popup (Trip Number, Vehicle Number, etc.): align overflow
+   with sap.m.Input's sapMSuggestionsPopover (vertical list, no horizontal scroll). */
 .sapMSuggestionsPopover .sapMScrollContainer {
     overflow-x: hidden !important;
     overflow-y: auto !important;
@@ -1965,14 +1966,10 @@
     color: #607d8b !important;
 }
 
-/* ScrollContainer for Activity - Responsive like HomePage */
+/* ScrollContainer for Activity — vertical scroll; horizontal only where UI5 marks ContH/VH */
 .sapUiView[data-controller-name*="Activity"] .sapMScrollContainer {
     width: 100% !important;
-    overflow-x: auto !important;
-    overflow-y: auto !important;
     -webkit-overflow-scrolling: touch;
-    scrollbar-width: thin; /* Firefox */
-    -ms-overflow-style: auto; /* IE and Edge */
 }
 
 /* Webkit browsers (Chrome, Safari, Edge) - Custom scrollbar */
@@ -3032,9 +3029,8 @@
 }
 
 /* ==================== CARD TIMELINE (Activity Analysis) ==================== */
-/* Horizontal scroll wrapper */
+/* Horizontal scroll: overflow rules are set with .sapMScrollContH above */
 .plmsCardTimelineScroll.sapMScrollContainer {
-    overflow-x: auto !important;
     overflow-y: hidden !important;
 }
 
@@ -3228,4 +3224,104 @@
 .incomingMaterialsDialog .plmsRvScanBtn .sapMBtnInner {
     min-width: 3rem !important;
     border-radius: var(--plms-radius-sm, 8px) !important;
+}
+
+/* ==================== GATE IN: BIN / TROLLEY TRACKING ==================== */
+.binTrolleyTrackingTable {
+    border: 1px solid #a8e4d1 !important;
+    border-radius: 12px !important;
+    overflow: hidden;
+}
+
+.binTrolleyTrackingTable .sapMListTblHeaderCell {
+    background: #d8ebe4 !important;
+}
+
+.binTrolleyTrackingTable .sapMColumnHeader .sapMText {
+    font-weight: 700 !important;
+    color: #4c6282 !important;
+    letter-spacing: 0.06em;
+}
+
+.binTrolleyPartCode {
+    font-weight: 700 !important;
+    color: #0c2240 !important;
+}
+
+.binTrolleyTrackingTable .sapMInputBaseContentWrapper {
+    border-radius: 12px !important;
+}
+
+.binTrolleyDifference .sapMObjStatusText {
+    font-weight: 700 !important;
+    font-size: 1.6rem !important;
+}
+
+.binTrolleyTrackingTable .sapMObjStatusInverted.sapMObjStatusSuccess {
+    background-color: rgba(16, 185, 129, 0.14) !important;
+    border: 1px solid rgba(16, 185, 129, 0.36) !important;
+}
+
+.binTrolleyTrackingTable .sapMObjStatusInverted.sapMObjStatusWarning {
+    background-color: rgba(245, 158, 11, 0.14) !important;
+    border: 1px solid rgba(245, 158, 11, 0.4) !important;
+}
+
+.binTrolleyTrackingTable .sapMObjStatusInverted.sapMObjStatusError {
+    background-color: rgba(239, 68, 68, 0.14) !important;
+    border: 1px solid rgba(239, 68, 68, 0.36) !important;
+}
+
+.binTrolleyTrackingTable .sapMObjStatusInverted.sapMObjStatusInformation {
+    background-color: rgba(59, 130, 246, 0.14) !important;
+    border: 1px solid rgba(59, 130, 246, 0.36) !important;
+}
+
+.binTrolleyTrackingTotalBar {
+    background: #d8ebe4;
+    border-top: 2px solid #9adfc4;
+    padding: 0.8rem 1rem;
+    border-radius: 0 0 12px 12px;
+}
+
+.binTrolleyTrackingTotalLabel {
+    font-weight: 800 !important;
+    color: #7b8da8 !important;
+    letter-spacing: 0.08em;
+}
+
+.binTrolleyTrackingTotalDiff .sapMObjStatusText {
+    font-weight: 800 !important;
+}
+
+/* ==================== GATE OUT: BIN / TROLLEY TRACKING ==================== */
+.gateOutBinTrolleyTable {
+    border: 1px solid #c6d1e4 !important;
+    border-radius: 12px !important;
+    overflow: hidden;
+}
+
+.gateOutBinTrolleyTable .sapMListTblHeaderCell {
+    background: #d8dee9 !important;
+}
+
+.gateOutBinTrolleyTable .sapMColumnHeader .sapMText {
+    font-weight: 700 !important;
+    color: #4c6282 !important;
+    letter-spacing: 0.06em;
+}
+
+.gateOutBinTrolleyTable .sapMObjStatusInverted.sapMObjStatusInformation {
+    background-color: rgba(59, 130, 246, 0.14) !important;
+    border: 1px solid rgba(59, 130, 246, 0.36) !important;
+}
+
+.gateOutBinTrolleyTable .sapMObjStatusInverted.sapMObjStatusWarning {
+    background-color: rgba(245, 158, 11, 0.14) !important;
+    border: 1px solid rgba(245, 158, 11, 0.4) !important;
+}
+
+.gateOutBinTrolleyTable .sapMObjStatusInverted.sapMObjStatusSuccess {
+    background-color: rgba(16, 185, 129, 0.14) !important;
+    border: 1px solid rgba(16, 185, 129, 0.36) !important;
 }

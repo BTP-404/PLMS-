@@ -6,9 +6,9 @@ sap.ui.define(
     "sap/ui/model/json/JSONModel",
     "sap/ui/model/odata/v2/ODataModel",
     "sap/ui/core/Fragment",
-    "com/incresolZ_INC_PLMS/util/MovementScenarioIcons",
     "com/incresolZ_INC_PLMS/util/MovementScenarioConfig",
     "com/incresolZ_INC_PLMS/util/PanelAccordion",
+    "com/incresolZ_INC_PLMS/util/VehicleTypeConfig",
   ],
   function (
     Controller,
@@ -17,9 +17,9 @@ sap.ui.define(
     JSONModel,
     ODataModel,
     Fragment,
-    MovementScenarioIcons,
     MovementScenarioConfig,
-    PanelAccordion
+    PanelAccordion,
+    VehicleTypeConfig
   ) {
     "use strict";
 
@@ -43,18 +43,14 @@ sap.ui.define(
             this._oExitGateModel = new JSONModel({ items: [] });
             this.getView().setModel(this._oExitGateModel, "exitGateModel");
           }
+
+          this._initGateOutBinTrolleyModel();
+          this._initBinTrolleyVisibilityModel();
+          this._updateBinTrolleyVisibility();
           
           // Initialize selected files array
           this._aSelectedFiles = [];
 
-          // Bin details local UI state (edit/save/cancel)
-          if (!this.getView().getModel("binState")) {
-            this.getView().setModel(
-              new JSONModel({ binDetailsEditMode: false }),
-              "binState"
-            );
-          }
-          
           // Ensure GateOut view can bind to the shared Reference Documents model
           // (refDocModel is created in ReferenceDocuments controller and also set on Core).
           var oRefDocModel = sap.ui.getCore().getModel("refDocModel");
@@ -82,6 +78,52 @@ sap.ui.define(
             this.getView().setModel(this._oGateOutAttachmentsModel, "gateOutAttachmentsModel");
           }
         },
+        _initGateOutBinTrolleyModel: function () {
+          if (!this.getView().getModel("gateOutBinTrolley")) {
+            this.getView().setModel(new JSONModel({ rows: [] }), "gateOutBinTrolley");
+          }
+        },
+        _initBinTrolleyVisibilityModel: function () {
+          if (!this.getView().getModel("ui")) {
+            this.getView().setModel(
+              new JSONModel({ showBinTrolleyTracking: false }),
+              "ui"
+            );
+          }
+        },
+        _updateBinTrolleyVisibility: function () {
+          this._initBinTrolleyVisibilityModel();
+          var oTripData = sap.ui.getCore().getModel("TripData");
+          var oGlobal = sap.ui.getCore().getModel("globalData");
+
+          var sTrip = String(
+            (oTripData && oTripData.getProperty("/TripNumber")) ||
+              (oGlobal && oGlobal.getProperty("/TripNumber")) ||
+              ""
+          ).trim();
+          var sMt = String(
+            (oTripData && oTripData.getProperty("/MovementType")) ||
+              (oGlobal && oGlobal.getProperty("/MovementType")) ||
+              ""
+          ).trim().toUpperCase();
+          var sMsRaw = String(
+            (oTripData && oTripData.getProperty("/MovementScenario")) ||
+              ""
+          ).trim();
+          var sMs = sMsRaw.replace(/^0+/, "") || "0";
+          var sVehicleTypeRaw = String(
+            (oTripData && oTripData.getProperty("/VehicleType")) ||
+              ""
+          ).trim();
+          var bInternalVehicle =
+            VehicleTypeConfig.isGateOutFirstInCreateMode(sVehicleTypeRaw);
+          var bCreateInternalWithoutTrip =
+            !sTrip && sMt === "O" && sMs === "2" && bInternalVehicle;
+
+          // Hard guard: hide for every inward case.
+          var bShow = (sMt === "O" && sMs === "2" && !!sTrip) || bCreateInternalWithoutTrip;
+          this.getView().getModel("ui").setProperty("/showBinTrolleyTracking", bShow);
+        },
         onAfterRendering: function () {
           try {
             // Get trip number from globalData model (safer approach)
@@ -89,6 +131,8 @@ sap.ui.define(
             this.tripNumber = oGlobalModel ? oGlobalModel.getProperty("/TripNumber") || "" : "";
             
             this.loadExitGateNumber();
+            this._loadGateOutBinTrolleyData();
+            this._updateBinTrolleyVisibility();
 
             // Set initial input state based on whether GateOut data exists
             var oTripData = sap.ui.getCore().getModel("TripData");
@@ -149,6 +193,7 @@ sap.ui.define(
         },
         _onTripDataUpdate: function () {
           var oTripData = sap.ui.getCore().getModel("TripData");
+          this._updateBinTrolleyVisibility();
           if (oTripData) {
             this.getView().setModel(oTripData, "TripData");
             
@@ -179,6 +224,7 @@ sap.ui.define(
             }
 
             this.loadExitGateNumber();
+            this._loadGateOutBinTrolleyData();
             this._normalizeTripDataItemDetails();
             // Disable inputs if GateOut data already exists (display mode)
             var sExistingExitGateNum = oTripData.getProperty("/ExitGateNum");
@@ -225,6 +271,49 @@ sap.ui.define(
             }
           }
           return String(sTripNumber).trim();
+        },
+        _deriveGateOutDispatchStatus: function (vQtyOut) {
+          var iQtyOut = Number(vQtyOut);
+          if (!isNaN(iQtyOut) && iQtyOut > 0) {
+            return "Dispatched";
+          }
+          return "Not in GO";
+        },
+        _loadGateOutBinTrolleyData: function () {
+          var oModel = this.oModel;
+          var sTripNumber = this._getTripNumber();
+          var oVm = this.getView().getModel("gateOutBinTrolley");
+          if (!oModel || !oVm || !sTripNumber) {
+            return;
+          }
+
+          oModel.read("/EmptyBins", {
+            filters: [
+              new sap.ui.model.Filter(
+                "TripNumber",
+                sap.ui.model.FilterOperator.EQ,
+                sTripNumber
+              )
+            ],
+            success: function (oData) {
+              var aRows = (oData && oData.results ? oData.results : []).map(function (r) {
+                var sStatus = this._deriveGateOutDispatchStatus(r.QtyOut);
+                return {
+                  DocumentNumber: r.DocumentNumber || "-",
+                  ItemNo: r.ItemNo || "-",
+                  Material: r.Material || "-",
+                  BinType: r.BinType || "",
+                  QtyOut: r.QtyOut != null && r.QtyOut !== "" ? r.QtyOut : "0",
+                  Status: sStatus,
+                  BinTypeState: (String(r.BinType || "").toLowerCase().indexOf("plastic") >= 0) ? "Warning" : "Information"
+                };
+              }.bind(this));
+              oVm.setProperty("/rows", aRows);
+            }.bind(this),
+            error: function () {
+              oVm.setProperty("/rows", []);
+            }
+          });
         },
         /**
          * Loads exit-gate ConfigValues for ConfigGroup ExitGate, always filtered by TripNumber when known.
@@ -469,6 +558,18 @@ sap.ui.define(
           }
           return 1; // No (default)
         },
+        formatGateOutDispatchState: function (sStatus) {
+          return String(sStatus || "").toLowerCase() === "dispatched" ? "Success" : "Information";
+        },
+        formatGateOutBinTypeText: function (oRow) {
+          if (!oRow) {
+            return "";
+          }
+          var sIcon = String(oRow.BinType || "").toLowerCase().indexOf("plastic") >= 0 ? "📦" : "🛒";
+          var sType = oRow.BinType || "";
+          var sMat = oRow.Material || "";
+          return sIcon + " " + sType + (sMat ? "\n" + sMat : "");
+        },
         onRefDocSkipChange: function (oEvent) {
           var iSelectedIndex = oEvent.getParameter("selectedIndex");
           var sRefDocSkip = iSelectedIndex === 0 ? "X" : " ";
@@ -488,6 +589,14 @@ sap.ui.define(
           var oTripData = sap.ui.getCore().getModel("TripData");
           if (!oTripData) {
             MessageBox.error("Trip data is not available.");
+            return;
+          }
+
+          var sGatePassNo = this._getTripNumber();
+          if (!sGatePassNo) {
+            MessageBox.error(
+              "Gate Pass No has not been generated. Save Vehicle Reporting first to generate a Gate Pass No before Gate Out."
+            );
             return;
           }
 
@@ -517,11 +626,7 @@ sap.ui.define(
           var oRBGroup = oView.byId("idVerifiedDocs");
           var bVerifiedDocs = oRBGroup ? oRBGroup.getSelectedIndex() === 0 : false;
 
-          var oGlobal = sap.ui.getCore().getModel("globalData");
-          var sTripNumber =
-            (oGlobal && oGlobal.getProperty("/TripNumber")) ||
-            oTripData.getProperty("/TripNumber") ||
-            "";
+          var sTripNumber = sGatePassNo;
 
           var oSkipDocGroup = oView.byId("idSkipDocumentGateOut");
           var sRefdocSkip = " ";
@@ -1176,148 +1281,6 @@ sap.ui.define(
           document.body.appendChild(oLink);
           oLink.click();
           document.body.removeChild(oLink);
-        },
-
-        /**
-         * Used by bindings in GateOut.view.xml to show/hide "Bin Details".
-         * TripData>/MovementScenarioItemKey must match outbound direct-sale key (O + scenario from ConfigID "09").
-         */
-        formatIsO09Scenario: function (sMovementScenarioItemKey) {
-          return MovementScenarioIcons.isOutgoingDirectSaleScenarioItemKey(
-            sMovementScenarioItemKey
-          );
-        },
-
-        _getRefDocModel: function () {
-          return (
-            this.getView().getModel("refDocModel") ||
-            sap.ui.getCore().getModel("refDocModel")
-          );
-        },
-
-        _getTripDataModel: function () {
-          return this.getView().getModel("TripData") || sap.ui.getCore().getModel("TripData");
-        },
-
-        _buildBinDetailsRowKey: function (oRow) {
-          if (!oRow) return "";
-          return [
-            oRow.tripNumber || oRow.TripNumber || "",
-            oRow.docType || oRow.DocType || "",
-            oRow.refDocNo || oRow.RefDocNo || "",
-            oRow.refDocItemNo || oRow.RefDocItemNo || "",
-            oRow.materialCode || oRow.MaterialCode || "",
-          ].join("|");
-        },
-
-        _snapshotBinDetailsBins: function () {
-          var oRefModel = this._getRefDocModel();
-          if (!oRefModel) return;
-
-          var aFiltered = oRefModel.getProperty("/filteredMaterialDetails") || [];
-          this._aBinDetailsOriginalBinsSnapshot = aFiltered.map(function (oRow) {
-            return {
-              key: this._buildBinDetailsRowKey(oRow),
-              binsTrolleys: oRow.binsTrolleys,
-            };
-          }.bind(this));
-        },
-
-        _restoreBinDetailsBins: function () {
-          var oRefModel = this._getRefDocModel();
-          if (!oRefModel) return;
-
-          if (!this._aBinDetailsOriginalBinsSnapshot) return;
-
-          var aMaterials = oRefModel.getProperty("/materialDetails") || [];
-          var aSnapshot = this._aBinDetailsOriginalBinsSnapshot;
-
-          // Restore values by matching keys in materialDetails (shared objects with filtered list).
-          aMaterials.forEach(function (oMat) {
-            var sKey = this._buildBinDetailsRowKey(oMat);
-            var oEntry = aSnapshot.find(function (e) {
-              return e.key === sKey;
-            });
-            if (oEntry) {
-              oMat.binsTrolleys = oEntry.binsTrolleys;
-            }
-          }.bind(this));
-
-          // Force refresh to ensure bindings update.
-          oRefModel.setProperty("/materialDetails", aMaterials, true);
-        },
-
-        _setBinInputsEditable: function (bEditable) {
-          var oTable = this.getView().byId("idBinDetailsTable");
-          if (!oTable) return;
-          var aChildren = oTable.findAggregatedObjects(true) || [];
-          aChildren.forEach(function (oCtrl) {
-            if (oCtrl && oCtrl.isA && oCtrl.isA("sap.m.Input")) {
-              if (oCtrl.setEditable) oCtrl.setEditable(!!bEditable);
-              if (oCtrl.setEnabled) oCtrl.setEnabled(!!bEditable);
-            }
-          });
-        },
-
-        onEditBinDetails: function () {
-          var oGlobalModel = sap.ui.getCore().getModel("globalData");
-          if (
-            oGlobalModel &&
-            (oGlobalModel.getProperty("/IsScanningReporting") ||
-              oGlobalModel.getProperty("/DisableRefDocMaterialsActions"))
-          ) {
-            MessageToast.show(
-              "Editing bins is disabled for this movement scenario."
-            );
-            return;
-          }
-
-          this._snapshotBinDetailsBins();
-          var oState = this.getView().getModel("binState");
-          if (oState) {
-            oState.setProperty("/binDetailsEditMode", true);
-          }
-          this._setBinInputsEditable(true);
-        },
-
-        onCancelBinDetails: function () {
-          this._restoreBinDetailsBins();
-          var oState = this.getView().getModel("binState");
-          if (oState) {
-            oState.setProperty("/binDetailsEditMode", false);
-          }
-          // No need to disable inputs explicitly; they become hidden.
-          MessageToast.show("Bin details edit cancelled");
-        },
-
-        onSaveBinDetails: function () {
-          var oTripData = this._getTripDataModel();
-          var oRefModel = this._getRefDocModel();
-          if (!oTripData || !oRefModel) {
-            MessageToast.show("Unable to save bins (missing models).");
-            return;
-          }
-
-          var aItems = oRefModel.getProperty("/filteredMaterialDetails") || [];
-          var iTotalBins = 0;
-
-          aItems.forEach(function (oRow) {
-            var v = oRow && oRow.binsTrolleys;
-            var n = v === null || v === undefined || v === "" ? 0 : Number(v);
-            if (!isNaN(n)) {
-              iTotalBins += n;
-            }
-          });
-
-          // Keep GateOut payload consistent: it already sends `BinsReturned`.
-          oTripData.setProperty("/BinsReturned", iTotalBins);
-
-          var oState = this.getView().getModel("binState");
-          if (oState) {
-            oState.setProperty("/binDetailsEditMode", false);
-          }
-
-          MessageToast.show("Bins saved. Total updated.");
         },
 
         // User-role-based authorization for GateOut has been removed; buttons are

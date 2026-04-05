@@ -285,6 +285,21 @@ sap.ui.define(
         if (this._oIncomingPoSuggestModel) {
           this._oIncomingPoSuggestModel.setData({ items: [] });
         }
+        if (!this._oOutgoingInvoiceResponseModel) {
+          this._oOutgoingInvoiceResponseModel = new JSONModel({
+            loading: false,
+            results: [],
+            selected: null,
+            showVehicleType: false,
+          });
+        } else {
+          this._oOutgoingInvoiceResponseModel.setData({
+            loading: false,
+            results: [],
+            selected: null,
+            showVehicleType: false,
+          });
+        }
 
         if (!this._oIncomingEntryMethodDialog) {
           Fragment.load({
@@ -319,6 +334,16 @@ sap.ui.define(
                 this._oOutgoingInvoiceSuggestModel,
                 "outgoingInvoiceSuggest"
               );
+              oDialog.setModel(
+                this._oOutgoingInvoiceResponseModel,
+                "outgoingInvoiceResponse"
+              );
+              if (this._oOutgoingVehicleTypeOptionsModel) {
+                oDialog.setModel(
+                  this._oOutgoingVehicleTypeOptionsModel,
+                  "outgoingVehicleTypeOptions"
+                );
+              }
               oDialog.open();
             }.bind(this)
           );
@@ -421,6 +446,26 @@ sap.ui.define(
         }
         if (this._oOutgoingInvoiceSuggestModel) {
           this._oOutgoingInvoiceSuggestModel.setProperty("/items", []);
+        }
+        if (!this._oOutgoingInvoiceResponseModel) {
+          this._oOutgoingInvoiceResponseModel = new JSONModel({
+            loading: false,
+            results: [],
+            selected: null,
+            showVehicleType: false,
+          });
+        } else {
+          this._oOutgoingInvoiceResponseModel.setData({
+            loading: false,
+            results: [],
+            selected: null,
+            showVehicleType: false,
+          });
+        }
+        if (this._oOutgoingEntryMethodModel) {
+          this._oOutgoingEntryMethodModel.setProperty("/selectedVehicleType", "");
+          this._oOutgoingEntryMethodModel.setProperty("/selectedVehicleTypeDesc", "");
+          this._oOutgoingEntryMethodModel.setProperty("/existingTripNo", "");
         }
         var oOutInv = Fragment.byId(sViewId, "idOutgoingDialogInvoiceInput");
         if (oOutInv) {
@@ -525,6 +570,10 @@ sap.ui.define(
         // Gate entry / create mode: no TripNumber yet.
         oGlobalModel.setProperty("/TripNumber", "");
         oGlobalModel.setProperty("/IncomingPoNumber", (m && m.po) ? m.po : "");
+        oGlobalModel.setProperty(
+          "/IncomingRefDocDocType",
+          (m && m.docType) ? m.docType : ""
+        );
         oGlobalModel.setProperty("/IncomingReportingMethod", "PO");
         oGlobalModel.setProperty(
           "/IncomingRefDocSkip",
@@ -623,6 +672,8 @@ sap.ui.define(
           that._incomingDialogSetGateEntryModels({
             po: sPo,
             refDocSkip: sRefDocSkip,
+            docType:
+              m.docType !== undefined && m.docType !== null ? m.docType : "",
             movementScenarioDesc:
               m.movementScenarioDesc !== undefined && m.movementScenarioDesc !== null
                 ? m.movementScenarioDesc
@@ -653,11 +704,31 @@ sap.ui.define(
           this._oIncomingEntryMethodDialog.setBusy(true);
         }
 
+        var fnShowPoNumberShReadFailed = function (oError) {
+          if (that._oIncomingEntryMethodDialog) {
+            that._oIncomingEntryMethodDialog.setBusy(false);
+          }
+          var sMsg = that._getODataErrorMessage(
+            oError,
+            "Could not read PO details"
+          );
+          MessageBox.error(sMsg, {
+            onClose: function () {
+              that._focusIncomingEntryMethodPrimaryInput(150);
+            },
+          });
+        };
+
         var fnParsePoRow = function (oRow) {
           // PoNumberSH (YIGP_PLMS_SRV): MovementType (I/O), MovementScenario (e.g. "04"),
           // scenario text in MovementDescription (preferred) or MovementScenarioDesc / LongText.
           if (!oRow) {
-            return { movementType: "", movementScenario: "", movementScenarioDesc: "" };
+            return {
+              movementType: "",
+              movementScenario: "",
+              movementScenarioDesc: "",
+              docType: "",
+            };
           }
           var sMt =
             oRow.MovementType !== undefined && oRow.MovementType !== null
@@ -667,6 +738,12 @@ sap.ui.define(
             oRow.MovementScenario !== undefined && oRow.MovementScenario !== null
               ? String(oRow.MovementScenario).trim()
               : "";
+          var sDocType =
+            oRow.DocType !== undefined && oRow.DocType !== null
+              ? String(oRow.DocType).trim()
+              : oRow.DocumentType !== undefined && oRow.DocumentType !== null
+                ? String(oRow.DocumentType).trim()
+                : "";
           var sDesc = "";
           if (oRow.MovementDescription != null && String(oRow.MovementDescription).trim() !== "") {
             sDesc = String(oRow.MovementDescription).trim();
@@ -678,7 +755,12 @@ sap.ui.define(
           } else if (oRow.LongText != null && String(oRow.LongText).trim() !== "") {
             sDesc = String(oRow.LongText).trim();
           }
-          return { movementType: sMt, movementScenario: sMs, movementScenarioDesc: sDesc };
+          return {
+            movementType: sMt,
+            movementScenario: sMs,
+            movementScenarioDesc: sDesc,
+            docType: sDocType,
+          };
         };
 
         var fnReadPoNumberShCollection = function (sFilterProp, fnNextFallback) {
@@ -696,11 +778,11 @@ sap.ui.define(
                 fnApplyAndNav({});
               }
             },
-            error: function () {
+            error: function (oError) {
               if (fnNextFallback) {
                 fnNextFallback();
               } else {
-                fnApplyAndNav({});
+                fnShowPoNumberShReadFailed(oError);
               }
             },
           });
@@ -713,9 +795,17 @@ sap.ui.define(
               (oData && oData.d) ? oData.d : oData; // support raw "d" envelope if present
             fnApplyAndNav(fnParsePoRow(oRow));
           },
-          error: function () {
-        // Fallback: filter by Ebeln (PO number field in metadata)
-        fnReadPoNumberShCollection("Ebeln");
+          error: function (oError) {
+            // Only 404: try filter read; any other error — show message and stay on dialog.
+            var iStatus =
+              oError && oError.statusCode !== undefined
+                ? parseInt(oError.statusCode, 10)
+                : NaN;
+            if (iStatus === 404) {
+              fnReadPoNumberShCollection("PoNumber");
+            } else {
+              fnShowPoNumberShReadFailed(oError);
+            }
           },
         });
       },
@@ -767,6 +857,7 @@ sap.ui.define(
           oGlobal.setProperty("/HasOutgoingMaterials", false);
           oGlobal.setProperty("/IncomingReportingMethod", null);
           oGlobal.setProperty("/IncomingPoNumber", "");
+          oGlobal.setProperty("/IncomingRefDocDocType", "");
         }
         this._clearOutgoingGlobalPrefill();
         sap.ui.getCore().setModel(null, "TripData");
@@ -820,11 +911,10 @@ sap.ui.define(
         }
         this._sIncomingDialogPoSuggestLastTerm = sTerm;
 
-        // PoNumberSH: PO number field in metadata is typically Ebeln.
-        // Search by PO number (Ebeln) or vendor name.
+        // PoNumberSH: search by PO number or vendor name.
         var oOrFilter = new Filter(
           [
-            new Filter("Ebeln", FilterOperator.Contains, sTerm),
+            new Filter("PoNumber", FilterOperator.Contains, sTerm),
             new Filter("VendorName", FilterOperator.Contains, sTerm),
           ],
           false
@@ -836,15 +926,11 @@ sap.ui.define(
           var mSeen = {};
           var aItems = [];
           a.forEach(function (o) {
-            var n =
-              (o.Ebeln && String(o.Ebeln).trim()) ||
-              (o.PoNumber && String(o.PoNumber).trim()) ||
-              "";
+            var n = (o.PoNumber && String(o.PoNumber).trim()) || "";
             if (n && !mSeen[n]) {
               mSeen[n] = true;
               aItems.push({
-                Ebeln: n,
-                PoNumber: n, // keep alias for backends that return PoNumber
+                PoNumber: n,
                 VendorName: (o.VendorName && String(o.VendorName).trim()) || "",
               });
             }
@@ -853,7 +939,7 @@ sap.ui.define(
         };
 
         var fnPoOnly = function () {
-          var aFilters = [new Filter("Ebeln", FilterOperator.Contains, sTerm)];
+          var aFilters = [new Filter("PoNumber", FilterOperator.Contains, sTerm)];
           oModel.read("/PoNumberSH", {
             filters: aFilters,
             urlParameters: { $top: "40" },
@@ -881,7 +967,11 @@ sap.ui.define(
         oEvent.getSource().setValue(sPo);
       },
 
-      _navigateToTripFromIncomingDialog: function (sTripNo, sTabKey) {
+      /**
+       * @param {boolean} [bSkipTripTableRefresh] When true (e.g. typed D-Note/ASN in scan field),
+       *   do not run OData refresh on the home trip list after navigation.
+       */
+      _navigateToTripFromIncomingDialog: function (sTripNo, sTabKey, bSkipTripTableRefresh) {
         var sTrip = String(sTripNo || "").trim();
         if (!sTrip) {
           MessageToast.show("Trip number is missing.");
@@ -909,7 +999,9 @@ sap.ui.define(
           mNavArgs["?query"] = { tab: sTab };
         }
         sap.ui.core.UIComponent.getRouterFor(this).navTo("StagewithParam", mNavArgs);
-        sap.ui.getCore().getEventBus().publish("HomePage", "RefreshTripTable");
+        if (!bSkipTripTableRefresh) {
+          sap.ui.getCore().getEventBus().publish("HomePage", "RefreshTripTable");
+        }
       },
 
       _incomingDialogFetchTripByPoAndNavigate: function () {
@@ -938,7 +1030,7 @@ sap.ui.define(
           filters: [
             new Filter({
               filters: [
-                new Filter("Ebeln", FilterOperator.EQ, sPo),
+                new Filter("PoNumber", FilterOperator.EQ, sPo),
               ],
               and: false,
             }),
@@ -980,6 +1072,7 @@ sap.ui.define(
 
       /**
        * Scan field: fires on Enter or when focus leaves after the value changed.
+       * Typed entry skips HomePage OData trip-list refresh after successful ASN/D-Note post.
        */
       onIncomingDialogScanChange: function (oEvent) {
         var oIn = oEvent.getSource();
@@ -988,6 +1081,7 @@ sap.ui.define(
         if (!sText) {
           return;
         }
+        this._bIncomingScanSkipTripTableRefresh = true;
         this._incomingDialogProcessScannedCode(sText.split("|")[0]);
       },
 
@@ -1010,6 +1104,7 @@ sap.ui.define(
               return;
             }
             var sParsed = (oResult.text || "").split("|")[0];
+            that._bIncomingScanSkipTripTableRefresh = false;
             that._incomingDialogProcessScannedCode(sParsed);
             that._clearIncomingDialogScanInput();
           },
@@ -1043,6 +1138,7 @@ sap.ui.define(
 
       _incomingDialogProcessScannedCode: function (sScannedCode) {
         if (!sScannedCode || !sScannedCode.trim()) {
+          this._bIncomingScanSkipTripTableRefresh = false;
           MessageToast.show("Invalid scan code");
           this._clearIncomingDialogScanInput();
           return;
@@ -1147,6 +1243,7 @@ sap.ui.define(
           oPayload = { PoNumber: String(sPoNumber).trim() };
           this._sPendingOrderDetailPo = String(sPoNumber).trim();
         } else {
+          this._bIncomingScanSkipTripTableRefresh = false;
           MessageToast.show("Invalid input: provide ASN scan or PO number");
           this._clearIncomingDialogScanInput();
           return;
@@ -1171,7 +1268,7 @@ sap.ui.define(
       },
 
       /**
-       * POST /PoNumberSH — PO number is typically Ebeln in metadata.
+       * POST /PoNumberSH using PoNumber from metadata.
        */
       _incomingDialogPostPoNumber: function (sPo) {
         var sPoNumber = String(sPo || "").trim();
@@ -1181,14 +1278,14 @@ sap.ui.define(
           return;
         }
 
+        this._bIncomingScanSkipTripTableRefresh = false;
         var oModel = this.getView().getModel();
         var that = this;
         this._sPendingOrderDetailPo = sPoNumber;
         if (this._oIncomingEntryMethodDialog) {
           this._oIncomingEntryMethodDialog.setBusy(true);
         }
-        // Send both fields for compatibility across backend variants.
-        oModel.create("/PoNumberSH", { Ebeln: sPoNumber, PoNumber: sPoNumber }, {
+        oModel.create("/PoNumberSH", { PoNumber: sPoNumber }, {
           headers: { "X-Requested-With": "X" },
           success: function (oResponse) {
             that._onIncomingIdentificationCreateSuccess(oResponse);
@@ -1262,18 +1359,20 @@ sap.ui.define(
           var that = this;
           var sPoForOrder = this._sPendingOrderDetailPo;
           this._sPendingOrderDetailPo = null;
+          var fnNavigateToGateIn = function () {
+            var bSkip = !!that._bIncomingScanSkipTripTableRefresh;
+            that._bIncomingScanSkipTripTableRefresh = false;
+            that._navigateToTripFromIncomingDialog(sTripNumber, "gateIn", bSkip);
+          };
           var fnLoadTrip = function () {
-            that._loadTripDetailsAfterIncomingDialog(sTripNumber);
-            sap.ui.getCore().getEventBus().publish("HomePage", "RefreshTripTable");
+            that._loadTripDetailsAfterIncomingDialog(sTripNumber, fnNavigateToGateIn);
           };
           if (sPoForOrder) {
             this._createOrderDetailForIncomingPoTrip(sTripNumber, sPoForOrder, fnLoadTrip);
           } else {
             fnLoadTrip();
           }
-          MessageToast.show(
-            "Trip created: " + sFormatted + ". Press Continue."
-          );
+          MessageToast.show("Trip created: " + sFormatted);
           if (this._oIncomingEntryMethodModel) {
             this._oIncomingEntryMethodModel.setProperty(
               "/entryComplete",
@@ -1288,6 +1387,7 @@ sap.ui.define(
           }
         } else {
           this._sPendingOrderDetailPo = null;
+          this._bIncomingScanSkipTripTableRefresh = false;
           MessageToast.show(
             "Request completed but no trip number was returned."
           );
@@ -1300,11 +1400,46 @@ sap.ui.define(
         }
       },
 
+      /**
+       * Extracts OData message from failed read/create responses (JSON error body).
+       */
+      _getODataErrorMessage: function (oError, sDefaultMessage) {
+        var sErrorMessage = sDefaultMessage || "Error";
+        if (!oError) {
+          return sErrorMessage;
+        }
+        try {
+          if (oError.responseText) {
+            var oResp = JSON.parse(oError.responseText);
+            if (
+              oResp.error &&
+              oResp.error.message &&
+              oResp.error.message.value
+            ) {
+              sErrorMessage = oResp.error.message.value;
+            } else if (oResp.error && oResp.error.message) {
+              sErrorMessage =
+                typeof oResp.error.message === "string"
+                  ? oResp.error.message
+                  : oResp.error.message;
+            }
+          }
+        } catch (e) {
+          if (oError.message && oError.message.value) {
+            sErrorMessage = oError.message.value;
+          } else if (oError.message) {
+            sErrorMessage = sDefaultMessage + ": " + oError.message;
+          }
+        }
+        return sErrorMessage;
+      },
+
       _onIncomingIdentificationCreateError: function (
         oError,
         sDefaultMessage,
         sPoForDedupReset
       ) {
+        this._bIncomingScanSkipTripTableRefresh = false;
         if (this._oIncomingEntryMethodDialog) {
           this._oIncomingEntryMethodDialog.setBusy(false);
         }
@@ -1316,25 +1451,7 @@ sap.ui.define(
         if (sFailedPo && this._sLastPostedPoNumber === sFailedPo) {
           this._sLastPostedPoNumber = null;
         }
-        var sErrorMessage = sDefaultMessage;
-        try {
-          var oResp = JSON.parse(oError.responseText);
-          if (
-            oResp.error &&
-            oResp.error.message &&
-            oResp.error.message.value
-          ) {
-            sErrorMessage = oResp.error.message.value;
-          } else if (oResp.error && oResp.error.message) {
-            sErrorMessage = oResp.error.message;
-          }
-        } catch (e) {
-          if (oError.message && oError.message.value) {
-            sErrorMessage = oError.message.value;
-          } else if (oError.message) {
-            sErrorMessage += ": " + oError.message;
-          }
-        }
+        var sErrorMessage = this._getODataErrorMessage(oError, sDefaultMessage);
         var that = this;
         MessageBox.error(sErrorMessage, {
           onClose: function () {
@@ -1357,6 +1474,7 @@ sap.ui.define(
           return;
         }
         oG.setProperty("/IncomingPoNumber", "");
+        oG.setProperty("/IncomingRefDocDocType", "");
         oG.setProperty("/IncomingMovementScenarioDesc", "");
         oG.setProperty("/IncomingMovementType", "");
         oG.setProperty("/IncomingMovementScenario", "");
@@ -1390,6 +1508,19 @@ sap.ui.define(
         }
         if (this._oOutgoingInvoiceSuggestModel) {
           this._oOutgoingInvoiceSuggestModel.setProperty("/items", []);
+        }
+        if (this._oOutgoingInvoiceResponseModel) {
+          this._oOutgoingInvoiceResponseModel.setData({
+            loading: false,
+            results: [],
+            selected: null,
+            showVehicleType: false,
+          });
+        }
+        if (this._oOutgoingEntryMethodModel) {
+          this._oOutgoingEntryMethodModel.setProperty("/selectedVehicleType", "");
+          this._oOutgoingEntryMethodModel.setProperty("/selectedVehicleTypeDesc", "");
+          this._oOutgoingEntryMethodModel.setProperty("/existingTripNo", "");
         }
         var that = this;
         var fnFocus = function () {
@@ -1434,6 +1565,10 @@ sap.ui.define(
           mT.refDocSkip !== undefined ? mT.refDocSkip : " "
         );
         oG.setProperty("/OutgoingPoNumber", mT.poNumber !== undefined ? mT.poNumber : "");
+        oG.setProperty(
+          "/OutgoingRefDocDocType",
+          mT.docType !== undefined ? mT.docType : ""
+        );
       },
 
       _clearOutgoingGlobalPrefill: function () {
@@ -1448,6 +1583,8 @@ sap.ui.define(
         oG.setProperty("/OutgoingBillingDocument", "");
         oG.setProperty("/OutgoingRefDocSkip", " ");
         oG.setProperty("/OutgoingPoNumber", "");
+        oG.setProperty("/OutgoingRefDocDocType", "");
+        oG.setProperty("/OutgoingBillingDocType", "");
       },
 
       /**
@@ -1500,10 +1637,31 @@ sap.ui.define(
           String(oOut.getProperty("/billingDocument") || "").trim();
         var bSkipInv = !!oOut.getProperty("/skipDocumentInvoice");
         if (!sInv && !bSkipInv) {
+          var sDocLabel = sSearch === "CHALLAN" ? "challan" : "invoice";
           var thatInv = this;
-          MessageBox.error("Enter an invoice number or select Skip document.", {
+          MessageBox.error("Enter a " + sDocLabel + " number or select Skip document.", {
             onClose: function () {
               thatInv._focusOutgoingEntryMethodPrimaryInput(150);
+            },
+          });
+          return false;
+        }
+        var bVehicleTypeRequired = !!(
+          this._oOutgoingInvoiceResponseModel &&
+          this._oOutgoingInvoiceResponseModel.getProperty("/showVehicleType")
+        );
+        var sVehicleType = String(oOut.getProperty("/selectedVehicleType") || "").trim();
+        if (bVehicleTypeRequired && !sVehicleType) {
+          var thatVt = this;
+          MessageBox.error("Please select Vehicle Type.", {
+            onClose: function () {
+              var sViewId = thatVt.getView().getId();
+              var oVt = Fragment.byId(sViewId, "idOutgoingVehicleTypeCombo");
+              if (oVt && oVt.focus) {
+                setTimeout(function () {
+                  oVt.focus();
+                }, 150);
+              }
             },
           });
           return false;
@@ -1511,6 +1669,10 @@ sap.ui.define(
         var sRefSkipInv = bSkipInv ? "X" : " ";
         var sInvMs = oOut.getProperty("/invoiceMovementScenario") || "";
         var sInvDesc = oOut.getProperty("/invoiceMovementDescription") || "";
+        var oInvResp = sap.ui.getCore().getModel("globalData")?.getProperty("/OutgoingInvoiceResponse") || null;
+        var sInvDocType = oInvResp
+          ? (oInvResp.DocType || oInvResp.DocumentType || oInvResp.BillingType || "")
+          : "";
         var sInvItemKey = sInvMs
           ? MovementScenarioIcons.getMovementScenarioItemKey("O", sInvMs) || ""
           : "";
@@ -1521,6 +1683,7 @@ sap.ui.define(
           billingDocument: sInv,
           refDocSkip: sRefSkipInv,
           poNumber: "",
+          docType: sInvDocType,
         });
         return true;
       },
@@ -1537,7 +1700,12 @@ sap.ui.define(
 
         var fnParsePoRow = function (oRow) {
           if (!oRow) {
-            return { movementType: "", movementScenario: "", movementScenarioDesc: "" };
+            return {
+              movementType: "",
+              movementScenario: "",
+              movementScenarioDesc: "",
+              docType: "",
+            };
           }
           var sMt =
             oRow.MovementType !== undefined && oRow.MovementType !== null
@@ -1547,6 +1715,12 @@ sap.ui.define(
             oRow.MovementScenario !== undefined && oRow.MovementScenario !== null
               ? String(oRow.MovementScenario).trim()
               : "";
+          var sDocType =
+            oRow.DocType !== undefined && oRow.DocType !== null
+              ? String(oRow.DocType).trim()
+              : oRow.DocumentType !== undefined && oRow.DocumentType !== null
+                ? String(oRow.DocumentType).trim()
+                : "";
           var sDesc = "";
           if (oRow.MovementDescription != null && String(oRow.MovementDescription).trim() !== "") {
             sDesc = String(oRow.MovementDescription).trim();
@@ -1558,7 +1732,12 @@ sap.ui.define(
           } else if (oRow.LongText != null && String(oRow.LongText).trim() !== "") {
             sDesc = String(oRow.LongText).trim();
           }
-          return { movementType: sMt, movementScenario: sMs, movementScenarioDesc: sDesc };
+          return {
+            movementType: sMt,
+            movementScenario: sMs,
+            movementScenarioDesc: sDesc,
+            docType: sDocType,
+          };
         };
 
         var fnCloseAndNav = function () {
@@ -1591,6 +1770,8 @@ sap.ui.define(
             billingDocument: "",
             refDocSkip: sRefDocSkip,
             poNumber: sPo,
+            docType:
+              m.docType !== undefined && m.docType !== null ? m.docType : "",
           });
           fnCloseAndNav();
         };
@@ -1603,6 +1784,21 @@ sap.ui.define(
         if (this._oIncomingEntryMethodDialog) {
           this._oIncomingEntryMethodDialog.setBusy(true);
         }
+
+        var fnShowOutgoingPoNumberShReadFailed = function (oError) {
+          if (that._oIncomingEntryMethodDialog) {
+            that._oIncomingEntryMethodDialog.setBusy(false);
+          }
+          var sMsg = that._getODataErrorMessage(
+            oError,
+            "Could not read PO details"
+          );
+          MessageBox.error(sMsg, {
+            onClose: function () {
+              that._focusOutgoingEntryMethodPrimaryInput(150);
+            },
+          });
+        };
 
         var fnReadPoNumberShCollection = function (sFilterProp, fnNextFallback) {
           oModel.read("/PoNumberSH", {
@@ -1619,11 +1815,11 @@ sap.ui.define(
                 fnApplyFromApiRow(fnParsePoRow(null));
               }
             },
-            error: function () {
+            error: function (oError) {
               if (fnNextFallback) {
                 fnNextFallback();
               } else {
-                fnApplyFromApiRow(fnParsePoRow(null));
+                fnShowOutgoingPoNumberShReadFailed(oError);
               }
             },
           });
@@ -1634,8 +1830,16 @@ sap.ui.define(
             var oRow = oData && oData.d ? oData.d : oData;
             fnApplyFromApiRow(fnParsePoRow(oRow));
           },
-          error: function () {
-            fnReadPoNumberShCollection("Ebeln");
+          error: function (oError) {
+            var iStatus =
+              oError && oError.statusCode !== undefined
+                ? parseInt(oError.statusCode, 10)
+                : NaN;
+            if (iStatus === 404) {
+              fnReadPoNumberShCollection("PoNumber");
+            } else {
+              fnShowOutgoingPoNumberShReadFailed(oError);
+            }
           },
         });
       },
@@ -1654,6 +1858,16 @@ sap.ui.define(
         }, 300);
       },
 
+      /**
+       * Outgoing invoice/challan panel: CHALLAN uses ChallanSh (MaterialDoc), INVOICE uses BillingDocSH.
+       */
+      _isOutgoingChallanSelected: function () {
+        var sKey =
+          this._oOutgoingEntryMethodModel &&
+          this._oOutgoingEntryMethodModel.getProperty("/selectedKey");
+        return String(sKey || "").toUpperCase() === "CHALLAN";
+      },
+
       _loadOutgoingInvoiceSuggestions: function (sTerm) {
         var oModel = this.getView().getModel();
         if (!oModel || !this._oOutgoingInvoiceSuggestModel) {
@@ -1664,6 +1878,99 @@ sap.ui.define(
           return;
         }
         var that = this;
+        var bChallan = this._isOutgoingChallanSelected();
+
+        var fnRowInvoice = function (o) {
+          var sV = o && o.BillingDoc ? String(o.BillingDoc).trim() : "";
+          return {
+            DocNumber: sV,
+            BillingDoc: sV,
+            MaterialDoc: "",
+            MovementType:
+              o && o.MovementType ? String(o.MovementType).trim() : "",
+            MovementScenario:
+              o && o.MovementScenario ? String(o.MovementScenario).trim() : "",
+            MovementDescription:
+              o && o.MovementDescription
+                ? String(o.MovementDescription).trim()
+                : "",
+          };
+        };
+
+        var fnRowChallan = function (o) {
+          var sV = o && o.MaterialDoc ? String(o.MaterialDoc).trim() : "";
+          return {
+            DocNumber: sV,
+            BillingDoc: "",
+            MaterialDoc: sV,
+            MovementType:
+              o && o.MovementType ? String(o.MovementType).trim() : "",
+            MovementScenario:
+              o && o.MovementScenario ? String(o.MovementScenario).trim() : "",
+            MovementDescription:
+              o && o.MovementDescription
+                ? String(o.MovementDescription).trim()
+                : "",
+          };
+        };
+
+        if (bChallan) {
+          var oOrChallan = new Filter(
+            [
+              new Filter("MaterialDoc", FilterOperator.Contains, sTerm),
+              new Filter("SupplierName", FilterOperator.Contains, sTerm),
+            ],
+            false
+          );
+          oModel.read("/ChallanSh", {
+            filters: [oOrChallan],
+            urlParameters: { $top: "40" },
+            success: function (oData) {
+              var a = (oData && oData.results) || [];
+              var mSeen = {};
+              var aItems = [];
+              a.forEach(function (o) {
+                var m = fnRowChallan(o);
+                if (!m.DocNumber || mSeen[m.DocNumber]) {
+                  return;
+                }
+                mSeen[m.DocNumber] = true;
+                aItems.push(m);
+              });
+              that._oOutgoingInvoiceSuggestModel.setProperty("/items", aItems);
+            },
+            error: function () {
+              oModel.read("/ChallanSh", {
+                filters: [
+                  new Filter("MaterialDoc", FilterOperator.Contains, sTerm),
+                ],
+                urlParameters: { $top: "40" },
+                success: function (oData2) {
+                  var a2 = (oData2 && oData2.results) || [];
+                  var mSeen2 = {};
+                  var aItems2 = [];
+                  a2.forEach(function (o) {
+                    var m = fnRowChallan(o);
+                    if (!m.DocNumber || mSeen2[m.DocNumber]) {
+                      return;
+                    }
+                    mSeen2[m.DocNumber] = true;
+                    aItems2.push(m);
+                  });
+                  that._oOutgoingInvoiceSuggestModel.setProperty(
+                    "/items",
+                    aItems2
+                  );
+                },
+                error: function () {
+                  that._oOutgoingInvoiceSuggestModel.setProperty("/items", []);
+                },
+              });
+            },
+          });
+          return;
+        }
+
         oModel.read("/BillingDocSH", {
           filters: [new Filter("BillingDoc", FilterOperator.Contains, sTerm)],
           urlParameters: { $top: "40" },
@@ -1672,27 +1979,12 @@ sap.ui.define(
             var mSeen = {};
             var aItems = [];
             a.forEach(function (o) {
-              var sV =
-                o && o.BillingDoc ? String(o.BillingDoc).trim() : "";
-              if (!sV || mSeen[sV]) {
+              var m = fnRowInvoice(o);
+              if (!m.DocNumber || mSeen[m.DocNumber]) {
                 return;
               }
-              mSeen[sV] = true;
-              aItems.push({
-                BillingDoc: sV,
-                MovementType:
-                  o && o.MovementType
-                    ? String(o.MovementType).trim()
-                    : "",
-                MovementScenario:
-                  o && o.MovementScenario
-                    ? String(o.MovementScenario).trim()
-                    : "",
-                MovementDescription:
-                  o && o.MovementDescription
-                    ? String(o.MovementDescription).trim()
-                    : "",
-              });
+              mSeen[m.DocNumber] = true;
+              aItems.push(m);
             });
             that._oOutgoingInvoiceSuggestModel.setProperty("/items", aItems);
           },
@@ -1726,6 +2018,9 @@ sap.ui.define(
             oRow.MovementDescription || ""
           );
         }
+
+        // After selecting an invoice, load backend response and decide if Vehicle Type should be shown.
+        this._loadOutgoingInvoiceResponse(sText);
       },
 
       onOutgoingReportInvoiceChange: function (oEvent) {
@@ -1736,6 +2031,227 @@ sap.ui.define(
             String(sVal || "").trim()
           );
         }
+
+        // When user types an invoice manually, fetch the backend response and decide if Vehicle Type should be shown.
+        this._loadOutgoingInvoiceResponse(String(sVal || "").trim());
+      },
+
+      _buildBillingDocKeyPath: function (sInvoice) {
+        var sInv = String(sInvoice || "").trim().replace(/'/g, "''");
+        return "/BillingDocSH(BillingDoc='" + sInv + "')";
+      },
+
+      _buildChallanShKeyPath: function (sMaterialDoc) {
+        var s = String(sMaterialDoc || "").trim().replace(/'/g, "''");
+        return "/ChallanSh(MaterialDoc='" + s + "')";
+      },
+
+      /**
+       * After invoice or challan entered: fetch BillingDocSH or ChallanSh, store in JSON model.
+       * Show Vehicle Type dropdown when MovementType='O' AND MovementScenario='02'.
+       */
+      _loadOutgoingInvoiceResponse: function (sInvoice) {
+        var sInv = String(sInvoice || "").trim();
+
+        if (!this._oOutgoingInvoiceResponseModel) {
+          this._oOutgoingInvoiceResponseModel = new JSONModel({
+            loading: false,
+            results: [],
+            selected: null,
+            showVehicleType: false,
+          });
+        }
+
+        if (this._oIncomingEntryMethodDialog) {
+          this._oIncomingEntryMethodDialog.setModel(
+            this._oOutgoingInvoiceResponseModel,
+            "outgoingInvoiceResponse"
+          );
+        }
+
+        var fnClear = function () {
+          this._oOutgoingInvoiceResponseModel.setData({
+            loading: false,
+            results: [],
+            selected: null,
+            showVehicleType: false,
+          });
+          if (this._oOutgoingEntryMethodModel) {
+            this._oOutgoingEntryMethodModel.setProperty("/invoiceMovementType", "");
+            this._oOutgoingEntryMethodModel.setProperty("/invoiceMovementScenario", "");
+            this._oOutgoingEntryMethodModel.setProperty("/invoiceMovementDescription", "");
+            this._oOutgoingEntryMethodModel.setProperty("/selectedVehicleType", "");
+            this._oOutgoingEntryMethodModel.setProperty("/selectedVehicleTypeDesc", "");
+            this._oOutgoingEntryMethodModel.setProperty("/existingTripNo", "");
+          }
+          var oG = sap.ui.getCore().getModel("globalData");
+          if (oG) {
+            oG.setProperty("/OutgoingInvoiceResponse", null);
+            oG.setProperty("/OutgoingVehicleType", "");
+            oG.setProperty("/OutgoingBillingDocType", "");
+          }
+        }.bind(this);
+
+        if (!sInv) {
+          fnClear();
+          return;
+        }
+
+        var oModel = this.getView().getModel();
+        if (!oModel) {
+          fnClear();
+          return;
+        }
+
+        this._oOutgoingInvoiceResponseModel.setProperty("/loading", true);
+
+        var that = this;
+        var bChallan = this._isOutgoingChallanSelected();
+        var sKeyPath = bChallan
+          ? this._buildChallanShKeyPath(sInv)
+          : this._buildBillingDocKeyPath(sInv);
+        var fnApplyInvoiceResult = function (oFirst, aResults) {
+          var a = Array.isArray(aResults) ? aResults : oFirst ? [oFirst] : [];
+          that._oOutgoingInvoiceResponseModel.setProperty("/loading", false);
+          that._oOutgoingInvoiceResponseModel.setProperty("/results", a);
+          that._oOutgoingInvoiceResponseModel.setProperty("/selected", oFirst || null);
+
+          // Sync movement fields back into outgoingEntryMethod model (existing flow uses these).
+          if (that._oOutgoingEntryMethodModel && oFirst) {
+            that._oOutgoingEntryMethodModel.setProperty(
+              "/invoiceMovementType",
+              oFirst.MovementType || ""
+            );
+            that._oOutgoingEntryMethodModel.setProperty(
+              "/invoiceMovementScenario",
+              oFirst.MovementScenario || ""
+            );
+            that._oOutgoingEntryMethodModel.setProperty(
+              "/invoiceMovementDescription",
+              oFirst.MovementDescription || ""
+            );
+          }
+
+          // Condition to show Vehicle Type dropdown.
+          var sMt = oFirst && oFirst.MovementType ? String(oFirst.MovementType).trim() : "";
+          var sMs = oFirst && oFirst.MovementScenario ? String(oFirst.MovementScenario).trim() : "";
+          var bShow = sMt === "O" && sMs === "02";
+          that._oOutgoingInvoiceResponseModel.setProperty("/showVehicleType", !!bShow);
+
+          // Store response in globalData for downstream tabs.
+          var oG = sap.ui.getCore().getModel("globalData");
+          if (!oG) {
+            oG = new JSONModel({});
+            sap.ui.getCore().setModel(oG, "globalData");
+          }
+          oG.setProperty("/OutgoingInvoiceResponse", oFirst || null);
+          oG.setProperty(
+            "/OutgoingBillingDocType",
+            oFirst
+              ? (oFirst.DocType || oFirst.DocumentType || oFirst.BillingType || "")
+              : ""
+          );
+          oG.setProperty("/IsCustomerSaleScenario02", !!bShow);
+          // Load VehicleType ConfigValues only when needed.
+          if (bShow) {
+            that._loadOutgoingVehicleTypeOptions();
+          } else if (that._oOutgoingEntryMethodModel) {
+            that._oOutgoingEntryMethodModel.setProperty("/selectedVehicleType", "");
+            that._oOutgoingEntryMethodModel.setProperty("/selectedVehicleTypeDesc", "");
+          }
+        };
+
+        // Primary call: key read on BillingDocSH or ChallanSh
+        oModel.read(sKeyPath, {
+          success: function (oData) {
+            var oFirst = oData && oData.d ? oData.d : oData;
+            fnApplyInvoiceResult(oFirst || null, oFirst ? [oFirst] : []);
+          },
+          error: function () {
+            if (bChallan) {
+              oModel.read("/ChallanSh", {
+                filters: [
+                  new Filter("MaterialDoc", FilterOperator.EQ, sInv),
+                ],
+                urlParameters: { $top: "10" },
+                success: function (oData) {
+                  var a = (oData && oData.results) || [];
+                  var oFirst = a && a.length ? a[0] : null;
+                  fnApplyInvoiceResult(oFirst, a);
+                },
+                error: function () {
+                  fnClear();
+                },
+              });
+            } else {
+              oModel.read("/BillingDocSH", {
+                filters: [new Filter("BillingDoc", FilterOperator.EQ, sInv)],
+                urlParameters: { $top: "10" },
+                success: function (oData) {
+                  var a = (oData && oData.results) || [];
+                  var oFirst = a && a.length ? a[0] : null;
+                  fnApplyInvoiceResult(oFirst, a);
+                },
+                error: function () {
+                  fnClear();
+                },
+              });
+            }
+          },
+        });
+      },
+
+      _loadOutgoingVehicleTypeOptions: function () {
+        if (!this._oOutgoingVehicleTypeOptionsModel) {
+          this._oOutgoingVehicleTypeOptionsModel = new JSONModel({ items: [] });
+        }
+        if (this._oIncomingEntryMethodDialog) {
+          this._oIncomingEntryMethodDialog.setModel(
+            this._oOutgoingVehicleTypeOptionsModel,
+            "outgoingVehicleTypeOptions"
+          );
+        }
+
+        var oModel = this.getView().getModel();
+        if (!oModel) {
+          this._oOutgoingVehicleTypeOptionsModel.setProperty("/items", []);
+          return;
+        }
+
+        oModel.read("/ConfigValues", {
+          filters: [new Filter("ConfigGroup", FilterOperator.EQ, "VehicleType")],
+          urlParameters: { $top: "200" },
+          success: function (oData) {
+            this._oOutgoingVehicleTypeOptionsModel.setProperty(
+              "/items",
+              (oData && oData.results) || []
+            );
+          }.bind(this),
+          error: function () {
+            this._oOutgoingVehicleTypeOptionsModel.setProperty("/items", []);
+          }.bind(this),
+        });
+      },
+
+      onOutgoingVehicleTypeSelectionChange: function (oEvent) {
+        var oItem = oEvent.getParameter("selectedItem");
+        if (!oItem || !this._oOutgoingEntryMethodModel) {
+          return;
+        }
+
+        var sKey = String(oItem.getKey() || "").trim();
+        var sText = String(oItem.getText() || "").trim();
+        this._oOutgoingEntryMethodModel.setProperty("/selectedVehicleType", sKey);
+        this._oOutgoingEntryMethodModel.setProperty("/selectedVehicleTypeDesc", sText);
+
+        var oG = sap.ui.getCore().getModel("globalData");
+        if (!oG) {
+          oG = new JSONModel({});
+          sap.ui.getCore().setModel(oG, "globalData");
+        }
+        oG.setProperty("/OutgoingVehicleType", sKey);
+
+        this._oOutgoingEntryMethodModel.setProperty("/existingTripNo", "");
       },
 
       onOutgoingDialogPoSuggest: function (oEvent) {
@@ -1760,7 +2276,7 @@ sap.ui.define(
         }
         var oOrFilter = new Filter(
           [
-            new Filter("Ebeln", FilterOperator.Contains, sTerm),
+            new Filter("PoNumber", FilterOperator.Contains, sTerm),
             new Filter("VendorName", FilterOperator.Contains, sTerm),
           ],
           false
@@ -1771,14 +2287,10 @@ sap.ui.define(
           var mSeen = {};
           var aItems = [];
           a.forEach(function (o) {
-            var n =
-              (o.Ebeln && String(o.Ebeln).trim()) ||
-              (o.PoNumber && String(o.PoNumber).trim()) ||
-              "";
+            var n = (o.PoNumber && String(o.PoNumber).trim()) || "";
             if (n && !mSeen[n]) {
               mSeen[n] = true;
               aItems.push({
-                Ebeln: n,
                 PoNumber: n,
                 VendorName: (o.VendorName && String(o.VendorName).trim()) || "",
               });

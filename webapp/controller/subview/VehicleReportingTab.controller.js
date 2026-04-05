@@ -312,7 +312,13 @@ sap.ui.define(
           // TripDetails has no `VerifiedDocs` property in service metadata.
           // (VerifiedDocuments is only a GateOut function import parameter.)
           delete oData.VerifiedDocs;
+          // TripDetails does not expose weighment properties in metadata.
+          // Keep this only in UI model; do not send in create payload.
+          delete oData.WeighmentRequired;
+          delete oData.Weighment_Req;
           delete oData.MovementScenarioItemKey;
+          // Billing reference may exist on TripData from outgoing prefill/UI; omit from POST /TripDetails create.
+          delete oData.BillingDocument;
 
           oData.MovementScenario =
             movementScenario !== undefined && movementScenario !== null && movementScenario !== ""
@@ -587,6 +593,7 @@ sap.ui.define(
             AdditionalInfo: "",
           });
           this.getView().setModel(oTripData, "TripData");
+          this._syncMovementScenarioItemKeyOnTripData(oTripData);
 
           const oMovementScenarioCb = this.byId("idMovementScenario");
           if (oMovementScenarioCb && oMovementScenarioCb.setSelectedKey) {
@@ -618,9 +625,17 @@ sap.ui.define(
           try {
             const oPanel = this.byId("reportingDetailsPanel");
             if (!oPanel) return;
+            var oMovementScenarioCombo = this.byId("idMovementScenario");
             // the panel content -> VBox -> Grid -> layout:content -> VBoxes -> Inputs etc.
             const aChildren = oPanel.findAggregatedObjects(true); // deep search
             aChildren.forEach((ctrl) => {
+              // Keep Movement Scenario selectable even in display / after description is loaded
+              if (oMovementScenarioCombo && ctrl === oMovementScenarioCombo) {
+                if (ctrl.setEnabled) {
+                  ctrl.setEnabled(true);
+                }
+                return;
+              }
               // ignore buttons and dialogs
               if (ctrl.isA && ctrl.isA("sap.m.Button")) return;
               if (ctrl.setEditable) {
@@ -2375,6 +2390,7 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
             // Use ConfigID 99 to indicate manual entry, but store the actual description
             oTripDataModel.setProperty("/VehicleType", "99");
             oTripDataModel.setProperty("/VehicleTypeDesc", sManualVehicleType);
+            this._syncTripDataToCoreAndNotify(oTripDataModel);
           }
           
           // Update the Vehicle Type input field with the manual entry
@@ -2388,6 +2404,14 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
           this._oManualVehicleTypeDialog.close();
           
           sap.m.MessageToast.show("Manual vehicle type entered: " + sManualVehicleType);
+        },
+
+        _syncTripDataToCoreAndNotify: function (oTripDataModel) {
+          if (!oTripDataModel) {
+            return;
+          }
+          sap.ui.getCore().setModel(oTripDataModel, "TripData");
+          sap.ui.getCore().getEventBus().publish("TripData", "Updated");
         },
 
         _setVehicleTypeFromItem: function (oSelectedItem) {
@@ -2404,6 +2428,7 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
           if (oTripDataModel) {
             oTripDataModel.setProperty("/VehicleType", oSelectedItem.ConfigID);
             oTripDataModel.setProperty("/VehicleTypeDesc", oSelectedItem.Description || "");
+            this._syncTripDataToCoreAndNotify(oTripDataModel);
           }
 
           const oVehicleType = this.byId("idVehicleType");
@@ -2458,6 +2483,7 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
 
           oTripDataModel.setProperty("/VehicleType", "99");
           oTripDataModel.setProperty("/VehicleTypeDesc", sValue);
+          this._syncTripDataToCoreAndNotify(oTripDataModel);
         },
 
         /**
@@ -2601,18 +2627,19 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
          * Handle TripData updates to refresh scanner visibility
          */
         _onTripDataUpdated: function () {
-          // Update scanner visibility when TripData changes
-          // This ensures scanner shows/hides correctly when trip is loaded
           this._updateScannerVisibility();
-          
-          // Also update scanner visibility based on Movement Scenario from TripData
+
           var oTripData = sap.ui.getCore().getModel("TripData");
           if (oTripData) {
             this._syncMovementScenarioItemKeyOnTripData(oTripData);
+
+            // Propagate core TripData to this view so bindings resolve correctly
+            this.getView().setModel(oTripData, "TripData");
+
             var oMovementScenarioCtrl = this.byId("idMovementScenario");
             if (oMovementScenarioCtrl && oMovementScenarioCtrl.setSelectedKey) {
               var sKey = oTripData.getProperty("/MovementScenarioItemKey");
-              if (sKey && !oMovementScenarioCtrl.getSelectedKey()) {
+              if (sKey) {
                 oMovementScenarioCtrl.setSelectedKey(sKey);
               }
             }
@@ -2721,7 +2748,7 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
               var sScannedCode = oResult.text;
               // Parse code if it contains pipe separator (e.g., "GATE001|Entry Gate 1")
               var sParsedCode = sScannedCode.split("|")[0];
-              that._processScannedCode(sParsedCode);
+              that._processScannedCode(sParsedCode, false);
             }.bind(this),
             function (oError) {
               MessageToast.show("Scan failed: " + (oError.message || oError));
@@ -2748,12 +2775,16 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
             var that = this;
             this._scanTimeout = setTimeout(function() {
               var sParsedCode = sText.split("|")[0];
-              that._processScannedCode(sParsedCode);
+              that._processScannedCode(sParsedCode, true);
             }, 500); // Wait 500ms after user stops typing
           }
         },
 
-        _processScannedCode: function (sScannedCode) {
+        /**
+         * @param {boolean} [bSkipPostSuccessModelRefresh] When true (debounced manual typing),
+         *   skip TripData reload and HomePage OData trip list refresh after /AsnDetails succeeds.
+         */
+        _processScannedCode: function (sScannedCode, bSkipPostSuccessModelRefresh) {
           if (!sScannedCode || sScannedCode.trim() === "") {
             MessageToast.show("Invalid scan code");
             this._clearAndRefocusScanner();
@@ -2775,14 +2806,14 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
           
           if (sAsnId && sOrgId) {
             // ASN is available - use ASN flow
-            this._postAsnDetails(sAsnId, sOrgId);
+            this._postAsnDetails(sAsnId, sOrgId, null, bSkipPostSuccessModelRefresh);
           } else {
             // ASN is not available - treat input as PO number
             var sPoNumber = sScannedCode.trim();
             
             // Validate PO number (basic validation - adjust as needed)
             if (sPoNumber && sPoNumber.length > 0) {
-              this._postAsnDetails(null, null, sPoNumber);
+              this._postAsnDetails(null, null, sPoNumber, bSkipPostSuccessModelRefresh);
             } else {
               MessageToast.show("Please enter a valid PO number");
               this._clearAndRefocusScanner();
@@ -2824,7 +2855,7 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
           }
         },
 
-        _postAsnDetails: function (sAsnId, sOrgId, sPoNumber) {
+        _postAsnDetails: function (sAsnId, sOrgId, sPoNumber, bSkipPostSuccessModelRefresh) {
           var that = this;
           var oPayload = {};
           
@@ -2865,13 +2896,14 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
               // Format trip number (remove leading zeros)
               var sFormattedTripNumber = sTripNumber ? String(sTripNumber).replace(/^0+/, "") || "0" : "";
               
-              // Immediately refresh UI state:
-              // - reload trip details for the current Stage view
-              // - trigger HomePage tripTable refresh (if HomePage is currently active)
-              if (sTripNumber) {
-                that._loadTripDetailsForHeader(sTripNumber);
+              // After camera scan: reload TripData + refresh trip list. Skip when the user typed
+              // the code (debounced) to avoid redundant OData/model refresh during manual entry.
+              if (!bSkipPostSuccessModelRefresh) {
+                if (sTripNumber) {
+                  that._loadTripDetailsForHeader(sTripNumber);
+                }
+                sap.ui.getCore().getEventBus().publish("HomePage", "RefreshTripTable");
               }
-              sap.ui.getCore().getEventBus().publish("HomePage", "RefreshTripTable");
 
               var sMessage = sTripNumber
                 ? "Trip created with Trip Number: " + sFormattedTripNumber

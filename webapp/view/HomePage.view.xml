@@ -47,23 +47,7 @@
             <VBox
                 width="100%"
                 class="homeFilterSection"
-            >
-                <Toolbar
-                    design="Transparent"
-                    class="homeFilterToolbar"
-                >
-                    <core:Icon
-                        src="sap-icon://filter"
-                        class="homeFilterToolbarIcon "
-                    />
-                    <Title
-                        text="{i18n>homeFilterSectionTitle}"
-                        level="H3"
-                        class="homeFilterToolbarTitle"
-                    />
-                    <ToolbarSpacer />
-                </Toolbar>
-                <layout:Grid
+            >                <layout:Grid
                     width="100%"
                     defaultSpan="XL4 L4 M4 S12"
                     hSpacing="2"

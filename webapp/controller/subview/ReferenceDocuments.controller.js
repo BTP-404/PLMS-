@@ -414,7 +414,6 @@ sap.ui.define([
 			this._oDocTypeValueHelp?.destroy();
 			this._oMaterialDocTypeVH?.destroy();
 			this._oRefDocColumnVisibilityDialog?.destroy();
-			this._oMaterialColumnVisibilityDialog?.destroy();
 			this._oSelectMaterialsDialog?.destroy();
 			if (this._oEventBus) {
 				this._oEventBus.unsubscribe("TripData", "Updated", this._onTripDataUpdated, this);
@@ -1497,11 +1496,157 @@ sap.ui.define([
 			return oModel;
 		},
 
+		_getPoRefDocPrefill: function () {
+			// Only prefill in create mode (TripNumber not set yet). In update mode, user should be able to edit freely.
+			var oGlobalModel = sap.ui.getCore().getModel("globalData");
+			var sTripNumber = oGlobalModel?.getProperty("/TripNumber") || "";
+			if (String(sTripNumber).trim()) {
+				return null;
+			}
+
+			var sIncomingPo = (oGlobalModel?.getProperty("/IncomingPoNumber") || "").toString().trim();
+			var sIncomingSkip = (oGlobalModel?.getProperty("/IncomingRefDocSkip") || " ").toString().trim();
+			var sIncomingDocType = (oGlobalModel?.getProperty("/IncomingRefDocDocType") || "").toString().trim();
+
+			if (sIncomingPo && sIncomingSkip !== "X") {
+				return { poNumber: sIncomingPo, docType: sIncomingDocType, source: "incoming" };
+			}
+
+			var sOutgoingPo = (oGlobalModel?.getProperty("/OutgoingPoNumber") || "").toString().trim();
+			var sOutgoingSkip = (oGlobalModel?.getProperty("/OutgoingRefDocSkip") || " ").toString().trim();
+			var sOutgoingDocType = (oGlobalModel?.getProperty("/OutgoingRefDocDocType") || "").toString().trim();
+
+			if (sOutgoingPo && sOutgoingSkip !== "X") {
+				return { poNumber: sOutgoingPo, docType: sOutgoingDocType, source: "outgoing" };
+			}
+
+			var sOutgoingBilling = (oGlobalModel?.getProperty("/OutgoingBillingDocument") || "").toString().trim();
+			if (sOutgoingBilling && sOutgoingSkip !== "X") {
+				if (!sOutgoingDocType) {
+					sOutgoingDocType = (oGlobalModel?.getProperty("/OutgoingBillingDocType") || "").toString().trim();
+				}
+				return { poNumber: sOutgoingBilling, docType: sOutgoingDocType, source: "outgoingBilling" };
+			}
+
+			return null;
+		},
+
+		_applyPoPrefillToAddRefDocDialog: function () {
+			if (this._bIsRefDocEditMode) {
+				return;
+			}
+
+			var oPoPrefill = this._getPoRefDocPrefill();
+			if (!oPoPrefill || !oPoPrefill.poNumber) {
+				return;
+			}
+
+			var that = this;
+			var oDocTypeSelect = this.byId("idRefDocType");
+			var oDocNumberCtrl = this.byId("idRefDocNumber");
+
+			// Prevent user from changing Doc Type for PO-prefilled dialog (even if DocType is inferred asynchronously).
+			if (oDocTypeSelect) {
+				oDocTypeSelect.setEnabled(false);
+			}
+
+			// Prefill & lock Document Number immediately (user shouldn't change it once derived from PO).
+			if (oDocNumberCtrl) {
+				oDocNumberCtrl.setValue(oPoPrefill.poNumber);
+				oDocNumberCtrl.setEnabled(false);
+				if (typeof oDocNumberCtrl.setEditable === "function") {
+					oDocNumberCtrl.setEditable(false);
+				}
+				if (typeof oDocNumberCtrl.setShowValueHelp === "function") {
+					oDocNumberCtrl.setShowValueHelp(false);
+				}
+				if (typeof oDocNumberCtrl.setShowSuggestion === "function") {
+					oDocNumberCtrl.setShowSuggestion(false);
+				}
+			}
+
+			// If DocType is known from the PO lookup, preselect it now.
+			if (oDocTypeSelect && oPoPrefill.docType) {
+				oDocTypeSelect.setSelectedKey(oPoPrefill.docType);
+				oDocTypeSelect.setEnabled(false);
+				this._sSelectedDocType = oPoPrefill.docType;
+			}
+
+			// Fetch related reference document details and fill the dialog.
+			var sDocTypeToFetch = oPoPrefill.docType || "";
+			this._fetchOrderDetails(sDocTypeToFetch, { top: 50 })
+				.then(function (aDocs) {
+					var a = aDocs || [];
+					var oMatch =
+						a.find(function (o) {
+							return String(o?.DocumentNumber || "").trim() === String(oPoPrefill.poNumber).trim();
+						}) || a[0];
+
+					if (!oMatch) {
+						// Prefill lookup did not return anything; restore interactivity so user can pick manually.
+						if (oDocTypeSelect) {
+							oDocTypeSelect.setEnabled(true);
+						}
+						if (oDocNumberCtrl) {
+							oDocNumberCtrl.setEnabled(true);
+							if (typeof oDocNumberCtrl.setEditable === "function") {
+								oDocNumberCtrl.setEditable(true);
+							}
+							if (typeof oDocNumberCtrl.setShowValueHelp === "function") {
+								oDocNumberCtrl.setShowValueHelp(false);
+							}
+							if (typeof oDocNumberCtrl.setShowSuggestion === "function") {
+								oDocNumberCtrl.setShowSuggestion(true);
+							}
+						}
+						return;
+					}
+
+					var sInferredDocType = String(oMatch?.DocType || "").trim();
+					if (oDocTypeSelect && !oPoPrefill.docType && sInferredDocType) {
+						oDocTypeSelect.setSelectedKey(sInferredDocType);
+						that._sSelectedDocType = sInferredDocType;
+						that._loadRefDocSuggestions(sInferredDocType);
+					}
+
+					that._applySelectedReferenceDoc(oMatch);
+
+					// Disable Doc Type after we've filled everything.
+					if (oDocTypeSelect) {
+						oDocTypeSelect.setEnabled(false);
+					}
+				})
+				.catch(function () {
+					// Non-blocking: allow dialog open even if prefill lookup fails.
+					// Restore interactivity so the user can still select values manually.
+					if (oDocTypeSelect) {
+						oDocTypeSelect.setEnabled(true);
+					}
+					if (oDocNumberCtrl) {
+						oDocNumberCtrl.setEnabled(true);
+						if (typeof oDocNumberCtrl.setEditable === "function") {
+							oDocNumberCtrl.setEditable(true);
+						}
+						if (typeof oDocNumberCtrl.setShowValueHelp === "function") {
+							oDocNumberCtrl.setShowValueHelp(false);
+						}
+						if (typeof oDocNumberCtrl.setShowSuggestion === "function") {
+							oDocNumberCtrl.setShowSuggestion(true);
+						}
+					}
+				});
+		},
+
 		_openAddRefDocDialog: function () {
 			var that = this;
 			return new Promise(function (resolve, reject) {
 				// Ensure doc types are loaded before opening dialog
 				that._loadDocTypes().then(function (aDocTypes) {
+					var oPoPrefill = that._getPoRefDocPrefill();
+					that._bSkipDefaultRefDocType = !that._bIsRefDocEditMode && oPoPrefill && oPoPrefill.poNumber;
+					if (that._bSkipDefaultRefDocType && oPoPrefill && oPoPrefill.docType) {
+						that._sSelectedDocType = oPoPrefill.docType;
+					}
 					if (!that._oAddRefDocDialog) {
 						Fragment.load({
 							id: that.getView().getId(),
@@ -1526,6 +1671,7 @@ sap.ui.define([
 							}
 							that._loadRefDocSuggestions(that._sSelectedDocType);
 							oDialog.open();
+							that._applyPoPrefillToAddRefDocDialog();
 							// Ensure Select binding is refreshed after dialog opens
 							setTimeout(function() {
 								var oSelect = that.byId("idRefDocType");
@@ -1554,6 +1700,7 @@ sap.ui.define([
 						}
 						that._loadRefDocSuggestions(that._sSelectedDocType);
 						that._oAddRefDocDialog.open();
+						that._applyPoPrefillToAddRefDocDialog();
 						setTimeout(function () {
 							that._setDefaultRefDocTypeIfEmpty(aDocTypes);
 						}, 0);
@@ -1561,6 +1708,11 @@ sap.ui.define([
 					}
 				}).catch(function (oError) {
 					// Even if loading fails, still try to open dialog with existing model
+					var oPoPrefill = that._getPoRefDocPrefill();
+					that._bSkipDefaultRefDocType = !that._bIsRefDocEditMode && oPoPrefill && oPoPrefill.poNumber;
+					if (that._bSkipDefaultRefDocType && oPoPrefill && oPoPrefill.docType) {
+						that._sSelectedDocType = oPoPrefill.docType;
+					}
 					if (!that._oAddRefDocDialog) {
 						Fragment.load({
 							id: that.getView().getId(),
@@ -1582,6 +1734,7 @@ sap.ui.define([
 							}
 							that._loadRefDocSuggestions(that._sSelectedDocType);
 							oDialog.open();
+							that._applyPoPrefillToAddRefDocDialog();
 							setTimeout(function () {
 								that._setDefaultRefDocTypeIfEmpty();
 							}, 0);
@@ -1596,6 +1749,7 @@ sap.ui.define([
 						}
 						that._loadRefDocSuggestions(that._sSelectedDocType);
 						that._oAddRefDocDialog.open();
+						that._applyPoPrefillToAddRefDocDialog();
 						setTimeout(function () {
 							that._setDefaultRefDocTypeIfEmpty();
 						}, 0);
@@ -1608,6 +1762,9 @@ sap.ui.define([
 		_setDefaultRefDocTypeIfEmpty: function (aDocTypes) {
 			// Only apply a default in "Add" mode, and only if user hasn't chosen anything yet.
 			if (this._bIsRefDocEditMode) {
+				return;
+			}
+			if (this._bSkipDefaultRefDocType) {
 				return;
 			}
 
@@ -1925,7 +2082,9 @@ sap.ui.define([
 			var oDocTypeSelect = this.byId("idRefDocType");
 			if (oDocTypeSelect) {
 				oDocTypeSelect.setSelectedKey(null);
+				oDocTypeSelect.setEnabled(true);
 			}
+			this._bSkipDefaultRefDocType = false;
 			// Reset other Input fields
 			[
 				"idRefDocNumber",
@@ -1936,6 +2095,21 @@ sap.ui.define([
 			].forEach(function (sId) {
 				this.byId(sId)?.setValue("");
 			}.bind(this));
+
+			// Restore input interactivity defaults (we may lock these later for PO-prefill).
+			var oDocNumberCtrl = this.byId("idRefDocNumber");
+			if (oDocNumberCtrl) {
+				oDocNumberCtrl.setEnabled(true);
+				if (typeof oDocNumberCtrl.setEditable === "function") {
+					oDocNumberCtrl.setEditable(true);
+				}
+				if (typeof oDocNumberCtrl.setShowValueHelp === "function") {
+					oDocNumberCtrl.setShowValueHelp(false);
+				}
+				if (typeof oDocNumberCtrl.setShowSuggestion === "function") {
+					oDocNumberCtrl.setShowSuggestion(true);
+				}
+			}
 
 			[
 				"idRefDocDate"
@@ -2678,12 +2852,21 @@ sap.ui.define([
 				var oService = this._getOrderDetailsService();
 				var oGlobalModel = sap.ui.getCore().getModel("globalData");
 				var sTripNumber = oGlobalModel?.getProperty("/TripNumber") || "";
+				var bIncomingSkip = String(oGlobalModel?.getProperty("/IncomingRefDocSkip") || " ").trim() === "X";
+				var bOutgoingSkip = String(oGlobalModel?.getProperty("/OutgoingRefDocSkip") || " ").trim() === "X";
 				var sIncomingPo = (oGlobalModel?.getProperty("/IncomingPoNumber") || "").toString().trim();
+				// Gate Out create-mode uses /OutgoingPoNumber, but the same ReferenceDocuments view/controller is reused.
+				// So we fall back to OutgoingPoNumber if IncomingPoNumber is missing.
+				if (!sIncomingPo) {
+					sIncomingPo = (oGlobalModel?.getProperty("/OutgoingPoNumber") || "").toString().trim();
+				}
+				// For Invoice/Challan create-mode, scope by selected billing document as well.
+				if (!sIncomingPo) {
+					sIncomingPo = (oGlobalModel?.getProperty("/OutgoingBillingDocument") || "").toString().trim();
+				}
 
 				var m = mOpts || {};
 				var sSearchTerm = (m.searchTerm || "").toString().trim();
-				var iTop = m.top;
-				var iSkip = m.skip;
 
 				var aFilters = [];
 				if (sTripNumber) {
@@ -2694,35 +2877,24 @@ sap.ui.define([
 				}
 
 				// Gate entry / create mode: TripNumber isn't available yet.
-				// If Home flow provided a PO number, scope OrderDetails to that PO so "Add Document" is prefilled.
-				if (!sTripNumber && sIncomingPo) {
+				// Scope by preselected document only when skip-document is NOT selected.
+				if (!sTripNumber && sIncomingPo && !bIncomingSkip && !bOutgoingSkip) {
 					aFilters.push(new Filter("DocumentNumber", FilterOperator.EQ, sIncomingPo));
-				}
-
-				// When user types, filter on DocumentNumber OR Name
-				if (sSearchTerm) {
-					aFilters.push(new Filter({
-						filters: [
-							new Filter("DocumentNumber", FilterOperator.Contains, sSearchTerm),
-							new Filter("Name", FilterOperator.Contains, sSearchTerm)
-						],
-						and: false
-					}));
-				}
-
-				var mUrlParameters = {};
-				if (iTop !== undefined && iTop !== null && String(iTop).trim() !== "") {
-					mUrlParameters.$top = String(iTop);
-				}
-				if (iSkip !== undefined && iSkip !== null && String(iSkip).trim() !== "") {
-					mUrlParameters.$skip = String(iSkip);
 				}
 
 				oService.read("/OrderDetails", {
 					filters: aFilters,
-					urlParameters: mUrlParameters,
 					success: function (oData) {
 						var aResults = oData.results || [];
+						// Backend entity is not a search-help service: fetch first, then filter locally.
+						if (sSearchTerm) {
+							var sTerm = sSearchTerm.toLowerCase();
+							aResults = aResults.filter(function (oRow) {
+								var sDocNo = String(oRow?.DocumentNumber || "").toLowerCase();
+								var sName = String(oRow?.Name || "").toLowerCase();
+								return sDocNo.indexOf(sTerm) !== -1 || sName.indexOf(sTerm) !== -1;
+							});
+						}
 						resolve(aResults);
 					},
 					error: function (oError) {
@@ -4673,40 +4845,14 @@ sap.ui.define([
 				{ id: "colRefDocAction", label: "Action", visible: true }
 			];
 
-			// Initialize Material Details column settings
-			var aMaterialColumns = [
-				{ id: "colMaterialCode", label: "Material Code", visible: true },
-				{ id: "colMaterialRefDocNo", label: "Ref Doc No", visible: true },
-				{ id: "colMaterialRefDocItemNo", label: "Ref Doc Item No", visible: true },
-				{ id: "colMaterialDescription", label: "Material Description", visible: true },
-				{ id: "colMaterialQuantity", label: "Quantity", visible: true },
-				{ id: "colDispatchQty", label: "Dispatch Qty", visible: true },
-				{ id: "colRemainQty", label: "Remain Qty", visible: true },
-				{ id: "colDispatchDate", label: "Dispatch Date", visible: true },
-				{ id: "colMaterialUoM", label: "UoM", visible: true },
-				{ id: "colMaterialCreatedBy", label: "Created By", visible: false },
-				{ id: "colMaterialCreatedOnDate", label: "Created On Date", visible: false },
-				{ id: "colMaterialCreatedOnTime", label: "Created On Time", visible: false },
-				{ id: "colMaterialChangedBy", label: "Changed By", visible: false },
-				{ id: "colMaterialChangedOnDate", label: "Changed On Date", visible: false },
-				{ id: "colMaterialChangedOnTime", label: "Changed On Time", visible: false },
-				{ id: "colMaterialAction", label: "Action", visible: true }
-			];
-
 			// Create models for column settings
 			this._oRefDocColumnSettingsModel = new JSONModel({
 				columns: aRefDocColumns
 			});
 			this.getView().setModel(this._oRefDocColumnSettingsModel, "refDocColumnSettings");
 
-			this._oMaterialColumnSettingsModel = new JSONModel({
-				columns: aMaterialColumns
-			});
-			this.getView().setModel(this._oMaterialColumnSettingsModel, "materialColumnSettings");
-
 			// Apply initial column visibility
 			this._applyRefDocColumnVisibility();
-			this._applyMaterialColumnVisibility();
 		},
 
 		_applyRefDocColumnVisibility: function () {
@@ -4716,21 +4862,6 @@ sap.ui.define([
 			}
 
 			var aColumns = this._oRefDocColumnSettingsModel.getProperty("/columns");
-			aColumns.forEach(function (oColumn) {
-				var oCol = this.byId(oColumn.id);
-				if (oCol) {
-					oCol.setVisible(oColumn.visible);
-				}
-			}.bind(this));
-		},
-
-		_applyMaterialColumnVisibility: function () {
-			var oTable = this.byId("idMaterialDetailsTable");
-			if (!oTable) {
-				return;
-			}
-
-			var aColumns = this._oMaterialColumnSettingsModel.getProperty("/columns");
 			aColumns.forEach(function (oColumn) {
 				var oCol = this.byId(oColumn.id);
 				if (oCol) {
@@ -4756,23 +4887,6 @@ sap.ui.define([
 			});
 		},
 
-		onMaterialColumnSettings: function () {
-			if (!this._oMaterialColumnVisibilityDialog) {
-				this._oMaterialColumnVisibilityDialog = Fragment.load({
-					id: this.getView().getId(),
-					name: "com.incresolZ_INC_PLMS.fragments.ReferenceDocumentsFrags.MaterialColumnVisibilityDialog",
-					controller: this
-				}).then(function (oDialog) {
-					this.getView().addDependent(oDialog);
-					return oDialog;
-				}.bind(this));
-			}
-
-			this._oMaterialColumnVisibilityDialog.then(function (oDialog) {
-				oDialog.open();
-			});
-		},
-
 		onRefDocColumnSwitchChanged: function (oEvent) {
 			var oSwitch = oEvent.getSource();
 			var oBindingContext = oSwitch.getBindingContext("refDocColumnSettings");
@@ -4780,16 +4894,6 @@ sap.ui.define([
 				var oColumn = oBindingContext.getObject();
 				oColumn.visible = oSwitch.getState();
 				this._applyRefDocColumnVisibility();
-			}
-		},
-
-		onMaterialColumnSwitchChanged: function (oEvent) {
-			var oSwitch = oEvent.getSource();
-			var oBindingContext = oSwitch.getBindingContext("materialColumnSettings");
-			if (oBindingContext) {
-				var oColumn = oBindingContext.getObject();
-				oColumn.visible = oSwitch.getState();
-				this._applyMaterialColumnVisibility();
 			}
 		},
 
@@ -4815,41 +4919,9 @@ sap.ui.define([
 			this._applyRefDocColumnVisibility();
 		},
 
-		onResetMaterialColumnVisibility: function () {
-			var aDefaultColumns = [
-				{ id: "colMaterialRefDocNo", label: "Ref Doc No", visible: true },
-				{ id: "colMaterialRefDocItemNo", label: "Ref Doc Item No", visible: true },
-				{ id: "colMaterialCode", label: "Material Code", visible: true },
-				{ id: "colMaterialDescription", label: "Material Description", visible: true },
-				{ id: "colMaterialQuantity", label: "Quantity", visible: true },
-				{ id: "colDispatchQty", label: "Dispatch Qty", visible: true },
-				{ id: "colRemainQty", label: "Remain Qty", visible: true },
-				{ id: "colDispatchDate", label: "Dispatch Date", visible: true },
-				{ id: "colMaterialUoM", label: "UoM", visible: true },
-				{ id: "colMaterialCreatedBy", label: "Created By", visible: false },
-				{ id: "colMaterialCreatedOnDate", label: "Created On Date", visible: false },
-				{ id: "colMaterialCreatedOnTime", label: "Created On Time", visible: false },
-				{ id: "colMaterialChangedBy", label: "Changed By", visible: false },
-				{ id: "colMaterialChangedOnDate", label: "Changed On Date", visible: false },
-				{ id: "colMaterialChangedOnTime", label: "Changed On Time", visible: false },
-				{ id: "colMaterialAction", label: "Action", visible: true }
-			];
-
-			this._oMaterialColumnSettingsModel.setProperty("/columns", aDefaultColumns);
-			this._applyMaterialColumnVisibility();
-		},
-
 		onCloseRefDocColumnVisibilityDialog: function () {
 			if (this._oRefDocColumnVisibilityDialog) {
 				this._oRefDocColumnVisibilityDialog.then(function (oDialog) {
-					oDialog.close();
-				});
-			}
-		},
-
-		onCloseMaterialColumnVisibilityDialog: function () {
-			if (this._oMaterialColumnVisibilityDialog) {
-				this._oMaterialColumnVisibilityDialog.then(function (oDialog) {
 					oDialog.close();
 				});
 			}

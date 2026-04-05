@@ -28,8 +28,8 @@
                     inset="false"
                     mode="SingleSelectMaster"
                     width="100%"
-                    class="sapUiSizeCompact"
-                    fixedLayout="true"
+                    class="sapUiSizeCompact plmsPanelDataTable"
+                    fixedLayout="false"
                     autoPopin="true"
                     popinLayout="GridSmall"
                     sticky="ColumnHeaders,HeaderToolbar"
@@ -188,35 +188,18 @@
                     id="idMaterialDetailsTable"
                     inset="false"
                     width="100%"
-                    class="sapUiSizeCompact"
-                    fixedLayout="true"
+                    class="sapUiSizeCompact plmsPanelDataTable"
+                    fixedLayout="false"
                     autoPopin="true"
                     popinLayout="GridSmall"
-                    sticky="ColumnHeaders,HeaderToolbar"
+                    sticky="ColumnHeaders"
                     growing="true"
                     growingScrollToLoad="true"
                     items="{path: 'refDocModel>/filteredMaterialDetails'}"
                     noDataText="No material rows added yet">
 
-                            <headerToolbar>
-                                <Toolbar>
-                                    <ToolbarSpacer/>
-                                    <Button
-                                        id="idMaterialColumnsButton"
-                                        icon="sap-icon://action-settings"
-                                        tooltip="Column Settings"
-                                        press="onMaterialColumnSettings"/>
-                                </Toolbar>
-                            </headerToolbar>
-
                             <columns>
-                                <Column id="colMaterialCode" demandPopin="true" minScreenWidth="Phone" popinDisplay="Inline">
-                                    <Text text="Material Code" wrapping="false"/>
-                                </Column>
-                                <Column id="colMaterialRefDocNo" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
-                                    <Text text="Ref Doc No" wrapping="false"/>
-                                </Column>
-                                <Column id="colMaterialRefDocItemNo" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colMaterialRefDocItemNo" demandPopin="true" minScreenWidth="Phone" popinDisplay="Inline">
                                     <Text text="Ref Doc Item No" wrapping="false"/>
                                 </Column>
                                 <Column id="colMaterialDescription" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
@@ -225,38 +208,11 @@
                                 <Column id="colMaterialQuantity" hAlign="End" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
                                     <Text text="Quantity" wrapping="false"/>
                                 </Column>
-                                <Column id="colDispatchQty" hAlign="End" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
-                                    <Text text="Dispatch Qty" wrapping="false"/>
-                                </Column>
-                                <Column id="colRemainQty" hAlign="End" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
-                                    <Text text="Remain Qty" wrapping="false"/>
-                                </Column>
-                                <Column id="colDispatchDate" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
-                                    <Text text="Dispatch Date" wrapping="false"/>
-                                </Column>
-                                <Column id="colMaterialUoM" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colMaterialUoM" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
                                     <Text text="UoM" wrapping="false"/>
                                 </Column>
-                                <Column id="colMaterialBinsTrolleys" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline" hAlign="End">
-                                    <Text text="Bins (Trolleys)" wrapping="false"/>
-                                </Column>
-                                <Column id="colMaterialCreatedBy" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
-                                    <Text text="Created By" wrapping="false"/>
-                                </Column>
-                                <Column id="colMaterialCreatedOnDate" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
-                                    <Text text="Created On Date" wrapping="false"/>
-                                </Column>
-                                <Column id="colMaterialCreatedOnTime" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
-                                    <Text text="Created On Time" wrapping="false"/>
-                                </Column>
-                                <Column id="colMaterialChangedBy" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
-                                    <Text text="Changed By" wrapping="false"/>
-                                </Column>
-                                <Column id="colMaterialChangedOnDate" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
-                                    <Text text="Changed On Date" wrapping="false"/>
-                                </Column>
-                                <Column id="colMaterialChangedOnTime" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
-                                    <Text text="Changed On Time" wrapping="false"/>
+                                <Column id="colRemainQty" hAlign="End" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
+                                    <Text text="RemainQty" wrapping="false"/>
                                 </Column>
                                 <Column id="colMaterialAction" hAlign="Center" width="8rem" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
                                     <Text text="Action" wrapping="false"/>
@@ -266,22 +222,11 @@
                             <items>
                                 <ColumnListItem>
                                     <cells>
-                                        <Text text="{refDocModel>materialCode}"/>
-                                        <Text text="{refDocModel>refDocNo}"/>
                                         <Text text="{refDocModel>refDocItemNo}"/>
                                         <Text text="{refDocModel>materialDescription}"/>
                                         <Text text="{refDocModel>qty}"/>
-                                        <Text text="{refDocModel>dispatchQty}"/>
-                                        <Text text="{refDocModel>remainQty}"/>
-                                        <Text text="{refDocModel>dispatchDate}"/>
                                         <Text text="{refDocModel>uom}"/>
-                                        <Text text="{= ${refDocModel>binsTrolleys} || '0' }"/>
-                                        <Text text="{refDocModel>createdBy}"/>
-                                        <Text text="{refDocModel>createdOnDate}"/>
-                                        <Text text="{refDocModel>createdOnTime}"/>
-                                        <Text text="{refDocModel>changedBy}"/>
-                                        <Text text="{refDocModel>changedOnDate}"/>
-                                        <Text text="{refDocModel>changedOnTime}"/>
+                                        <Text text="{refDocModel>remainQty}"/>
                                         <HBox
                                             alignItems="Center"
                                             justifyContent="SpaceAround"

@@ -7,8 +7,9 @@ sap.ui.define([
 	"sap/m/ButtonType",
 	"sap/ui/model/Filter",
 	"sap/ui/model/FilterOperator",
-	"com/incresolZ_INC_PLMS/util/MovementScenarioIcons"
-], function(Controller, JSONModel, ODataModel, MessageBox, MessageToast, ButtonType, Filter, FilterOperator, MovementScenarioIcons) {
+	"com/incresolZ_INC_PLMS/util/MovementScenarioIcons",
+	"com/incresolZ_INC_PLMS/util/VehicleTypeConfig"
+], function(Controller, JSONModel, ODataModel, MessageBox, MessageToast, ButtonType, Filter, FilterOperator, MovementScenarioIcons, VehicleTypeConfig) {
 	"use strict";
 	return Controller.extend("com.incresolZ_INC_PLMS.controller.Stage", {
 		onInit: function() {
@@ -27,11 +28,15 @@ sap.ui.define([
 			this._oEventBus = sap.ui.getCore().getEventBus();
 			this._oEventBus.subscribe("TripData", "Updated", this._refreshPageTitleModel, this);
 			this._oEventBus.subscribe("TripData", "Updated", this._updateLoadingUnloadingTabs, this);
+			this._oEventBus.subscribe("TripData", "Updated", this._applyVehicleTypeTabRule, this);
 			this._oEventBus.subscribe("TripData", "MovementTypeChanged", this._updateLoadingUnloadingTabs, this);
 			this._oEventBus.subscribe("TripData", "Updated", this._updateCancelButtonVisibility, this);
 			this._oEventBus.subscribe("Stage", "TripCreated", this._onTripCreated, this);
 			this._oEventBus.subscribe("Notes", "UnreadCountChanged", this._updateNotesTabIndicator, this);
 			this._oEventBus.subscribe("Stage", "ClearAllTabs", this._onClearAllTabs, this);
+			this._bPendingVehicleTypeTabAutoSelect = false;
+			this._ensureStageUiModel();
+			this._updateReportingPlacementByVehicleType();
 			
 		},
 	onAfterRendering: function() {
@@ -44,6 +49,7 @@ sap.ui.define([
 		onExit: function () {
 			this._oEventBus?.unsubscribe("TripData", "Updated", this._refreshPageTitleModel, this);
 			this._oEventBus?.unsubscribe("TripData", "Updated", this._updateLoadingUnloadingTabs, this);
+			this._oEventBus?.unsubscribe("TripData", "Updated", this._applyVehicleTypeTabRule, this);
 			this._oEventBus?.unsubscribe("TripData", "MovementTypeChanged", this._updateLoadingUnloadingTabs, this);
 			this._oEventBus?.unsubscribe("TripData", "Updated", this._updateCancelButtonVisibility, this);
 			this._oEventBus?.unsubscribe("Stage", "TripCreated", this._onTripCreated, this);
@@ -92,6 +98,7 @@ sap.ui.define([
 	
 			this._bCreateMode = true;
 			this._sCurrentTripNumber = "";
+			this._updateReportingPlacementByVehicleType();
 	
 			sap.ui.getCore().getModel("globalData")?.setProperty("/TripNumber", "");
 			// Create mode normally clears TripData; however, for Incoming-materials gate entry
@@ -150,7 +157,8 @@ sap.ui.define([
 			}
 	
 		this.resetPageTitleModel();   // ← finally clears
-		this._setIconTabSelection("gateIn");
+		this._bPendingVehicleTypeTabAutoSelect = true;
+		this._applyVehicleTypeTabRule();
 		this._updateCancelButtonVisibility();
 		this._updateTabVisibilityForCreateMode();
 		this._updateLoadingUnloadingTabs(); // Call after _updateTabVisibilityForCreateMode to ensure movement type logic takes precedence
@@ -166,12 +174,17 @@ sap.ui.define([
 	
 			this._bCreateMode = false;
 			this._sCurrentTripNumber = sTripNumber;
+			this._updateReportingPlacementByVehicleType();
 	
 			sap.ui.getCore().getModel("globalData")?.setProperty("/TripNumber", sTripNumber);
 
-			// If caller requested a specific tab (e.g. Gate In), honor it.
 			if (sRequestedTabKey) {
+				// If caller requested a specific tab (e.g. Gate In), honor it.
 				this._setIconTabSelection(sRequestedTabKey);
+				this._bPendingVehicleTypeTabAutoSelect = false;
+			} else {
+				this._bPendingVehicleTypeTabAutoSelect = true;
+				this._applyVehicleTypeTabRule();
 			}
 	
 		this._refreshPageTitleModel();
@@ -186,11 +199,63 @@ sap.ui.define([
 		_setIconTabSelection: function (sKey) {
 			var oIconTabBar = this.byId("iconTabBar");
 			var sEffectiveKey = sKey || "gateIn";
+			if (String(sEffectiveKey).trim().toLowerCase() === "gateout") {
+				sEffectiveKey = "gateout";
+			}
 			if (oIconTabBar) {
 				oIconTabBar.setSelectedKey(sEffectiveKey);
 			}
 		}
 		,
+
+		_isCreateModeVehicleType01: function () {
+			var oTripData = sap.ui.getCore().getModel("TripData");
+			if (!oTripData) {
+				return false;
+			}
+			var sVehicleTypeRaw = String(oTripData.getProperty("/VehicleType") || "").trim();
+			return VehicleTypeConfig.isGateOutFirstInCreateMode(sVehicleTypeRaw);
+		},
+
+		_ensureStageUiModel: function () {
+			var oStageUi = sap.ui.getCore().getModel("stageUi");
+			if (!oStageUi) {
+				oStageUi = new JSONModel({
+					showReportingInGateOut: false
+				});
+				sap.ui.getCore().setModel(oStageUi, "stageUi");
+			}
+			return oStageUi;
+		},
+
+		_updateReportingPlacementByVehicleType: function () {
+			var oStageUi = this._ensureStageUiModel();
+			var bShowInGateOut = !!(this._bCreateMode && this._isCreateModeVehicleType01());
+			oStageUi.setProperty("/showReportingInGateOut", bShowInGateOut);
+		},
+
+		_applyVehicleTypeTabRule: function () {
+			if (!this._bCreateMode && !this._bPendingVehicleTypeTabAutoSelect) {
+				return;
+			}
+			var oTripData = sap.ui.getCore().getModel("TripData");
+			if (!oTripData && !this._bCreateMode) {
+				return;
+			}
+			if (!oTripData && this._bCreateMode) {
+				this._setIconTabSelection("gateIn");
+				this._updateReportingPlacementByVehicleType();
+				this._updateTabVisibilityForCreateMode();
+				return;
+			}
+			var bGateOutFirst = this._isCreateModeVehicleType01();
+			this._updateReportingPlacementByVehicleType();
+			this._setIconTabSelection(bGateOutFirst ? "gateout" : "gateIn");
+			if (this._bCreateMode) {
+				this._updateTabVisibilityForCreateMode();
+			}
+			this._bPendingVehicleTypeTabAutoSelect = false;
+		},
 
 		_syncTripNumberFromRoute: function (sTripNumber, bReset) {
 			var oGlobalModel = sap.ui.getCore().getModel("globalData");
@@ -257,6 +322,7 @@ sap.ui.define([
 		if (oData && oData.tripNumber) {
 			this._bCreateMode = false;
 			this._sCurrentTripNumber = oData.tripNumber;
+			this._updateReportingPlacementByVehicleType();
 
 			// Ensure global TripNumber is synced so dependent views (e.g. Activity Analysis tab)
 			// can reliably load data based on the current trip
@@ -473,6 +539,7 @@ sap.ui.define([
 
 			var aTabs = oIconTabBar.getItems();
 			
+			var bGateOutFirst = this._isCreateModeVehicleType01();
 			aTabs.forEach(function(oTab) {
 				var sKey = oTab.getKey();
 				var sId = oTab.getId();
@@ -480,6 +547,16 @@ sap.ui.define([
 				// Always show Gate In tab (contains Reporting, Ref. Docs, Gate In)
 				if (sKey === "gateIn") {
 					oTab.setVisible(true);
+					return;
+				}
+
+				// In CREATE mode with VehicleType 01, Gate Out must be available first.
+				if (sKey === "gateout") {
+					if (this._bCreateMode) {
+						oTab.setVisible(!!bGateOutFirst);
+					} else {
+						oTab.setVisible(true);
+					}
 					return;
 				}
 				

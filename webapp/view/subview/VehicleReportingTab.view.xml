@@ -124,7 +124,6 @@
                                 }"
                                 selectedKey="{path: 'TripData>/MovementScenarioItemKey', mode: 'TwoWay'}"
                                 change="onMovementScenarioComboChange"
-                                enabled="{= !String(${TripData>/MovementScenarioDesc} || '').trim() }"
                             >
                                 <core:ListItem
                                     key="{movementScenarioItems>ItemKey}"

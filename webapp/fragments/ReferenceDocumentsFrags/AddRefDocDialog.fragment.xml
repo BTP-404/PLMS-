@@ -37,8 +37,7 @@
             <Label text="Document Number" />
             <Input
                 id="idRefDocNumber"
-                showValueHelp="true"
-                valueHelpRequest=".onRefDocNumberValueHelpRequest"
+                showValueHelp="false"
                 placeholder="Select Document Number"
                 valueLiveUpdate="true"
                 showSuggestion="true"

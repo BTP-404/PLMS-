@@ -25,17 +25,29 @@
                 </headerToolbar>
                 <columns>
                     <Column>
+                        <Text text="Ref Doc Item No" />
+                    </Column>
+                    <Column>
                         <Text text="Material Code" />
                     </Column>
                     <Column>
                         <Text text="Material Description" />
                     </Column>
+                    <Column hAlign="End">
+                        <Text text="Quantity" />
+                    </Column>
+                    <Column>
+                        <Text text="UoM" />
+                    </Column>
                 </columns>
                 <items>
                     <ColumnListItem>
                         <cells>
+                            <Text text="{materialsSelectionModel>RefDocItemNo}" />
                             <Text text="{materialsSelectionModel>MaterialCode}" />
                             <Text text="{materialsSelectionModel>MaterialDescription}" />
+                            <Text text="{materialsSelectionModel>Quantity}" />
+                            <Text text="{materialsSelectionModel>UoM}" />
                         </cells>
                     </ColumnListItem>
                 </items>
