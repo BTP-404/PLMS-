@@ -218,7 +218,7 @@
                             minScreenWidth="Tablet"
                             popinDisplay="Inline"
                         >
-                            <Text text="Movement Scenario Description" />
+                            <Text text="Movement Scenario" />
                         </Column>
                         <Column
                             id="colVehicleType"

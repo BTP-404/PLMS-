@@ -41,7 +41,6 @@ sap.ui.define(
           this._initService();
           this._loadVehicleSuggestions();
           this._loadVehicleTypeSuggestions();
-          this._loadVehicleSizeSuggestions();
           this.getView().setModel(new JSONModel([]), "movementScenarioItems");
           this.getView().setModel(new JSONModel({ items: [] }), "poNumberSuggestions");
           this._loadMovementScenarioItems();
@@ -138,7 +137,7 @@ sap.ui.define(
          * - loads TripDetails after creation to update header
          * - does not disable inputs or change form state
          * =========================================================== */
-        _loadTripDetailsForHeader: function (sTripNumber) {
+        _loadTripDetailsForHeader: function (sTripNumber, sPreferredTabKey) {
           const oModel = this.getView().getModel();
           const that = this;
 
@@ -166,7 +165,8 @@ sap.ui.define(
               // Publish custom event to notify Stage controller that trip was created
               // This will update _bCreateMode and _sCurrentTripNumber in Stage controller
               sap.ui.getCore().getEventBus().publish("Stage", "TripCreated", {
-                tripNumber: sTripNumber
+                tripNumber: sTripNumber,
+                preferredTabKey: sPreferredTabKey || ""
               });
 
               // Also bind to this view
@@ -184,10 +184,32 @@ sap.ui.define(
             error: function () {
               // Even if loading fails, try to update header with trip number
               sap.ui.getCore().getEventBus().publish("Stage", "TripCreated", {
-                tripNumber: sTripNumber
+                tripNumber: sTripNumber,
+                preferredTabKey: sPreferredTabKey || ""
               });
             },
           });
+        },
+
+        _getCurrentStageTabKey: function () {
+          var oNode = this.getView();
+          while (oNode && !oNode.byId) {
+            oNode = oNode.getParent ? oNode.getParent() : null;
+          }
+
+          var oIconTabBar = oNode && oNode.byId ? oNode.byId("iconTabBar") : null;
+          if (oIconTabBar && oIconTabBar.getSelectedKey) {
+            return String(oIconTabBar.getSelectedKey() || "").trim();
+          }
+
+          var oRootControl = this.getOwnerComponent && this.getOwnerComponent().getRootControl
+            ? this.getOwnerComponent().getRootControl()
+            : null;
+          oIconTabBar = oRootControl && oRootControl.byId ? oRootControl.byId("iconTabBar") : null;
+          if (oIconTabBar && oIconTabBar.getSelectedKey) {
+            return String(oIconTabBar.getSelectedKey() || "").trim();
+          }
+          return "";
         },
 
         /* ===========================================================
@@ -370,8 +392,20 @@ sap.ui.define(
                 that._saveDriverPhotoToAttachments(sTripNumber, sDriverPhoto, oData.DriverName);
               }
               
-              // Load full trip details to populate TripData model and update header
-              that._loadTripDetailsForHeader(sTripNumber);
+              // Keep users on the same stage tab after reporting save.
+              var sPreferredTabKey = that._getCurrentStageTabKey();
+              if (!sPreferredTabKey) {
+                var oStageUi = sap.ui.getCore().getModel("stageUi");
+                var bReportingInGateOut = !!(
+                  oStageUi && oStageUi.getProperty("/showReportingInGateOut")
+                );
+                sPreferredTabKey = bReportingInGateOut ? "gateout" : "gateIn";
+              }
+              console.info("[VehicleReporting][CreateTrip][PreferredTab]", {
+                preferredTabKey: sPreferredTabKey
+              });
+              // Load full trip details to populate TripData model and update header.
+              that._loadTripDetailsForHeader(sTripNumber, sPreferredTabKey);
               
               // Clear MovementType from globalData (TripData model will have it now)
               if (oGlobalModel) {
@@ -379,7 +413,7 @@ sap.ui.define(
                 oGlobalModel.setProperty("/MovementTypeDesc", "");
               }
               
-              this._clearForm();
+              that._clearForm();
               that._setFormEditable(false);
               that._setInputsEnabled(false);
             },
@@ -524,9 +558,6 @@ sap.ui.define(
           
           const oVehicleTypeSuggestions = new JSONModel({ items: [] });
           this.getView().setModel(oVehicleTypeSuggestions, "vehicleTypeSuggestions");
-          
-          const oVehicleSizeSuggestions = new JSONModel({ items: [] });
-          this.getView().setModel(oVehicleSizeSuggestions, "vehicleSizeSuggestions");
 
           const oSuggestions = new JSONModel({ MovementScenarioSuggestions: [] });
           this.getView().setModel(oSuggestions, "suggestions");
@@ -559,7 +590,6 @@ sap.ui.define(
           // Re-load suggestion sources after reset so type-ahead keeps working.
           this._loadVehicleSuggestions();
           this._loadVehicleTypeSuggestions();
-          this._loadVehicleSizeSuggestions();
 
           const oPoSugg = this.getView().getModel("poNumberSuggestions");
           if (oPoSugg) {
@@ -698,9 +728,15 @@ sap.ui.define(
             "idDriverContact",
             "idDriverLicense",
           ];
+          const isEditMode = this._mode === "EDIT";
+          const requiredInCurrentMode = isEditMode
+            ? required.filter(
+                (id) => id !== "idVehicleType" && id !== "idDriverName"
+              )
+            : required;
 
           let valid = true;
-          required.forEach((id) => {
+          requiredInCurrentMode.forEach((id) => {
             const oCtrl = this.byId(id);
             if (!oCtrl) return;
             let val;
@@ -1286,30 +1322,6 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
             this._mValueHelps.VHVehicleType.open();
           }
         },
-        onValueHelpVehicleSize: function () {
-          const oView = this.getView();
-
-          if (!this._mValueHelps) {
-            this._mValueHelps = {};
-          }
-
-          if (!this._mValueHelps.VHVehicleSize) {
-            Fragment.load({
-              id: oView.getId(),
-              name: "com.incresolZ_INC_PLMS.fragments.VehicleReportingFrags.VHVehicleSize",
-              controller: this,
-            }).then(
-              function (oDialog) {
-                this._mValueHelps.VHVehicleSize = oDialog;
-                oView.addDependent(oDialog);
-                oDialog.open();
-              }.bind(this)
-            );
-          } else {
-            this._mValueHelps.VHVehicleSize.open();
-          }
-        },
-
         _syncOutgoingDirectSaleScenarioFromConfig: function () {
           var oModel = this.getView().getModel();
           MovementScenarioConfig.syncOutgoingDirectSaleFromConfig(
@@ -1551,10 +1563,8 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
           oBinding.filter(aFilters);
         },
 
-        /**
-
         /* ===========================================================
-         * UPDATED: onSearchVH - handles search for MovementType and VehicleSize
+         * onSearchVH — MovementType value help list filter
          * =========================================================== */
         onSearchVH: function (oEvent) {
           const sValue = (oEvent.getParameter("newValue") || oEvent.getParameter("value") || oEvent.getParameter("query") || "").trim();
@@ -1572,16 +1582,8 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
 
           let aFilters = [];
           if (sValue && sValue.length > 0) {
-            // Get list ID to determine which fields to search
             const sListId = oList.getId();
-            let sListName = "";
             if (sListId.indexOf("VHMovementType") >= 0) {
-              sListName = "MovementType";
-            } else if (sListId.indexOf("VHVehicleSize") >= 0) {
-              sListName = "VehicleSize";
-            }
-
-            if (sListName === "MovementType") {
               aFilters = [
                 new sap.ui.model.Filter({
                   filters: [
@@ -1597,24 +1599,6 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
                     ),
                     new sap.ui.model.Filter(
                       "MovementCategory",
-                      sap.ui.model.FilterOperator.Contains,
-                      sValue
-                    ),
-                  ],
-                  and: false,
-                }),
-              ];
-            } else if (sListName === "VehicleSize") {
-              aFilters = [
-                new sap.ui.model.Filter({
-                  filters: [
-                    new sap.ui.model.Filter(
-                      "VehicleSize",
-                      sap.ui.model.FilterOperator.Contains,
-                      sValue
-                    ),
-                    new sap.ui.model.Filter(
-                      "VehicleSizeDesc",
                       sap.ui.model.FilterOperator.Contains,
                       sValue
                     ),
@@ -1679,10 +1663,6 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
                   oFieldCtrl.setValue(oVehicleTypeRow.Description || "");
                 }
               }
-              break;
-
-            case this.getView().getId() + "--idVHVehicleSize":
-              sField = "idVehicleSize";
               break;
           }
 
@@ -2048,30 +2028,6 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
               fnSetSuggestionModel([]);
             }
           );
-        },
-
-        /**
-         * Load Vehicle Size Suggestions
-         */
-        _loadVehicleSizeSuggestions: function () {
-          const oModel = this.getView().getModel();
-          const that = this;
-
-          oModel.read("/VehicleSizeSet", {
-            success: function (oData) {
-              const oJSON = new sap.ui.model.json.JSONModel({
-                items: oData.results || []
-              });
-              that.getView().setModel(oJSON, "vehicleSizeSuggestions");
-            },
-            error: function () {
-              // Silently fail, suggestions just won't work
-              that.getView().setModel(
-                new sap.ui.model.json.JSONModel({ items: [] }),
-                "vehicleSizeSuggestions"
-              );
-            },
-          });
         },
 
         onSuggest: function (oEvent) {
@@ -2487,54 +2443,6 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
         },
 
         /**
-         * Vehicle Size Suggestion Handler
-         */
-        onVehicleSizeSuggest: function (oEvent) {
-          const sValue = (oEvent.getParameter("suggestValue") || "").trim();
-          const oInput = oEvent.getSource();
-          const oBinding = oInput.getBinding("suggestionItems");
-
-          if (!oBinding) {
-            return;
-          }
-
-          if (sValue && sValue.length > 0) {
-            oBinding.filter([
-              new sap.ui.model.Filter({
-                filters: [
-                  new sap.ui.model.Filter(
-                    "VehicleSize",
-                    sap.ui.model.FilterOperator.Contains,
-                    sValue
-                  ),
-                  new sap.ui.model.Filter(
-                    "VehicleSizeDesc",
-                    sap.ui.model.FilterOperator.Contains,
-                    sValue
-                  ),
-                ],
-                and: false,
-              }),
-            ]);
-          } else {
-            oBinding.filter([]);
-          }
-        },
-
-        /**
-         * Vehicle Size Suggestion Selected
-         */
-        onVehicleSizeSuggestionSelected: function (oEvent) {
-          const oItem = oEvent.getParameter("selectedItem");
-          if (!oItem) {
-            return;
-          }
-
-          const sVehicleSize = oItem.getKey();
-          this.byId("idVehicleSize").setValue(sVehicleSize);
-        },
-
-        /**
          * Load TripNumber from ConfigValues
          */
         _loadTripNumberData: function () {
@@ -2883,6 +2791,19 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
               "X-Requested-With": "X"
             },
             success: function (oResponse) {
+              var oScannerVBox = that.getView().byId("idReportingScannerVBox");
+              if (oScannerVBox) {
+                oScannerVBox.setVisible(false);
+              }
+              var oScannerInput = that.getView().byId("idReportingScannerInput");
+              if (oScannerInput) {
+                oScannerInput.setValue("");
+              }
+              var oGlobalModel = sap.ui.getCore().getModel("globalData");
+              if (oGlobalModel) {
+                oGlobalModel.setProperty("/IsScanningReporting", false);
+              }
+
               // Hide the form panel since reporting is done through scanner
               var oReportingPanel = that.getView().byId("reportingDetailsPanel");
               if (oReportingPanel) {
@@ -2954,9 +2875,48 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
           // Get the form panel and save button
           var oReportingPanel = this.getView().byId("reportingDetailsPanel");
           var oSaveButton = this.getView().byId("btnSaveReporting");
+          var oTripData = sap.ui.getCore().getModel("TripData");
+
+          var oGlobalForMode = sap.ui.getCore().getModel("globalData");
+          var bIncomingFlow =
+            oGlobalForMode && oGlobalForMode.getProperty("/HasIncomingMaterials");
+          var sIncomingMethod = oGlobalForMode
+            ? oGlobalForMode.getProperty("/IncomingReportingMethod")
+            : null;
+          var sIncomingRefDocSkip = oGlobalForMode
+            ? oGlobalForMode.getProperty("/IncomingRefDocSkip")
+            : "";
+          var bIncomingSkipDocument = String(sIncomingRefDocSkip || "")
+            .trim()
+            .toUpperCase() === "X";
+
+          var sCurrentItemKey = "";
+          if (oTripData) {
+            sCurrentItemKey = oTripData.getProperty("/MovementScenarioItemKey") || "";
+          }
+          if (!sCurrentItemKey) {
+            var sMtCurrent =
+              (oTripData && oTripData.getProperty("/MovementType")) || Mtype || "";
+            var sMsCurrent =
+              movementScenario !== undefined && movementScenario !== null && movementScenario !== ""
+                ? movementScenario
+                : oTripData
+                  ? oTripData.getProperty("/MovementScenario")
+                  : "";
+            sCurrentItemKey = MovementScenarioIcons.getMovementScenarioItemKey(
+              sMtCurrent,
+              sMsCurrent
+            );
+          }
+          var bIsScannerScenario =
+            MovementScenarioIcons.isScannerMovementScenarioItemKey(sCurrentItemKey);
+          var bForceScannerForIncomingSkip =
+            !!bIncomingFlow &&
+            String(sIncomingMethod || "").toUpperCase() === "PO" &&
+            bIncomingSkipDocument &&
+            bIsScannerScenario;
 
           // Check if there's data in Reporting Screen (TripData model)
-          var oTripData = sap.ui.getCore().getModel("TripData");
           var bHasData = false;
           
           if (oTripData) {
@@ -2971,6 +2931,37 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
             }
           }
           
+          // If scanner mode must be forced for incoming skip-document + I01/I02/I03,
+          // keep scanner visible even when TripData is already present.
+          if (bForceScannerForIncomingSkip) {
+            oScannerVBox.setVisible(true);
+            if (oPoSearchVBox) {
+              oPoSearchVBox.setVisible(false);
+            }
+            if (oReportingPanel) {
+              oReportingPanel.setVisible(false);
+            }
+            if (oSaveButton) {
+              oSaveButton.setVisible(false);
+            }
+            if (!oGlobalForMode) {
+              oGlobalForMode = new sap.ui.model.json.JSONModel({});
+              sap.ui.getCore().setModel(oGlobalForMode, "globalData");
+            }
+            oGlobalForMode.setProperty("/IsScanningReporting", true);
+            oGlobalForMode.setProperty("/DisableRefDocMaterialsActions", false);
+            setTimeout(
+              function () {
+                var oScannerInput = this.getView().byId("idReportingScannerInput");
+                if (oScannerInput) {
+                  oScannerInput.focus();
+                }
+              }.bind(this),
+              300
+            );
+            return;
+          }
+
           // If there's data, hide the scanner and show the form and save button
           if (bHasData) {
             oScannerVBox.setVisible(false);
@@ -3011,12 +3002,6 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
             return;
           }
 
-          var oGlobalForMode = sap.ui.getCore().getModel("globalData");
-          var bIncomingFlow =
-            oGlobalForMode && oGlobalForMode.getProperty("/HasIncomingMaterials");
-          var sIncomingMethod = oGlobalForMode
-            ? oGlobalForMode.getProperty("/IncomingReportingMethod")
-            : null;
           var bPoSearchMode =
             !!bIncomingFlow && sIncomingMethod === "PO_SEARCH";
 
@@ -3103,6 +3088,39 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
               }
             }.bind(this), 300);
           }
+        },
+        onCancelReportingScanner: function () {
+          var oTripData = sap.ui.getCore().getModel("TripData");
+          if (oTripData) {
+            oTripData.setProperty("/MovementScenarioItemKey", "");
+            oTripData.setProperty("/MovementScenario", "");
+            oTripData.setProperty("/MovementScenarioDesc", "");
+            oTripData.setProperty("/MovementType", "");
+            oTripData.setProperty("/MovementTypeDesc", "");
+          }
+          movementScenario = "";
+          Mtype = "";
+
+          var oScenarioCtrl = this.byId("idMovementScenario");
+          if (oScenarioCtrl && oScenarioCtrl.setSelectedKey) {
+            oScenarioCtrl.setSelectedKey("");
+          }
+          var oMovementTypeCtrl = this.byId("idMovementType");
+          if (oMovementTypeCtrl && oMovementTypeCtrl.setValue) {
+            oMovementTypeCtrl.setValue("");
+          }
+
+          var oGlobal = sap.ui.getCore().getModel("globalData");
+          if (oGlobal) {
+            oGlobal.setProperty("/IsScanningReporting", false);
+            oGlobal.setProperty("/DisableRefDocMaterialsActions", false);
+          }
+
+          var oScannerInput = this.byId("idReportingScannerInput");
+          if (oScannerInput) {
+            oScannerInput.setValue("");
+          }
+          this._updateScannerVisibility();
         },
 
         /**

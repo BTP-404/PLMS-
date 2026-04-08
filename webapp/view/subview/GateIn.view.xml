@@ -14,7 +14,7 @@
             <mvc:XMLView
                 viewName="com.incresolZ_INC_PLMS.view.subview.VehicleReportingTab"
                 class="sapUiTinyMarginBottom"
-                visible="{= ${stageUi>/showReportingInGateOut} !== true }"
+                visible="{= ${stageUi>/showReportingInGateOut} !== true &amp;&amp; !!String(${TripData>/TripNumber} || ${globalData>/TripNumber} || '').trim() }"
             />
 
             <!-- ========================================================= -->
@@ -24,6 +24,7 @@
                 id="idRefDocsViewGateIn"
                 viewName="com.incresolZ_INC_PLMS.view.subview.ReferenceDocuments"
                 class="sapUiTinyMarginBottom"
+                visible="{= !!String(${TripData>/TripNumber} || ${globalData>/TripNumber} || '').trim() }"
             />
 
             <!-- Gate-In and Change History: same margin as Reporting / Reference Documents -->
@@ -46,7 +47,7 @@
                 </OverflowToolbar>
             </headerToolbar>
 
-            <VBox class="sapUiSizeCompact sapUiSmallMargin" width="100%">
+            <VBox class="sapUiSizeCompact" width="100%">
                 <HBox justifyContent="End" class="sapUiTinyMarginBottom">
                     <Button
                         id="idAddBinTrolleyRowBtn"
@@ -68,24 +69,38 @@
                 <Table
                     id="idGateInBinTrolleyTrackingTable"
                     width="100%"
-                    fixedLayout="false"
+                    fixedLayout="true"
+                    autoPopin="true"
+                    popinLayout="GridSmall"
                     items="{binTrolleyTracking>/rows}"
                     class="sapUiSizeCompact binTrolleyTrackingTable plmsPanelDataTable"
                 >
                     <columns>
-                        <Column width="9rem">
+                        <Column width="8rem" demandPopin="true" minScreenWidth="Phone" popinDisplay="Inline">
+                            <Text text="Doc No" />
+                        </Column>
+                        <Column width="6rem" demandPopin="true" minScreenWidth="Phone" popinDisplay="Inline">
+                            <Text text="Item" />
+                        </Column>
+                        <Column width="9rem" demandPopin="true" minScreenWidth="Phone" popinDisplay="Inline">
                             <Text text="Part Code" />
                         </Column>
-                        <Column hAlign="Center" width="11rem">
+                        <Column width="12rem" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
+                            <Text text="Bin Type" />
+                        </Column>
+                        <Column hAlign="End" width="8rem" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
+                            <Text text="Qty Out" />
+                        </Column>
+                        <Column hAlign="Center" width="11rem" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
                             <Text text="Qty In (Manual)" />
                         </Column>
-                        <Column hAlign="End" width="9rem">
+                        <Column hAlign="End" width="9rem" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
                             <Text text="Difference" />
                         </Column>
-                        <Column hAlign="Center" width="11rem">
+                        <Column hAlign="Center" width="11rem" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
                             <Text text="Return Status" />
                         </Column>
-                        <Column hAlign="Center" width="4rem">
+                        <Column hAlign="Center" width="4rem" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
                             <Text text="" />
                         </Column>
                     </columns>
@@ -93,7 +108,14 @@
                     <items>
                         <ColumnListItem class="binTrolleyTrackingRow">
                             <cells>
+                                <Text text="{binTrolleyTracking>DocumentNumber}" />
+                                <Text text="{binTrolleyTracking>ItemNo}" />
                                 <Text text="{binTrolleyTracking>Material}" class="binTrolleyPartCode" />
+                                <Text text="{binTrolleyTracking>BinTypes}" />
+                                <ObjectNumber
+                                    number="{binTrolleyTracking>QtyOut}"
+                                    emphasized="false"
+                                />
                                 <Input
                                     value="{binTrolleyTracking>QtyIn}"
                                     placeholder="0"
@@ -101,7 +123,7 @@
                                     textAlign="Center"
                                     width="6rem"
                                     valueState="{path: 'binTrolleyTracking>ReturnStatus', formatter: '.formatTrackingQtyValueState'}"
-                                    liveChange="onTrackingFieldLiveChange"
+                                    change="onTrackingFieldLiveChange"
                                 />
                                 <ObjectStatus
                                     text="{path: 'binTrolleyTracking>Difference', formatter: '.formatTrackingDifferenceText'}"
@@ -148,7 +170,7 @@
                 expanded="false"
                 class="sapUiNoContentPadding sapUiTinyMarginBottom"
                 width="100%"
-                visible="{= !!String(${globalData>/TripNumber} || '').trim() }"
+                visible="{= !!String(${TripData>/TripNumber} || ${globalData>/TripNumber} || '').trim() }"
             >
             <headerToolbar>
                 <OverflowToolbar>
@@ -174,9 +196,6 @@
                             />
                             <Select
                                 id="idEntryGateNumber"
-                                
-                                
-                                forceSelection="false"
                                 selectedKey="{entryGateSelect>/SelectedProduct2}"
                                 change="onEntryGateSelectChange"
                                 width="100%"
@@ -218,26 +237,6 @@
                                     formatter: '.formatTripNumber'
                                 }"
                                 enabled="false"
-                            />
-                        </VBox>
-                    </layout:content>
-
-                    <!-- Bins Received -->
-                    <layout:content>
-                        <VBox>
-                            <Label
-                                text="Bins Received"
-                                design="Bold"
-                            />
-                            <Input
-                                id="idBinsReceived"
-                                width="100%"
-                                type="Number"
-                                placeholder="Enter bins received"
-                                value="{
-                                    path: 'TripData>/BinsReceived',
-                                    mode: 'OneWay'
-                                }"
                             />
                         </VBox>
                     </layout:content>
@@ -316,6 +315,7 @@
             expanded="false"
             class="sapUiNoContentPadding sapUiTinyMarginBottom"
             width="100%"
+            visible="{= !!String(${TripData>/TripNumber} || ${globalData>/TripNumber} || '').trim() }"
         >
             <headerToolbar>
                 <OverflowToolbar>

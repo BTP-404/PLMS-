@@ -404,6 +404,14 @@ sap.ui.define([
 		},
 
 		onExit: function () {
+			if (this._iRefDocSuggestDebounceTimer) {
+				clearTimeout(this._iRefDocSuggestDebounceTimer);
+				this._iRefDocSuggestDebounceTimer = null;
+			}
+			if (this._iRefDocNumberChangeTimer) {
+				clearTimeout(this._iRefDocNumberChangeTimer);
+				this._iRefDocNumberChangeTimer = null;
+			}
 			this._oAddRefDocDialog?.destroy();
 			this._oAddMaterialDialog?.destroy();
 			this._oRefDocValueHelp?.destroy();
@@ -555,6 +563,7 @@ sap.ui.define([
 		},
 
 		onRefDocSuggestionSelected: function (oEvent) {
+			console.log("[RefDoc] onRefDocSuggestionSelected triggered");
 			var oItem = oEvent?.getParameter?.("selectedItem");
 			var oSource = oEvent?.getSource?.();
 
@@ -581,20 +590,295 @@ sap.ui.define([
 				return;
 			}
 
-			var oModel = this.getView().getModel("refDocSuggestions");
-			var aItems = oModel?.getProperty("/items") || [];
-			var sDocNumberLower = sDocNumber.toLowerCase();
-			var oMatch = aItems.find(function (o) {
-				var v = (o?.DocumentNumber || "").toString();
-				return v && v.toLowerCase() === sDocNumberLower;
-			});
+			var oDocTypeSelect = this.byId("idRefDocType");
+			var sDocType = this._sSelectedDocType || (oDocTypeSelect?.getSelectedItem?.()?.getKey?.() || oDocTypeSelect?.getSelectedKey?.() || "");
+			sDocType = (sDocType || "").toString().trim();
+			if (!sDocType) {
+				return;
+			}
 
-			if (oMatch) {
-				this._applySelectedReferenceDoc(oMatch);
+			// Always resolve from OrderDetails after user selection.
+			console.log("[RefDoc] Suggestion selected; fetching OrderDetails", {
+				docType: sDocType,
+				documentNumber: sDocNumber
+			});
+			this._findMatchingOrderDetail(sDocType, sDocNumber, true)
+				.then(function (oResolved) {
+					if (oResolved) {
+						this._applySelectedReferenceDoc(oResolved);
+						// Clear top-context typed values after successful selection to avoid stale auto-prefill.
+						this._clearTopContextRefDocInputs();
+					}
+				}.bind(this))
+				.catch(function () {
+					// Non-blocking: keep manual user value.
+				});
+		},
+
+		onRefDocNumberChange: function () {
+			if (this._iRefDocNumberChangeTimer) {
+				clearTimeout(this._iRefDocNumberChangeTimer);
+				this._iRefDocNumberChangeTimer = null;
+			}
+
+			this._iRefDocNumberChangeReqId = (this._iRefDocNumberChangeReqId || 0) + 1;
+			var iReqId = this._iRefDocNumberChangeReqId;
+			var that = this;
+
+			this._iRefDocNumberChangeTimer = setTimeout(function () {
+				that._iRefDocNumberChangeTimer = null;
+				var oDocNumberCtrl = that.byId("idRefDocNumber");
+				var oDocTypeSelect = that.byId("idRefDocType");
+				var sDocType = String(
+					that._sSelectedDocType ||
+						oDocTypeSelect?.getSelectedItem?.()?.getKey?.() ||
+						oDocTypeSelect?.getSelectedKey?.() ||
+						""
+				).trim();
+				var sDocNo = String(oDocNumberCtrl?.getValue?.() || "").trim();
+				if (!sDocType || !sDocNo) {
+					return;
+				}
+				console.log("[RefDoc] onRefDocNumberChange (debounced) fetch OrderDetails", {
+					docType: sDocType,
+					documentNumber: sDocNo
+				});
+				that._findMatchingOrderDetail(sDocType, sDocNo, true)
+					.then(function (oResolved) {
+						if (iReqId !== that._iRefDocNumberChangeReqId) {
+							return;
+						}
+						if (oResolved) {
+							that._applySelectedReferenceDoc(oResolved);
+						}
+					})
+					.catch(function () {
+						// non-blocking
+					});
+			}, 400);
+		},
+
+		_clearTopContextRefDocInputs: function () {
+			var sViewId = this.getView()?.getId?.() || "";
+			try {
+				var oIncoming = Fragment.byId(sViewId, "idIncomingDialogPoInput");
+				if (oIncoming && typeof oIncoming.setValue === "function") {
+					oIncoming.setValue("");
+				}
+			} catch (e) {
+				// ignore
+			}
+			try {
+				var oGateOut = Fragment.byId(sViewId, "idGateOutRefDocSearchInput");
+				if (oGateOut && typeof oGateOut.setValue === "function") {
+					oGateOut.setValue("");
+				}
+			} catch (e2) {
+				// ignore
+			}
+			var oGateOutUi = this.getView()?.getModel("gateOutUi");
+			if (oGateOutUi) {
+				oGateOutUi.setProperty("/refDocSearchValue", "");
 			}
 		},
 
+		_hasPrefilledRefDocNumber: function () {
+			return !!String(this._getTopContextRefDocNumber() || "").trim();
+		},
+
+		_getLatestReferenceByKey: function () {
+			var sFromViewModel = String(this.getView()?.getModel("gateOutUi")?.getProperty("/referenceByKey") || "").trim().toUpperCase();
+			if (sFromViewModel === "PO" || sFromViewModel === "INVOICE" || sFromViewModel === "CHALLAN") {
+				return sFromViewModel;
+			}
+			var sFromGlobal = String(sap.ui.getCore().getModel("globalData")?.getProperty("/OutgoingReferenceByKey") || "").trim().toUpperCase();
+			if (sFromGlobal === "PO" || sFromGlobal === "INVOICE" || sFromGlobal === "CHALLAN") {
+				return sFromGlobal;
+			}
+			return "";
+		},
+
+		_getTopContextRefDocNumber: function () {
+			var sViewId = this.getView()?.getId?.() || "";
+			var sIncoming = "";
+			var sGateOut = "";
+			var oGlobalModel = sap.ui.getCore().getModel("globalData");
+			try {
+				sIncoming = String(Fragment.byId(sViewId, "idIncomingDialogPoInput")?.getValue?.() || "").trim();
+			} catch (e) {
+				sIncoming = "";
+			}
+			try {
+				sGateOut = String(Fragment.byId(sViewId, "idGateOutRefDocSearchInput")?.getValue?.() || "").trim();
+			} catch (e2) {
+				sGateOut = "";
+			}
+			if (!sGateOut) {
+				sGateOut = String(this.getView()?.getModel("gateOutUi")?.getProperty("/refDocSearchValue") || "").trim();
+			}
+			// Strong fallback: values persisted in globalData from Report Vehicle/GateOut flows.
+			var sIncomingPo = String(oGlobalModel?.getProperty("/IncomingPoNumber") || "").trim();
+			var sOutgoingPo = String(oGlobalModel?.getProperty("/OutgoingPoNumber") || "").trim();
+			var sOutgoingBilling = String(oGlobalModel?.getProperty("/OutgoingBillingDocument") || "").trim();
+			return sIncoming || sGateOut || sIncomingPo || sOutgoingPo || sOutgoingBilling || "";
+		},
+
+		_getRefDocSuggestionSource: function () {
+			var sOutgoingRefKey = this._getLatestReferenceByKey();
+			var oPoPrefill = this._getPoRefDocPrefill();
+			var sPrefillSource = String(oPoPrefill?.source || "").trim();
+
+			if (sPrefillSource === "incoming" || sPrefillSource === "outgoing") {
+				return "PO";
+			}
+			if (sPrefillSource === "outgoingBilling") {
+				return "INVOICE";
+			}
+			if (sPrefillSource === "outgoingChallan") {
+				return "CHALLAN";
+			}
+
+			if (sOutgoingRefKey === "PO" || sOutgoingRefKey === "INVOICE" || sOutgoingRefKey === "CHALLAN") {
+				return sOutgoingRefKey;
+			}
+
+			var oDocTypeSelect = this.byId("idRefDocType");
+			var sHint = String(
+				oDocTypeSelect?.getSelectedItem?.()?.getText?.() ||
+				oDocTypeSelect?.getSelectedItem?.()?.getAdditionalText?.() ||
+				""
+			).toUpperCase();
+			if (sHint.indexOf("CHALLAN") !== -1) return "CHALLAN";
+			if (sHint.indexOf("INVOICE") !== -1) return "INVOICE";
+			if (sHint.indexOf("PO") !== -1 || sHint.indexOf("PURCHASE") !== -1) return "PO";
+
+			return "";
+		},
+
+		_fetchRefDocSuggestionsFromSearchHelp: function (sSource, sSearchTerm) {
+			console.log("[RefDoc] _fetchRefDocSuggestionsFromSearchHelp", {
+				source: sSource,
+				searchTerm: sSearchTerm
+			});
+			return new Promise(function (resolve) {
+				var oService = this._getOrderDetailsService();
+				var sMode = String(sSource || "").toUpperCase();
+				var sPath = "";
+				var aFilters = [];
+				var sTerm = String(sSearchTerm || "").trim();
+				var bNumeric = /^\d+$/.test(sTerm);
+				var oUrlParameters = {
+					$top: "20",
+					$skip: "0"
+				};
+
+				if (sMode === "PO") {
+					sPath = "/PoNumberSH";
+					if (sTerm) {
+						aFilters.push(new Filter(bNumeric ? "PoNumber" : "VendorName", FilterOperator.StartsWith, sTerm));
+					}
+				} else if (sMode === "INVOICE") {
+					sPath = "/BillingDocSH";
+					if (sTerm) {
+						// Backend may expose PayerName (preferred) or Payer (fallback id/text).
+						aFilters.push(new Filter(bNumeric ? "BillingDoc" : "PayerName", FilterOperator.StartsWith, sTerm));
+					}
+				} else if (sMode === "CHALLAN") {
+					sPath = "/ChallanSh";
+					if (sTerm) {
+						aFilters.push(new Filter(bNumeric ? "MaterialDoc" : "SupplierName", FilterOperator.StartsWith, sTerm));
+					}
+				} else {
+					console.warn("[RefDoc] Unknown suggestion source:", sMode);
+					resolve([]);
+					return;
+				}
+
+				console.log("[RefDoc] Fetch SH suggestions", {
+					source: sMode,
+					path: sPath,
+					searchTerm: sTerm,
+					numeric: bNumeric
+				});
+
+				oService.read(sPath, {
+					filters: aFilters,
+					urlParameters: oUrlParameters,
+					success: function (oData) {
+						console.log("[RefDoc] SH read success", {
+							path: sPath,
+							count: (oData?.results || []).length
+						});
+						var aRows = oData?.results || [];
+						var aMapped = aRows.map(function (oRow) {
+							var sDocNo = "";
+							if (sMode === "PO") sDocNo = String(oRow?.PoNumber || "").trim();
+							if (sMode === "INVOICE") sDocNo = String(oRow?.BillingDoc || "").trim();
+							if (sMode === "CHALLAN") sDocNo = String(oRow?.MaterialDoc || "").trim();
+							return {
+								DocType: this._sSelectedDocType || "",
+								DocumentNumber: sDocNo,
+								Name: String(
+									oRow?.Name ||
+									oRow?.PayerName ||
+									oRow?.Payer ||
+									oRow?.VendorName ||
+									oRow?.CustomerName ||
+									oRow?.SupplierName ||
+									oRow?.Description ||
+									""
+								).trim()
+							};
+						}.bind(this)).filter(function (oDoc) {
+							return !!oDoc.DocumentNumber;
+						});
+						console.log("[RefDoc] SH suggestions loaded", {
+							source: sMode,
+							count: aMapped.length
+						});
+						resolve(aMapped);
+					}.bind(this),
+					error: function (oError) {
+						console.error("[RefDoc] SH read error", {
+							path: sPath,
+							error: oError
+						});
+						// For invoice text search, fallback to Payer if PayerName is unsupported.
+						if (sMode === "INVOICE" && sTerm && !bNumeric && aFilters.length) {
+							oService.read(sPath, {
+								filters: [new Filter("Payer", FilterOperator.StartsWith, sTerm)],
+								urlParameters: oUrlParameters,
+								success: function (oData2) {
+									var aRows2 = oData2?.results || [];
+									var aMapped2 = aRows2.map(function (oRow) {
+										return {
+											DocType: this._sSelectedDocType || "",
+											DocumentNumber: String(oRow?.BillingDoc || "").trim(),
+											Name: String(oRow?.PayerName || oRow?.Payer || "").trim()
+										};
+									}.bind(this)).filter(function (oDoc) {
+										return !!oDoc.DocumentNumber;
+									});
+									resolve(aMapped2);
+								}.bind(this),
+								error: function () {
+									console.error("[RefDoc] SH suggestion fetch failed", sMode, oError);
+									resolve([]);
+								}
+							});
+							return;
+						}
+						console.error("[RefDoc] SH suggestion fetch failed", sMode, oError);
+						resolve([]);
+					}
+				});
+			}.bind(this));
+		},
+
 		onRefDocNumberSuggest: function (oEvent) {
+			console.log("[RefDoc] onRefDocNumberSuggest", {
+				suggestValue: oEvent.getParameter("suggestValue")
+			});
 			var oInput = oEvent.getSource();
 			var sValue = (oEvent.getParameter("suggestValue") || "").trim();
 
@@ -630,36 +914,48 @@ sap.ui.define([
 				return;
 			}
 
-			// Server-side search so we can handle very large datasets (100k+)
+			// Debounced server-side search from Search Help or OrderDetails.
 			this._iRefDocSuggestReqId = (this._iRefDocSuggestReqId || 0) + 1;
 			var iReqId = this._iRefDocSuggestReqId;
 			var that = this;
+			var sSuggestionSource = this._getRefDocSuggestionSource();
+			var bUseSearchHelp = !!sSuggestionSource;
+			if (this._iRefDocSuggestDebounceTimer) {
+				clearTimeout(this._iRefDocSuggestDebounceTimer);
+				this._iRefDocSuggestDebounceTimer = null;
+			}
 
-			this._fetchOrderDetails(sDocType, { searchTerm: sValue, top: 50 })
-				.then(function (aDocs) {
-					// Ignore stale responses if user typed again
-					if (iReqId !== that._iRefDocSuggestReqId) {
-						return;
-					}
-					// Keep dropdown list reasonably sized (arrow button) with latest search results
-					that._updateRefDocSuggestions(aDocs);
+			this._iRefDocSuggestDebounceTimer = setTimeout(function () {
+				var pSuggestions = bUseSearchHelp
+					? that._fetchRefDocSuggestionsFromSearchHelp(sSuggestionSource, sValue)
+					: that._fetchOrderDetails(sDocType, { searchTerm: sValue, top: 50 });
 
-					// Populate suggest list (max 15)
-					(aDocs || []).slice(0, 15).forEach(function (oDoc) {
-						var sDocNo = oDoc?.DocumentNumber || "";
-						if (!sDocNo) return;
-						oInput.addSuggestionItem(
-							new SuggestionItem({
-								key: sDocNo,
-								text: sDocNo,
-								description: oDoc?.Name || ""
-							})
-						);
+				pSuggestions
+					.then(function (aDocs) {
+						// Ignore stale responses if user typed again
+						if (iReqId !== that._iRefDocSuggestReqId) {
+							return;
+						}
+						// Keep dropdown list reasonably sized (arrow button) with latest search results
+						that._updateRefDocSuggestions(aDocs);
+
+						// Populate suggest list (max 20)
+						(aDocs || []).slice(0, 20).forEach(function (oDoc) {
+							var sDocNo = oDoc?.DocumentNumber || "";
+							if (!sDocNo) return;
+							oInput.addSuggestionItem(
+								new SuggestionItem({
+									key: sDocNo,
+									text: sDocNo,
+									description: oDoc?.Name || ""
+								})
+							);
+						});
+					})
+					.catch(function () {
+						// Non-blocking: just leave suggestions empty
 					});
-				})
-				.catch(function () {
-					// Non-blocking: just leave suggestions empty
-				});
+			}, 300);
 		},
 
 		/**
@@ -800,59 +1096,63 @@ sap.ui.define([
 		},
 
 		onSaveRefDocDialog: function () {
-			var oPayload = this._buildOrderDetailPayload();
-			if (!oPayload.TripNumber) {
+			var oInitialPayload = this._buildOrderDetailPayload();
+			if (!oInitialPayload.TripNumber) {
 				return MessageToast.show("Trip Number missing. Please open a trip first.");
 			}
-			if (!oPayload.DocType) {
+			if (!oInitialPayload.DocType) {
 				return MessageToast.show("Doc Type is mandatory");
 			}
-			if (!oPayload.DocumentNumber) {
+			if (!oInitialPayload.DocumentNumber) {
 				return MessageToast.show("Document Number is mandatory");
 			}
 
-			if (this._bIsRefDocEditMode && this._oEditingRefDoc) {
-				// Update existing reference document
-				this._updateOrderDetail(oPayload, this._oEditingRefDoc)
-					.then(function (oResponse) {
-						this._updateLocalReferenceDoc(oResponse || oPayload, this._oEditingRefDoc);
-						MessageToast.show("Reference document updated");
-						this._loadRefDocSuggestions(this._sSelectedDocType || oPayload.DocType);
-						this._loadMaterialDocTypesFromRefDocs();
-						this._loadMaterialRefDocNumbersFromRefDocs();
-						this._closeRefDocDialog();
-						this._resetRefDocDialog();
-					}.bind(this))
-					.catch(function (oError) {
-						var sMessage = this._extractErrorMessage(oError) || "Unable to update reference document";
-						MessageToast.show(sMessage);
-					}.bind(this));
-			} else {
-				// Create new reference document
-				this._saveOrderDetail(oPayload)
-					.then(function (oResponse) {
-						var oSavedRefDoc = oResponse || oPayload;
-						this._appendLocalReferenceDoc(oSavedRefDoc);
-						MessageToast.show("Reference document added");
-						
-						// Automatically add all materials for this reference document
-						var sDocType = oSavedRefDoc.DocType || oPayload.DocType || "";
-						var sDocNumber = oSavedRefDoc.DocumentNumber || oPayload.DocumentNumber || "";
-						if (sDocType && sDocNumber) {
-							this._addAllMaterialsFromRefDoc(sDocType, sDocNumber);
-						}
-						
-						this._loadRefDocSuggestions(this._sSelectedDocType || oPayload.DocType);
-						this._loadMaterialDocTypesFromRefDocs();
-						this._loadMaterialRefDocNumbersFromRefDocs();
-						this._closeRefDocDialog();
-						this._resetRefDocDialog();
-					}.bind(this))
-					.catch(function (oError) {
-						var sMessage = this._extractErrorMessage(oError) || "Unable to save reference document";
-						MessageToast.show(sMessage);
-					}.bind(this));
-			}
+			// If doc type + document number are valid, hydrate date/party fields from OrderDetails first.
+			this._findMatchingOrderDetail(oInitialPayload.DocType, oInitialPayload.DocumentNumber)
+				.then(function (oMatch) {
+					if (oMatch) {
+						this._applySelectedReferenceDoc(oMatch);
+					}
+					var oPayload = this._buildOrderDetailPayload();
+					if (this._bIsRefDocEditMode && this._oEditingRefDoc) {
+						// Update existing reference document
+						return this._updateOrderDetail(oPayload, this._oEditingRefDoc)
+							.then(function (oResponse) {
+								this._updateLocalReferenceDoc(oResponse || oPayload, this._oEditingRefDoc);
+								MessageToast.show("Reference document updated");
+								this._loadRefDocSuggestions(this._sSelectedDocType || oPayload.DocType);
+								this._loadMaterialDocTypesFromRefDocs();
+								this._loadMaterialRefDocNumbersFromRefDocs();
+								this._closeRefDocDialog();
+								this._resetRefDocDialog();
+							}.bind(this));
+					}
+
+					// Create new reference document
+					return this._saveOrderDetail(oPayload)
+						.then(function (oResponse) {
+							var oSavedRefDoc = oResponse || oPayload;
+							this._appendLocalReferenceDoc(oSavedRefDoc);
+							MessageToast.show("Reference document added");
+
+							// Automatically add all materials for this reference document
+							var sDocType = oSavedRefDoc.DocType || oPayload.DocType || "";
+							var sDocNumber = oSavedRefDoc.DocumentNumber || oPayload.DocumentNumber || "";
+							if (sDocType && sDocNumber) {
+								this._addAllMaterialsFromRefDoc(sDocType, sDocNumber);
+							}
+
+							this._loadRefDocSuggestions(this._sSelectedDocType || oPayload.DocType);
+							this._loadMaterialDocTypesFromRefDocs();
+							this._loadMaterialRefDocNumbersFromRefDocs();
+							this._closeRefDocDialog();
+							this._resetRefDocDialog();
+						}.bind(this));
+				}.bind(this))
+				.catch(function (oError) {
+					var sMessage = this._extractErrorMessage(oError) || "Unable to save reference document";
+					MessageToast.show(sMessage);
+				}.bind(this));
 		},
 
 		onCancelRefDocDialog: function () {
@@ -1497,18 +1797,53 @@ sap.ui.define([
 		},
 
 		_getPoRefDocPrefill: function () {
-			// Only prefill in create mode (TripNumber not set yet). In update mode, user should be able to edit freely.
+			// Incoming flow: prefill in create mode (TripNumber not set yet).
+			// Gate Out flow: this shared view is opened in trip context, so allow outgoing prefill
+			// even when TripNumber exists.
 			var oGlobalModel = sap.ui.getCore().getModel("globalData");
 			var sTripNumber = oGlobalModel?.getProperty("/TripNumber") || "";
-			if (String(sTripNumber).trim()) {
-				return null;
+			var bHasTrip = !!String(sTripNumber).trim();
+			var sOutgoingRefKey = (oGlobalModel?.getProperty("/OutgoingReferenceByKey") || "").toString().trim().toUpperCase();
+			var sLatestRefKey = this._getLatestReferenceByKey();
+			var sTopDocNo = this._getTopContextRefDocNumber();
+			var sSelectedDocType = String(this._sSelectedDocType || this.byId("idRefDocType")?.getSelectedKey?.() || "").trim();
+			var sIncomingDocTypeCtx = (oGlobalModel?.getProperty("/IncomingRefDocDocType") || "").toString().trim();
+			var sOutgoingDocTypeCtx = (oGlobalModel?.getProperty("/OutgoingRefDocDocType") || "").toString().trim();
+			var sOutgoingBillingDocTypeCtx = (oGlobalModel?.getProperty("/OutgoingBillingDocType") || "").toString().trim();
+
+			// Highest priority: typed values in Incoming/GateOut top-context controls.
+			if (sTopDocNo) {
+				// Keep automatic Doc Type behavior by deriving a context docType when dialog selection is still empty.
+				var sResolvedDocType = sSelectedDocType;
+				if (!sResolvedDocType) {
+					if (sLatestRefKey === "PO") {
+						sResolvedDocType = bHasTrip ? sOutgoingDocTypeCtx : sIncomingDocTypeCtx;
+					} else if (sLatestRefKey === "INVOICE") {
+						sResolvedDocType = sOutgoingBillingDocTypeCtx || sOutgoingDocTypeCtx;
+					} else if (sLatestRefKey === "CHALLAN") {
+						sResolvedDocType = sOutgoingBillingDocTypeCtx || sOutgoingDocTypeCtx;
+					}
+				}
+
+				if (sLatestRefKey === "PO") {
+					return { poNumber: sTopDocNo, docType: sResolvedDocType, source: bHasTrip ? "outgoing" : "incoming" };
+				}
+				if (sLatestRefKey === "INVOICE") {
+					return { poNumber: sTopDocNo, docType: sResolvedDocType, source: "outgoingBilling" };
+				}
+				if (sLatestRefKey === "CHALLAN") {
+					return { poNumber: sTopDocNo, docType: sResolvedDocType, source: "outgoingChallan" };
+				}
 			}
 
 			var sIncomingPo = (oGlobalModel?.getProperty("/IncomingPoNumber") || "").toString().trim();
 			var sIncomingSkip = (oGlobalModel?.getProperty("/IncomingRefDocSkip") || " ").toString().trim();
 			var sIncomingDocType = (oGlobalModel?.getProperty("/IncomingRefDocDocType") || "").toString().trim();
 
+			// Keep incoming prefill restricted to create mode.
 			if (sIncomingPo && sIncomingSkip !== "X") {
+				// Allow incoming PO prefill even when TripNumber exists,
+				// so Add Reference Document behaves consistently with invoice/challan.
 				return { poNumber: sIncomingPo, docType: sIncomingDocType, source: "incoming" };
 			}
 
@@ -1525,13 +1860,158 @@ sap.ui.define([
 				if (!sOutgoingDocType) {
 					sOutgoingDocType = (oGlobalModel?.getProperty("/OutgoingBillingDocType") || "").toString().trim();
 				}
-				return { poNumber: sOutgoingBilling, docType: sOutgoingDocType, source: "outgoingBilling" };
+				return {
+					poNumber: sOutgoingBilling,
+					docType: sOutgoingDocType,
+					source: (sOutgoingRefKey === "CHALLAN") ? "outgoingChallan" : "outgoingBilling"
+				};
 			}
 
 			return null;
 		},
 
+		_normalizeDocNumberForMatch: function (vDocNo) {
+			var s = String(vDocNo || "").trim();
+			if (!s) {
+				return "";
+			}
+			var sNoZeros = s.replace(/^0+/, "");
+			return sNoZeros || "0";
+		},
+
+		_findMatchingOrderDetail: function (sDocType, sDocNumber, bForceServer) {
+			console.log("[RefDoc] _findMatchingOrderDetail", {
+				docType: sDocType,
+				docNumber: sDocNumber,
+				forceServer: !!bForceServer
+			});
+			var sType = String(sDocType || "").trim();
+			var sDoc = String(sDocNumber || "").trim();
+			if (!sType || !sDoc) {
+				return Promise.resolve(null);
+			}
+
+			var sDocNorm = this._normalizeDocNumberForMatch(sDoc);
+			if (!bForceServer) {
+				var aCached = this._getRefDocSuggestionModel()?.getProperty("/items") || [];
+				var oCachedMatch = (aCached || []).find(function (o) {
+					var s = String(o?.DocumentNumber || "").trim();
+					return s && (s === sDoc || this._normalizeDocNumberForMatch(s) === sDocNorm);
+				}.bind(this));
+				if (oCachedMatch) {
+					return Promise.resolve(oCachedMatch);
+				}
+			}
+
+			var oGlobalModel = sap.ui.getCore().getModel("globalData");
+			var sTripNumber = String(oGlobalModel?.getProperty("/TripNumber") || "").trim();
+			var oService = this._getOrderDetailsService();
+
+			// Prefer exact server-side match by DocType + DocumentNumber.
+			return new Promise(function (resolve) {
+				var aFilters = [
+					new Filter("DocType", FilterOperator.EQ, sType),
+					new Filter("DocumentNumber", FilterOperator.EQ, sDoc)
+				];
+				if (sTripNumber) {
+					aFilters.push(new Filter("TripNumber", FilterOperator.EQ, sTripNumber));
+				}
+
+				oService.read("/OrderDetails", {
+					filters: aFilters,
+					urlParameters: {
+						$top: "1",
+						$skip: "0"
+					},
+					success: function (oData) {
+						console.log("[RefDoc] /OrderDetails read success", {
+							docType: sType,
+							docNumber: sDoc,
+							count: (oData?.results || []).length
+						});
+						var a = oData?.results || [];
+						resolve(a[0] || null);
+					},
+					error: function () {
+						console.error("[RefDoc] /OrderDetails read error", {
+							docType: sType,
+							docNumber: sDoc
+						});
+						resolve(null);
+					}
+				});
+			})
+				.then(function (oDirectMatch) {
+					if (oDirectMatch) {
+						return oDirectMatch;
+					}
+					// Fallback-1: TripNumber + DocType only, then match DocumentNumber locally.
+					if (sTripNumber) {
+						console.log("[RefDoc] exact match empty; fallback TripNumber+DocType", {
+							tripNumber: sTripNumber,
+							docType: sType,
+							docNumber: sDoc
+						});
+						return new Promise(function (resolve) {
+							oService.read("/OrderDetails", {
+								filters: [
+									new Filter("TripNumber", FilterOperator.EQ, sTripNumber),
+									new Filter("DocType", FilterOperator.EQ, sType)
+								],
+								urlParameters: {
+									$top: "50",
+									$skip: "0"
+								},
+								success: function (oDataTripType) {
+									var aTripType = oDataTripType?.results || [];
+									var oTripTypeMatch = aTripType.find(function (o) {
+										var s = String(o?.DocumentNumber || "").trim();
+										return s && (s === sDoc || this._normalizeDocNumberForMatch(s) === sDocNorm);
+									}.bind(this));
+									resolve(oTripTypeMatch || null);
+								}.bind(this),
+								error: function () {
+									resolve(null);
+								}
+							});
+						}.bind(this))
+							.then(function (oTripTypeMatch) {
+								if (oTripTypeMatch) {
+									return oTripTypeMatch;
+								}
+								// Fallback for backend formatting differences (e.g. leading zeros).
+								return this._fetchOrderDetails(sType)
+									.then(function (aDocs) {
+										var a = aDocs || [];
+										var oMatch = a.find(function (o) {
+											var s = String(o?.DocumentNumber || "").trim();
+											return s && (s === sDoc || this._normalizeDocNumberForMatch(s) === sDocNorm);
+										}.bind(this));
+										return oMatch || null;
+									}.bind(this))
+									.catch(function () {
+										return null;
+									});
+							}.bind(this));
+					}
+					// Fallback for backend formatting differences (e.g. leading zeros).
+					return this._fetchOrderDetails(sType)
+						.then(function (aDocs) {
+							var a = aDocs || [];
+							var oMatch = a.find(function (o) {
+								var s = String(o?.DocumentNumber || "").trim();
+								return s && (s === sDoc || this._normalizeDocNumberForMatch(s) === sDocNorm);
+							}.bind(this));
+							return oMatch || null;
+						}.bind(this))
+						.catch(function () {
+							return null;
+						});
+				}.bind(this));
+		},
+
 		_applyPoPrefillToAddRefDocDialog: function () {
+			console.log("[RefDoc] _applyPoPrefillToAddRefDocDialog called");
 			if (this._bIsRefDocEditMode) {
 				return;
 			}
@@ -1545,42 +2025,32 @@ sap.ui.define([
 			var oDocTypeSelect = this.byId("idRefDocType");
 			var oDocNumberCtrl = this.byId("idRefDocNumber");
 
-			// Prevent user from changing Doc Type for PO-prefilled dialog (even if DocType is inferred asynchronously).
-			if (oDocTypeSelect) {
-				oDocTypeSelect.setEnabled(false);
-			}
-
-			// Prefill & lock Document Number immediately (user shouldn't change it once derived from PO).
+			// Prefill Document Number from PO; keep editable so user can enter a different doc or add more reference docs.
 			if (oDocNumberCtrl) {
 				oDocNumberCtrl.setValue(oPoPrefill.poNumber);
-				oDocNumberCtrl.setEnabled(false);
+				oDocNumberCtrl.setEnabled(true);
 				if (typeof oDocNumberCtrl.setEditable === "function") {
-					oDocNumberCtrl.setEditable(false);
+					oDocNumberCtrl.setEditable(true);
 				}
 				if (typeof oDocNumberCtrl.setShowValueHelp === "function") {
 					oDocNumberCtrl.setShowValueHelp(false);
 				}
 				if (typeof oDocNumberCtrl.setShowSuggestion === "function") {
-					oDocNumberCtrl.setShowSuggestion(false);
+					oDocNumberCtrl.setShowSuggestion(true);
 				}
 			}
 
 			// If DocType is known from the PO lookup, preselect it now.
 			if (oDocTypeSelect && oPoPrefill.docType) {
 				oDocTypeSelect.setSelectedKey(oPoPrefill.docType);
-				oDocTypeSelect.setEnabled(false);
 				this._sSelectedDocType = oPoPrefill.docType;
 			}
 
 			// Fetch related reference document details and fill the dialog.
 			var sDocTypeToFetch = oPoPrefill.docType || "";
-			this._fetchOrderDetails(sDocTypeToFetch, { top: 50 })
-				.then(function (aDocs) {
-					var a = aDocs || [];
-					var oMatch =
-						a.find(function (o) {
-							return String(o?.DocumentNumber || "").trim() === String(oPoPrefill.poNumber).trim();
-						}) || a[0];
+			var sPrefillDocNo = String(oPoPrefill.poNumber || "").trim();
+			this._findMatchingOrderDetail(sDocTypeToFetch, sPrefillDocNo, true)
+				.then(function (oMatch) {
 
 					if (!oMatch) {
 						// Prefill lookup did not return anything; restore interactivity so user can pick manually.
@@ -1611,9 +2081,18 @@ sap.ui.define([
 
 					that._applySelectedReferenceDoc(oMatch);
 
-					// Disable Doc Type after we've filled everything.
+					// Lock validated prefilled values coming from top selection context.
 					if (oDocTypeSelect) {
 						oDocTypeSelect.setEnabled(false);
+					}
+					if (oDocNumberCtrl) {
+						oDocNumberCtrl.setEnabled(false);
+						if (typeof oDocNumberCtrl.setEditable === "function") {
+							oDocNumberCtrl.setEditable(false);
+						}
+						if (typeof oDocNumberCtrl.setShowSuggestion === "function") {
+							oDocNumberCtrl.setShowSuggestion(false);
+						}
 					}
 				})
 				.catch(function () {
@@ -2046,52 +2525,76 @@ sap.ui.define([
 			processNext();
 		},
 
-	_refreshMaterialsTable: function () {
-		// Refresh the material details table by reloading ItemDetails for the current TripNumber
+	_refreshMaterialsTable: function (mOptions) {
+		// Refresh the material details table by reloading ItemDetails for the current TripNumber.
+		// Returns a Promise so callers (for example Gate Out search flow) can chain follow-up actions.
 		var oGlobalModel = sap.ui.getCore().getModel("globalData");
 		var sTripNumber = oGlobalModel?.getProperty("/TripNumber") || "";
-		
+		var sDocNumber = (mOptions && mOptions.documentNumber ? String(mOptions.documentNumber) : "").trim();
+
 		if (!sTripNumber) {
-			return;
+			return Promise.resolve([]);
 		}
-		
+
 		var that = this;
 		// Always fetch fresh data from server after adding materials to ensure latest data
 		// This ensures newly added materials are immediately visible in the table
 		var oService = this._getItemDetailsService();
-		oService.read("/ItemDetails", {
-			filters: [
-				new Filter("TripNumber", FilterOperator.EQ, sTripNumber),
-				new Filter("IsDeleted", FilterOperator.NE, "X")
-			],
-			success: function (oData) {
-				var aItemDetails = oData.results || [];
-				// Update material table with all ItemDetails for this TripNumber
-				that._setMaterialDetailsFromService(aItemDetails);
-				// _setMaterialDetailsFromService already calls _filterMaterialDetails() 
-				// to filter by selected reference document if any
-			},
-			error: function (oError) {
-				// Silently fail - material table will show existing data
-			}
+		return new Promise(function (resolve) {
+			oService.read("/ItemDetails", {
+				filters: [
+					new Filter("TripNumber", FilterOperator.EQ, sTripNumber),
+					new Filter("IsDeleted", FilterOperator.NE, "X")
+				],
+				success: function (oData) {
+					var aItemDetails = oData.results || [];
+					// Update material table with all ItemDetails for this TripNumber
+					that._setMaterialDetailsFromService(aItemDetails);
+					// _setMaterialDetailsFromService already calls _filterMaterialDetails()
+					// to filter by selected reference document if any
+					if (sDocNumber) {
+						var oModel = that._ensureRefDocModel();
+						var aRefDocs = oModel.getProperty("/referenceDocs") || [];
+						var oSelected = aRefDocs.find(function (oDoc) {
+							return String(oDoc?.documentNumber || "").trim() === sDocNumber;
+						});
+						if (oSelected) {
+							that._oSelectedRefDoc = oSelected;
+							that._filterMaterialDetails();
+						}
+					}
+					resolve(aItemDetails);
+				},
+				error: function () {
+					// Silently fail - material table will show existing data
+					resolve([]);
+				}
+			});
 		});
 	},
 
 		_resetRefDocDialog: function () {
-			// Reset Select for Doc Type
+			if (this._iRefDocNumberChangeTimer) {
+				clearTimeout(this._iRefDocNumberChangeTimer);
+				this._iRefDocNumberChangeTimer = null;
+			}
+			// Keep Doc Type selection for "add another" flow; clear document no + derived fields only.
 			var oDocTypeSelect = this.byId("idRefDocType");
 			if (oDocTypeSelect) {
-				oDocTypeSelect.setSelectedKey(null);
 				oDocTypeSelect.setEnabled(true);
+				var sKeptKey = oDocTypeSelect.getSelectedKey?.() || "";
+				this._sSelectedDocType = String(sKeptKey || this._sSelectedDocType || "").trim();
 			}
 			this._bSkipDefaultRefDocType = false;
-			// Reset other Input fields
+			// Reset other Input fields (not Doc Type)
 			[
 				"idRefDocNumber",
 				"idRefDocPartyCode",
 				"idRefDocPartyName",
 				"idRefDocSalesDoc",
-				"idRefDocSalesDoctype"
+				"idRefDocSalesDoctype",
+				"idRefDocEwayBillNumber",
+				"idRefDocEwayBillDate"
 			].forEach(function (sId) {
 				this.byId(sId)?.setValue("");
 			}.bind(this));
@@ -2117,6 +2620,11 @@ sap.ui.define([
 				var oControl = this.byId(sId);
 				oControl?.setValue("");
 			}.bind(this));
+
+			var oSugg = this._getRefDocSuggestionModel();
+			if (oSugg) {
+				oSugg.setProperty("/items", []);
+			}
 
 			this._oEditingRefDoc = null;
 			this._bIsRefDocEditMode = false;
@@ -2829,16 +3337,31 @@ sap.ui.define([
 				return;
 			}
 
+			var sResolvedDocType = String(oDoc.DocType || oDoc.docType || this._sSelectedDocType || "").trim();
+			var oDocTypeModel = this._getDocTypeModel();
+			var aDocTypeItems = oDocTypeModel?.getProperty("/items") || [];
+			var bHasDocType = (aDocTypeItems || []).some(function (oItem) {
+				return String(oItem?.ConfigID || "").trim() === sResolvedDocType;
+			});
+			// If backend returns a DocType not present in filtered ConfigValues, add it so Select can bind it.
+			if (sResolvedDocType && !bHasDocType) {
+				aDocTypeItems = (aDocTypeItems || []).slice();
+				aDocTypeItems.push({
+					ConfigID: sResolvedDocType,
+					Description: sResolvedDocType
+				});
+				oDocTypeModel.setProperty("/items", aDocTypeItems);
+			}
 			var oDocTypeSelect = this.byId("idRefDocType");
 			if (oDocTypeSelect) {
-				oDocTypeSelect.setSelectedKey(oDoc.DocType || "");
+				oDocTypeSelect.setSelectedKey(sResolvedDocType || "");
 			}
-			this._sSelectedDocType = oDoc.DocType || this._sSelectedDocType;
+			this._sSelectedDocType = sResolvedDocType || this._sSelectedDocType;
 			var oDocNumberCtrl = this.byId("idRefDocNumber");
 			if (oDocNumberCtrl && oDocNumberCtrl.isA && oDocNumberCtrl.isA("sap.m.ComboBox")) {
-				oDocNumberCtrl.setSelectedKey(oDoc.DocumentNumber || "");
+				oDocNumberCtrl.setSelectedKey(oDoc.DocumentNumber || oDoc.documentNumber || "");
 			} else {
-				oDocNumberCtrl?.setValue?.(oDoc.DocumentNumber || "");
+				oDocNumberCtrl?.setValue?.(oDoc.DocumentNumber || oDoc.documentNumber || "");
 			}
 			this.byId("idRefDocDate")?.setValue(this._formatODataDate(oDoc.DocumentDate));
 			this.byId("idRefDocPartyCode")?.setValue(oDoc.Vendor || oDoc.Customer || "");
@@ -2867,6 +3390,8 @@ sap.ui.define([
 
 				var m = mOpts || {};
 				var sSearchTerm = (m.searchTerm || "").toString().trim();
+				var iTop = Number(m.top);
+				var iSkip = Number(m.skip);
 
 				var aFilters = [];
 				if (sTripNumber) {
@@ -2875,32 +3400,42 @@ sap.ui.define([
 				if (sDocType) {
 					aFilters.push(new Filter("DocType", FilterOperator.EQ, sDocType));
 				}
-
-				// Gate entry / create mode: TripNumber isn't available yet.
-				// Scope by preselected document only when skip-document is NOT selected.
-				if (!sTripNumber && sIncomingPo && !bIncomingSkip && !bOutgoingSkip) {
-					aFilters.push(new Filter("DocumentNumber", FilterOperator.EQ, sIncomingPo));
+				if (sSearchTerm) {
+					// Backend-side filtering for typed searches (Document Number only).
+					// UI5 Contains maps to OData substringof('<term>', DocumentNumber).
+					aFilters.push(new Filter("DocumentNumber", FilterOperator.Contains, sSearchTerm));
 				}
 
-				oService.read("/OrderDetails", {
+				// Gate entry / create mode: TripNumber isn't available yet.
+				// Scope by preselected document only for initial load.
+				// While user types in Document Number search, do NOT force PO filter,
+				// so they can search/select another document.
+				if (!sTripNumber && sIncomingPo && !bIncomingSkip && !bOutgoingSkip && !sSearchTerm) {
+					// Create-mode PO prefill: use Contains to tolerate backend formatting
+					// differences (e.g. leading zeros in stored document number).
+					aFilters.push(new Filter("DocumentNumber", FilterOperator.Contains, sIncomingPo));
+				}
+
+				var mReadParams = {
 					filters: aFilters,
 					success: function (oData) {
-						var aResults = oData.results || [];
-						// Backend entity is not a search-help service: fetch first, then filter locally.
-						if (sSearchTerm) {
-							var sTerm = sSearchTerm.toLowerCase();
-							aResults = aResults.filter(function (oRow) {
-								var sDocNo = String(oRow?.DocumentNumber || "").toLowerCase();
-								var sName = String(oRow?.Name || "").toLowerCase();
-								return sDocNo.indexOf(sTerm) !== -1 || sName.indexOf(sTerm) !== -1;
-							});
-						}
-						resolve(aResults);
+						resolve(oData.results || []);
 					},
 					error: function (oError) {
 						reject(oError);
 					}
-				});
+				};
+				var oUrlParams = {};
+				if (!Number.isNaN(iTop) && iTop > 0) {
+					oUrlParams.$top = String(iTop);
+				}
+				if (!Number.isNaN(iSkip) && iSkip >= 0) {
+					oUrlParams.$skip = String(iSkip);
+				}
+				if (Object.keys(oUrlParams).length) {
+					mReadParams.urlParameters = oUrlParams;
+				}
+				oService.read("/OrderDetails", mReadParams);
 			}.bind(this));
 		},
 

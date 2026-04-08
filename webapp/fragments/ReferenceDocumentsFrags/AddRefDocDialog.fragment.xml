@@ -44,6 +44,7 @@
                 filterSuggests="false"
                 suggest=".onRefDocNumberSuggest"
                 suggestionItemSelected=".onRefDocSuggestionSelected"
+                change=".onRefDocNumberChange"
             />
 
             <Label text="Document Date" />

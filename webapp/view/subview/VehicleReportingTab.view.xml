@@ -37,6 +37,13 @@
                     press="onScanSuccess"
                     class="sapUiTinyMarginBegin"
                 />
+                <Button
+                    id="idReportingScannerCancelButton"
+                    text="Cancel"
+                    type="Transparent"
+                    press="onCancelReportingScanner"
+                    class="sapUiTinyMarginBegin"
+                />
             </HBox>
         </VBox>
 
@@ -216,21 +223,10 @@
                             <Input
                                 id="idVehicleSize"
                                 width="100%"
-                                showSuggestion="true"
-                                suggest="onVehicleSizeSuggest"
-                                suggestionItemSelected="onVehicleSizeSuggestionSelected"
-                                suggestionItems="{vehicleSizeSuggestions>/items}"
                                 value="{TripData>/VehicleSize}"
+                                placeholder="Enter vehicle size"
                                 editable="true"
-                            >
-                                <suggestionItems>
-                                    <core:Item
-                                        key="{vehicleSizeSuggestions>VehicleSize}"
-                                        text="{vehicleSizeSuggestions>VehicleSize}"
-                                        additionalText="{vehicleSizeSuggestions>VehicleSizeDesc}"
-                                    />
-                                </suggestionItems>
-                            </Input>
+                            />
                         </VBox>
                     </layout:content>
                     <layout:content>

@@ -8,7 +8,9 @@ sap.ui.define(
     "sap/ui/core/Fragment",
     "com/incresolZ_INC_PLMS/util/MovementScenarioConfig",
     "com/incresolZ_INC_PLMS/util/PanelAccordion",
-    "com/incresolZ_INC_PLMS/util/VehicleTypeConfig",
+    "com/incresolZ_INC_PLMS/util/O02GateException",
+    "sap/ui/model/Filter",
+    "sap/ui/model/FilterOperator",
   ],
   function (
     Controller,
@@ -19,7 +21,9 @@ sap.ui.define(
     Fragment,
     MovementScenarioConfig,
     PanelAccordion,
-    VehicleTypeConfig
+    O02GateException,
+    Filter,
+    FilterOperator
   ) {
     "use strict";
 
@@ -46,6 +50,9 @@ sap.ui.define(
 
           this._initGateOutBinTrolleyModel();
           this._initBinTrolleyVisibilityModel();
+          this._initGateOutUiModel();
+          this._initGateOutRefSuggestModel();
+          this._updatePanelVisibility();
           this._updateBinTrolleyVisibility();
           
           // Initialize selected files array
@@ -91,48 +98,678 @@ sap.ui.define(
             );
           }
         },
+        _initGateOutUiModel: function () {
+          if (!this.getView().getModel("gateOutUi")) {
+            this.getView().setModel(
+              new JSONModel({
+                referenceByKey: "INVOICE",
+                refDocSearchValue: "",
+                showPanels: false
+              }),
+              "gateOutUi"
+            );
+          } else {
+            var oUi = this.getView().getModel("gateOutUi");
+            if (oUi.getProperty("/refDocSearchValue") === undefined) {
+              oUi.setProperty("/refDocSearchValue", "");
+            }
+            if (oUi.getProperty("/showPanels") === undefined) {
+              oUi.setProperty("/showPanels", false);
+            }
+          }
+        },
+        _updatePanelVisibility: function () {
+          this._initGateOutUiModel();
+          var oUi = this.getView().getModel("gateOutUi");
+          if (!oUi) {
+            return;
+          }
+          oUi.setProperty("/showPanels", !!this._getTripNumber());
+        },
+        _initGateOutRefSuggestModel: function () {
+          if (!this.getView().getModel("gateOutRefSuggest")) {
+            this.getView().setModel(new JSONModel({ items: [] }), "gateOutRefSuggest");
+          }
+          if (!this._mGateOutRefAll) {
+            this._mGateOutRefAll = {
+              INVOICE: null,
+              CHALLAN: null,
+              PO: null,
+            };
+          }
+          if (!this._mGateOutRefLoadPromise) {
+            this._mGateOutRefLoadPromise = {};
+          }
+        },
+        _ensureGateOutRefCacheLoaded: function (sMode) {
+          var oModel = this.oModel;
+          var sKey = String(sMode || "").toUpperCase();
+          var sPath = "";
+          if (sKey === "INVOICE") sPath = "/BillingDocSH";
+          if (sKey === "CHALLAN") sPath = "/ChallanSh";
+          if (sKey === "PO") sPath = "/PoNumberSH";
+          if (!oModel || !sPath) {
+            return Promise.resolve([]);
+          }
+          if (Array.isArray(this._mGateOutRefAll[sKey])) {
+            return Promise.resolve(this._mGateOutRefAll[sKey]);
+          }
+          if (this._mGateOutRefLoadPromise[sKey]) {
+            return this._mGateOutRefLoadPromise[sKey];
+          }
+          var that = this;
+          this._mGateOutRefLoadPromise[sKey] = new Promise(function (resolve) {
+            oModel.read(sPath, {
+              success: function (oData) {
+                var a = (oData && oData.results) || [];
+                that._mGateOutRefAll[sKey] = a;
+                resolve(a);
+              },
+              error: function () {
+                that._mGateOutRefAll[sKey] = [];
+                resolve([]);
+              },
+            });
+          }).finally(function () {
+            that._mGateOutRefLoadPromise[sKey] = null;
+          });
+          return this._mGateOutRefLoadPromise[sKey];
+        },
+        /**
+         * Aligns Gate Out "Reference by" with Report Vehicle (globalData) or trip hints (PO number).
+         */
+        _syncGateOutReferenceBy: function () {
+          this._initGateOutUiModel();
+          var oVm = this.getView().getModel("gateOutUi");
+          if (!oVm) {
+            return;
+          }
+          var oG = sap.ui.getCore().getModel("globalData");
+          var sG = oG && oG.getProperty("/OutgoingReferenceByKey");
+          sG = sG ? String(sG).trim().toUpperCase() : "";
+          if (sG === "INVOICE" || sG === "CHALLAN" || sG === "PO") {
+            oVm.setProperty("/referenceByKey", sG);
+          } else {
+            var oTrip = sap.ui.getCore().getModel("TripData");
+            var sPo = "";
+            if (oTrip && oTrip.getProperty("/PoNumber") !== undefined && oTrip.getProperty("/PoNumber") !== null) {
+              sPo = String(oTrip.getProperty("/PoNumber")).trim();
+            }
+            if (!sPo && oG) {
+              sPo = String(oG.getProperty("/OutgoingPoNumber") || "").trim();
+            }
+            if (sPo) {
+              oVm.setProperty("/referenceByKey", "PO");
+            } else {
+              oVm.setProperty("/referenceByKey", "INVOICE");
+            }
+          }
+          this._syncGateOutRefDocInputFromContext();
+        },
+        /**
+         * Prefills the Gate Out document search field from TripData / globalData.
+         */
+        _syncGateOutRefDocInputFromContext: function () {
+          this._initGateOutUiModel();
+          var oVm = this.getView().getModel("gateOutUi");
+          var oG = sap.ui.getCore().getModel("globalData");
+          var oTrip = sap.ui.getCore().getModel("TripData");
+          var sRef = oVm ? String(oVm.getProperty("/referenceByKey") || "INVOICE").toUpperCase() : "INVOICE";
+          var sVal = "";
+          if (sRef === "PO") {
+            sVal =
+              (oTrip && oTrip.getProperty("/PoNumber") != null
+                ? String(oTrip.getProperty("/PoNumber")).trim()
+                : "") ||
+              (oG ? String(oG.getProperty("/OutgoingPoNumber") || "").trim() : "");
+          } else if (sRef === "CHALLAN" || sRef === "INVOICE") {
+            sVal =
+              (oG ? String(oG.getProperty("/OutgoingBillingDocument") || "").trim() : "") ||
+              (oTrip ? String(oTrip.getProperty("/BillingDocument") || oTrip.getProperty("/Vbeln") || "").trim() : "");
+          }
+          if (oVm) {
+            oVm.setProperty("/refDocSearchValue", sVal);
+          }
+        },
+        _getGateOutActiveRefDocNumber: function () {
+          this._initGateOutUiModel();
+          var oVm = this.getView().getModel("gateOutUi");
+          var sMode = oVm
+            ? String(oVm.getProperty("/referenceByKey") || "INVOICE").toUpperCase()
+            : "INVOICE";
+          var sTyped = oVm ? String(oVm.getProperty("/refDocSearchValue") || "").trim() : "";
+          if (sTyped) {
+            return sTyped;
+          }
+          var oG = sap.ui.getCore().getModel("globalData");
+          var oTrip = sap.ui.getCore().getModel("TripData");
+          if (sMode === "PO") {
+            return (
+              (oTrip && oTrip.getProperty("/PoNumber") != null
+                ? String(oTrip.getProperty("/PoNumber")).trim()
+                : "") ||
+              (oG ? String(oG.getProperty("/OutgoingPoNumber") || "").trim() : "")
+            );
+          }
+          return (
+            (oG ? String(oG.getProperty("/OutgoingBillingDocument") || "").trim() : "") ||
+            (oTrip
+              ? String(oTrip.getProperty("/BillingDocument") || oTrip.getProperty("/Vbeln") || "").trim()
+              : "")
+          );
+        },
+        _clearGateOutRefSuggestItems: function () {
+          var oM = this.getView().getModel("gateOutRefSuggest");
+          if (oM) {
+            oM.setProperty("/items", []);
+          }
+        },
+        _escapeODataKey: function (s) {
+          return String(s || "").trim().replace(/'/g, "''");
+        },
+        _buildBillingDocShPath: function (sBillingDoc) {
+          return "/BillingDocSH(BillingDoc='" + this._escapeODataKey(sBillingDoc) + "')";
+        },
+        _buildChallanShPath: function (sMaterialDoc) {
+          return "/ChallanSh(MaterialDoc='" + this._escapeODataKey(sMaterialDoc) + "')";
+        },
+        _buildPoNumberShPath: function (sPo) {
+          return "/PoNumberSH(PoNumber='" + this._escapeODataKey(sPo) + "')";
+        },
+        /**
+         * After OData read: push document + movement info into globalData for Reference Documents tab.
+         */
+        _applyGateOutRefDocGlobalFromRow: function (sMode, oRow) {
+          var oG = sap.ui.getCore().getModel("globalData");
+          if (!oG) {
+            oG = new JSONModel({});
+            sap.ui.getCore().setModel(oG, "globalData");
+          }
+          sMode = String(sMode || "").toUpperCase();
+          if (!oRow) {
+            return;
+          }
+          if (sMode === "INVOICE") {
+            var sBd = oRow.BillingDoc != null ? String(oRow.BillingDoc).trim() : "";
+            var sDt =
+              oRow.DocType != null
+                ? String(oRow.DocType).trim()
+                : oRow.BillingType != null
+                  ? String(oRow.BillingType).trim()
+                  : "";
+            oG.setProperty("/OutgoingBillingDocument", sBd);
+            oG.setProperty("/OutgoingBillingDocType", sDt);
+            oG.setProperty("/OutgoingPoNumber", "");
+            oG.setProperty("/OutgoingReferenceByKey", "INVOICE");
+            var oTrip = sap.ui.getCore().getModel("TripData");
+            if (oTrip && sBd) {
+              oTrip.setProperty("/BillingDocument", sBd);
+            }
+          } else if (sMode === "CHALLAN") {
+            var sMd = oRow.MaterialDoc != null ? String(oRow.MaterialDoc).trim() : "";
+            var sChDt = oRow.DocType != null ? String(oRow.DocType).trim() : "";
+            oG.setProperty("/OutgoingBillingDocument", sMd);
+            oG.setProperty("/OutgoingBillingDocType", sChDt);
+            oG.setProperty("/OutgoingPoNumber", "");
+            oG.setProperty("/OutgoingReferenceByKey", "CHALLAN");
+          } else if (sMode === "PO") {
+            var sPo = oRow.PoNumber != null ? String(oRow.PoNumber).trim() : "";
+            var sPoDt =
+              oRow.DocType != null
+                ? String(oRow.DocType).trim()
+                : oRow.DocumentType != null
+                  ? String(oRow.DocumentType).trim()
+                  : "";
+            oG.setProperty("/OutgoingPoNumber", sPo);
+            oG.setProperty("/OutgoingRefDocDocType", sPoDt);
+            oG.setProperty("/OutgoingBillingDocument", "");
+            oG.setProperty("/OutgoingBillingDocType", "");
+            oG.setProperty("/OutgoingReferenceByKey", "PO");
+            var oTripPo = sap.ui.getCore().getModel("TripData");
+            if (oTripPo && sPo) {
+              oTripPo.setProperty("/PoNumber", sPo);
+            }
+          }
+        },
+        _getGateOutSelectedRefDocNumber: function (sMode, oRow, sFallback) {
+          var s = "";
+          sMode = String(sMode || "").toUpperCase();
+          if (oRow) {
+            if (sMode === "PO") {
+              s = oRow.PoNumber != null ? String(oRow.PoNumber).trim() : "";
+            } else if (sMode === "CHALLAN") {
+              s = oRow.MaterialDoc != null ? String(oRow.MaterialDoc).trim() : "";
+            } else {
+              s = oRow.BillingDoc != null ? String(oRow.BillingDoc).trim() : "";
+            }
+          }
+          if (!s) {
+            s = String(sFallback || "").trim();
+          }
+          return s;
+        },
+        _getRefDocsControllerFromGateOut: function () {
+          var oRefView = this.getView().byId("idRefDocsViewGateOut");
+          if (oRefView && typeof oRefView.getController === "function") {
+            return oRefView.getController();
+          }
+          return null;
+        },
+        _buildEmptyBinsPath: function (sTripNumber, sDocumentNumber, sItemNo) {
+          return (
+            "/EmptyBins(TripNumber='" +
+            this._escapeODataKey(sTripNumber) +
+            "',DocumentNumber='" +
+            this._escapeODataKey(sDocumentNumber) +
+            "',ItemNo='" +
+            this._escapeODataKey(sItemNo) +
+            "')"
+          );
+        },
+        _loadGateOutBinsByKeys: function (sTripNumber, sDocumentNumber, aItemNos) {
+          var oModel = this.oModel;
+          var oVm = this.getView().getModel("gateOutBinTrolley");
+          if (!oModel || !oVm || !sDocumentNumber) {
+            return Promise.resolve();
+          }
+          var aUniqueItemNos = (aItemNos || [])
+            .map(function (s) {
+              return String(s || "").trim();
+            })
+            .filter(function (s) {
+              return !!s;
+            })
+            .filter(function (s, i, a) {
+              return a.indexOf(s) === i;
+            });
+          if (!aUniqueItemNos.length) {
+            return Promise.resolve();
+          }
+          var aFilters = [
+            new Filter("TripNumber", FilterOperator.EQ, sTripNumber),
+            new Filter("DocumentNumber", FilterOperator.EQ, sDocumentNumber),
+          ];
+          return new Promise(
+            function (resolve) {
+              oModel.read("/EmptyBins", {
+                filters: aFilters,
+                urlParameters: {
+                  $format: "json",
+                },
+                success: function (oData) {
+                  var aRows = (oData && oData.results) || [];
+                  var aMapped = (aRows || [])
+                    .filter(function (r) {
+                      return aUniqueItemNos.indexOf(String(r.ItemNo || "").trim()) >= 0;
+                    })
+                    .map(
+                      function (r) {
+                        var sStatus = this._deriveGateOutDispatchStatus(r.QtyOut);
+                        return {
+                          DocumentNumber: r.DocumentNumber || "-",
+                          ItemNo: r.ItemNo || "-",
+                          Material: r.Material || "-",
+                          BinTypes: r.BinTypes || r.BinType || "",
+                          QtyOut: r.QtyOut != null && r.QtyOut !== "" ? r.QtyOut : "0",
+                          Status: sStatus,
+                          BinTypeState:
+                            String(r.BinTypes || r.BinType || "")
+                              .toLowerCase()
+                              .indexOf("plastic") >= 0
+                              ? "Warning"
+                              : "Information",
+                        };
+                      }.bind(this)
+                    );
+                  if (aMapped.length) {
+                    oVm.setProperty("/rows", aMapped);
+                  }
+                  resolve();
+                }.bind(this),
+                error: function () {
+                  resolve();
+                },
+              });
+            }.bind(this)
+          );
+        },
+        _refreshGateOutRefDocAndMaterials: function (sDocNumber) {
+          var oRefCtrl = this._getRefDocsControllerFromGateOut();
+          if (!oRefCtrl) {
+            return Promise.resolve();
+          }
+          if (typeof oRefCtrl._onTripDataUpdated === "function") {
+            oRefCtrl._onTripDataUpdated();
+          }
+          if (typeof oRefCtrl._refreshMaterialsTable === "function") {
+            return oRefCtrl._refreshMaterialsTable({ documentNumber: sDocNumber });
+          }
+          return Promise.resolve();
+        },
+        _refreshGateOutBinsForSelectedDocument: function (sDocNumber) {
+          var sTripNumber = this._getTripNumber();
+          if (!sDocNumber) {
+            return;
+          }
+          var oRefModel = sap.ui.getCore().getModel("refDocModel");
+          var aMaterials = (oRefModel && oRefModel.getProperty("/filteredMaterialDetails")) || [];
+          if (!aMaterials.length) {
+            aMaterials = (oRefModel && oRefModel.getProperty("/materialDetails")) || [];
+          }
+          var aItemNos = aMaterials
+            .filter(function (oRow) {
+              return String(oRow.refDocNo || "").trim() === sDocNumber;
+            })
+            .map(function (oRow) {
+              return oRow.refDocItemNo;
+            });
+          this._loadGateOutBinsByKeys(sTripNumber, sDocNumber, aItemNos);
+        },
+        _afterGateOutRefDocResolved: function (sMode, sTypedValue, oRow) {
+          var sDocNumber = this._getGateOutSelectedRefDocNumber(
+            sMode,
+            oRow,
+            sTypedValue
+          );
+          this._refreshGateOutRefDocAndMaterials(sDocNumber).then(
+            function () {
+              this._refreshGateOutBinsForSelectedDocument(sDocNumber);
+            }.bind(this)
+          );
+          this._eventBus.publish("TripData", "Updated");
+        },
+        _loadGateOutRefDocDetailRead: function (sRaw) {
+          var sVal = String(sRaw || "").trim();
+          var oVm = this.getView().getModel("gateOutUi");
+          var sMode = oVm ? String(oVm.getProperty("/referenceByKey") || "INVOICE").toUpperCase() : "INVOICE";
+          var oModel = this.oModel;
+          if (!oModel || !sVal) {
+            return Promise.resolve(null);
+          }
+          var that = this;
+          if (sMode === "INVOICE") {
+            return new Promise(function (resolve) {
+              oModel.read(that._buildBillingDocShPath(sVal), {
+                success: function (oData) {
+                  var oFirst = oData && oData.d ? oData.d : oData;
+                  that._applyGateOutRefDocGlobalFromRow("INVOICE", oFirst || null);
+                  that._afterGateOutRefDocResolved("INVOICE", sVal, oFirst || null);
+                  resolve(oFirst || null);
+                },
+                error: function () {
+                  oModel.read("/BillingDocSH", {
+                    filters: [new Filter("BillingDoc", FilterOperator.EQ, sVal)],
+                    urlParameters: { $top: "1" },
+                    success: function (oData2) {
+                      var a = (oData2 && oData2.results) || [];
+                      that._applyGateOutRefDocGlobalFromRow("INVOICE", a[0] || null);
+                      that._afterGateOutRefDocResolved("INVOICE", sVal, a[0] || null);
+                      resolve(a[0] || null);
+                    },
+                    error: function () {
+                      resolve(null);
+                    },
+                  });
+                },
+              });
+            });
+          }
+          if (sMode === "CHALLAN") {
+            return new Promise(function (resolve) {
+              oModel.read(that._buildChallanShPath(sVal), {
+                success: function (oData) {
+                  var oFirst = oData && oData.d ? oData.d : oData;
+                  that._applyGateOutRefDocGlobalFromRow("CHALLAN", oFirst || null);
+                  that._afterGateOutRefDocResolved("CHALLAN", sVal, oFirst || null);
+                  resolve(oFirst || null);
+                },
+                error: function () {
+                  oModel.read("/ChallanSh", {
+                    filters: [new Filter("MaterialDoc", FilterOperator.EQ, sVal)],
+                    urlParameters: { $top: "1" },
+                    success: function (oData2) {
+                      var a = (oData2 && oData2.results) || [];
+                      that._applyGateOutRefDocGlobalFromRow("CHALLAN", a[0] || null);
+                      that._afterGateOutRefDocResolved("CHALLAN", sVal, a[0] || null);
+                      resolve(a[0] || null);
+                    },
+                    error: function () {
+                      resolve(null);
+                    },
+                  });
+                },
+              });
+            });
+          }
+          if (sMode === "PO") {
+            return new Promise(function (resolve) {
+              oModel.read(that._buildPoNumberShPath(sVal), {
+                success: function (oData) {
+                  var oFirst = oData && oData.d ? oData.d : oData;
+                  that._applyGateOutRefDocGlobalFromRow("PO", oFirst || null);
+                  that._afterGateOutRefDocResolved("PO", sVal, oFirst || null);
+                  resolve(oFirst || null);
+                },
+                error: function (oErr) {
+                  var iStatus =
+                    oErr && oErr.statusCode !== undefined ? parseInt(oErr.statusCode, 10) : NaN;
+                  if (iStatus === 404) {
+                    oModel.read("/PoNumberSH", {
+                      filters: [new Filter("PoNumber", FilterOperator.EQ, sVal)],
+                      urlParameters: { $top: "1" },
+                      success: function (oData2) {
+                        var a = (oData2 && oData2.results) || [];
+                        that._applyGateOutRefDocGlobalFromRow("PO", a[0] || null);
+                        that._afterGateOutRefDocResolved("PO", sVal, a[0] || null);
+                        resolve(a[0] || null);
+                      },
+                      error: function () {
+                        resolve(null);
+                      },
+                    });
+                  } else {
+                    resolve(null);
+                  }
+                },
+              });
+            });
+          }
+          return Promise.resolve(null);
+        },
+        onGateOutRefDocSuggest: function (oEvent) {
+          var sValue = (oEvent.getParameter("suggestValue") || "").trim();
+          if (this._iGateOutRefSuggestTimeout) {
+            clearTimeout(this._iGateOutRefSuggestTimeout);
+          }
+          var that = this;
+          this._iGateOutRefSuggestTimeout = setTimeout(function () {
+            that._loadGateOutRefSuggestions(sValue);
+          }, 300);
+        },
+        _loadGateOutRefSuggestions: function (sTerm) {
+          var oM = this.getView().getModel("gateOutRefSuggest");
+          var oVm = this.getView().getModel("gateOutUi");
+          if (!oM || !oVm) {
+            return;
+          }
+          var sMode = String(oVm.getProperty("/referenceByKey") || "INVOICE").toUpperCase();
+          this._fetchReferenceSuggestions(sTerm, sMode, oM);
+        },
+        _fetchReferenceSuggestions: function (sTerm, sKey, oLocalModel) {
+          var sValue = String(sTerm || "").trim();
+          if (!oLocalModel) {
+            return;
+          }
+          if (!sValue || sValue.length < 2) {
+            oLocalModel.setProperty("/items", []);
+            return;
+          }
+          var oModel = this.oModel || this.getView().getModel();
+          if (!oModel) {
+            oLocalModel.setProperty("/items", []);
+            return;
+          }
+
+          sKey = String(sKey || "").toUpperCase();
+          var bNumeric = /^\d+$/.test(sValue);
+          var sPath = "";
+          var oFilter = null;
+          if (sKey === "INVOICE") {
+            sPath = "/BillingDocSH";
+            oFilter = bNumeric
+              ? new Filter("BillingDoc", FilterOperator.Contains, sValue)
+              : new Filter("PayerName", FilterOperator.Contains, sValue);
+          } else if (sKey === "CHALLAN") {
+            sPath = "/ChallanSh";
+            oFilter = bNumeric
+              ? new Filter("MaterialDoc", FilterOperator.Contains, sValue)
+              : new Filter("SupplierName", FilterOperator.Contains, sValue);
+          } else if (sKey === "PO") {
+            sPath = "/PoNumberSH";
+            oFilter = bNumeric
+              ? new Filter("PoNumber", FilterOperator.Contains, sValue)
+              : new Filter("VendorName", FilterOperator.Contains, sValue);
+          } else {
+            oLocalModel.setProperty("/items", []);
+            return;
+          }
+
+          oModel.read(sPath, {
+            filters: [oFilter],
+            urlParameters: {
+              $top: "20",
+              $skip: "0",
+            },
+            success: function (oData) {
+              var aResults = (oData && oData.results) || [];
+              var mSeen = {};
+              var aItems = [];
+              aResults.forEach(function (o) {
+                var sDoc = "";
+                if (sKey === "INVOICE") {
+                  sDoc = String((o && o.BillingDoc) || "").trim();
+                } else if (sKey === "CHALLAN") {
+                  sDoc = String((o && o.MaterialDoc) || "").trim();
+                } else {
+                  sDoc = String((o && o.PoNumber) || "").trim();
+                }
+                if (!sDoc || mSeen[sDoc]) {
+                  return;
+                }
+                mSeen[sDoc] = true;
+                aItems.push({
+                  docText: sDoc,
+                  docDescription: String(
+                    (o && (o.PayerName || o.SupplierName || o.VendorName)) || ""
+                  ).trim(),
+                  raw: o || {},
+                });
+              });
+              oLocalModel.setProperty("/items", aItems);
+            },
+            error: function () {
+              oLocalModel.setProperty("/items", []);
+            },
+          });
+        },
+        onGateOutRefDocSuggestionSelected: function (oEvent) {
+          var oItem = oEvent.getParameter("selectedItem");
+          var sText = oItem ? String(oItem.getText() || "").trim() : "";
+          var oVm = this.getView().getModel("gateOutUi");
+          if (oVm && sText) {
+            oVm.setProperty("/refDocSearchValue", sText);
+          }
+          this._clearGateOutRefSuggestItems();
+          if (sText) {
+            this._loadGateOutRefDocDetailRead(sText);
+          }
+        },
+        onGateOutRefDocSearchChange: function (oEvent) {
+          var sVal = String((oEvent.getParameter("value") || "")).trim();
+          var oVm = this.getView().getModel("gateOutUi");
+          if (oVm) {
+            oVm.setProperty("/refDocSearchValue", sVal);
+          }
+          if (sVal) {
+            this._loadGateOutRefDocDetailRead(sVal);
+          }
+        },
+        onGateOutReferenceByChange: function (oEvent) {
+          var oSel = oEvent.getSource();
+          var sKey = oSel && oSel.getSelectedKey ? oSel.getSelectedKey() : "";
+          var oG = sap.ui.getCore().getModel("globalData");
+          if (!oG) {
+            oG = new JSONModel({});
+            sap.ui.getCore().setModel(oG, "globalData");
+          }
+          oG.setProperty("/OutgoingReferenceByKey", sKey || "INVOICE");
+          this._clearGateOutRefSuggestItems();
+          this._syncGateOutRefDocInputFromContext();
+        },
         _updateBinTrolleyVisibility: function () {
           this._initBinTrolleyVisibilityModel();
           var oTripData = sap.ui.getCore().getModel("TripData");
           var oGlobal = sap.ui.getCore().getModel("globalData");
 
-          var sTrip = String(
-            (oTripData && oTripData.getProperty("/TripNumber")) ||
-              (oGlobal && oGlobal.getProperty("/TripNumber")) ||
-              ""
+          var sTripFromTripData = String(
+            oTripData && oTripData.getProperty("/TripNumber")
           ).trim();
-          var sMt = String(
-            (oTripData && oTripData.getProperty("/MovementType")) ||
-              (oGlobal && oGlobal.getProperty("/MovementType")) ||
-              ""
-          ).trim().toUpperCase();
-          var sMsRaw = String(
-            (oTripData && oTripData.getProperty("/MovementScenario")) ||
-              ""
+          var sTripFromGlobal = String(
+            (oGlobal && oGlobal.getProperty("/TripNumber")) || ""
           ).trim();
-          var sMs = sMsRaw.replace(/^0+/, "") || "0";
-          var sVehicleTypeRaw = String(
-            (oTripData && oTripData.getProperty("/VehicleType")) ||
-              ""
-          ).trim();
-          var bInternalVehicle =
-            VehicleTypeConfig.isGateOutFirstInCreateMode(sVehicleTypeRaw);
-          var bCreateInternalWithoutTrip =
-            !sTrip && sMt === "O" && sMs === "2" && bInternalVehicle;
-
-          // Hard guard: hide for every inward case.
-          var bShow = (sMt === "O" && sMs === "2" && !!sTrip) || bCreateInternalWithoutTrip;
+          var bTripConsistent =
+            !sTripFromGlobal ||
+            !sTripFromTripData ||
+            sTripFromGlobal === sTripFromTripData;
+          // Show Bin/Trolley only for O02, only when TripData is loaded,
+          // and only when TripData/global trip context is consistent.
+          var bShow =
+            !!sTripFromTripData &&
+            bTripConsistent &&
+            O02GateException.isO02FromTripData(oTripData);
+          console.info(
+            "[BinTracking][GateOut] visibility",
+            {
+              tripFromTripData: sTripFromTripData,
+              tripFromGlobal: sTripFromGlobal,
+              tripConsistent: bTripConsistent,
+              movementType: oTripData && oTripData.getProperty("/MovementType"),
+              movementScenario: oTripData && oTripData.getProperty("/MovementScenario"),
+              movementScenarioItemKey: oTripData && oTripData.getProperty("/MovementScenarioItemKey"),
+              isO02: O02GateException.isO02FromTripData(oTripData),
+              show: bShow
+            }
+          );
           this.getView().getModel("ui").setProperty("/showBinTrolleyTracking", bShow);
         },
+
+        /**
+         * O02 + Internal (01) exception: bin lines mandatory at Gate Out when panel is shown.
+         */
+        _requiresMandatoryGateOutBinDetails: function () {
+          var oUi = this.getView().getModel("ui");
+          var oTripData = sap.ui.getCore().getModel("TripData");
+          if (!oUi || !oUi.getProperty("/showBinTrolleyTracking") || !oTripData) {
+            return false;
+          }
+          return O02GateException.isO02InternalException(oTripData);
+        },
+
         onAfterRendering: function () {
           try {
+            var oGateOutPanel = this.getView().byId("gateOutPanel");
+            if (oGateOutPanel && oGateOutPanel.setExpanded) {
+              oGateOutPanel.setExpanded(true);
+            }
             // Get trip number from globalData model (safer approach)
             var oGlobalModel = sap.ui.getCore().getModel("globalData");
             this.tripNumber = oGlobalModel ? oGlobalModel.getProperty("/TripNumber") || "" : "";
             
             this.loadExitGateNumber();
             this._loadGateOutBinTrolleyData();
+            this._updatePanelVisibility();
             this._updateBinTrolleyVisibility();
+            this._syncGateOutReferenceBy();
 
             // Set initial input state based on whether GateOut data exists
             var oTripData = sap.ui.getCore().getModel("TripData");
@@ -193,6 +830,7 @@ sap.ui.define(
         },
         _onTripDataUpdate: function () {
           var oTripData = sap.ui.getCore().getModel("TripData");
+          this._updatePanelVisibility();
           this._updateBinTrolleyVisibility();
           if (oTripData) {
             this.getView().setModel(oTripData, "TripData");
@@ -226,6 +864,7 @@ sap.ui.define(
             this.loadExitGateNumber();
             this._loadGateOutBinTrolleyData();
             this._normalizeTripDataItemDetails();
+            this._syncGateOutReferenceBy();
             // Disable inputs if GateOut data already exists (display mode)
             var sExistingExitGateNum = oTripData.getProperty("/ExitGateNum");
             if (sExistingExitGateNum && sExistingExitGateNum.trim() !== "") {
@@ -280,40 +919,20 @@ sap.ui.define(
           return "Not in GO";
         },
         _loadGateOutBinTrolleyData: function () {
-          var oModel = this.oModel;
-          var sTripNumber = this._getTripNumber();
           var oVm = this.getView().getModel("gateOutBinTrolley");
-          if (!oModel || !oVm || !sTripNumber) {
+          if (!oVm) {
             return;
           }
-
-          oModel.read("/EmptyBins", {
-            filters: [
-              new sap.ui.model.Filter(
-                "TripNumber",
-                sap.ui.model.FilterOperator.EQ,
-                sTripNumber
-              )
-            ],
-            success: function (oData) {
-              var aRows = (oData && oData.results ? oData.results : []).map(function (r) {
-                var sStatus = this._deriveGateOutDispatchStatus(r.QtyOut);
-                return {
-                  DocumentNumber: r.DocumentNumber || "-",
-                  ItemNo: r.ItemNo || "-",
-                  Material: r.Material || "-",
-                  BinType: r.BinType || "",
-                  QtyOut: r.QtyOut != null && r.QtyOut !== "" ? r.QtyOut : "0",
-                  Status: sStatus,
-                  BinTypeState: (String(r.BinType || "").toLowerCase().indexOf("plastic") >= 0) ? "Warning" : "Information"
-                };
-              }.bind(this));
-              oVm.setProperty("/rows", aRows);
-            }.bind(this),
-            error: function () {
-              oVm.setProperty("/rows", []);
-            }
-          });
+          var sDocNumber = this._getGateOutActiveRefDocNumber();
+          if (!sDocNumber) {
+            oVm.setProperty("/rows", []);
+            return;
+          }
+          this._refreshGateOutRefDocAndMaterials(sDocNumber).then(
+            function () {
+              this._refreshGateOutBinsForSelectedDocument(sDocNumber);
+            }.bind(this)
+          );
         },
         /**
          * Loads exit-gate ConfigValues for ConfigGroup ExitGate, always filtered by TripNumber when known.
@@ -376,6 +995,25 @@ sap.ui.define(
               sap.m.MessageBox.error("Failed to load Exit gates.");
             },
           });
+        },
+
+        onExitGateSelectionChange: function (oEvent) {
+          var oCombo = oEvent.getSource();
+          var sSelectedKey = oCombo.getSelectedKey() || "";
+
+          // Prevent manual/free-text values: keep only configured gate selections.
+          if (!sSelectedKey) {
+            oCombo.setValue("");
+            oCombo.setValueState("Error");
+            oCombo.setValueStateText("Please select a valid Exit Gate Number from the list.");
+            return;
+          }
+
+          oCombo.setValueState("None");
+          var oTripData = sap.ui.getCore().getModel("TripData");
+          if (oTripData) {
+            oTripData.setProperty("/ExitGateNum", sSelectedKey);
+          }
         },
         onExitGateValueHelp: function (oEvent) {
           var oInput = oEvent.getSource();
@@ -565,8 +1203,9 @@ sap.ui.define(
           if (!oRow) {
             return "";
           }
-          var sIcon = String(oRow.BinType || "").toLowerCase().indexOf("plastic") >= 0 ? "📦" : "🛒";
-          var sType = oRow.BinType || "";
+          var sBinType = oRow.BinTypes || oRow.BinType || "";
+          var sIcon = String(sBinType).toLowerCase().indexOf("plastic") >= 0 ? "📦" : "🛒";
+          var sType = sBinType;
           var sMat = oRow.Material || "";
           return sIcon + " " + sType + (sMat ? "\n" + sMat : "");
         },
@@ -600,6 +1239,17 @@ sap.ui.define(
             return;
           }
 
+          if (this._requiresMandatoryGateOutBinDetails()) {
+            var oBinVm = this.getView().getModel("gateOutBinTrolley");
+            var aBinRows = oBinVm ? oBinVm.getProperty("/rows") || [] : [];
+            if (!aBinRows.length) {
+              MessageBox.error(
+                "Bin / Trolley details are required for this movement scenario. Load or enter bin lines before completing Gate Out."
+              );
+              return;
+            }
+          }
+
           var sExistingExitGateNum = oTripData.getProperty("/ExitGateNum");
           var bIsFirstTime =
             !sExistingExitGateNum ||
@@ -611,17 +1261,19 @@ sap.ui.define(
           var sExitGateNumber = "";
           if (oExit && oExit.getSelectedKey) {
             sExitGateNumber = oExit.getSelectedKey() || "";
-          } else if (oExit && oExit.getValue) {
-            sExitGateNumber = oExit.getValue() || "";
           }
           if (!sExitGateNumber) {
-            sExitGateNumber = String(oTripData.getProperty("/ExitGateNum") || "").trim();
+            MessageBox.error("Please select Exit Gate Number from the list.");
+            if (oExit) {
+              oExit.setValueState("Error");
+              oExit.setValueStateText("Exit Gate Number is required.");
+            }
+            return;
+          }
+          if (oExit) {
+            oExit.setValueState("None");
           }
           var sRemarks = oView.byId("idGateOutRemarks").getValue() || "";
-          var sBinsReturned =
-            (oView.byId("idBinsReturned") &&
-              oView.byId("idBinsReturned").getValue()) ||
-            "";
 
           var oRBGroup = oView.byId("idVerifiedDocs");
           var bVerifiedDocs = oRBGroup ? oRBGroup.getSelectedIndex() === 0 : false;
@@ -645,22 +1297,6 @@ sap.ui.define(
             }
           }
 
-          var oShort = oView.byId("idShortQty");
-          var sShortQtyVal = "";
-          if (oShort) {
-            var vSqCtrl = oShort.getValue();
-            sShortQtyVal =
-              vSqCtrl !== undefined && vSqCtrl !== null && vSqCtrl !== ""
-                ? String(vSqCtrl).trim()
-                : "";
-          }
-          if (sShortQtyVal === "") {
-            var vSq = oTripData.getProperty("/ShortQty");
-            if (vSq !== undefined && vSq !== null && vSq !== "") {
-              sShortQtyVal = String(vSq).trim();
-            }
-          }
-
           // Billing document from trip (set on entry / reconciliation flows); no Gate Out invoice field.
           var sBillingDocument = "";
           var vBd = oTripData.getProperty("/BillingDocument");
@@ -677,13 +1313,11 @@ sap.ui.define(
             method: "POST",
             urlParameters: {
               RefdocSkip: sRefdocSkip,
-              ShortQty: sShortQtyVal,
               BillingDocument: sBillingDocument,
               ExitGateNumber: sExitGateNumber,
               TripNumber: sTripNumber,
               Remarks: sRemarks,
               VerifiedDocuments: bVerifiedDocs,
-              BinsReturned: sBinsReturned,
             },
             headers: {
               "X-Requested-With": "X",
@@ -692,22 +1326,24 @@ sap.ui.define(
               var sMessage = bIsFirstTime
                 ? "Gate Out information created successfully!"
                 : "Gate Out information updated successfully!";
+              console.info("[GateOut][SaveSuccess]", {
+                tripNumber: sTripNumber,
+                preferredTabKey: "gateout",
+                hasAttachments: !!(this._aSelectedFiles && this._aSelectedFiles.length > 0)
+              });
 
               var oTd = sap.ui.getCore().getModel("TripData");
               if (oTd) {
                 oTd.setProperty("/ExitGateNum", sExitGateNumber);
                 oTd.setProperty("/RefDocSkip", sRefdocSkip);
                 oTd.setProperty("/VerifiedDocs", bVerifiedDocs ? 0 : 1);
-                oTd.setProperty("/BinsReturned", sBinsReturned);
                 oTd.setProperty("/BillingDocument", sBillingDocument);
-                if (oShort) {
-                  var vFinal = oShort.getValue();
-                  if (vFinal !== undefined && vFinal !== null && vFinal !== "") {
-                    oTd.setProperty("/ShortQty", vFinal);
-                  }
-                }
                 this._eventBus.publish("TripData", "Updated");
               }
+              this._eventBus.publish("Stage", "TripCreated", {
+                tripNumber: sTripNumber,
+                preferredTabKey: "gateout"
+              });
 
               if (this._aSelectedFiles && this._aSelectedFiles.length > 0) {
                 this._uploadGateOutAttachments(

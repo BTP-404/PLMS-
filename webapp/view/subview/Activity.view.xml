@@ -242,7 +242,7 @@
                                                 <!-- Event -->
                                                 <HBox alignItems="Center" class="sapUiTinyMarginBottom">
                                                     <Text text="Event: " class="eventDescription eventDetailLabel"/>
-                                                    <Text text="{activityModel>stageTitle}" class="eventDescription" wrapping="true"/>
+                                                    <Text text="{activityModel>eventDescription}" class="eventDescription" wrapping="true"/>
                                                 </HBox>
                                                 <!-- TAT -->
                                                 <HBox alignItems="Center" class="sapUiTinyMarginBottom">

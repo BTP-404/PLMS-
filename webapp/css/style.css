@@ -436,14 +436,12 @@ body#content {
     margin-left: 1rem !important;
 }
 
-/* Reduce left padding for Page content */
-.sapMPage .sapMPageContent {
-    padding-left: 0.5rem !important;
-}
-
-/* Reduce left padding for IconTabBar content */
+/* Keep page containers width-safe (no extra horizontal growth) */
+.sapMPage .sapMPageContent,
 .sapMITBContent {
-    padding-left: 0.5rem !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    box-sizing: border-box !important;
 }
 
 /* Reduce left margin for VBox/HBox with margin classes */
@@ -452,14 +450,17 @@ body#content {
     margin-left: 0.5rem !important;
 }
 
-/* Reduce left padding for Panel content (but keep some for readability) */
+/* Keep panel content width-safe; use internal control spacing instead */
 .sapMPanelContent {
-    padding-left: 0.5rem !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    box-sizing: border-box !important;
 }
 
-/* Reduce left margin for IconTabBar filter content */
+/* Avoid width expansion on tab content wrappers */
 .sapMITBFilter .sapMITBContent {
-    padding-left: 0.5rem !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
 }
 
 /* ==================== PANEL SECTION TITLES ==================== */
@@ -470,49 +471,47 @@ body#content {
     font-weight: 600 !important;
 }
 
-/* Reduce left margin for common layout containers */
+/* Grid should not add external left offset globally */
 .sapUiLayoutGrid {
-    margin-left: 0.5rem !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    box-sizing: border-box !important;
 }
 
-/* Reduce left padding for ScrollContainer */
+/* ScrollContainer should not add width via left padding */
 .sapMScrollContainer {
-    padding-left: 0.5rem !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    box-sizing: border-box !important;
 }
 
-/* Reduce left margin for List items */
+/* Lists/tables must not shift right globally */
 .sapMList {
-    margin-left: 0.5rem !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    box-sizing: border-box !important;
 }
 
-/* Reduce left padding for Table (but keep some for column alignment) */
+/* Avoid phantom horizontal scroll from table wrapper padding */
 .sapMTable {
-    padding-left: 0.5rem !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    box-sizing: border-box !important;
 }
 
-/* Reduce left margin for Form containers */
-.sapUiForm {
-    margin-left: 0.5rem !important;
-}
-
-/* Reduce left padding for Form containers */
-.sapUiFormContainer {
-    padding-left: 0.5rem !important;
-}
-
-/* Reduce left margin for IconTabBar itself */
+/* Keep form and tab wrappers aligned to viewport width */
+.sapUiForm,
+.sapUiFormContainer,
 .sapMITB {
-    margin-left: 0.5rem !important;
+    margin-left: 0 !important;
+    padding-left: 0 !important;
+    box-sizing: border-box !important;
 }
 
-/* Stage view specific - reduce left margin for main VBox */
-.sapUiView[data-controller-name*="Stage"] .sapMPageContent .sapMVBox {
-    margin-left: 0.5rem !important;
-}
-
-/* Stage view - reduce left margin for IconTabBar */
+/* Stage view wrappers: force width-safe alignment */
+.sapUiView[data-controller-name*="Stage"] .sapMPageContent .sapMVBox,
 .sapUiView[data-controller-name*="Stage"] .sapMITB {
-    margin-left: 0.5rem !important;
+    margin-left: 0 !important;
 }
 
 /* Mobile: Even less left margin for better space utilization */
@@ -521,16 +520,11 @@ body#content {
         margin-left: 0.25rem !important;
     }
     
-    .sapMPage .sapMPageContent {
-        padding-left: 0.25rem !important;
-    }
-    
-    .sapMITBContent {
-        padding-left: 0.25rem !important;
-    }
-    
+    .sapMPage .sapMPageContent,
+    .sapMITBContent,
     .sapMPanelContent {
-        padding-left: 0.25rem !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
     }
     
     .sapMVBox.sapUiSmallMargin,
@@ -539,11 +533,13 @@ body#content {
     }
     
     .sapUiLayoutGrid {
-        margin-left: 0.25rem !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
     }
     
     .sapMScrollContainer {
-        padding-left: 0.25rem !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
     }
 }
 
@@ -3324,4 +3320,41 @@ body#content {
 .gateOutBinTrolleyTable .sapMObjStatusInverted.sapMObjStatusSuccess {
     background-color: rgba(16, 185, 129, 0.14) !important;
     border: 1px solid rgba(16, 185, 129, 0.36) !important;
+}
+
+/* ==================== GATE OUT: SEARCH BY CARD ==================== */
+.gateOutSearchCard {
+    background: linear-gradient(180deg, #fafcfe 0%, #ffffff 65%, #ffffff 100%) !important;
+    border: 1px solid var(--plms-neutral-border, #dfe7f2) !important;
+    border-radius: var(--plms-radius, 12px) !important;
+    box-shadow: var(--plms-shadow, 0 4px 12px rgba(0, 0, 0, 0.08)) !important;
+    padding-top: 0.75rem !important;
+    padding-bottom: 0.35rem !important;
+}
+
+.gateOutSearchCard .sapMLabel,
+.gateOutSearchCard .sapMLabel .sapMLabelInner {
+    font-weight: 600 !important;
+    color: var(--plms-primary-text, #1c4e80) !important;
+}
+
+.gateOutSearchSelect.sapMSlt,
+.gateOutSearchInput .sapMInputBaseContentWrapper {
+    border-radius: 0.75rem !important;
+}
+
+/* ==================== TABLE WIDTH SAFETY (STAGE SUBVIEWS) ==================== */
+/* Prevent phantom horizontal overflow from inherited left margins/paddings */
+#stagePage .sapMITBContent .sapUiView[data-controller-name*=".controller.subview."] .sapUiLayoutGrid,
+#stagePage .sapMITBContent .sapUiView[data-controller-name*=".controller.subview."] .sapMScrollContainer,
+#stagePage .sapMITBContent .sapUiView[data-controller-name*=".controller.subview."] .sapMList,
+#stagePage .sapMITBContent .sapUiView[data-controller-name*=".controller.subview."] .sapMTable {
+    margin-left: 0 !important;
+    padding-left: 0 !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+#stagePage .sapMITBContent .sapUiView[data-controller-name*=".controller.subview."] .sapMListTblCnt {
+    overflow-x: hidden !important;
 }

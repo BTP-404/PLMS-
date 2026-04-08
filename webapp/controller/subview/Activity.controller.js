@@ -407,9 +407,14 @@ sap.ui.define([
 				return vDate;
 			}
 			if (typeof vDate === "string") {
+				// Support OData /Date(...)\/ and ISO date strings.
 				var iTimestamp = parseInt(vDate.replace(/\D/g, ""), 10);
 				if (!isNaN(iTimestamp)) {
 					return new Date(iTimestamp);
+				}
+				var oIsoDate = new Date(vDate);
+				if (!isNaN(oIsoDate.getTime())) {
+					return oIsoDate;
 				}
 			}
 			return null;
@@ -441,11 +446,12 @@ sap.ui.define([
 			if (!oDate || isNaN(oDate.getTime())) {
 				return "";
 			}
-			// Display date only (no time) for cleaner KPI/timestamp cards.
-			return oDate.toLocaleDateString(undefined, {
+			return oDate.toLocaleString(undefined, {
 				year: "numeric",
 				month: "short",
-				day: "2-digit"
+				day: "2-digit",
+				hour: "2-digit",
+				minute: "2-digit"
 			});
 		},
 

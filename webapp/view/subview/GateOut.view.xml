@@ -8,13 +8,82 @@
     displayBlock="true"
 >
     <VBox class="sapUiSizeCompact" width="100%">
+        <!-- Search by + document value help (always visible at top) -->
+        <layout:Grid
+            defaultSpan="L12 M12 S12"
+            hSpacing="2"
+            vSpacing="2"
+            width="100%"
+            class="sapUiTinyMarginBottom sapUiMediumPadding gateOutSearchCard"
+            visible="{= String(${TripData>/MovementType} || '').toUpperCase() !== 'I' }"
+        >
+            <layout:content>
+                <VBox width="100%">
+                    <layoutData>
+                        <layout:GridData span="L6 M6 S12" />
+                    </layoutData>
+                    <Label
+                        text="Search by"
+                        labelFor="idGateOutReferenceBySelect"
+                        design="Bold"
+                        class="sapUiNoMarginBottom"
+                    />
+                    <Select
+                        id="idGateOutReferenceBySelect"
+                        width="100%"
+                        class="gateOutSearchSelect"
+                        selectedKey="{gateOutUi>/referenceByKey}"
+                        change="onGateOutReferenceByChange"
+                    >
+                        <core:ListItem key="INVOICE" text="Invoice" />
+                        <core:ListItem key="CHALLAN" text="Challan" />
+                        <core:ListItem key="PO" text="PO" />
+                    </Select>
+                </VBox>
+            </layout:content>
+            <layout:content>
+                <VBox width="100%">
+                    <layoutData>
+                        <layout:GridData span="L6 M6 S12" />
+                    </layoutData>
+                    <Label
+                        text="Document Number"
+                        labelFor="idGateOutRefDocSearchInput"
+                        design="Bold"
+                        class="sapUiNoMarginBottom"
+                    />
+                    <Input
+                        id="idGateOutRefDocSearchInput"
+                        width="100%"
+                        class="gateOutSearchInput"
+                        value="{gateOutUi>/refDocSearchValue}"
+                        showSuggestion="true"
+                        startSuggestion="1"
+                        filterSuggests="false"
+                        maxSuggestionWidth="32rem"
+                        placeholder="{= ${gateOutUi>/referenceByKey} === 'INVOICE' ? 'Type or select invoice' : (${gateOutUi>/referenceByKey} === 'CHALLAN' ? 'Type or select challan' : 'Type or select PO number') }"
+                        suggestionItems="{gateOutRefSuggest>/items}"
+                        suggest="onGateOutRefDocSuggest"
+                        suggestionItemSelected="onGateOutRefDocSuggestionSelected"
+                        change="onGateOutRefDocSearchChange"
+                    >
+                        <suggestionItems>
+                            <SuggestionItem
+                                text="{gateOutRefSuggest>docText}"
+                                description="{gateOutRefSuggest>docDescription}"
+                            />
+                        </suggestionItems>
+                    </Input>
+                </VBox>
+            </layout:content>
+        </layout:Grid>
         <!-- ========================================================= -->
         <!-- =================== Reporting (internal) ================= -->
         <!-- ========================================================= -->
         <mvc:XMLView
             viewName="com.incresolZ_INC_PLMS.view.subview.VehicleReportingTab"
             class="sapUiTinyMarginBottom"
-            visible="{= ${stageUi>/showReportingInGateOut} === true }"
+            visible="{= ${gateOutUi>/showPanels} === true &amp;&amp; ${stageUi>/showReportingInGateOut} === true &amp;&amp; String(${TripData>/MovementType} || '').toUpperCase() !== 'I' }"
         />
 
         <!-- ========================================================= -->
@@ -24,6 +93,7 @@
             id="idRefDocsViewGateOut"
             viewName="com.incresolZ_INC_PLMS.view.subview.ReferenceDocuments"
             class="sapUiTinyMarginBottom"
+            visible="{gateOutUi>/showPanels}"
         />
 
         <!-- ========================================================= -->
@@ -35,7 +105,7 @@
             expanded="true"
             class="sapUiNoContentPadding sapUiTinyMarginBottom"
             width="100%"
-            visible="{ui>/showBinTrolleyTracking}"
+            visible="{= ${gateOutUi>/showPanels} === true &amp;&amp; ${ui>/showBinTrolleyTracking} === true }"
         >
             <headerToolbar>
                 <OverflowToolbar>
@@ -43,21 +113,23 @@
                 </OverflowToolbar>
             </headerToolbar>
 
-            <VBox class="sapUiSizeCompact sapUiSmallMargin" width="100%">
+            <VBox class="sapUiSizeCompact" width="100%">
                 <Table
                     id="idGateOutBinTrolleyTable"
                     width="100%"
-                    fixedLayout="false"
+                    fixedLayout="true"
+                    autoPopin="true"
+                    popinLayout="GridSmall"
                     class="sapUiSizeCompact gateOutBinTrolleyTable plmsPanelDataTable"
                     items="{gateOutBinTrolley>/rows}"
                 >
                     <columns>
-                        <Column width="7rem"><Text text="Doc No" /></Column>
-                        <Column width="6rem"><Text text="Item" /></Column>
-                        <Column width="8rem"><Text text="Part Code" /></Column>
-                        <Column width="14rem"><Text text="Bin Type / Material Desc." /></Column>
-                        <Column hAlign="End" width="7rem"><Text text="Qty Out" /></Column>
-                        <Column hAlign="Center" width="11rem"><Text text="Status" /></Column>
+                        <Column width="7rem" demandPopin="true" minScreenWidth="Phone" popinDisplay="Inline"><Text text="Doc No" /></Column>
+                        <Column width="6rem" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline"><Text text="Item" /></Column>
+                        <Column width="8rem" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline"><Text text="Part Code" /></Column>
+                        <Column width="14rem" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Block"><Text text="Bin Type / Material Desc." /></Column>
+                        <Column hAlign="End" width="7rem" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline"><Text text="Qty Out" /></Column>
+                        <Column hAlign="Center" width="11rem" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline"><Text text="Status" /></Column>
                     </columns>
                     <items>
                         <ColumnListItem>
@@ -93,9 +165,10 @@
         <Panel
             id="gateOutPanel"
             expandable="true"
-            expanded="false"
+            expanded="true"
             class="sapUiNoContentPadding sapUiTinyMarginBottom"
             width="100%"
+            visible="{gateOutUi>/showPanels}"
         >
             <headerToolbar>
                 <OverflowToolbar>
@@ -127,6 +200,7 @@
                                 placeholder="Select exit gate"
                                 selectedKey="{path: 'TripData>/ExitGateNum', mode: 'OneWay'}"
                                 items="{exitGateModel>/items}"
+                                change="onExitGateSelectionChange"
                             >
                                 <core:Item
                                     key="{exitGateModel>ConfigID}"
@@ -175,9 +249,9 @@
                     </layout:content>
                 </layout:Grid>
 
-                <!-- Row 2: Skip Document | Bins Returned | Short Quantity -->
+                <!-- Row 2: Skip Document -->
                 <layout:Grid
-                    defaultSpan="L4 M4 S12"
+                    defaultSpan="L12 M12 S12"
                     hSpacing="2"
                     vSpacing="2"
                     width="100%"
@@ -200,38 +274,6 @@
                                 <RadioButton text="Yes" />
                                 <RadioButton text="No" />
                             </RadioButtonGroup>
-                        </VBox>
-                    </layout:content>
-                    <layout:content>
-                        <VBox width="100%">
-                            <Label
-                                text="Bins Returned"
-                                design="Bold"
-                                class="sapUiNoMarginBottom"
-                            />
-                            <Input
-                                id="idBinsReturned"
-                                width="100%"
-                                type="Number"
-                                placeholder="Enter bins returned"
-                                value="{path: 'TripData>/BinsReturned', mode: 'TwoWay'}"
-                            />
-                        </VBox>
-                    </layout:content>
-                    <layout:content>
-                        <VBox width="100%">
-                            <Label
-                                text="Short Quantity"
-                                design="Bold"
-                                class="sapUiNoMarginBottom"
-                            />
-                            <Input
-                                id="idShortQty"
-                                width="100%"
-                                type="Number"
-                                value="{path: 'TripData>/ShortQty', mode: 'TwoWay'}"
-                                placeholder="From trip / enter short qty"
-                            />
                         </VBox>
                     </layout:content>
                 </layout:Grid>

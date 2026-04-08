@@ -25,6 +25,9 @@
                 </headerToolbar>
                 <columns>
                     <Column>
+                        <Text text="Document No" />
+                    </Column>
+                    <Column>
                         <Text text="Ref Doc Item No" />
                     </Column>
                     <Column>
@@ -43,6 +46,7 @@
                 <items>
                     <ColumnListItem>
                         <cells>
+                            <Text text="{materialsSelectionModel>RefDocNo}" />
                             <Text text="{materialsSelectionModel>RefDocItemNo}" />
                             <Text text="{materialsSelectionModel>MaterialCode}" />
                             <Text text="{materialsSelectionModel>MaterialDescription}" />

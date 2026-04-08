@@ -29,7 +29,7 @@
                     mode="SingleSelectMaster"
                     width="100%"
                     class="sapUiSizeCompact plmsPanelDataTable"
-                    fixedLayout="false"
+                    fixedLayout="true"
                     autoPopin="true"
                     popinLayout="GridSmall"
                     sticky="ColumnHeaders,HeaderToolbar"
@@ -96,22 +96,22 @@
                                 <Column id="colRefDocPartyName" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Block">
                                     <Text text="Party Name" wrapping="false"/>
                                 </Column>
-                                <Column id="colRefDocCreatedBy" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colRefDocCreatedBy" demandPopin="true" minScreenWidth="80rem" popinDisplay="Inline">
                                     <Text text="Created By" wrapping="false"/>
                                 </Column>
-                                <Column id="colRefDocCreatedOnDate" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colRefDocCreatedOnDate" demandPopin="true" minScreenWidth="80rem" popinDisplay="Inline">
                                     <Text text="Created On Date" wrapping="false"/>
                                 </Column>
-                                <Column id="colRefDocCreatedOnTime" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colRefDocCreatedOnTime" demandPopin="true" minScreenWidth="80rem" popinDisplay="Inline">
                                     <Text text="Created On Time" wrapping="false"/>
                                 </Column>
-                                <Column id="colRefDocChangedBy" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colRefDocChangedBy" demandPopin="true" minScreenWidth="90rem" popinDisplay="Inline">
                                     <Text text="Changed By" wrapping="false"/>
                                 </Column>
-                                <Column id="colRefDocChangedOnDate" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colRefDocChangedOnDate" demandPopin="true" minScreenWidth="90rem" popinDisplay="Inline">
                                     <Text text="Changed On Date" wrapping="false"/>
                                 </Column>
-                                <Column id="colRefDocChangedOnTime" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                                <Column id="colRefDocChangedOnTime" demandPopin="true" minScreenWidth="90rem" popinDisplay="Inline">
                                     <Text text="Changed On Time" wrapping="false"/>
                                 </Column>
                                 <Column id="colRefDocAction" hAlign="Center" width="12rem" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
@@ -199,6 +199,9 @@
                     noDataText="No material rows added yet">
 
                             <columns>
+                                <Column id="colMaterialDocumentNo" demandPopin="true" minScreenWidth="Phone" popinDisplay="Inline">
+                                    <Text text="Document Number" wrapping="false"/>
+                                </Column>
                                 <Column id="colMaterialRefDocItemNo" demandPopin="true" minScreenWidth="Phone" popinDisplay="Inline">
                                     <Text text="Ref Doc Item No" wrapping="false"/>
                                 </Column>
@@ -222,6 +225,7 @@
                             <items>
                                 <ColumnListItem>
                                     <cells>
+                                        <Text text="{= ${refDocModel>documentNumber} || ${refDocModel>refDocNo} }"/>
                                         <Text text="{refDocModel>refDocItemNo}"/>
                                         <Text text="{refDocModel>materialDescription}"/>
                                         <Text text="{refDocModel>qty}"/>
