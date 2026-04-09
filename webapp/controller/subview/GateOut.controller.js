@@ -33,6 +33,7 @@ sap.ui.define(
         onInit: function () {
           this._eventBus = sap.ui.getCore().getEventBus();
           this._eventBus.subscribe("TripData", "Updated", this._onTripDataUpdate, this);
+          this._eventBus.subscribe("RefDoc", "MaterialsUpdated", this._onRefDocMaterialsUpdated, this);
 
           this.oModel = new ODataModel("/sap/opu/odata/sap/YIGP_PLMS_SRV/", {
             useBatch: false,
@@ -827,6 +828,10 @@ sap.ui.define(
         },
         onExit: function () {
           this._eventBus?.unsubscribe("TripData", "Updated", this._onTripDataUpdate, this);
+          this._eventBus?.unsubscribe("RefDoc", "MaterialsUpdated", this._onRefDocMaterialsUpdated, this);
+        },
+        _onRefDocMaterialsUpdated: function () {
+          this._loadGateOutBinTrolleyData();
         },
         _onTripDataUpdate: function () {
           var oTripData = sap.ui.getCore().getModel("TripData");
@@ -1310,80 +1315,80 @@ sap.ui.define(
           }
 
           oModel.callFunction("/GateOut", {
-            method: "POST",
-            urlParameters: {
-              RefdocSkip: sRefdocSkip,
-              BillingDocument: sBillingDocument,
-              ExitGateNumber: sExitGateNumber,
-              TripNumber: sTripNumber,
-              Remarks: sRemarks,
-              VerifiedDocuments: bVerifiedDocs,
-            },
-            headers: {
-              "X-Requested-With": "X",
-            },
-            success: function () {
-              var sMessage = bIsFirstTime
-                ? "Gate Out information created successfully!"
-                : "Gate Out information updated successfully!";
-              console.info("[GateOut][SaveSuccess]", {
-                tripNumber: sTripNumber,
-                preferredTabKey: "gateout",
-                hasAttachments: !!(this._aSelectedFiles && this._aSelectedFiles.length > 0)
-              });
+                method: "POST",
+                urlParameters: {
+                  RefdocSkip: sRefdocSkip,
+                  BillingDocument: sBillingDocument,
+                  ExitGateNumber: sExitGateNumber,
+                  TripNumber: sTripNumber,
+                  Remarks: sRemarks,
+                  VerifiedDocuments: bVerifiedDocs,
+                },
+                headers: {
+                  "X-Requested-With": "X",
+                },
+                success: function () {
+                  var sMessage = bIsFirstTime
+                    ? "Gate Out information created successfully!"
+                    : "Gate Out information updated successfully!";
+                  console.info("[GateOut][SaveSuccess]", {
+                    tripNumber: sTripNumber,
+                    preferredTabKey: "gateout",
+                    hasAttachments: !!(this._aSelectedFiles && this._aSelectedFiles.length > 0)
+                  });
 
-              var oTd = sap.ui.getCore().getModel("TripData");
-              if (oTd) {
-                oTd.setProperty("/ExitGateNum", sExitGateNumber);
-                oTd.setProperty("/RefDocSkip", sRefdocSkip);
-                oTd.setProperty("/VerifiedDocs", bVerifiedDocs ? 0 : 1);
-                oTd.setProperty("/BillingDocument", sBillingDocument);
-                this._eventBus.publish("TripData", "Updated");
-              }
-              this._eventBus.publish("Stage", "TripCreated", {
-                tripNumber: sTripNumber,
-                preferredTabKey: "gateout"
-              });
-
-              if (this._aSelectedFiles && this._aSelectedFiles.length > 0) {
-                this._uploadGateOutAttachments(
-                  function (bSuccess) {
-                    if (bSuccess) {
-                      MessageBox.success(
-                        sMessage + " Attachments uploaded successfully!"
-                      );
-                    } else {
-                      MessageBox.success(sMessage);
-                      MessageBox.warning("Some attachments failed to upload.");
-                    }
-                    this._setInputsEnabled(false);
-                    this._loadGateOutAttachments();
-                  }.bind(this)
-                );
-              } else {
-                MessageBox.success(sMessage);
-                this._setInputsEnabled(false);
-              }
-            }.bind(this),
-            error: function (oError) {
-              var sErrorMessage = "Failed Gate Out ";
-              try {
-                if (oError && oError.responseText) {
-                  var oErr = JSON.parse(oError.responseText);
-                  if (
-                    oErr.error &&
-                    oErr.error.message &&
-                    oErr.error.message.value
-                  ) {
-                    sErrorMessage = oErr.error.message.value;
+                  var oTd = sap.ui.getCore().getModel("TripData");
+                  if (oTd) {
+                    oTd.setProperty("/ExitGateNum", sExitGateNumber);
+                    oTd.setProperty("/RefDocSkip", sRefdocSkip);
+                    oTd.setProperty("/VerifiedDocs", bVerifiedDocs ? 0 : 1);
+                    oTd.setProperty("/BillingDocument", sBillingDocument);
+                    this._eventBus.publish("TripData", "Updated");
                   }
-                }
-              } catch (e) {
-                // Failed to parse OData error
-              }
-              MessageBox.error(sErrorMessage);
-            },
-          });
+                  this._eventBus.publish("Stage", "TripCreated", {
+                    tripNumber: sTripNumber,
+                    preferredTabKey: "gateout"
+                  });
+
+                  if (this._aSelectedFiles && this._aSelectedFiles.length > 0) {
+                    this._uploadGateOutAttachments(
+                      function (bSuccess) {
+                        if (bSuccess) {
+                          MessageBox.success(
+                            sMessage + " Attachments uploaded successfully!"
+                          );
+                        } else {
+                          MessageBox.success(sMessage);
+                          MessageBox.warning("Some attachments failed to upload.");
+                        }
+                        this._setInputsEnabled(false);
+                        this._loadGateOutAttachments();
+                      }.bind(this)
+                    );
+                  } else {
+                    MessageBox.success(sMessage);
+                    this._setInputsEnabled(false);
+                  }
+                }.bind(this),
+                error: function (oError) {
+                  var sErrorMessage = "Failed Gate Out ";
+                  try {
+                    if (oError && oError.responseText) {
+                      var oErr = JSON.parse(oError.responseText);
+                      if (
+                        oErr.error &&
+                        oErr.error.message &&
+                        oErr.error.message.value
+                      ) {
+                        sErrorMessage = oErr.error.message.value;
+                      }
+                    }
+                  } catch (e) {
+                    // Failed to parse OData error
+                  }
+                  MessageBox.error(sErrorMessage);
+                },
+              });
         },
         onEditGateOut: function () {
           // Enable inputs for edit mode (authorization checks removed)

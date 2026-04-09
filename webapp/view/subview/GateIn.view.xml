@@ -14,7 +14,7 @@
             <mvc:XMLView
                 viewName="com.incresolZ_INC_PLMS.view.subview.VehicleReportingTab"
                 class="sapUiTinyMarginBottom"
-                visible="{= ${stageUi>/showReportingInGateOut} !== true &amp;&amp; !!String(${TripData>/TripNumber} || ${globalData>/TripNumber} || '').trim() }"
+                visible="{= ${stageUi>/showReportingInGateOut} !== true }"
             />
 
             <!-- ========================================================= -->
@@ -24,7 +24,7 @@
                 id="idRefDocsViewGateIn"
                 viewName="com.incresolZ_INC_PLMS.view.subview.ReferenceDocuments"
                 class="sapUiTinyMarginBottom"
-                visible="{= !!String(${TripData>/TripNumber} || ${globalData>/TripNumber} || '').trim() }"
+                visible="{gateInUi>/showPanels}"
             />
 
             <!-- Gate-In and Change History: same margin as Reporting / Reference Documents -->
@@ -108,10 +108,10 @@
                     <items>
                         <ColumnListItem class="binTrolleyTrackingRow">
                             <cells>
-                                <Text text="{binTrolleyTracking>DocumentNumber}" />
-                                <Text text="{binTrolleyTracking>ItemNo}" />
-                                <Text text="{binTrolleyTracking>Material}" class="binTrolleyPartCode" />
-                                <Text text="{binTrolleyTracking>BinTypes}" />
+                                <Input value="{binTrolleyTracking>DocumentNumber}" editable="{binTrolleyTracking>IsManual}" />
+                                <Input value="{binTrolleyTracking>ItemNo}" editable="{binTrolleyTracking>IsManual}" />
+                                <Input value="{binTrolleyTracking>Material}" editable="{binTrolleyTracking>IsManual}" class="binTrolleyPartCode" />
+                                <Input value="{binTrolleyTracking>BinType}" editable="{binTrolleyTracking>IsManual}" />
                                 <ObjectNumber
                                     number="{binTrolleyTracking>QtyOut}"
                                     emphasized="false"
@@ -141,6 +141,7 @@
                                     type="Transparent"
                                     tooltip="Remove row"
                                     press="onRemoveTrackingRow"
+                                    visible="{binTrolleyTracking>IsManual}"
                                 />
                             </cells>
                         </ColumnListItem>
@@ -170,7 +171,7 @@
                 expanded="false"
                 class="sapUiNoContentPadding sapUiTinyMarginBottom"
                 width="100%"
-                visible="{= !!String(${TripData>/TripNumber} || ${globalData>/TripNumber} || '').trim() }"
+            visible="{gateInUi>/showPanels}"
             >
             <headerToolbar>
                 <OverflowToolbar>
@@ -315,7 +316,7 @@
             expanded="false"
             class="sapUiNoContentPadding sapUiTinyMarginBottom"
             width="100%"
-            visible="{= !!String(${TripData>/TripNumber} || ${globalData>/TripNumber} || '').trim() }"
+            visible="{gateInUi>/showPanels}"
         >
             <headerToolbar>
                 <OverflowToolbar>

@@ -64,6 +64,11 @@ sap.ui.define([
 		// this._onTripDataUpdated(); // Initial load
 		this._initializeColumnVisibility();
 		this._initDocNoPagingState();
+		this._iReqId = 0; // latest request wins for doc resolution
+		this._sLastDocNo = "";
+		this._sLastDocType = "";
+		this._bUserSelected = false;
+		this._iDebounceTimer = null;
 		// Apply any view-related initialization after render using delegates if needed
 	},
 
@@ -408,9 +413,9 @@ sap.ui.define([
 				clearTimeout(this._iRefDocSuggestDebounceTimer);
 				this._iRefDocSuggestDebounceTimer = null;
 			}
-			if (this._iRefDocNumberChangeTimer) {
-				clearTimeout(this._iRefDocNumberChangeTimer);
-				this._iRefDocNumberChangeTimer = null;
+			if (this._iDebounceTimer) {
+				clearTimeout(this._iDebounceTimer);
+				this._iDebounceTimer = null;
 			}
 			this._oAddRefDocDialog?.destroy();
 			this._oAddMaterialDialog?.destroy();
@@ -597,36 +602,25 @@ sap.ui.define([
 				return;
 			}
 
-			// Always resolve from OrderDetails after user selection.
-			console.log("[RefDoc] Suggestion selected; fetching OrderDetails", {
-				docType: sDocType,
-				documentNumber: sDocNumber
-			});
-			this._findMatchingOrderDetail(sDocType, sDocNumber, true)
-				.then(function (oResolved) {
-					if (oResolved) {
-						this._applySelectedReferenceDoc(oResolved);
-						// Clear top-context typed values after successful selection to avoid stale auto-prefill.
-						this._clearTopContextRefDocInputs();
-					}
-				}.bind(this))
-				.catch(function () {
-					// Non-blocking: keep manual user value.
-				});
+			// Prevent change event from issuing a duplicate backend call for the same selection.
+			this._bUserSelected = true;
+			this._handleDocSelection(sDocType, sDocNumber);
 		},
 
 		onRefDocNumberChange: function () {
-			if (this._iRefDocNumberChangeTimer) {
-				clearTimeout(this._iRefDocNumberChangeTimer);
-				this._iRefDocNumberChangeTimer = null;
+			if (this._bUserSelected) {
+				this._bUserSelected = false;
+				return;
+			}
+			if (this._iDebounceTimer) {
+				clearTimeout(this._iDebounceTimer);
+				this._iDebounceTimer = null;
 			}
 
-			this._iRefDocNumberChangeReqId = (this._iRefDocNumberChangeReqId || 0) + 1;
-			var iReqId = this._iRefDocNumberChangeReqId;
 			var that = this;
 
-			this._iRefDocNumberChangeTimer = setTimeout(function () {
-				that._iRefDocNumberChangeTimer = null;
+			this._iDebounceTimer = setTimeout(function () {
+				that._iDebounceTimer = null;
 				var oDocNumberCtrl = that.byId("idRefDocNumber");
 				var oDocTypeSelect = that.byId("idRefDocType");
 				var sDocType = String(
@@ -639,23 +633,69 @@ sap.ui.define([
 				if (!sDocType || !sDocNo) {
 					return;
 				}
-				console.log("[RefDoc] onRefDocNumberChange (debounced) fetch OrderDetails", {
+				console.log("[RefDoc] onRefDocNumberChange (debounced) resolve OrderDetails", {
 					docType: sDocType,
 					documentNumber: sDocNo
 				});
-				that._findMatchingOrderDetail(sDocType, sDocNo, true)
-					.then(function (oResolved) {
-						if (iReqId !== that._iRefDocNumberChangeReqId) {
-							return;
-						}
-						if (oResolved) {
-							that._applySelectedReferenceDoc(oResolved);
-						}
-					})
+				that._handleDocSelection(sDocType, sDocNo)
 					.catch(function () {
 						// non-blocking
 					});
-			}, 400);
+			}, 500);
+		},
+
+		_handleDocSelection: function (sDocType, sDocNumber) {
+			var sType = String(sDocType || "").trim();
+			var sDocNo = String(sDocNumber || "").trim();
+			if (!sType || !sDocNo) {
+				return Promise.resolve(null);
+			}
+			var sDocNorm = this._normalizeDocNumberForMatch(sDocNo);
+			var sLastNorm = this._normalizeDocNumberForMatch(this._sLastDocNo);
+			if (this._sLastDocType === sType && sLastNorm && sDocNorm && sLastNorm === sDocNorm) {
+				return Promise.resolve(null);
+			}
+			this._sLastDocType = sType;
+			this._sLastDocNo = sDocNo;
+			this._iReqId = (this._iReqId || 0) + 1;
+			var iCurrentReq = this._iReqId;
+			console.log("[RefDoc] _handleDocSelection", {
+				docType: sType,
+				documentNumber: sDocNo
+			});
+
+			return this._findMatchingOrderDetail(sType, sDocNo, true)
+				.then(function (oResolved) {
+					if (iCurrentReq !== this._iReqId) {
+						return null;
+					}
+					if (oResolved) {
+						this._applySelectedReferenceDoc(oResolved);
+						// Clear top-context typed values after successful selection to avoid stale auto-prefill.
+						this._clearTopContextRefDocInputs();
+						return oResolved;
+					}
+					this._clearSelectedReferenceDocFields();
+					MessageToast.show("No matching document found");
+					return null;
+				}.bind(this))
+				.catch(function (oError) {
+					if (iCurrentReq !== this._iReqId) {
+						return null;
+					}
+					MessageBox.error(this._extractErrorMessage(oError));
+					return null;
+				}.bind(this));
+		},
+
+		_clearSelectedReferenceDocFields: function () {
+			this.byId("idRefDocDate")?.setValue("");
+			this.byId("idRefDocPartyCode")?.setValue("");
+			this.byId("idRefDocPartyName")?.setValue("");
+			this.byId("idRefDocSalesDoc")?.setValue("");
+			this.byId("idRefDocSalesDoctype")?.setValue("");
+			this.byId("idRefDocEwayBillNumber")?.setValue("");
+			this.byId("idRefDocEwayBillDate")?.setValue("");
 		},
 
 		_clearTopContextRefDocInputs: function () {
@@ -1089,6 +1129,36 @@ sap.ui.define([
 			this._saveMaterialsOneByOne(aSelectedMaterials);
 		},
 
+		onSearchSelectMaterials: function (oEvent) {
+			var sQuery = (
+				oEvent.getParameter("query") ??
+				oEvent.getParameter("newValue") ??
+				""
+			).trim();
+
+			var oTable = this.byId("idMaterialsSelectionTable");
+			var oBinding = oTable && oTable.getBinding("items");
+			if (!oBinding) {
+				return;
+			}
+
+			if (!sQuery) {
+				oBinding.filter([]);
+				return;
+			}
+
+			var oSearchFilter = new Filter([
+				new Filter("RefDocNo", FilterOperator.Contains, sQuery),
+				new Filter("RefDocItemNo", FilterOperator.Contains, sQuery),
+				new Filter("MaterialCode", FilterOperator.Contains, sQuery),
+				new Filter("MaterialDescription", FilterOperator.Contains, sQuery),
+				new Filter("Quantity", FilterOperator.Contains, sQuery),
+				new Filter("UoM", FilterOperator.Contains, sQuery)
+			], false);
+
+			oBinding.filter([oSearchFilter]);
+		},
+
 		onCloseSelectMaterialsDialog: function () {
 			if (this._oSelectMaterialsDialog) {
 				this._oSelectMaterialsDialog.close();
@@ -1151,7 +1221,7 @@ sap.ui.define([
 				}.bind(this))
 				.catch(function (oError) {
 					var sMessage = this._extractErrorMessage(oError) || "Unable to save reference document";
-					MessageToast.show(sMessage);
+					MessageBox.error(sMessage);
 				}.bind(this));
 		},
 
@@ -1974,39 +2044,10 @@ sap.ui.define([
 									resolve(null);
 								}
 							});
-						}.bind(this))
-							.then(function (oTripTypeMatch) {
-								if (oTripTypeMatch) {
-									return oTripTypeMatch;
-								}
-								// Fallback for backend formatting differences (e.g. leading zeros).
-								return this._fetchOrderDetails(sType)
-									.then(function (aDocs) {
-										var a = aDocs || [];
-										var oMatch = a.find(function (o) {
-											var s = String(o?.DocumentNumber || "").trim();
-											return s && (s === sDoc || this._normalizeDocNumberForMatch(s) === sDocNorm);
-										}.bind(this));
-										return oMatch || null;
-									}.bind(this))
-									.catch(function () {
-										return null;
-									});
-							}.bind(this));
+						}.bind(this));
 					}
-					// Fallback for backend formatting differences (e.g. leading zeros).
-					return this._fetchOrderDetails(sType)
-						.then(function (aDocs) {
-							var a = aDocs || [];
-							var oMatch = a.find(function (o) {
-								var s = String(o?.DocumentNumber || "").trim();
-								return s && (s === sDoc || this._normalizeDocNumberForMatch(s) === sDocNorm);
-							}.bind(this));
-							return oMatch || null;
-						}.bind(this))
-						.catch(function () {
-							return null;
-						});
+					// Strict matching: stop after exact and trip-scoped fallback.
+					return null;
 				}.bind(this));
 		},
 
@@ -2148,9 +2189,11 @@ sap.ui.define([
 							if (that._bIsRefDocEditMode && that._oEditingRefDoc) {
 								that._populateRefDocDialog(that._oEditingRefDoc);
 							}
-							that._loadRefDocSuggestions(that._sSelectedDocType);
-							oDialog.open();
-							that._applyPoPrefillToAddRefDocDialog();
+							that._loadRefDocSuggestions(that._sSelectedDocType)
+								.finally(function () {
+									oDialog.open();
+									that._applyPoPrefillToAddRefDocDialog();
+								});
 							// Ensure Select binding is refreshed after dialog opens
 							setTimeout(function() {
 								var oSelect = that.byId("idRefDocType");
@@ -2177,9 +2220,11 @@ sap.ui.define([
 						if (that._bIsRefDocEditMode && that._oEditingRefDoc) {
 							that._populateRefDocDialog(that._oEditingRefDoc);
 						}
-						that._loadRefDocSuggestions(that._sSelectedDocType);
-						that._oAddRefDocDialog.open();
-						that._applyPoPrefillToAddRefDocDialog();
+						that._loadRefDocSuggestions(that._sSelectedDocType)
+							.finally(function () {
+								that._oAddRefDocDialog.open();
+								that._applyPoPrefillToAddRefDocDialog();
+							});
 						setTimeout(function () {
 							that._setDefaultRefDocTypeIfEmpty(aDocTypes);
 						}, 0);
@@ -2211,9 +2256,11 @@ sap.ui.define([
 							if (that._bIsRefDocEditMode && that._oEditingRefDoc) {
 								that._populateRefDocDialog(that._oEditingRefDoc);
 							}
-							that._loadRefDocSuggestions(that._sSelectedDocType);
-							oDialog.open();
-							that._applyPoPrefillToAddRefDocDialog();
+							that._loadRefDocSuggestions(that._sSelectedDocType)
+								.finally(function () {
+									oDialog.open();
+									that._applyPoPrefillToAddRefDocDialog();
+								});
 							setTimeout(function () {
 								that._setDefaultRefDocTypeIfEmpty();
 							}, 0);
@@ -2226,9 +2273,11 @@ sap.ui.define([
 						if (that._bIsRefDocEditMode && that._oEditingRefDoc) {
 							that._populateRefDocDialog(that._oEditingRefDoc);
 						}
-						that._loadRefDocSuggestions(that._sSelectedDocType);
-						that._oAddRefDocDialog.open();
-						that._applyPoPrefillToAddRefDocDialog();
+						that._loadRefDocSuggestions(that._sSelectedDocType)
+							.finally(function () {
+								that._oAddRefDocDialog.open();
+								that._applyPoPrefillToAddRefDocDialog();
+							});
 						setTimeout(function () {
 							that._setDefaultRefDocTypeIfEmpty();
 						}, 0);
@@ -2574,17 +2623,27 @@ sap.ui.define([
 	},
 
 		_resetRefDocDialog: function () {
-			if (this._iRefDocNumberChangeTimer) {
-				clearTimeout(this._iRefDocNumberChangeTimer);
-				this._iRefDocNumberChangeTimer = null;
+			if (this._iDebounceTimer) {
+				clearTimeout(this._iDebounceTimer);
+				this._iDebounceTimer = null;
 			}
+			if (this._iRefDocSuggestDebounceTimer) {
+				clearTimeout(this._iRefDocSuggestDebounceTimer);
+				this._iRefDocSuggestDebounceTimer = null;
+			}
+			this._iRefDocSuggestReqId = 0;
+			this._iReqId = 0;
+			this._sLastDocNo = "";
+			this._sLastDocType = "";
+			this._prefillDocNo = "";
+			this._bUserSelected = false;
 			// Keep Doc Type selection for "add another" flow; clear document no + derived fields only.
 			var oDocTypeSelect = this.byId("idRefDocType");
 			if (oDocTypeSelect) {
 				oDocTypeSelect.setEnabled(true);
-				var sKeptKey = oDocTypeSelect.getSelectedKey?.() || "";
-				this._sSelectedDocType = String(sKeptKey || this._sSelectedDocType || "").trim();
+				oDocTypeSelect.setSelectedKey("");
 			}
+			this._sSelectedDocType = "";
 			this._bSkipDefaultRefDocType = false;
 			// Reset other Input fields (not Doc Type)
 			[
@@ -3596,30 +3655,44 @@ sap.ui.define([
 		// Helper Functions for HTTP Operations
 		// ============================================================
 		_extractErrorMessage: function (oError) {
-			if (!oError) {
-				return "An unknown error occurred";
-			}
+			if (!oError) return "Something went wrong";
 
-			// Try to parse JSON error response
+			var fnPickFromPayload = function (oPayload) {
+				var sDetail = oPayload?.error?.innererror?.errordetails?.[0]?.message;
+				if (sDetail) return sDetail;
+
+				var sMsgValue = oPayload?.error?.message?.value;
+				if (sMsgValue) return sMsgValue;
+
+				var sMsg = oPayload?.error?.message;
+				if (typeof sMsg === "string" && sMsg) return sMsg;
+
+				return "";
+			};
+
 			if (oError.responseText) {
 				try {
-					var oResponse = JSON.parse(oError.responseText);
-					if (oResponse.error) {
-						if (oResponse.error.message) {
-							return oResponse.error.message.value || oResponse.error.message;
-						}
-					}
+					var oParsed = JSON.parse(oError.responseText);
+					var sParsedMsg = fnPickFromPayload(oParsed);
+					if (sParsedMsg) return sParsedMsg;
 				} catch (e) {
-					// Not JSON, try XML or other formats
+					// ignore parse errors
 				}
 			}
 
-			// Fallback to error message property
-			if (oError.message) {
-				return oError.message.value || oError.message;
+			if (oError.responseJSON) {
+				var sJsonMsg = fnPickFromPayload(oError.responseJSON);
+				if (sJsonMsg) return sJsonMsg;
 			}
 
-			return oError.message || "Operation failed";
+			if (typeof oError.message === "string" && oError.message) {
+				return oError.message;
+			}
+			if (oError.message?.value) {
+				return oError.message.value;
+			}
+
+			return "Something went wrong";
 		},
 
 
@@ -3660,7 +3733,7 @@ sap.ui.define([
 		_loadRefDocSuggestions: function (sDocType) {
 			if (!sDocType) {
 				this._updateRefDocSuggestions([]);
-				return;
+				return Promise.resolve([]);
 			}
 			this._sSelectedDocType = sDocType;
 			this._resetDocNoPaging(sDocType, "");
@@ -3668,7 +3741,7 @@ sap.ui.define([
 			// Load first page for dropdown list; remaining pages load on scroll via ComboBox list growing.
 			// Note: live suggestions while typing stay limited via onRefDocNumberSuggest (top 50).
 			var iTop = Number(this._mDocNoPaging?.pageSize || 50);
-			this._fetchOrderDetails(sDocType, { top: iTop, skip: 0 })
+			return this._fetchOrderDetails(sDocType, { top: iTop, skip: 0 })
 				.then(function (aDocs) {
 					this._updateRefDocSuggestions(aDocs);
 					// If backend returns less than page size, there are no more pages.
@@ -3679,6 +3752,7 @@ sap.ui.define([
 				.catch(function () {
 					MessageToast.show("Unable to fetch documents for selected Doc Type");
 					this._updateRefDocSuggestions([]);
+					return [];
 				}.bind(this))
 				.finally(function () {
 					this._endDocNoBusy();
@@ -3771,6 +3845,7 @@ sap.ui.define([
 						// Close the dialog since all materials are already added
 						that._closeMaterialDialog();
 						that._resetMaterialDialog();
+						that._oEventBus?.publish("RefDoc", "MaterialsUpdated");
 						return;
 					}
 
@@ -3806,6 +3881,7 @@ sap.ui.define([
 					MessageToast.show(aNewMaterials.length + " material(s) added successfully");
 					that._closeMaterialDialog();
 					that._resetMaterialDialog();
+					that._oEventBus?.publish("RefDoc", "MaterialsUpdated");
 				}.bind(this))
 				.catch(function (oError) {
 					var sMessage = that._extractErrorMessage(oError) || "Unable to fetch materials for the selected reference document";
@@ -4169,6 +4245,13 @@ sap.ui.define([
 					success: function (oData) {
 						// Immediately update local model (don't wait for refresh)
 						that._removeLocalReferenceDoc(oRefDoc);
+						// Keep suggestions fresh from backend (source of truth).
+						var sDocTypeRaw = String(oRefDoc?.DocType || oRefDoc?.docType || that._sSelectedDocType || "").trim();
+						if (sDocTypeRaw) {
+							that._loadRefDocSuggestions(sDocTypeRaw);
+						} else {
+							that._getRefDocSuggestionModel()?.setProperty("/items", []);
+						}
 						
 						MessageToast.show("Reference document deleted");
 						

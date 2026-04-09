@@ -20,6 +20,12 @@
                     <Toolbar>
                         <Title text="Available Materials" level="H6"/>
                         <ToolbarSpacer/>
+                        <SearchField
+                            width="18rem"
+                            placeholder="Search material"
+                            search=".onSearchSelectMaterials"
+                            liveChange=".onSearchSelectMaterials"
+                        />
                         <Text text="{materialsSelectionModel>/selectedCount}" class="sapUiSmallMarginEnd"/>
                     </Toolbar>
                 </headerToolbar>

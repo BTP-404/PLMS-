@@ -175,11 +175,13 @@ sap.ui.define(
               movementScenario = oData.MovementScenario;
               Mtype = oData.MovementType;
 
-              MovementScenarioConfig.syncOutgoingDirectSaleFromConfig(
-                oModel,
-                sTripNumber,
-                that.getView()
-              );
+              if (that._shouldSyncOutgoingDirectSaleConfig(oData.MovementType)) {
+                MovementScenarioConfig.syncOutgoingDirectSaleFromConfig(
+                  oModel,
+                  sTripNumber,
+                  that.getView()
+                );
+              }
             },
             error: function () {
               // Even if loading fails, try to update header with trip number
@@ -256,11 +258,13 @@ sap.ui.define(
                 that._updateScannerVisibility();
               }, 500);
 
-              MovementScenarioConfig.syncOutgoingDirectSaleFromConfig(
-                oModel,
-                sTripNumber,
-                that.getView()
-              );
+              if (that._shouldSyncOutgoingDirectSaleConfig(oData.MovementType)) {
+                MovementScenarioConfig.syncOutgoingDirectSaleFromConfig(
+                  oModel,
+                  sTripNumber,
+                  that.getView()
+                );
+              }
             },
             error: function () {
               that._setButtonStates(true, true); // Still re-enable even on error
@@ -290,35 +294,121 @@ sap.ui.define(
          * =========================================================== */
         onSaveReporting: function () {
           const oModel = this.getView().getModel();
-
-          if (!this._validateRequiredFields()) {
-            MessageBox.warning(
-              "Please fill all required fields before saving."
+          this._syncPendingReportingInputsBeforeSave();
+          setTimeout(function () {
+            console.log("=== FINAL STATE BEFORE VALIDATION ===");
+            var oMS = this.byId("idMovementScenario");
+            console.log(
+              "UI MovementScenario:",
+              oMS && oMS.getSelectedKey ? oMS.getSelectedKey() : "",
+              oMS && oMS.getValue ? oMS.getValue() : ""
             );
-            return;
+            var oVT = this.byId("idVehicleType");
+            console.log(
+              "UI VehicleType:",
+              oVT && oVT.getSelectedKey ? oVT.getSelectedKey() : "",
+              oVT && oVT.getValue ? oVT.getValue() : ""
+            );
+            var oTrip = this.getView().getModel("TripData");
+            console.log(
+              "MODEL TripData:",
+              JSON.stringify((oTrip && oTrip.getData && oTrip.getData()) || {})
+            );
+            if (!this._validateRequiredFields()) {
+              MessageBox.warning(
+                "Please fill all required fields before saving."
+              );
+              return;
+            }
+
+            // ADDED: Additional validation for CREATE and UPDATE modes
+            const sMobile =
+              this.getView().getModel("TripData")?.getProperty("/DriverMobile") || "";
+            if (!this._isValidMobile(sMobile)) {
+              this.byId("idDriverContact").setValueState("Error");
+              this.byId("idDriverContact").setValueStateText(
+                "Driver contact must be exactly 10 digits"
+              );
+              MessageBox.warning(
+                "Please enter a valid driver contact number (exactly 10 digits)."
+              );
+              return;
+            } else {
+              // clear any previous error state
+              this.byId("idDriverContact").setValueState("None");
+            }
+
+            var sMode = this._mode;
+            if (sMode !== "CREATE" && sMode !== "EDIT") {
+              // Derive a safe fallback mode so first click doesn't get ignored
+              // when route/view lifecycle leaves mode as DISPLAY or undefined.
+              var sTripNumber = String(this._getTripNumber() || "").trim();
+              sMode = sTripNumber ? "EDIT" : "CREATE";
+              this._mode = sMode;
+            }
+
+            if (sMode === "CREATE") {
+              this._createTrip(oModel);
+            } else if (sMode === "EDIT") {
+              this._updateTrip(oModel);
+            }
+          }.bind(this), 0);
+        },
+
+        _syncPendingReportingInputsBeforeSave: function () {
+          var oMovementScenario = this.byId("idMovementScenario");
+          var sScenarioKey = oMovementScenario && oMovementScenario.getSelectedKey
+            ? String(oMovementScenario.getSelectedKey() || "").trim()
+            : "";
+          var sScenarioValue = oMovementScenario && oMovementScenario.getValue
+            ? String(oMovementScenario.getValue() || "").trim()
+            : "";
+          var oItemsModel = this.getView().getModel("movementScenarioItems");
+          var aRows = (oItemsModel && oItemsModel.getData()) || [];
+          var oRow = null;
+          if (sScenarioKey) {
+            oRow = aRows.find(function (r) {
+              return r && r.ItemKey === sScenarioKey;
+            }) || null;
+          }
+          if (!oRow && sScenarioValue) {
+            var sNeedle = sScenarioValue.toLowerCase();
+            oRow = aRows.find(function (r) {
+              if (!r) {
+                return false;
+              }
+              var sLong = String(r.LongText || "").trim().toLowerCase();
+              var sShort = String(r.ShortText || "").trim().toLowerCase();
+              var sScenario = String(r.MovementScenario || "").trim().toLowerCase();
+              return sLong === sNeedle || sShort === sNeedle || sScenario === sNeedle;
+            }) || null;
+          }
+          if (oRow) {
+            this._syncMovementScenarioFromRow(oRow);
           }
 
-          // ADDED: Additional validation for CREATE and UPDATE modes
-          const sMobile = this.byId("idDriverContact")?.getValue?.() || "";
-          if (!this._isValidMobile(sMobile)) {
-            this.byId("idDriverContact").setValueState("Error");
-            this.byId("idDriverContact").setValueStateText(
-              "Driver contact must be exactly 10 digits"
-            );
-            MessageBox.warning(
-              "Please enter a valid driver contact number (exactly 10 digits)."
-            );
-            return;
-          } else {
-            // clear any previous error state
-            this.byId("idDriverContact").setValueState("None");
+          // Vehicle type can remain pending in control until blur/change fires.
+          // Force-update TripData from current combo value before validation/save.
+          var oVehicleType = this.byId("idVehicleType");
+          if (oVehicleType) {
+            var sVehicleTypeKey = oVehicleType.getSelectedKey
+              ? String(oVehicleType.getSelectedKey() || "").trim()
+              : "";
+            var sVehicleTypeVal = oVehicleType.getValue
+              ? String(oVehicleType.getValue() || "").trim()
+              : "";
+            var oTripDataModel = this.getView().getModel("TripData");
+            if (oTripDataModel) {
+              if (sVehicleTypeKey) {
+                oTripDataModel.setProperty("/VehicleType", sVehicleTypeKey);
+              }
+              if (sVehicleTypeVal) {
+                oTripDataModel.setProperty("/VehicleTypeDesc", sVehicleTypeVal);
+              }
+            }
           }
 
-          if (this._mode === "CREATE") {
-            this._createTrip(oModel);
-          } else if (this._mode === "EDIT") {
-            this._updateTrip(oModel);
-          }
+          sap.ui.getCore().applyChanges();
         },
 
         /* ===========================================================
@@ -718,45 +808,77 @@ sap.ui.define(
          * - keeps your field list; marks fields with value state
          * =========================================================== */
         _validateRequiredFields: function () {
-          const required = [
-            "idMovementScenario",
-            "idMovementType",
-            "idVehicleNumber",
-            "idVehicleType",
-            "idTransporterName",
-            "idDriverName",
-            "idDriverContact",
-            "idDriverLicense",
+          const oTripDataModel = this.getView().getModel("TripData");
+          const oData =
+            (oTripDataModel && oTripDataModel.getData && oTripDataModel.getData()) || {};
+
+          console.log("=== MODEL VALIDATION START ===");
+          console.log("TripData:", JSON.stringify(oData));
+
+          const requiredFields = [
+            "MovementScenarioItemKey",
+            "MovementTypeDesc",
+            "VehicleNumber",
+            "VehicleType",
+            "TransporterName",
+            "DriverName",
+            "DriverMobile",
+            "DriverLicence",
           ];
           const isEditMode = this._mode === "EDIT";
           const requiredInCurrentMode = isEditMode
-            ? required.filter(
-                (id) => id !== "idVehicleType" && id !== "idDriverName"
-              )
-            : required;
+            ? requiredFields.filter(function (f) {
+                return f !== "VehicleType" && f !== "DriverName";
+              })
+            : requiredFields;
+
+          const mFieldToControl = {
+            MovementScenarioItemKey: "idMovementScenario",
+            MovementTypeDesc: "idMovementType",
+            VehicleNumber: "idVehicleNumber",
+            VehicleType: "idVehicleType",
+            TransporterName: "idTransporterName",
+            DriverName: "idDriverName",
+            DriverMobile: "idDriverContact",
+            DriverLicence: "idDriverLicense",
+          };
 
           let valid = true;
-          requiredInCurrentMode.forEach((id) => {
-            const oCtrl = this.byId(id);
-            if (!oCtrl) return;
-            let val;
-            if (oCtrl.getSelectedKey && typeof oCtrl.getSelectedKey === "function") {
-              val = oCtrl.getSelectedKey();
-            }
-            if (
-              (val === undefined || val === null || val === "") &&
-              oCtrl.getValue &&
-              typeof oCtrl.getValue === "function"
-            ) {
-              val = oCtrl.getValue();
-            }
-            if (!val && val !== 0) {
-              oCtrl.setValueState("Error");
-              valid = false;
-            } else {
-              oCtrl.setValueState("None");
-            }
-          });
+          requiredInCurrentMode.forEach(
+            function (field) {
+              const val = oData[field];
+              console.log("Checking:", field, "Value:", val);
+              const bMissing =
+                val === undefined || val === null || String(val).trim() === "";
+              const sCtrlId = mFieldToControl[field];
+              const oCtrl = sCtrlId ? this.byId(sCtrlId) : null;
+              if (bMissing) {
+                console.log("Missing:", field);
+                valid = false;
+                if (oCtrl && oCtrl.setValueState) {
+                  oCtrl.setValueState("Error");
+                }
+              } else if (oCtrl && oCtrl.setValueState) {
+                oCtrl.setValueState("None");
+              }
+            }.bind(this)
+          );
+
+          if (!valid) {
+            Object.keys(mFieldToControl).forEach(
+              function (field) {
+                if (requiredInCurrentMode.indexOf(field) !== -1) {
+                  return;
+                }
+                var oCtrl = this.byId(mFieldToControl[field]);
+                if (oCtrl && oCtrl.setValueState) {
+                  oCtrl.setValueState("None");
+                }
+              }.bind(this)
+            );
+          }
+
+          console.log("Validation Result:", valid);
           return valid;
         },
 
@@ -1324,11 +1446,25 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
         },
         _syncOutgoingDirectSaleScenarioFromConfig: function () {
           var oModel = this.getView().getModel();
+          var oTripData = this.getView().getModel("TripData");
+          var sMovementType = "";
+          if (oTripData) {
+            sMovementType = oTripData.getProperty("/MovementType") || "";
+          }
+          if (!sMovementType) {
+            sMovementType = Mtype || "";
+          }
+          if (!this._shouldSyncOutgoingDirectSaleConfig(sMovementType)) {
+            return;
+          }
           MovementScenarioConfig.syncOutgoingDirectSaleFromConfig(
             oModel,
             this._getTripNumber(),
             this.getView()
           );
+        },
+        _shouldSyncOutgoingDirectSaleConfig: function (sMovementType) {
+          return String(sMovementType || "").trim().toUpperCase() === "O";
         },
 
         _loadMovementScenarioItems: function () {
@@ -1352,11 +1488,40 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
               that
                 .getView()
                 .setModel(new JSONModel(aEnriched), "movementScenarioItems");
+              that._syncComboSelectionByKey("idMovementScenario", "/MovementScenarioItemKey");
             },
             error: function () {
               MessageBox.error("Failed to load movement scenarios.");
             },
           });
+        },
+        _syncComboSelectionByKey: function (sComboId, sTripDataPath) {
+          var oCombo = this.byId(sComboId);
+          var oTripData = this.getView().getModel("TripData");
+          if (!oCombo || !oTripData) {
+            return;
+          }
+
+          var sKey = String(oTripData.getProperty(sTripDataPath) || "").trim();
+          if (!sKey) {
+            return;
+          }
+
+          var fnApply = function () {
+            var oItem = oCombo.getItemByKey(sKey);
+            if (oItem) {
+              oCombo.setSelectedKey(sKey);
+              if (oCombo.setSelectedItem) {
+                oCombo.setSelectedItem(oItem);
+              }
+            }
+          };
+
+          var oBinding = oCombo.getBinding("items");
+          if (oBinding) {
+            oBinding.attachEventOnce("change", fnApply);
+          }
+          fnApply();
         },
 
         _syncMovementScenarioItemKeyOnTripData: function (oTripDataModel) {
@@ -1994,6 +2159,7 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
               new sap.ui.model.json.JSONModel({ items: aItems || [] }),
               "vehicleTypeSuggestions"
             );
+            that._syncComboSelectionByKey("idVehicleType", "/VehicleType");
           };
 
           var fnReadConfigValues = function (aFilters, fnSuccess, fnError) {

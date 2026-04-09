@@ -120,6 +120,7 @@
                             <ComboBox
                                 id="idMovementScenario"
                                 width="100%"
+                                forceSelection="true"
                                 tooltip="Select movement scenario"
                                 items="{
                                     path: 'movementScenarioItems>/',
@@ -199,6 +200,7 @@
                             <ComboBox
                                 id="idVehicleType"
                                 width="100%"
+                                forceSelection="true"
                                 items="{vehicleTypeSuggestions>/items}"
                                 selectedKey="{TripData>/VehicleType}"
                                 value="{TripData>/VehicleTypeDesc}"
