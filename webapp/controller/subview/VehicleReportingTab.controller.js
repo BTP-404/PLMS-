@@ -901,8 +901,14 @@ sap.ui.define(
         onDriverContactLiveChange: function (oEvent) {
           const sValue = oEvent.getParameter("value") || "";
           const oInput = oEvent.getSource();
+          const sDigitsOnly = sValue.replace(/\D/g, "");
+
+          // Keep only numeric characters in the field.
+          if (sValue !== sDigitsOnly) {
+            oInput.setValue(sDigitsOnly);
+          }
           
-          if (!sValue || sValue.trim() === "") {
+          if (!sDigitsOnly || sDigitsOnly.trim() === "") {
             // Clear validation state if field is empty (required validation will handle it)
             oInput.setValueState("None");
             oInput.setValueStateText("");
@@ -910,7 +916,7 @@ sap.ui.define(
           }
           
           // Validate on live change - check for exactly 10 digits
-          const sTrimmed = sValue.trim();
+          const sTrimmed = sDigitsOnly.trim();
           if (sTrimmed.length < 10) {
             oInput.setValueState("Error");
             oInput.setValueStateText("Driver contact must be exactly 10 digits");

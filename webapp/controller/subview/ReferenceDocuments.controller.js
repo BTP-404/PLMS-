@@ -976,11 +976,20 @@ sap.ui.define([
 						if (iReqId !== that._iRefDocSuggestReqId) {
 							return;
 						}
+						// Some backends may ignore/relax the search filter and return broad/default rows.
+						// Keep only records that actually match what user typed.
+						var sTerm = String(sValue || "").toLowerCase();
+						var aMatchedDocs = (aDocs || []).filter(function (oDoc) {
+							var sDocNo = String(oDoc?.DocumentNumber || "").toLowerCase();
+							var sName = String(oDoc?.Name || "").toLowerCase();
+							return sDocNo.indexOf(sTerm) !== -1 || sName.indexOf(sTerm) !== -1;
+						});
+
 						// Keep dropdown list reasonably sized (arrow button) with latest search results
-						that._updateRefDocSuggestions(aDocs);
+						that._updateRefDocSuggestions(aMatchedDocs);
 
 						// Populate suggest list (max 20)
-						(aDocs || []).slice(0, 20).forEach(function (oDoc) {
+						(aMatchedDocs || []).slice(0, 20).forEach(function (oDoc) {
 							var sDocNo = oDoc?.DocumentNumber || "";
 							if (!sDocNo) return;
 							oInput.addSuggestionItem(

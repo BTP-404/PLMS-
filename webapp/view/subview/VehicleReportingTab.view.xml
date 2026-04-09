@@ -304,6 +304,7 @@
                                 width="100%"
                                 value="{TripData>/DriverMobile}"
                                 type="Number"
+                                maxLength="10"
                                 liveChange=".onDriverContactLiveChange"
                             />
                         </VBox>
