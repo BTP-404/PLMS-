@@ -257,7 +257,7 @@ sap.ui.define(
             }
             oRow.QtyIn = iQtyIn;
             oRow.QtyOut = iQtyOut;
-            var iDiff = oRow.IsManual === true ? iQtyIn : (iQtyOut - iQtyIn);
+            var iDiff = oRow.IsManual === true ? iQtyIn : (iQtyIn - iQtyOut);
             if (!isNaN(iDiff)) {
               oRow.Difference = iDiff;
             }
@@ -313,7 +313,7 @@ sap.ui.define(
           if (iQtyIn === iQtyOut) {
             return "Returned";
           }
-          if (iQtyIn > iQtyOut || (!isNaN(iDiff) && iDiff < 0)) {
+          if (iQtyIn > iQtyOut || (!isNaN(iDiff) && iDiff > 0)) {
             return "Excess";
           }
           if (iQtyIn < iQtyOut) {
@@ -419,7 +419,7 @@ sap.ui.define(
               if (isNaN(iQtyIn) || iQtyIn < 0) {
                 iQtyIn = 0;
               }
-              var iDiff = iQtyOut - iQtyIn;
+              var iDiff = iQtyIn - iQtyOut;
               return {
                 TripNumber: String(r.TripNumber || sTripNumber).trim(),
                 DocumentNumber: String(r.DocumentNumber || "").trim(),
@@ -570,7 +570,7 @@ sap.ui.define(
             if (isNaN(iQtyOut) || iQtyOut < 0) {
               iQtyOut = 0;
             }
-            var iDiff = iQtyOut - iQtyIn;
+            var iDiff = iQtyIn - iQtyOut;
             return {
               TripNumber: oRow.TripNumber,
               DocumentNumber: oRow.DocumentNumber,
@@ -1047,7 +1047,7 @@ sap.ui.define(
             if (isNaN(iQtyIn) || iQtyIn < 0) {
               iQtyIn = 0;
             }
-            var iDiff = iQtyOut - iQtyIn;
+            var iDiff = iQtyIn - iQtyOut;
             return {
               TripNumber: String(r.TripNumber || sTripNumber || "").trim(),
               DocumentNumber: r.DocumentNumber || "",
@@ -1421,6 +1421,7 @@ sap.ui.define(
 
         onAfterRendering: function () {
           try {
+            // Keep data refresh on every render, but run one-time visual init only once.
             if (!this._bGateOutAfterRenderInitialized) {
               var oGateOutPanel = this.getView().byId("gateOutPanel");
               if (oGateOutPanel && oGateOutPanel.setExpanded) {
@@ -1431,12 +1432,12 @@ sap.ui.define(
               this.tripNumber = oGlobalModel ? oGlobalModel.getProperty("/TripNumber") || "" : "";
               
               this.loadExitGateNumber();
-              this._loadGateOutBinTrolleyData();
-              this._updatePanelVisibility();
-              this._updateBinTrolleyVisibility();
               this._syncGateOutReferenceBy();
               this._bGateOutAfterRenderInitialized = true;
             }
+            this._loadGateOutBinTrolleyData();
+            this._updatePanelVisibility();
+            this._updateBinTrolleyVisibility();
 
             // Set initial input state based on whether GateOut data exists
             var oTripData = sap.ui.getCore().getModel("TripData");
@@ -1668,7 +1669,7 @@ sap.ui.define(
                   if (isNaN(iQtyOut) || iQtyOut < 0) {
                     iQtyOut = 0;
                   }
-                  var iDiff = iQtyOut - iQtyIn;
+                  var iDiff = iQtyIn - iQtyOut;
                   return {
                     TripNumber: String(sTripNumber || "").trim(),
                     DocumentNumber: String(oKey.DocumentNumber || "").trim(),

@@ -999,15 +999,15 @@ sap.ui.define(
           }
         },
         onAfterRendering: function () {
-          // Load delay reasons first; entry gates load in the same chain (avoids parallel OData races)
+          // Keep data refresh on every render, but run heavy one-time init only once.
           if (!this._bGateInAfterRenderInitialized) {
             this.loadDelayReason();
-            this._loadBinTrolleyTrackingData();
-            this._updateBinTrolleyVisibility();
-            this._updatePanelVisibility();
             this._ensureReportingPanelExpanded();
             this._bGateInAfterRenderInitialized = true;
           }
+          this._loadBinTrolleyTrackingData();
+          this._updateBinTrolleyVisibility();
+          this._updatePanelVisibility();
           
           if (this._bGateInReadOnlyAfterSave) {
             this._setInputsEnabled(false);
