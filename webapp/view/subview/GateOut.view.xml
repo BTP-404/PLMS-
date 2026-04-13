@@ -59,7 +59,7 @@
                         value="{gateOutUi>/refDocSearchValue}"
                         showSuggestion="true"
                         startSuggestion="1"
-                        filterSuggests="false"
+                        filterSuggests="true"
                         maxSuggestionWidth="32rem"
                         placeholder="{= ${gateOutUi>/referenceByKey} === 'INVOICE' ? 'Type or select invoice' : (${gateOutUi>/referenceByKey} === 'CHALLAN' ? 'Type or select challan' : 'Type or select PO number') }"
                         suggestionItems="{gateOutRefSuggest>/items}"
@@ -114,48 +114,118 @@
             </headerToolbar>
 
             <VBox class="sapUiSizeCompact" width="100%">
+                <HBox justifyContent="End" class="sapUiTinyMarginBottom">
+                    <Button
+                        id="idAddGateOutBinTrolleyRowBtn"
+                        text="Add Row"
+                        icon="sap-icon://add"
+                        type="Transparent"
+                        press="onAddTrackingRow"
+                    />
+                    <Button
+                        id="idSaveGateOutBinTrolleyRowBtn"
+                        text="Save"
+                        icon="sap-icon://save"
+                        type="Emphasized"
+                        class="sapUiTinyMarginBegin"
+                        press="onSaveTrackingRows"
+                    />
+                </HBox>
+
                 <Table
                     id="idGateOutBinTrolleyTable"
                     width="100%"
                     fixedLayout="true"
                     autoPopin="true"
                     popinLayout="GridSmall"
-                    class="sapUiSizeCompact gateOutBinTrolleyTable plmsPanelDataTable"
-                    items="{gateOutBinTrolley>/rows}"
+                    items="{binTrolleyTracking>/items}"
+                    class="sapUiSizeCompact binTrolleyTrackingTable plmsPanelDataTable"
                 >
                     <columns>
-                        <Column width="7rem" demandPopin="true" minScreenWidth="Phone" popinDisplay="Inline"><Text text="Doc No" /></Column>
-                        <Column width="6rem" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline"><Text text="Item" /></Column>
-                        <Column width="8rem" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline"><Text text="Part Code" /></Column>
-                        <Column width="14rem" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Block"><Text text="Bin Type / Material Desc." /></Column>
-                        <Column hAlign="End" width="7rem" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline"><Text text="Qty Out" /></Column>
-                        <Column hAlign="Center" width="11rem" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline"><Text text="Status" /></Column>
+                        <Column width="8rem" demandPopin="true" minScreenWidth="Phone" popinDisplay="Inline">
+                            <Text text="Doc No" />
+                        </Column>
+                        <Column width="6rem" demandPopin="true" minScreenWidth="Phone" popinDisplay="Inline">
+                            <Text text="Item" />
+                        </Column>
+                        <Column width="9rem" demandPopin="true" minScreenWidth="Phone" popinDisplay="Inline">
+                            <Text text="Part Code" />
+                        </Column>
+                        <Column width="12rem" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
+                            <Text text="Bin Type" />
+                        </Column>
+                        <Column hAlign="End" width="8rem" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
+                            <Text text="Qty Out" />
+                        </Column>
+                        <Column hAlign="Center" width="11rem" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
+                            <Text text="Qty In (Manual)" />
+                        </Column>
+                        <Column hAlign="End" width="9rem" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
+                            <Text text="Difference" />
+                        </Column>
+                        <Column hAlign="Center" width="11rem" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                            <Text text="Return Status" />
+                        </Column>
+                        <Column hAlign="Center" width="4rem" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
+                            <Text text="" />
+                        </Column>
                     </columns>
+
                     <items>
-                        <ColumnListItem>
+                        <ColumnListItem class="binTrolleyTrackingRow">
                             <cells>
-                                <Text text="{gateOutBinTrolley>DocumentNumber}" />
-                                <Text text="{gateOutBinTrolley>ItemNo}" />
-                                <Text text="{gateOutBinTrolley>Material}" class="binTrolleyPartCode" />
-                                <ObjectStatus
-                                    text="{path: 'gateOutBinTrolley>', formatter: '.formatGateOutBinTypeText'}"
-                                    state="{path: 'gateOutBinTrolley>BinTypeState', formatter: '.formatTrackingStatusState'}"
-                                    inverted="true"
-                                />
+                                <Input value="{binTrolleyTracking>DocumentNumber}" editable="{binTrolleyTracking>IsManual}" />
+                                <Input value="{binTrolleyTracking>ItemNo}" editable="{binTrolleyTracking>IsManual}" />
+                                <Input value="{binTrolleyTracking>Material}" editable="{binTrolleyTracking>IsManual}" class="binTrolleyPartCode" />
+                                <Input value="{binTrolleyTracking>BinType}" editable="{binTrolleyTracking>IsManual}" />
                                 <ObjectNumber
-                                    number="{gateOutBinTrolley>QtyOut}"
+                                    number="{binTrolleyTracking>QtyOut}"
                                     emphasized="false"
                                 />
+                                <Input
+                                    value="{binTrolleyTracking>QtyIn}"
+                                    placeholder="0"
+                                    type="Number"
+                                    textAlign="Center"
+                                    width="6rem"
+                                    valueState="{path: 'binTrolleyTracking>ReturnStatus', formatter: '.formatTrackingQtyValueState'}"
+                                    showValueStateMessage="false"
+                                    change="onTrackingFieldLiveChange"
+                                />
                                 <ObjectStatus
-                                    text="{gateOutBinTrolley>Status}"
-                                    state="{path: 'gateOutBinTrolley>Status', formatter: '.formatGateOutDispatchState'}"
-                                    icon="sap-icon://circle-task-2"
+                                    text="{path: 'binTrolleyTracking>Difference', formatter: '.formatTrackingDifferenceText'}"
+                                    state="{path: 'binTrolleyTracking>Difference', formatter: '.formatTrackingDifferenceState'}"
+                                    class="binTrolleyDifference"
+                                />
+                                <ObjectStatus
+                                    text="{binTrolleyTracking>ReturnStatus}"
+                                    state="{path: 'binTrolleyTracking>ReturnStatus', formatter: '.formatTrackingStatusState'}"
+                                    icon="{path: 'binTrolleyTracking>ReturnStatus', formatter: '.formatTrackingStatusIcon'}"
                                     inverted="true"
+                                />
+                                <Button
+                                    icon="sap-icon://decline"
+                                    type="Transparent"
+                                    tooltip="Remove row"
+                                    press="onRemoveTrackingRow"
+                                    visible="{binTrolleyTracking>IsManual}"
                                 />
                             </cells>
                         </ColumnListItem>
                     </items>
                 </Table>
+
+                <HBox justifyContent="End" class="sapUiTinyMarginTop binTrolleyTrackingTotalBar">
+                    <Text
+                        text="{path: 'binTrolleyTracking>/totalQtyIn', formatter: '.formatTrackingTotalLine'}"
+                        class="sapUiTinyMarginEnd binTrolleyTrackingTotalLabel"
+                    />
+                    <ObjectStatus
+                        text="{path: 'binTrolleyTracking>/totalDifference', formatter: '.formatTrackingDifferenceText'}"
+                        state="{path: 'binTrolleyTracking>/totalDifference', formatter: '.formatTrackingDifferenceState'}"
+                        class="binTrolleyTrackingTotalDiff"
+                    />
+                </HBox>
             </VBox>
         </Panel>
 

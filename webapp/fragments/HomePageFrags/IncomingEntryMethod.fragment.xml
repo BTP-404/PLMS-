@@ -76,6 +76,7 @@
                                 id="idIncomingDialogPoInput"
                                 width="100%"
                                 placeholder="Type PO number"
+                                liveChange=".onIncomingDialogPoInputLiveChange"
                                 showSuggestion="true"
                                 suggestionItems="{incomingPoSuggest>/items}"
                                 suggest=".onIncomingDialogPoSuggest"
@@ -94,6 +95,8 @@
                                 id="idIncomingSkipDocument"
                                 text="Skip Document"
                                 selected="{incomingEntryMethod>/skipDocument}"
+                                enabled="{= !${incomingEntryMethod>/hasPoValue} }"
+                                select=".onIncomingSkipDocumentSelect"
                                 class="plmsRvCheckbox"
                             />
 

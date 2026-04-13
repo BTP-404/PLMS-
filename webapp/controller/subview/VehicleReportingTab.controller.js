@@ -39,6 +39,7 @@ sap.ui.define(
          * =========================================================== */
         onInit: function () {
           this._initService();
+          this._bReportingSaveInFlight = false;
           this._loadVehicleSuggestions();
           this._loadVehicleTypeSuggestions();
           this.getView().setModel(new JSONModel([]), "movementScenarioItems");
@@ -293,28 +294,15 @@ sap.ui.define(
          * - keeps existing required field validation and create/update flows
          * =========================================================== */
         onSaveReporting: function () {
+          if (this._bReportingSaveInFlight) {
+            return;
+          }
+          this._bReportingSaveInFlight = true;
           const oModel = this.getView().getModel();
           this._syncPendingReportingInputsBeforeSave();
           setTimeout(function () {
-            console.log("=== FINAL STATE BEFORE VALIDATION ===");
-            var oMS = this.byId("idMovementScenario");
-            console.log(
-              "UI MovementScenario:",
-              oMS && oMS.getSelectedKey ? oMS.getSelectedKey() : "",
-              oMS && oMS.getValue ? oMS.getValue() : ""
-            );
-            var oVT = this.byId("idVehicleType");
-            console.log(
-              "UI VehicleType:",
-              oVT && oVT.getSelectedKey ? oVT.getSelectedKey() : "",
-              oVT && oVT.getValue ? oVT.getValue() : ""
-            );
-            var oTrip = this.getView().getModel("TripData");
-            console.log(
-              "MODEL TripData:",
-              JSON.stringify((oTrip && oTrip.getData && oTrip.getData()) || {})
-            );
             if (!this._validateRequiredFields()) {
+              this._bReportingSaveInFlight = false;
               MessageBox.warning(
                 "Please fill all required fields before saving."
               );
@@ -325,6 +313,7 @@ sap.ui.define(
             const sMobile =
               this.getView().getModel("TripData")?.getProperty("/DriverMobile") || "";
             if (!this._isValidMobile(sMobile)) {
+              this._bReportingSaveInFlight = false;
               this.byId("idDriverContact").setValueState("Error");
               this.byId("idDriverContact").setValueStateText(
                 "Driver contact must be exactly 10 digits"
@@ -351,6 +340,8 @@ sap.ui.define(
               this._createTrip(oModel);
             } else if (sMode === "EDIT") {
               this._updateTrip(oModel);
+            } else {
+              this._bReportingSaveInFlight = false;
             }
           }.bind(this), 0);
         },
@@ -491,9 +482,6 @@ sap.ui.define(
                 );
                 sPreferredTabKey = bReportingInGateOut ? "gateout" : "gateIn";
               }
-              console.info("[VehicleReporting][CreateTrip][PreferredTab]", {
-                preferredTabKey: sPreferredTabKey
-              });
               // Load full trip details to populate TripData model and update header.
               that._loadTripDetailsForHeader(sTripNumber, sPreferredTabKey);
               
@@ -506,10 +494,12 @@ sap.ui.define(
               that._clearForm();
               that._setFormEditable(false);
               that._setInputsEnabled(false);
+              that._bReportingSaveInFlight = false;
             },
 
             error: function (oError) {
               that.getView().setBusy(false);
+              that._bReportingSaveInFlight = false;
 
               let sMessage = "Failed to create trip"; // default message
 
@@ -607,9 +597,11 @@ sap.ui.define(
 
               that._setFormEditable(false);
               that._setInputsEnabled(false);
+              that._bReportingSaveInFlight = false;
             },
             error: function (oError) {
               that.getView().setBusy(false);
+              that._bReportingSaveInFlight = false;
 
               // Try to surface backend error message
               let sMessage = "Failed to update trip.";
@@ -812,9 +804,6 @@ sap.ui.define(
           const oData =
             (oTripDataModel && oTripDataModel.getData && oTripDataModel.getData()) || {};
 
-          console.log("=== MODEL VALIDATION START ===");
-          console.log("TripData:", JSON.stringify(oData));
-
           const requiredFields = [
             "MovementScenarioItemKey",
             "MovementTypeDesc",
@@ -847,13 +836,11 @@ sap.ui.define(
           requiredInCurrentMode.forEach(
             function (field) {
               const val = oData[field];
-              console.log("Checking:", field, "Value:", val);
               const bMissing =
                 val === undefined || val === null || String(val).trim() === "";
               const sCtrlId = mFieldToControl[field];
               const oCtrl = sCtrlId ? this.byId(sCtrlId) : null;
               if (bMissing) {
-                console.log("Missing:", field);
                 valid = false;
                 if (oCtrl && oCtrl.setValueState) {
                   oCtrl.setValueState("Error");
@@ -877,8 +864,6 @@ sap.ui.define(
               }.bind(this)
             );
           }
-
-          console.log("Validation Result:", valid);
           return valid;
         },
 

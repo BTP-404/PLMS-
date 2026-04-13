@@ -80,6 +80,7 @@ sap.ui.define(
           selectedKey: "PO",
           entryComplete: false,
           skipDocument: false,
+          hasPoValue: false,
         });
         this._oIncomingPoSuggestModel = new JSONModel({ items: [] });
         this._oOutgoingPoSuggestModel = new JSONModel({ items: [] });
@@ -294,12 +295,14 @@ sap.ui.define(
             selectedKey: "PO",
             entryComplete: false,
             skipDocument: false,
+            hasPoValue: false,
           });
         } else {
           this._oIncomingEntryMethodModel.setData({
             selectedKey: "PO",
             entryComplete: false,
             skipDocument: false,
+            hasPoValue: false,
           });
         }
         if (this._oIncomingPoSuggestModel) {
@@ -443,6 +446,7 @@ sap.ui.define(
           this._oIncomingEntryMethodModel.setProperty("/selectedKey", "PO");
           this._oIncomingEntryMethodModel.setProperty("/entryComplete", false);
           this._oIncomingEntryMethodModel.setProperty("/skipDocument", false);
+          this._oIncomingEntryMethodModel.setProperty("/hasPoValue", false);
         }
         if (this._oIncomingPoSuggestModel) {
           this._oIncomingPoSuggestModel.setProperty("/items", []);
@@ -851,6 +855,7 @@ sap.ui.define(
           this._oIncomingEntryMethodModel.setProperty("/selectedKey", sKey || "");
           this._oIncomingEntryMethodModel.setProperty("/entryComplete", false);
           this._oIncomingEntryMethodModel.setProperty("/skipDocument", false);
+          this._oIncomingEntryMethodModel.setProperty("/hasPoValue", false);
         }
         sap.ui.getCore().setModel(null, "TripData");
         var oPoIn = Fragment.byId(sViewId, "idIncomingDialogPoInput");
@@ -990,6 +995,41 @@ sap.ui.define(
         }
         var sPo = oItem.getText();
         oEvent.getSource().setValue(sPo);
+        this._syncIncomingSkipDocumentState(sPo);
+      },
+
+      onIncomingDialogPoInputLiveChange: function (oEvent) {
+        var sPo = (oEvent.getParameter("value") || "").trim();
+        this._syncIncomingSkipDocumentState(sPo);
+      },
+
+      onIncomingSkipDocumentSelect: function (oEvent) {
+        var bSelected = !!oEvent.getParameter("selected");
+        if (!bSelected) {
+          return;
+        }
+        var sViewId = this.getView().getId();
+        var oPoInput = Fragment.byId(sViewId, "idIncomingDialogPoInput");
+        var sPo = oPoInput && oPoInput.getValue ? String(oPoInput.getValue() || "").trim() : "";
+        if (!sPo) {
+          return;
+        }
+        if (this._oIncomingEntryMethodModel) {
+          this._oIncomingEntryMethodModel.setProperty("/skipDocument", false);
+          this._oIncomingEntryMethodModel.setProperty("/hasPoValue", true);
+        }
+        MessageToast.show("Skip Document cannot be selected when PO number is entered.");
+      },
+
+      _syncIncomingSkipDocumentState: function (sPo) {
+        var bHasPoValue = !!String(sPo || "").trim();
+        if (!this._oIncomingEntryMethodModel) {
+          return;
+        }
+        this._oIncomingEntryMethodModel.setProperty("/hasPoValue", bHasPoValue);
+        if (bHasPoValue && this._oIncomingEntryMethodModel.getProperty("/skipDocument")) {
+          this._oIncomingEntryMethodModel.setProperty("/skipDocument", false);
+        }
       },
 
       /**
@@ -1896,6 +1936,12 @@ sap.ui.define(
               });
             });
 
+            var sNeedle = sValue.toLowerCase();
+            aItems = aItems.filter(function (oIt) {
+              var sT = String((oIt && oIt.docText) || "").toLowerCase();
+              var sD = String((oIt && oIt.docDescription) || "").toLowerCase();
+              return sT.indexOf(sNeedle) !== -1 || sD.indexOf(sNeedle) !== -1;
+            });
             oLocalModel.setProperty("/items", aItems);
           },
           error: function () {

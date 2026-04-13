@@ -74,12 +74,6 @@ sap.ui.define([
 		var sTripNumber = oArgs.tripNo || "";
 		var oQuery = oArgs["?query"] || {};
 		var sRequestedTabKey = (oQuery && oQuery.tab) ? String(oQuery.tab).trim() : "";
-		console.info("[Stage][_onRouteMatched][start]", {
-			tripNo: sTripNumber,
-			requestedTabKey: sRequestedTabKey,
-			lastSelectedTabKey: this._sLastSelectedStageTabKey,
-			isCreateMode: this._bCreateMode
-		});
 	
 		// Safely get matched route name
 		var sRouteName = "";
@@ -102,10 +96,6 @@ sap.ui.define([
 		//   CASE 1 — CREATE MODE
 		// ============================
 		if (sRouteName === "Stage") {
-			console.info("[Stage][_onRouteMatched][createMode]", {
-				routeName: sRouteName
-			});
-	
 			this._bCreateMode = true;
 			this._sCurrentTripNumber = "";
 			this._updateReportingPlacementByVehicleType();
@@ -199,10 +189,6 @@ sap.ui.define([
 					// If caller requested a specific tab (e.g. Gate In), honor it.
 					this._setIconTabSelection(sRequestedTabKey);
 					this._bPendingVehicleTypeTabAutoSelect = false;
-					console.info("[Stage][_onRouteMatched][updateMode][requestedTabApplied]", {
-						routeName: sRouteName,
-						requestedTabKey: sRequestedTabKey
-					});
 				} else {
 					// Preserve the current active tab in update mode when route does not
 					// explicitly request one (e.g. post-save refresh from Gate In/Gate Out).
@@ -211,12 +197,6 @@ sap.ui.define([
 					var sTabToKeep = sCurrentSelectedKey || this._sLastSelectedStageTabKey || "gateIn";
 					this._setIconTabSelection(sTabToKeep);
 					this._bPendingVehicleTypeTabAutoSelect = false;
-					console.info("[Stage][_onRouteMatched][updateMode][preserveTabApplied]", {
-						routeName: sRouteName,
-						currentSelectedKey: sCurrentSelectedKey,
-						lastSelectedTabKey: this._sLastSelectedStageTabKey,
-						tabApplied: sTabToKeep
-					});
 				}
 
 				this._refreshPageTitleModel();
@@ -240,10 +220,6 @@ sap.ui.define([
 				sEffectiveKey = "gateout";
 			}
 			this._sLastSelectedStageTabKey = sEffectiveKey;
-			console.info("[Stage][_setIconTabSelection]", {
-				inputKey: sKey,
-				effectiveKey: sEffectiveKey
-			});
 			if (oIconTabBar) {
 				oIconTabBar.setSelectedKey(sEffectiveKey);
 			}
@@ -363,12 +339,6 @@ sap.ui.define([
 	_onTripCreated: function (sChannel, sEvent, oData) {
 		// Trip was just created, update mode and refresh header
 		if (oData && oData.tripNumber) {
-			console.info("[Stage][_onTripCreated]", {
-				channel: sChannel,
-				event: sEvent,
-				tripNumber: oData.tripNumber,
-				preferredTabKey: oData.preferredTabKey || ""
-			});
 			this._bCreateMode = false;
 			this._bPendingVehicleTypeTabAutoSelect = false;
 			this._sCurrentTripNumber = oData.tripNumber;
@@ -728,10 +698,6 @@ sap.ui.define([
 		onIconTabSelect: function (oEvent) {
 			var sSelectedKey = oEvent.getParameter("key");
 			this._sLastSelectedStageTabKey = sSelectedKey || this._sLastSelectedStageTabKey || "gateIn";
-			console.info("[Stage][onIconTabSelect]", {
-				selectedKey: sSelectedKey,
-				lastSelectedTabKey: this._sLastSelectedStageTabKey
-			});
 
 			// If ReferenceDocuments tab is selected, focus on scanner input
 			if (sSelectedKey === "referenceDocuments") {

@@ -68,7 +68,7 @@
                     suggestionItems="{poNumberSuggestions>/items}"
                     suggest="onPoNumberSuggest"
                     suggestionItemSelected="onPoNumberSuggestionSelected"
-                    filterSuggests="false"
+                    filterSuggests="true"
                     startSuggestion="1"
                     class="sapUiTinyMarginEnd"
                 >
@@ -170,7 +170,7 @@
                                 suggestionItems="{vehicleNumberSuggestions>/items}"
                                 suggest="onSuggest"
                                 liveChange="onVehicleNumberLiveChange"
-                                filterSuggests="false"
+                                filterSuggests="true"
                                 value="{TripData>/VehicleNumber}"
                                 startSuggestion="1"
                                 suggestionItemSelected="onSuggestionItemSelected"

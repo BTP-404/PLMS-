@@ -72,7 +72,7 @@
                     fixedLayout="true"
                     autoPopin="true"
                     popinLayout="GridSmall"
-                    items="{binTrolleyTracking>/rows}"
+                    items="{binTrolleyTracking>/items}"
                     class="sapUiSizeCompact binTrolleyTrackingTable plmsPanelDataTable"
                 >
                     <columns>
@@ -123,6 +123,7 @@
                                     textAlign="Center"
                                     width="6rem"
                                     valueState="{path: 'binTrolleyTracking>ReturnStatus', formatter: '.formatTrackingQtyValueState'}"
+                                    showValueStateMessage="false"
                                     change="onTrackingFieldLiveChange"
                                 />
                                 <ObjectStatus

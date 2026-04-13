@@ -41,7 +41,7 @@
                 placeholder="Select Document Number"
                 valueLiveUpdate="true"
                 showSuggestion="true"
-                filterSuggests="false"
+                filterSuggests="true"
                 suggest=".onRefDocNumberSuggest"
                 suggestionItemSelected=".onRefDocSuggestionSelected"
                 change=".onRefDocNumberChange"
