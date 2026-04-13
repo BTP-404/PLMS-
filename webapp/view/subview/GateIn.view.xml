@@ -36,7 +36,7 @@
         <Panel
             id="gateInBinTrolleyTrackingPanel"
             expandable="true"
-            expanded="true"
+            expanded="false"
             class="sapUiNoContentPadding sapUiTinyMarginBottom"
             width="100%"
             visible="{ui>/showBinTrolleyTracking}"
@@ -140,9 +140,9 @@
                                 <Button
                                     icon="sap-icon://decline"
                                     type="Transparent"
-                                    tooltip="Remove row"
+                                    tooltip="Remove/Delete row"
                                     press="onRemoveTrackingRow"
-                                    visible="{binTrolleyTracking>IsManual}"
+                                    visible="true"
                                 />
                             </cells>
                         </ColumnListItem>
@@ -151,12 +151,15 @@
 
                 <HBox justifyContent="End" class="sapUiTinyMarginTop binTrolleyTrackingTotalBar">
                     <Text
-                        text="{path: 'binTrolleyTracking>/totalQtyIn', formatter: '.formatTrackingTotalLine'}"
+                        text="{path: 'binTrolleyTracking>/totalQtyOut', formatter: '.formatTrackingTotalQtyOutLine'}"
                         class="sapUiTinyMarginEnd binTrolleyTrackingTotalLabel"
                     />
-                    <ObjectStatus
-                        text="{path: 'binTrolleyTracking>/totalDifference', formatter: '.formatTrackingDifferenceText'}"
-                        state="{path: 'binTrolleyTracking>/totalDifference', formatter: '.formatTrackingDifferenceState'}"
+                    <Text
+                        text="{path: 'binTrolleyTracking>/totalQtyIn', formatter: '.formatTrackingTotalQtyInLine'}"
+                        class="sapUiTinyMarginEnd binTrolleyTrackingTotalLabel"
+                    />
+                    <Text
+                        text="{path: 'binTrolleyTracking>/totalReturnStatusSummary', formatter: '.formatTrackingTotalReturnStatusLine'}"
                         class="binTrolleyTrackingTotalDiff"
                     />
                 </HBox>

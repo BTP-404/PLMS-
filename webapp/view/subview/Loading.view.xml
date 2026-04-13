@@ -194,7 +194,7 @@
                                             placeholder="Enter Weight"
                                             width="8rem"
                                             type="Number"
-                                            textAlign="End"
+                                            textAlign="Begin"
                                             class="sapUiSizeCompact"
                                             liveChange="onWeightFieldChange"
                                             change="onWeightFieldChange"
@@ -205,7 +205,7 @@
                                             placeholder="Gross Wt"
                                             width="7rem"
                                             type="Number"
-                                            textAlign="End"
+                                            textAlign="Begin"
                                             class="sapUiSizeCompact"
                                             change="onWeightFieldChange"
                                         />
@@ -215,7 +215,7 @@
                                             placeholder="Tare Wt"
                                             width="7rem"
                                             type="Number"
-                                            textAlign="End"
+                                            textAlign="Begin"
                                             class="sapUiSizeCompact"
                                             change="onWeightFieldChange"
                                         />

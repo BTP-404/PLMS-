@@ -1357,7 +1357,7 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Unloading", 
         
         this.oModel.read("/TripDetails('" + sTripNumber + "')", {
             urlParameters: {
-                "$expand": "OrderDetails,ItemDetails,Feeds"
+                "$expand": "OrderDetails,ItemDetails,Feeds,ActivityHistory"
             },
             success: function (oData) {
                 var oTripDataModel = new sap.ui.model.json.JSONModel(oData);
@@ -1386,7 +1386,7 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Unloading", 
         
         this.oModel.read("/TripDetails('" + sTripNumber + "')", {
             urlParameters: {
-                "$expand": "OrderDetails,ItemDetails,Feeds"
+                "$expand": "OrderDetails,ItemDetails,Feeds,ActivityHistory"
             },
             success: function (oData) {
                 var oTripDataModel = new sap.ui.model.json.JSONModel(oData);

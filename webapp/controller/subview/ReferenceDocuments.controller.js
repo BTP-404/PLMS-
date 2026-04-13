@@ -793,6 +793,20 @@ sap.ui.define([
 			return "";
 		},
 
+		_mapDocTypeToSearchHelpMode: function (sDocType) {
+			var s = String(sDocType || "").toUpperCase().trim();
+			if (s.indexOf("CHALLAN") !== -1) {
+				return "CHALLAN";
+			}
+			if (s.indexOf("PO") !== -1 || s.indexOf("PURCHASE") !== -1) {
+				return "PO";
+			}
+			if (s.indexOf("INVOICE") !== -1 || s.indexOf("BILLING") !== -1) {
+				return "INVOICE";
+			}
+			return "";
+		},
+
 		_fetchRefDocSuggestionsFromSearchHelp: function (sSource, sSearchTerm) {
 			return new Promise(function (resolve) {
 				var oService = this._getOrderDetailsService();
@@ -927,7 +941,8 @@ sap.ui.define([
 			this._iRefDocSuggestReqId = (this._iRefDocSuggestReqId || 0) + 1;
 			var iReqId = this._iRefDocSuggestReqId;
 			var that = this;
-			var sSuggestionSource = this._getRefDocSuggestionSource();
+			// Keep selected Doc Type as the primary source for SH endpoint mapping.
+			var sSuggestionSource = this._mapDocTypeToSearchHelpMode(sDocType) || this._getRefDocSuggestionSource();
 			var bUseSearchHelp = !!sSuggestionSource;
 			if (this._iRefDocSuggestDebounceTimer) {
 				clearTimeout(this._iRefDocSuggestDebounceTimer);
@@ -1737,6 +1752,7 @@ sap.ui.define([
 				this._updateMaterialDetail(oPayload, this._oEditingMaterial)
 					.then(function (oResponse) {
 						this._updateLocalMaterialDetail(oResponse || oPayload, this._oEditingMaterial);
+						this._oEventBus?.publish("RefDoc", "MaterialsUpdated");
 						MessageToast.show("Material row updated");
 						this._closeMaterialDialog();
 						this._resetMaterialDialog();
@@ -1750,6 +1766,7 @@ sap.ui.define([
 				this._saveMaterialDetail(oPayload)
 					.then(function (oResponse) {
 						this._appendLocalMaterialDetail(oResponse || oPayload);
+						this._oEventBus?.publish("RefDoc", "MaterialsUpdated");
 						MessageToast.show("Material row added");
 						this._closeMaterialDialog();
 						this._resetMaterialDialog();

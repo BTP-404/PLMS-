@@ -3017,6 +3017,14 @@ body#content {
     border-radius: 0.75rem !important;
 }
 
+/* Keep typing behavior stable across all app inputs (caret should move right in LTR). */
+.sapMInputBaseInner,
+.sapMTextAreaInner {
+    direction: ltr !important;
+    unicode-bidi: plaintext !important;
+    text-align: left !important;
+}
+
 .sapMInputBaseInner::placeholder,
 .sapMTextAreaInner::placeholder {
     color: var(--sapField_PlaceholderTextColor, #6a6d70) !important;

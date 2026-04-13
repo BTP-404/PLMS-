@@ -115,7 +115,7 @@ sap.ui.define([
 		},
 
 		_loadActivityHistory: function (bDelay) {
-			var sTripNumber = sap.ui.getCore().getModel("globalData")?.getProperty("/TripNumber") || "";
+			var sTripNumber = this._getTripNumber();
 
 			if (!sTripNumber) {
 				this._setActivityData([]);
@@ -141,18 +141,20 @@ sap.ui.define([
 			}.bind(this);
 
 			if (bDelay) {
+				clearTimeout(this._activityBackendRetryTimer);
 				clearTimeout(this._activityReloadTimer);
-				this._activityReloadTimer = setTimeout(fnFetch, 400);
+				this._activityReloadTimer = setTimeout(fnFetch, 1200);
 			} else if (!bRenderedFromTripData) {
 				fnFetch();
 			}
 		},
 
-		_readActivityHistoryFromBackend: function (sTripNumber) {
+		_readActivityHistoryFromBackend: function (sTripNumber, iAttempt) {
 			if (!sTripNumber) {
 				this._setActivityData([]);
 				return;
 			}
+			var iCurrentAttempt = typeof iAttempt === "number" ? iAttempt : 0;
 
 			this._oService.read("/ActivityHistory", {
 				filters: [
@@ -160,6 +162,13 @@ sap.ui.define([
 				],
 				success: function (oData) {
 					var aResults = (oData && Array.isArray(oData.results)) ? oData.results : [];
+					if ((!aResults || !aResults.length) && iCurrentAttempt < 2) {
+						clearTimeout(this._activityBackendRetryTimer);
+						this._activityBackendRetryTimer = setTimeout(function () {
+							this._readActivityHistoryFromBackend(sTripNumber, iCurrentAttempt + 1);
+						}.bind(this), 700);
+						return;
+					}
 					this._setActivityData(aResults);
 				}.bind(this),
 				error: function () {
@@ -170,6 +179,27 @@ sap.ui.define([
 					}
 				}.bind(this)
 			});
+		},
+
+		_getTripNumber: function () {
+			var oGlobalModel = sap.ui.getCore().getModel("globalData");
+			var sTripNumber = "";
+			if (oGlobalModel) {
+				sTripNumber = String(oGlobalModel.getProperty("/TripNumber") || "").trim();
+			}
+			if (!sTripNumber) {
+				var oViewTripDataModel = this.getView().getModel("TripData");
+				if (oViewTripDataModel) {
+					sTripNumber = String(oViewTripDataModel.getProperty("/TripNumber") || "").trim();
+				}
+			}
+			if (!sTripNumber) {
+				var oCoreTripDataModel = sap.ui.getCore().getModel("TripData");
+				if (oCoreTripDataModel) {
+					sTripNumber = String(oCoreTripDataModel.getProperty("/TripNumber") || "").trim();
+				}
+			}
+			return sTripNumber;
 		},
 
 		_extractActivityHistoryResults: function (vData) {

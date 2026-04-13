@@ -170,7 +170,8 @@
                                 suggestionItems="{vehicleNumberSuggestions>/items}"
                                 suggest="onSuggest"
                                 liveChange="onVehicleNumberLiveChange"
-                                filterSuggests="true"
+                                valueLiveUpdate="true"
+                                filterSuggests="false"
                                 value="{TripData>/VehicleNumber}"
                                 startSuggestion="1"
                                 suggestionItemSelected="onSuggestionItemSelected"
@@ -242,6 +243,7 @@
                                 id="idTransporterName"
                                 width="100%"
                                 value="{TripData>/TransporterName}"
+                                valueLiveUpdate="true"
                             />
                         </VBox>
                     </layout:content>
@@ -289,6 +291,7 @@
                                 id="idDriverName"
                                 width="100%"
                                 value="{TripData>/DriverName}"
+                                valueLiveUpdate="true"
                             />
                         </VBox>
                     </layout:content>
@@ -306,6 +309,7 @@
                                 type="Number"
                                 maxLength="10"
                                 liveChange=".onDriverContactLiveChange"
+                                valueLiveUpdate="true"
                             />
                         </VBox>
                     </layout:content>
@@ -320,6 +324,7 @@
                                 id="idDriverLicense"
                                 width="100%"
                                 value="{TripData>/DriverLicence}"
+                                valueLiveUpdate="true"
                             />
                         </VBox>
                     </layout:content>

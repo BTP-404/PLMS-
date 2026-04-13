@@ -297,56 +297,90 @@ sap.ui.define(
           if (this._bReportingSaveInFlight) {
             return;
           }
-          this._bReportingSaveInFlight = true;
+          this._setReportingSaveInFlight(true);
           const oModel = this.getView().getModel();
+          const oTripDataModel = this.getView().getModel("TripData");
+          if (!oTripDataModel) {
+            this._setReportingSaveInFlight(false);
+            MessageBox.error("Trip data model not found.");
+            return;
+          }
           this._syncPendingReportingInputsBeforeSave();
-          setTimeout(function () {
-            if (!this._validateRequiredFields()) {
-              this._bReportingSaveInFlight = false;
-              MessageBox.warning(
-                "Please fill all required fields before saving."
-              );
-              return;
-            }
+          if (!this._validateRequiredFields()) {
+            this._setReportingSaveInFlight(false);
+            MessageBox.warning(
+              "Please fill all required fields before saving."
+            );
+            return;
+          }
 
-            // ADDED: Additional validation for CREATE and UPDATE modes
-            const sMobile =
-              this.getView().getModel("TripData")?.getProperty("/DriverMobile") || "";
-            if (!this._isValidMobile(sMobile)) {
-              this._bReportingSaveInFlight = false;
-              this.byId("idDriverContact").setValueState("Error");
-              this.byId("idDriverContact").setValueStateText(
-                "Driver contact must be exactly 10 digits"
-              );
-              MessageBox.warning(
-                "Please enter a valid driver contact number (exactly 10 digits)."
-              );
-              return;
-            } else {
-              // clear any previous error state
-              this.byId("idDriverContact").setValueState("None");
-            }
+          // ADDED: Additional validation for CREATE and UPDATE modes
+          const sMobile =
+            this.getView().getModel("TripData")?.getProperty("/DriverMobile") || "";
+          if (!this._isValidMobile(sMobile)) {
+            this._setReportingSaveInFlight(false);
+            this.byId("idDriverContact").setValueState("Error");
+            this.byId("idDriverContact").setValueStateText(
+              "Driver contact must be exactly 10 digits"
+            );
+            MessageBox.warning(
+              "Please enter a valid driver contact number (exactly 10 digits)."
+            );
+            return;
+          } else {
+            // clear any previous error state
+            this.byId("idDriverContact").setValueState("None");
+          }
 
-            var sMode = this._mode;
-            if (sMode !== "CREATE" && sMode !== "EDIT") {
-              // Derive a safe fallback mode so first click doesn't get ignored
-              // when route/view lifecycle leaves mode as DISPLAY or undefined.
-              var sTripNumber = String(this._getTripNumber() || "").trim();
-              sMode = sTripNumber ? "EDIT" : "CREATE";
-              this._mode = sMode;
-            }
+          var sMode = this._mode;
+          if (sMode !== "CREATE" && sMode !== "EDIT") {
+            // Derive a safe fallback mode so first click doesn't get ignored
+            // when route/view lifecycle leaves mode as DISPLAY or undefined.
+            var sTripNumber = String(this._getTripNumber() || "").trim();
+            sMode = sTripNumber ? "EDIT" : "CREATE";
+            this._mode = sMode;
+          }
 
-            if (sMode === "CREATE") {
-              this._createTrip(oModel);
-            } else if (sMode === "EDIT") {
-              this._updateTrip(oModel);
-            } else {
-              this._bReportingSaveInFlight = false;
-            }
-          }.bind(this), 0);
+          if (sMode === "CREATE") {
+            this._createTrip(oModel);
+          } else if (sMode === "EDIT") {
+            this._updateTrip(oModel);
+          } else {
+            this._setReportingSaveInFlight(false);
+          }
+        },
+
+        _setReportingSaveInFlight: function (bInFlight) {
+          this._bReportingSaveInFlight = !!bInFlight;
+          var oSaveButton = this.byId("btnSaveReporting");
+          if (oSaveButton) {
+            oSaveButton.setEnabled(!bInFlight);
+          }
         },
 
         _syncPendingReportingInputsBeforeSave: function () {
+          var oTripDataModel = this.getView().getModel("TripData");
+          if (!oTripDataModel) {
+            return;
+          }
+
+          var aInputMappings = [
+            { id: "idVehicleNumber", path: "/VehicleNumber" },
+            { id: "idTransporterName", path: "/TransporterName" },
+            { id: "idDriverName", path: "/DriverName" },
+            { id: "idDriverContact", path: "/DriverMobile" },
+            { id: "idDriverLicense", path: "/DriverLicence" }
+          ];
+          aInputMappings.forEach(function (oMap) {
+            var oControl = this.byId(oMap.id);
+            if (oControl && oControl.getValue) {
+              oTripDataModel.setProperty(
+                oMap.path,
+                String(oControl.getValue() || "").trim()
+              );
+            }
+          }.bind(this));
+
           var oMovementScenario = this.byId("idMovementScenario");
           var sScenarioKey = oMovementScenario && oMovementScenario.getSelectedKey
             ? String(oMovementScenario.getSelectedKey() || "").trim()
@@ -388,14 +422,15 @@ sap.ui.define(
             var sVehicleTypeVal = oVehicleType.getValue
               ? String(oVehicleType.getValue() || "").trim()
               : "";
-            var oTripDataModel = this.getView().getModel("TripData");
-            if (oTripDataModel) {
-              if (sVehicleTypeKey) {
-                oTripDataModel.setProperty("/VehicleType", sVehicleTypeKey);
-              }
-              if (sVehicleTypeVal) {
-                oTripDataModel.setProperty("/VehicleTypeDesc", sVehicleTypeVal);
-              }
+            if (sVehicleTypeKey) {
+              oTripDataModel.setProperty("/VehicleType", sVehicleTypeKey);
+            } else {
+              oTripDataModel.setProperty("/VehicleType", "");
+            }
+            if (sVehicleTypeVal) {
+              oTripDataModel.setProperty("/VehicleTypeDesc", sVehicleTypeVal);
+            } else {
+              oTripDataModel.setProperty("/VehicleTypeDesc", "");
             }
           }
 
@@ -494,12 +529,12 @@ sap.ui.define(
               that._clearForm();
               that._setFormEditable(false);
               that._setInputsEnabled(false);
-              that._bReportingSaveInFlight = false;
+              that._setReportingSaveInFlight(false);
             },
 
             error: function (oError) {
               that.getView().setBusy(false);
-              that._bReportingSaveInFlight = false;
+              that._setReportingSaveInFlight(false);
 
               let sMessage = "Failed to create trip"; // default message
 
@@ -595,13 +630,17 @@ sap.ui.define(
                 that._saveDriverPhotoToAttachments(sTripNumber, sDriverPhoto, sDriverName);
               }
 
+              if (sTripNumber) {
+                that._loadTripDetailsForHeader(sTripNumber, that._getCurrentStageTabKey() || "gateIn");
+              }
+
               that._setFormEditable(false);
               that._setInputsEnabled(false);
-              that._bReportingSaveInFlight = false;
+              that._setReportingSaveInFlight(false);
             },
             error: function (oError) {
               that.getView().setBusy(false);
-              that._bReportingSaveInFlight = false;
+              that._setReportingSaveInFlight(false);
 
               // Try to surface backend error message
               let sMessage = "Failed to update trip.";

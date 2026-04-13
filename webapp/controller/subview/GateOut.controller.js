@@ -34,6 +34,7 @@ sap.ui.define(
           this._eventBus = sap.ui.getCore().getEventBus();
           this._eventBus.subscribe("TripData", "Updated", this._onTripDataUpdate, this);
           this._eventBus.subscribe("RefDoc", "MaterialsUpdated", this._onRefDocMaterialsUpdated, this);
+          this._eventBus.subscribe("BinTrolley", "Updated", this._onBinTrolleyUpdated, this);
 
           this.oModel = new ODataModel("/sap/opu/odata/sap/YIGP_PLMS_SRV/", {
             useBatch: false,
@@ -93,8 +94,10 @@ sap.ui.define(
             oTrackingModel = new JSONModel({
               rows: aInitialRows,
               items: aInitialRows,
+              totalQtyOut: 0,
               totalQtyIn: 0,
               totalDifference: 0,
+              totalReturnStatusSummary: "No entries",
               isPosted: true
             });
             sap.ui.getCore().setModel(oTrackingModel, "binTrolleyTrackingShared");
@@ -142,6 +145,9 @@ sap.ui.define(
           return "m_" + Date.now() + "_" + Math.floor(Math.random() * 1000000);
         },
         onAddTrackingRow: function () {
+          var iScrollY = (typeof window !== "undefined" && typeof window.scrollY === "number")
+            ? window.scrollY
+            : null;
           var oTrackingModel = this.getView().getModel("binTrolleyTracking");
           if (!oTrackingModel) {
             return;
@@ -155,6 +161,11 @@ sap.ui.define(
           this._recalculateTrackingTotals();
           this._persistTrackingRows();
           oTrackingModel.setProperty("/isPosted", false);
+          if (iScrollY !== null) {
+            setTimeout(function () {
+              window.scrollTo(0, iScrollY);
+            }, 0);
+          }
         },
         onTrackingFieldLiveChange: function () {
           this._recalculateTrackingTotals();
@@ -183,8 +194,37 @@ sap.ui.define(
           if (iIndex < 0 || iIndex >= aRows.length) {
             return;
           }
-          if (!aRows[iIndex] || aRows[iIndex].IsManual !== true) {
-            MessageToast.show("Only manual rows can be deleted.");
+          var oRow = aRows[iIndex];
+          if (!oRow) {
+            return;
+          }
+
+          if (oRow.IsManual !== true) {
+            var sTripNumber = String(oRow.TripNumber || this._getTripNumber() || "").trim();
+            var sDocumentNumber = String(oRow.DocumentNumber || "").trim();
+            var sItemNo = String(oRow.ItemNo || "").trim();
+            if (!sTripNumber || !sDocumentNumber || !sItemNo) {
+              MessageBox.error("Unable to delete row. Missing key fields.");
+              return;
+            }
+            if (!this.oModel) {
+              MessageBox.error("OData model is not loaded.");
+              return;
+            }
+            var sEntityPath = this._buildEmptyBinsPath(sTripNumber, sDocumentNumber, sItemNo);
+            this.oModel.remove(sEntityPath, {
+              success: function () {
+                this._loadGateOutBinTrolleyData();
+                this._eventBus?.publish("BinTrolley", "Updated", {
+                  source: "GateOut",
+                  tripNumber: sTripNumber
+                });
+                MessageToast.show("Row deleted.");
+              }.bind(this),
+              error: function () {
+                MessageBox.error("Failed to delete row.");
+              }
+            });
             return;
           }
           aRows.splice(iIndex, 1);
@@ -202,8 +242,10 @@ sap.ui.define(
             return;
           }
           var aRows = this._getTrackingItems(oTrackingModel);
+          var iTotalQtyOut = 0;
           var iTotalQty = 0;
           var iTotalDiff = 0;
+          var mStatusCounts = {};
           aRows.forEach(function (oRow) {
             var iQtyIn = Number(oRow.QtyIn);
             var iQtyOut = Number(oRow.QtyOut);
@@ -220,16 +262,43 @@ sap.ui.define(
               oRow.Difference = iDiff;
             }
             oRow.ReturnStatus = this._deriveTrackingStatus(iQtyIn, iQtyOut, iDiff, oRow.ReturnStatus, oRow.IsManual);
+            if (!isNaN(iQtyOut)) {
+              iTotalQtyOut += iQtyOut;
+            }
             if (!isNaN(iQtyIn)) {
               iTotalQty += iQtyIn;
             }
             if (!isNaN(iDiff)) {
               iTotalDiff += iDiff;
             }
+            var bMeaningfulRow =
+              String(oRow.Material || "").trim() !== "" ||
+              String(oRow.DocumentNumber || "").trim() !== "" ||
+              String(oRow.ItemNo || "").trim() !== "" ||
+              iQtyIn > 0 ||
+              iQtyOut > 0;
+            if (bMeaningfulRow) {
+              var sStatus = String(oRow.ReturnStatus || "").trim() || "Pending";
+              mStatusCounts[sStatus] = (mStatusCounts[sStatus] || 0) + 1;
+            }
           }.bind(this));
+          var aStatusOrder = ["Pending", "Partial", "Returned", "Excess", "New Entry"];
+          var aStatusSummary = aStatusOrder
+            .filter(function (sKey) {
+              return !!mStatusCounts[sKey];
+            })
+            .map(function (sKey) {
+              var iCount = mStatusCounts[sKey];
+              return sKey + " (" + iCount + " row" + (iCount === 1 ? "" : "s") + ")";
+            });
+          if (!aStatusSummary.length) {
+            aStatusSummary = ["No entries"];
+          }
           this._setTrackingItems(oTrackingModel, aRows);
+          oTrackingModel.setProperty("/totalQtyOut", iTotalQtyOut);
           oTrackingModel.setProperty("/totalQtyIn", iTotalQty);
           oTrackingModel.setProperty("/totalDifference", iTotalDiff);
+          oTrackingModel.setProperty("/totalReturnStatusSummary", aStatusSummary.join(", "));
         },
         _deriveTrackingStatus: function (iQtyIn, iQtyOut, iDiff, sFallbackStatus, bIsManual) {
           if (bIsManual === true) {
@@ -561,6 +630,9 @@ sap.ui.define(
           return aMerged.length ? aMerged : [this._getEmptyTrackingRow()];
         },
         onSaveTrackingRows: function () {
+          var iScrollY = (typeof window !== "undefined" && typeof window.scrollY === "number")
+            ? window.scrollY
+            : null;
           var oTrackingModel = this.getView().getModel("binTrolleyTracking");
           if (!oTrackingModel) {
             MessageBox.error("Tracking model is not available.");
@@ -596,7 +668,16 @@ sap.ui.define(
               this._persistTrackingRows();
               oTrackingModel.setProperty("/isPosted", true);
               this._loadGateOutBinTrolleyData();
-              MessageBox.success("Bin / Trolley tracking saved to backend.");
+              this._eventBus?.publish("BinTrolley", "Updated", {
+                source: "GateOut",
+                tripNumber: sTripNumber
+              });
+              MessageBox.success("Bin / Trolley tracking saved.");
+              if (iScrollY !== null) {
+                setTimeout(function () {
+                  window.scrollTo(0, iScrollY);
+                }, 0);
+              }
             }.bind(this))
             .catch(function (oError) {
               var sErrorMessage = "Failed to save Bin / Trolley tracking.";
@@ -615,6 +696,11 @@ sap.ui.define(
                 // Ignore parse failure
               }
               MessageBox.error(sErrorMessage);
+              if (iScrollY !== null) {
+                setTimeout(function () {
+                  window.scrollTo(0, iScrollY);
+                }, 0);
+              }
             });
         },
         _initBinTrolleyVisibilityModel: function () {
@@ -950,25 +1036,6 @@ sap.ui.define(
                 );
               }) === i;
             });
-        },
-        _loadGateOutBinsFromTripDetails: function (sTripNumber) {
-          if (!this.oModel || !sTripNumber) {
-            return Promise.resolve([]);
-          }
-          return new Promise(function (resolve) {
-            this.oModel.read("/TripDetails('" + this._escapeODataKey(sTripNumber) + "')", {
-              urlParameters: {
-                $expand: "EmptyBins"
-              },
-              success: function (oData) {
-                var aExpandedRows = this._extractResults(oData && oData.EmptyBins) || [];
-                resolve(aExpandedRows);
-              }.bind(this),
-              error: function () {
-                resolve([]);
-              }
-            });
-          }.bind(this));
         },
         _mapGateOutBinRows: function (aRows, sTripNumber) {
           return (aRows || []).map(function (r) {
@@ -1354,19 +1421,22 @@ sap.ui.define(
 
         onAfterRendering: function () {
           try {
-            var oGateOutPanel = this.getView().byId("gateOutPanel");
-            if (oGateOutPanel && oGateOutPanel.setExpanded) {
-              oGateOutPanel.setExpanded(true);
+            if (!this._bGateOutAfterRenderInitialized) {
+              var oGateOutPanel = this.getView().byId("gateOutPanel");
+              if (oGateOutPanel && oGateOutPanel.setExpanded) {
+                oGateOutPanel.setExpanded(true);
+              }
+              // Get trip number from globalData model (safer approach)
+              var oGlobalModel = sap.ui.getCore().getModel("globalData");
+              this.tripNumber = oGlobalModel ? oGlobalModel.getProperty("/TripNumber") || "" : "";
+              
+              this.loadExitGateNumber();
+              this._loadGateOutBinTrolleyData();
+              this._updatePanelVisibility();
+              this._updateBinTrolleyVisibility();
+              this._syncGateOutReferenceBy();
+              this._bGateOutAfterRenderInitialized = true;
             }
-            // Get trip number from globalData model (safer approach)
-            var oGlobalModel = sap.ui.getCore().getModel("globalData");
-            this.tripNumber = oGlobalModel ? oGlobalModel.getProperty("/TripNumber") || "" : "";
-            
-            this.loadExitGateNumber();
-            this._loadGateOutBinTrolleyData();
-            this._updatePanelVisibility();
-            this._updateBinTrolleyVisibility();
-            this._syncGateOutReferenceBy();
 
             // Set initial input state based on whether GateOut data exists
             var oTripData = sap.ui.getCore().getModel("TripData");
@@ -1423,12 +1493,45 @@ sap.ui.define(
           }
         },
         onExit: function () {
+          if (this._iGateOutRefDocReloadTimer) {
+            clearTimeout(this._iGateOutRefDocReloadTimer);
+            this._iGateOutRefDocReloadTimer = null;
+          }
+          if (this._iBinSyncReloadTimer) {
+            clearTimeout(this._iBinSyncReloadTimer);
+            this._iBinSyncReloadTimer = null;
+          }
           this._eventBus?.unsubscribe("TripData", "Updated", this._onTripDataUpdate, this);
           this._eventBus?.unsubscribe("RefDoc", "MaterialsUpdated", this._onRefDocMaterialsUpdated, this);
+          this._eventBus?.unsubscribe("BinTrolley", "Updated", this._onBinTrolleyUpdated, this);
+        },
+        _onBinTrolleyUpdated: function (sChannel, sEvent, oData) {
+          if (oData && oData.source === "GateOut") {
+            return;
+          }
+          var sIncomingTrip = String((oData && oData.tripNumber) || "").trim();
+          var sCurrentTrip = String(this._getTripNumber() || "").trim();
+          if (sIncomingTrip && sCurrentTrip && sIncomingTrip !== sCurrentTrip) {
+            return;
+          }
+          this._loadGateOutBinTrolleyData();
+          // Run one delayed refresh as well to handle eventual-consistency/read-cache timing.
+          if (this._iBinSyncReloadTimer) {
+            clearTimeout(this._iBinSyncReloadTimer);
+          }
+          this._iBinSyncReloadTimer = setTimeout(function () {
+            this._loadGateOutBinTrolleyData();
+          }.bind(this), 300);
         },
         _onRefDocMaterialsUpdated: function () {
           this._prunePersistedTrackingRowsByRefDocs();
-          this._loadGateOutBinTrolleyData();
+          // Wait one UI tick so refDocModel filtered materials are updated before deriving EmptyBins keys.
+          if (this._iGateOutRefDocReloadTimer) {
+            clearTimeout(this._iGateOutRefDocReloadTimer);
+          }
+          this._iGateOutRefDocReloadTimer = setTimeout(function () {
+            this._loadGateOutBinTrolleyData();
+          }.bind(this), 0);
         },
         _onTripDataUpdate: function () {
           var oTripData = sap.ui.getCore().getModel("TripData");
@@ -1515,82 +1618,91 @@ sap.ui.define(
         },
         _loadGateOutBinTrolleyData: function () {
           var oVm = this.getView().getModel("binTrolleyTracking");
+          this._iGateOutBinLoadSeq = (this._iGateOutBinLoadSeq || 0) + 1;
+          var iRequestSeq = this._iGateOutBinLoadSeq;
           if (!oVm) {
             return;
           }
           var sTripNumber = this._getTripNumber();
-          this._loadGateOutBinsFromTripDetails(sTripNumber).then(function (aExpandedRows) {
-            var aMappedExpanded = this._mapGateOutBinRows(aExpandedRows, sTripNumber);
-            if (aMappedExpanded.length) {
+          if (!sTripNumber) {
+            this._setTrackingItems(oVm, this._mergeWithPersistedRows(sTripNumber, []));
+            oVm.setProperty("/isPosted", true);
+            this._recalculateTrackingTotals();
+            return;
+          }
+          this.oModel.read("/EmptyBins", {
+            filters: [
+              new Filter("TripNumber", FilterOperator.EQ, sTripNumber)
+            ],
+            urlParameters: {
+              $format: "json"
+            },
+            success: function (oData) {
+              if (iRequestSeq !== this._iGateOutBinLoadSeq) {
+                return;
+              }
+              var aRows = (oData && oData.results) || [];
+              var aMapped = this._mapGateOutBinRows(aRows, sTripNumber);
+              var aKeys = this._getGateOutEmptyBinsReadKeys();
+              var mExistingDocItem = {};
+              (aMapped || []).forEach(function (oRow) {
+                var sDoc = String(oRow.DocumentNumber || "").trim();
+                var sItem = String(oRow.ItemNo || "").trim();
+                if (sDoc && sItem) {
+                  mExistingDocItem[sDoc + "|" + sItem] = true;
+                }
+              });
+              // Always backfill rows for newly added materials not yet present in EmptyBins.
+              var aMissingRows = (aKeys || [])
+                .filter(function (oKey) {
+                  var sDoc = String(oKey.DocumentNumber || "").trim();
+                  var sItem = String(oKey.ItemNo || "").trim();
+                  if (!sDoc || !sItem) {
+                    return false;
+                  }
+                  return !mExistingDocItem[sDoc + "|" + sItem];
+                })
+                .map(function (oKey) {
+                  var iQtyIn = 0;
+                  var iQtyOut = Number(oKey.QtyOut);
+                  if (isNaN(iQtyOut) || iQtyOut < 0) {
+                    iQtyOut = 0;
+                  }
+                  var iDiff = iQtyOut - iQtyIn;
+                  return {
+                    TripNumber: String(sTripNumber || "").trim(),
+                    DocumentNumber: String(oKey.DocumentNumber || "").trim(),
+                    ItemNo: String(oKey.ItemNo || "").trim(),
+                    Customer: String(oKey.Customer || "").trim(),
+                    CusromerName: String(oKey.CustomerName || "").trim(),
+                    Material: String(oKey.Material || "").trim(),
+                    BinType: "",
+                    QtyIn: iQtyIn,
+                    QtyOut: iQtyOut,
+                    Difference: iDiff,
+                    ReturnStatus: this._deriveTrackingStatus(iQtyIn, iQtyOut, iDiff, "Pending", false),
+                    IsManual: false
+                  };
+                }.bind(this));
+              if (aMissingRows.length) {
+                aMapped = aMapped.concat(aMissingRows);
+              }
               this._setTrackingItems(
                 oVm,
-                this._mergeWithPersistedRows(sTripNumber, aMappedExpanded)
+                this._mergeWithPersistedRows(sTripNumber, aMapped)
               );
               oVm.setProperty("/isPosted", true);
               this._recalculateTrackingTotals();
-              return;
-            }
-            // Gate Out immediate display fallback:
-            // if expand is empty, read all EmptyBins for the trip directly.
-            if (!sTripNumber) {
+            }.bind(this),
+            error: function () {
+              if (iRequestSeq !== this._iGateOutBinLoadSeq) {
+                return;
+              }
               this._setTrackingItems(oVm, this._mergeWithPersistedRows(sTripNumber, []));
               oVm.setProperty("/isPosted", true);
               this._recalculateTrackingTotals();
-              return;
-            }
-            this.oModel.read("/EmptyBins", {
-              filters: [
-                new Filter("TripNumber", FilterOperator.EQ, sTripNumber)
-              ],
-              urlParameters: {
-                $format: "json"
-              },
-              success: function (oData) {
-                var aRows = (oData && oData.results) || [];
-                var aMapped = this._mapGateOutBinRows(aRows, sTripNumber);
-                if (!aMapped.length) {
-                  var aKeys = this._getGateOutEmptyBinsReadKeys();
-                  // Keep Gate Out behavior aligned to Gate In expectation:
-                  // when materials exist but backend bins are not persisted yet,
-                  // show placeholder rows immediately.
-                  aMapped = (aKeys || []).map(function (oKey) {
-                    var iQtyIn = 0;
-                    var iQtyOut = Number(oKey.QtyOut);
-                    if (isNaN(iQtyOut) || iQtyOut < 0) {
-                      iQtyOut = 0;
-                    }
-                    var iDiff = iQtyOut - iQtyIn;
-                    return {
-                      TripNumber: String(sTripNumber || "").trim(),
-                      DocumentNumber: String(oKey.DocumentNumber || "").trim(),
-                      ItemNo: String(oKey.ItemNo || "").trim(),
-                      Customer: String(oKey.Customer || "").trim(),
-                      CusromerName: String(oKey.CustomerName || "").trim(),
-                      Material: String(oKey.Material || "").trim(),
-                      BinType: "",
-                      QtyIn: iQtyIn,
-                      QtyOut: iQtyOut,
-                      Difference: iDiff,
-                      ReturnStatus: this._deriveTrackingStatus(iQtyIn, iQtyOut, iDiff, "Pending", false),
-                      IsManual: false
-                    };
-                  }.bind(this));
-                }
-                this._setTrackingItems(
-                  oVm,
-                  this._mergeWithPersistedRows(sTripNumber, aMapped)
-                );
-                oVm.setProperty("/isPosted", true);
-                this._recalculateTrackingTotals();
-              }.bind(this),
-              error: function () {
-                this._setTrackingItems(oVm, this._mergeWithPersistedRows(sTripNumber, []));
-                oVm.setProperty("/isPosted", true);
-                this._recalculateTrackingTotals();
-              }.bind(this)
-            });
-            return;
-          }.bind(this));
+            }.bind(this)
+          });
         },
         /**
          * Loads exit-gate ConfigValues for ConfigGroup ExitGate, always filtered by TripNumber when known.
@@ -1903,8 +2015,17 @@ sap.ui.define(
               return "None";
           }
         },
-        formatTrackingTotalLine: function (vTotalQty) {
-          return "TOTAL  " + (vTotalQty == null ? "0" : String(vTotalQty));
+        formatTrackingTotalQtyOutLine: function (vTotalQtyOut) {
+          return "Total Qty Out: " + (vTotalQtyOut == null ? "0" : String(vTotalQtyOut));
+        },
+        formatTrackingTotalQtyInLine: function (vTotalQtyIn) {
+          return "Total Qty In (Manual): " + (vTotalQtyIn == null ? "0" : String(vTotalQtyIn));
+        },
+        formatTrackingTotalDifferenceLine: function (vDifference) {
+          return "Total Difference: " + this.formatTrackingDifferenceText(vDifference);
+        },
+        formatTrackingTotalReturnStatusLine: function (sSummary) {
+          return "Total Return Status: " + (String(sSummary || "").trim() || "No entries");
         },
         formatTrackingStatusIcon: function (sStatus) {
           if (!sStatus) {
@@ -2062,17 +2183,9 @@ sap.ui.define(
                 },
                 success: function () {
                   var sMessage = bIsFirstTime
-                    ? "Gate Out information created successfully!"
-                    : "Gate Out information updated successfully!";
-
-                  var oTd = sap.ui.getCore().getModel("TripData");
-                  if (oTd) {
-                    oTd.setProperty("/ExitGateNum", sExitGateNumber);
-                    oTd.setProperty("/RefDocSkip", sRefdocSkip);
-                    oTd.setProperty("/VerifiedDocs", bVerifiedDocs ? 0 : 1);
-                    oTd.setProperty("/BillingDocument", sBillingDocument);
-                    this._eventBus.publish("TripData", "Updated");
-                  }
+                    ? "Gate Out completed successfully for Trip " + sTripNumber + "."
+                    : "Gate Out completed successfully for Trip " + sTripNumber + ".";
+                  this._refreshTripFromBackend(sTripNumber);
                   this._eventBus.publish("Stage", "TripCreated", {
                     tripNumber: sTripNumber,
                     preferredTabKey: "gateout"
@@ -2117,6 +2230,33 @@ sap.ui.define(
                   MessageBox.error(sErrorMessage);
                 },
               });
+        },
+        _refreshTripFromBackend: function (sTripNumber) {
+          var sTrip = String(sTripNumber || "").trim();
+          if (!sTrip) {
+            return;
+          }
+
+          var sToken = Date.now().toString();
+          this._sLastTripRefreshToken = sToken;
+
+          this.oModel.read("/TripDetails('" + sTrip + "')", {
+            urlParameters: {
+              "$expand": "OrderDetails,ItemDetails,Feeds,ActivityHistory"
+            },
+            success: function (oData) {
+              if (this._sLastTripRefreshToken !== sToken) {
+                return;
+              }
+              var oTripDataModel = new JSONModel(oData);
+              sap.ui.getCore().setModel(oTripDataModel, "TripData");
+              this.getView().setModel(oTripDataModel, "TripData");
+              sap.ui.getCore().getEventBus().publish("TripData", "Updated");
+            }.bind(this),
+            error: function () {
+              // No-op: write operation already succeeded.
+            }
+          });
         },
         onEditGateOut: function () {
           // Enable inputs for edit mode (authorization checks removed)

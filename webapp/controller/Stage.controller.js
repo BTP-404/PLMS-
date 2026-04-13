@@ -660,12 +660,16 @@ sap.ui.define([
 		 * Hide the header (Gate Pass No, Vehicle No, Trip status) when creating a new vehicle
 		 */
 		_updateHeaderVisibilityForCreateMode: function () {
+			var oStagePage = this.byId("stagePage");
 			var oHeaderBar = this.byId("headerBar");
 			if (!oHeaderBar) {
 				return;
 			}
 
 			// Hide header in CREATE mode, show in DISPLAY mode
+			if (oStagePage) {
+				oStagePage.setShowHeader(!this._bCreateMode);
+			}
 			oHeaderBar.setVisible(!this._bCreateMode);
 		},
 

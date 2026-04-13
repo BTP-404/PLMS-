@@ -348,12 +348,30 @@ sap.ui.define([
 
 			if (!sTripNumber) {
 				this._oAttachmentsModel.setProperty("/attachments", []);
-				this._renderAttachmentsList();
 				return;
 			}
 
-			this._oAttachmentsModel.setProperty("/attachments", []);
-			this._renderAttachmentsList();
+			var oService = this._getAttachmentsService();
+			oService.read("/Attachments", {
+				filters: [
+					new Filter("TripNumber", FilterOperator.EQ, sTripNumber)
+				],
+				success: function (oData) {
+					var aRows = (oData && oData.results) ? oData.results : (oData ? [oData] : []);
+					var aAttachments = aRows.map(function (oAttachment) {
+						return {
+							tripNumber: oAttachment.TripNumber || sTripNumber,
+							fileName: oAttachment.FileName || "",
+							contentType: oAttachment.ContentType || ""
+						};
+					});
+					this._oAttachmentsModel.setProperty("/attachments", aAttachments);
+					this._oAttachmentsModel.refresh(true);
+				}.bind(this),
+				error: function () {
+					this._oAttachmentsModel.setProperty("/attachments", []);
+				}.bind(this)
+			});
 		},
 
 		_renderAttachmentsList: function () {
