@@ -111,7 +111,7 @@
                                 <Input value="{binTrolleyTracking>DocumentNumber}" editable="{binTrolleyTracking>IsManual}" />
                                 <Input value="{binTrolleyTracking>ItemNo}" editable="{binTrolleyTracking>IsManual}" />
                                 <Input value="{binTrolleyTracking>Material}" editable="{binTrolleyTracking>IsManual}" class="binTrolleyPartCode" />
-                                <Input value="{binTrolleyTracking>BinType}" editable="{binTrolleyTracking>IsManual}" />
+                                <Input value="{binTrolleyTracking>BinTypeDesc}" editable="{binTrolleyTracking>IsManual}" />
                                 <ObjectNumber
                                     number="{binTrolleyTracking>QtyOut}"
                                     emphasized="false"

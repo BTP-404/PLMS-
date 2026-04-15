@@ -94,7 +94,8 @@
             <Button
                 text="Add"
                 type="Emphasized"
-                press=".onAddRow"/>
+                press=".onAddRow"
+                visible="{= !${globalData>/TripLocked} }"/>
         </beginButton>
 
         <endButton>

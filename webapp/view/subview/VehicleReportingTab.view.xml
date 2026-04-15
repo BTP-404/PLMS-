@@ -415,6 +415,7 @@
                         press="onSaveReporting"
                         icon="sap-icon://save"
                         class="sapUiTinyMarginBegin"
+                        visible="{= !${globalData>/TripLocked} }"
                     />
                 </HBox>
             </VBox>

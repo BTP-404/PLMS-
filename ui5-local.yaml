@@ -12,8 +12,10 @@ framework:
     - name: sap.ushell
     - name: sap.collaboration
     - name: sap.ui.comp
+    - name: sap.suite.ui.commons
     - name: sap.uxap
     - name: sap.f
+    - name: sap.ndc
     - name: sap.ui.generic.app
     - name: sap.ui.table
     - name: themelib_sap_belize
@@ -24,11 +26,11 @@ server:
     - name: fiori-tools-proxy
       afterMiddleware: compression
       configuration:
-        ignoreCertError: false
+        ignoreCertErrors: true
         backend:
           - path: /sap
-            url: ""
-            destination: S4H
+            url: "https://fmiquaapp:8443"
+            client: "300"
     - name: fiori-tools-appreload
       afterMiddleware: compression
       configuration:

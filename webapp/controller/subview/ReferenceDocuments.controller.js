@@ -70,6 +70,7 @@ sap.ui.define([
 		this._bUserSelected = false;
 		this._iDebounceTimer = null;
 		this._oSelectedOrderDetail = null;
+		this._bRefDocInitialPrefillDone = false;
 		// Apply any view-related initialization after render using delegates if needed
 	},
 
@@ -471,6 +472,7 @@ sap.ui.define([
 			this._sSelectedDocType = "";
 			this._sSelectedMaterialDocType = "";
 			this._oSelectedOrderDetail = null;
+			this._bRefDocInitialPrefillDone = false;
 			
 			var oGlobalModel = sap.ui.getCore().getModel("globalData");
 			if (oGlobalModel) {
@@ -512,15 +514,23 @@ sap.ui.define([
 			var aFilteredMaterials = [];
 
 			if (this._oSelectedRefDoc) {
-				var sSelectedDocType = this._oSelectedRefDoc.docType || "";
-				var sSelectedDocNumber = this._oSelectedRefDoc.documentNumber || "";
+				var sSelectedDocType = String(this._oSelectedRefDoc.docType || this._oSelectedRefDoc.DocType || "").trim().toUpperCase();
+				var sSelectedDocNumberRaw = String(
+					this._oSelectedRefDoc.documentNumber || this._oSelectedRefDoc.DocumentNumber || ""
+				).trim();
+				var sSelectedDocNumberNorm = this._normalizeDocNumberForMatch(sSelectedDocNumberRaw);
 
 				// Filter materials that match the selected Reference Document
 				aFilteredMaterials = aAllMaterials.filter(function (oMaterial) {
-					var sMaterialDocType = oMaterial.docType || "";
-					var sMaterialRefDocNo = oMaterial.refDocNo || "";
-					return sMaterialDocType === sSelectedDocType && sMaterialRefDocNo === sSelectedDocNumber;
-				});
+					var sMaterialDocType = String(oMaterial.docType || oMaterial.DocType || "").trim().toUpperCase();
+					var sMaterialRefDocNoRaw = String(oMaterial.refDocNo || oMaterial.RefDocNo || "").trim();
+					var sMaterialRefDocNoNorm = this._normalizeDocNumberForMatch(sMaterialRefDocNoRaw);
+					var bDocTypeMatch = sMaterialDocType === sSelectedDocType;
+					var bDocNoMatch =
+						(sMaterialRefDocNoRaw && sSelectedDocNumberRaw && sMaterialRefDocNoRaw === sSelectedDocNumberRaw) ||
+						(sMaterialRefDocNoNorm && sSelectedDocNumberNorm && sMaterialRefDocNoNorm === sSelectedDocNumberNorm);
+					return bDocTypeMatch && bDocNoMatch;
+				}.bind(this));
 			} else {
 				// No selection - show all materials
 				aFilteredMaterials = aAllMaterials;
@@ -1158,7 +1168,13 @@ sap.ui.define([
 			}
 		},
 
-		onSaveRefDocDialog: function () {
+		onSaveRefDocDialog: function (oEvent) {
+			// Keep add/update action local to the dialog and avoid bubbling
+			// into parent controls (which can trigger tab/navigation side effects).
+			if (oEvent) {
+				oEvent.preventDefault?.();
+				oEvent.cancelBubble?.();
+			}
 			var oGlobalModel = sap.ui.getCore().getModel("globalData");
 			var sTripNumber = String(oGlobalModel?.getProperty("/TripNumber") || "").trim();
 			if (!sTripNumber) {
@@ -1184,6 +1200,10 @@ sap.ui.define([
 			).trim();
 			if (!sDocNoUi) {
 				return MessageToast.show("Document Number is mandatory");
+			}
+
+			if (!this._bIsRefDocEditMode && this._hasLocalReferenceDoc(sTripNumber, sDocTypeUi, sDocNoUi)) {
+				return MessageToast.show("Reference document already exists");
 			}
 
 			var oPayload = this._buildOrderDetailPayload();
@@ -2016,11 +2036,17 @@ sap.ui.define([
 			if (this._bIsRefDocEditMode) {
 				return;
 			}
+			// Apply top-context PO prefill only for the first Add open.
+			// On subsequent Add opens (after Add/Cancel), keep DocType but clear document fields.
+			if (this._bRefDocInitialPrefillDone) {
+				return;
+			}
 
 			var oPoPrefill = this._getPoRefDocPrefill();
 			if (!oPoPrefill || !oPoPrefill.poNumber) {
 				return;
 			}
+			this._bRefDocInitialPrefillDone = true;
 
 			var that = this;
 			var oDocTypeSelect = this.byId("idRefDocType");
@@ -2602,9 +2628,11 @@ sap.ui.define([
 			var oDocTypeSelect = this.byId("idRefDocType");
 			if (oDocTypeSelect) {
 				oDocTypeSelect.setEnabled(true);
-				oDocTypeSelect.setSelectedKey("");
+				// Preserve current DocType across Add/Cancel reopen flow.
+				if (this._sSelectedDocType) {
+					oDocTypeSelect.setSelectedKey(this._sSelectedDocType);
+				}
 			}
-			this._sSelectedDocType = "";
 			this._bSkipDefaultRefDocType = false;
 			// Reset other Input fields (not Doc Type)
 			[
@@ -2648,6 +2676,7 @@ sap.ui.define([
 
 			this._oEditingRefDoc = null;
 			this._bIsRefDocEditMode = false;
+			this._oSelectedOrderDetail = null;
 			this._setRefDocDialogMode("add");
 		},
 
@@ -3392,7 +3421,6 @@ sap.ui.define([
 
 		_fetchOrderDetails: function (sDocType, mOpts) {
 			return new Promise(function (resolve, reject) {
-				var oService = this._getOrderDetailsService();
 				var oGlobalModel = sap.ui.getCore().getModel("globalData");
 				var sTripNumber = oGlobalModel?.getProperty("/TripNumber") || "";
 				var bIncomingSkip = String(oGlobalModel?.getProperty("/IncomingRefDocSkip") || " ").trim() === "X";
@@ -3413,6 +3441,34 @@ sap.ui.define([
 				var iTop = Number(m.top);
 				var iSkip = Number(m.skip);
 
+				// Prefer expanded TripData to reduce duplicate OrderDetails reads.
+				var oTripDataModel = sap.ui.getCore().getModel("TripData");
+				var aExpandedOrderDetails = this._extractResults(oTripDataModel?.getProperty("/OrderDetails"));
+				if (Array.isArray(aExpandedOrderDetails) && aExpandedOrderDetails.length > 0) {
+					var aCached = aExpandedOrderDetails.slice();
+					if (sTripNumber) {
+						aCached = aCached.filter(function (o) {
+							return String(o?.TripNumber || "") === String(sTripNumber);
+						});
+					}
+					if (sDocType) {
+						aCached = aCached.filter(function (o) {
+							return String(o?.DocType || "").trim() === String(sDocType || "").trim();
+						});
+					}
+					if (sSearchTerm) {
+						var sTermLower = sSearchTerm.toLowerCase();
+						aCached = aCached.filter(function (o) {
+							return String(o?.DocumentNumber || "").toLowerCase().indexOf(sTermLower) !== -1;
+						});
+					}
+					var iSafeSkip = (!Number.isNaN(iSkip) && iSkip >= 0) ? iSkip : 0;
+					var iSafeTop = (!Number.isNaN(iTop) && iTop > 0) ? iTop : aCached.length;
+					resolve(aCached.slice(iSafeSkip, iSafeSkip + iSafeTop));
+					return;
+				}
+
+				var oService = this._getOrderDetailsService();
 				var aFilters = [];
 				if (sTripNumber) {
 					aFilters.push(new Filter("TripNumber", FilterOperator.EQ, sTripNumber));
@@ -3986,7 +4042,9 @@ sap.ui.define([
 		},
 
 		_buildOrderDetailPayload: function () {
-			var oSelected = this._oSelectedOrderDetail;
+			// In Add mode, always honor current UI values and ignore stale
+			// selection objects from prior value-help interactions.
+			var oSelected = this._bIsRefDocEditMode ? this._oSelectedOrderDetail : null;
 
 			var oGlobalModel = sap.ui.getCore().getModel("globalData");
 			var sTripNumber = String(oGlobalModel?.getProperty("/TripNumber") || "").trim();
@@ -4339,13 +4397,11 @@ sap.ui.define([
 			var sDialogDate = this.byId("idRefDocDate")?.getValue() || "";
 			var sDialogSalesDoc = this.byId("idRefDocSalesDoc")?.getValue() || "";
 			var sDialogSalesDoctype = this.byId("idRefDocSalesDoctype")?.getValue() || "";
+			var sTripNumber = String(oPayload.TripNumber || "").trim();
 			var sDocType = String(oPayload.DocType || sDialogDocType || "").trim();
 			var sDocumentNumber = String(oPayload.DocumentNumber || sDialogDocNumber || "").trim();
 
-			var bExists = aRefDocs.some(function (oDoc) {
-				return String(oDoc.docType || oDoc.DocType || "").trim() === sDocType &&
-					String(oDoc.documentNumber || oDoc.DocumentNumber || "").trim() === sDocumentNumber;
-			});
+			var bExists = this._hasLocalReferenceDoc(sTripNumber, sDocType, sDocumentNumber);
 
 			if (bExists) {
 				return;
@@ -4364,6 +4420,65 @@ sap.ui.define([
 			});
 			// Force model refresh by setting the entire array
 			oModel.setProperty("/referenceDocs", aRefDocs, true); // true = force refresh
+		},
+
+		_hasLocalReferenceDoc: function (sTripNumber, sDocType, sDocumentNumber) {
+			var oModel = this._ensureRefDocModel();
+			var aRefDocs = oModel.getProperty("/referenceDocs") || [];
+			var sTrip = String(sTripNumber || "").trim();
+			var sType = String(sDocType || "").trim();
+			var sDocNo = String(sDocumentNumber || "").trim();
+
+			return aRefDocs.some(function (oDoc) {
+				var sRowTrip = String(oDoc.tripNumber || oDoc.TripNumber || "").trim();
+				var sRowType = String(oDoc.docType || oDoc.DocType || "").trim();
+				var sRowDocNo = String(oDoc.documentNumber || oDoc.DocumentNumber || "").trim();
+				return sRowTrip === sTrip && sRowType === sType && sRowDocNo === sDocNo;
+			});
+		},
+
+		_backfillReferenceDocsFromMaterialsIfMissing: function () {
+			var oModel = this._ensureRefDocModel();
+			var aRefDocs = oModel.getProperty("/referenceDocs") || [];
+			var aMaterials = oModel.getProperty("/materialDetails") || [];
+
+			// Keep existing behavior intact: only synthesize rows when table source is empty.
+			if (!Array.isArray(aRefDocs) || aRefDocs.length > 0 || !Array.isArray(aMaterials) || aMaterials.length === 0) {
+				return;
+			}
+
+			var mSeen = {};
+			var aDerived = [];
+			aMaterials.forEach(function (oMat) {
+				var sTrip = String(oMat.tripNumber || oMat.TripNumber || "").trim();
+				var sType = String(oMat.docType || oMat.DocType || "").trim();
+				var sDocNo = String(oMat.refDocNo || oMat.RefDocNo || "").trim();
+				if (!sType || !sDocNo) {
+					return;
+				}
+				var sKey = [sTrip, sType, sDocNo].join("|");
+				if (mSeen[sKey]) {
+					return;
+				}
+				mSeen[sKey] = true;
+				aDerived.push({
+					TripNumber: sTrip,
+					DocType: sType,
+					DocumentNumber: sDocNo,
+					tripNumber: sTrip,
+					docType: sType,
+					documentNumber: sDocNo,
+					documentDate: "",
+					partyCode: "",
+					partyName: "",
+					salesDoc: "",
+					salesDoctype: "",
+				});
+			});
+
+			if (aDerived.length > 0) {
+				oModel.setProperty("/referenceDocs", aDerived, true);
+			}
 		},
 
 
@@ -4605,6 +4720,8 @@ sap.ui.define([
 
 			// Force model refresh by setting the entire array
 			oModel.setProperty("/materialDetails", aMaterials, true); // true = force refresh
+			// If ref docs are missing (for example material-first flow), derive minimal rows.
+			this._backfillReferenceDocsFromMaterialsIfMissing();
 			// Update filtered list after adding new material
 			this._filterMaterialDetails();
 		},
@@ -4634,7 +4751,8 @@ sap.ui.define([
 				return;
 			}
 
-			// Scanner-first ASN scenarios: keep Add/Edit/Delete ref docs and manual material actions hidden after reporting
+			// Scanner-first ASN scenarios and completed trips:
+			// keep Add/Edit/Delete ref docs and manual material actions hidden.
 			var sItemKey = oTripData.getProperty("/MovementScenarioItemKey") || "";
 			if (!sItemKey) {
 				sItemKey = MovementScenarioIcons.getMovementScenarioItemKey(
@@ -4643,10 +4761,38 @@ sap.ui.define([
 				);
 			}
 			var bScannerScenario = MovementScenarioIcons.isScannerMovementScenarioItemKey(sItemKey);
-			oGlobalModel.setProperty("/DisableRefDocMaterialsActions", !!bScannerScenario);
+			var sTripStatus = String(oTripData.getProperty("/TripStatus") || "")
+				.trim()
+				.toLowerCase()
+				.replace(/[\s_-]+/g, "");
+			var bTripCompleted = sTripStatus === "completed" || sTripStatus === "tripcompleted" || sTripStatus === "done";
+			oGlobalModel.setProperty("/DisableRefDocMaterialsActions", !!bScannerScenario || bTripCompleted);
+			oGlobalModel.setProperty("/TripLocked", bTripCompleted);
 			
 			var vOrderDetails = oTripData.getProperty("/OrderDetails");
 			var vItemDetails = oTripData.getProperty("/ItemDetails");
+			var bHasOrderDetailsPayload = Array.isArray(vOrderDetails) ||
+				(vOrderDetails && Array.isArray(vOrderDetails.results)) ||
+				(vOrderDetails && vOrderDetails.__deferred);
+			var bHasItemDetailsPayload = Array.isArray(vItemDetails) ||
+				(vItemDetails && Array.isArray(vItemDetails.results)) ||
+				(vItemDetails && vItemDetails.__deferred);
+			var aExistingRefDocs = oModel.getProperty("/referenceDocs") || [];
+			var aExistingMaterials = oModel.getProperty("/materialDetails") || [];
+
+			// Gate-In fallback sometimes publishes TripData updates without expanded ref doc/material payload.
+			// Preserve current rows for the same trip instead of wiping local model state.
+			if (!bHasOrderDetailsPayload && !bHasItemDetailsPayload) {
+				var sTripFromTripData = String(oTripData.getProperty("/TripNumber") || "").trim();
+				var sTripFromExistingData = String(
+					(aExistingRefDocs[0] && (aExistingRefDocs[0].tripNumber || aExistingRefDocs[0].TripNumber)) ||
+					(aExistingMaterials[0] && (aExistingMaterials[0].tripNumber || aExistingMaterials[0].TripNumber)) ||
+					""
+				).trim();
+				if (sTripFromTripData && sTripFromExistingData && sTripFromTripData === sTripFromExistingData) {
+					return;
+				}
+			}
 
 			// Check if ItemDetails is already loaded from $expand
 			// When $expand is used successfully, ItemDetails will have a "results" property
@@ -4943,6 +5089,8 @@ sap.ui.define([
 				}.bind(this));
 
 			this._ensureRefDocModel().setProperty("/materialDetails", aMaterials);
+			// If backend returned materials but no OrderDetails payload, keep Reference Docs table usable.
+			this._backfillReferenceDocsFromMaterialsIfMissing();
 			// Update filtered list after setting all materials
 			this._filterMaterialDetails();
 		},

@@ -281,7 +281,8 @@ sap.ui.define([
 			this._oActivityModel.setProperty("/events", aEnriched);
 			this._oActivityModel.setProperty("/eventsCount", aEnriched.length);
 			this._oActivityModel.setProperty("/nodes", this._buildProcessFlowNodes(aEnriched));
-			this._oActivityModel.setProperty("/timelineCards", this._buildTimelineCards(aEnriched));
+			// Keep ProcessFlow/Event Details complete, but reduce duplicates/system rows in Card view.
+			this._oActivityModel.setProperty("/timelineCards", this._buildTimelineCards(this._getCardTimelineEvents(aEnriched)));
 			
 			// Calculate total TAT from individual event TATs (force recalculation)
 			var sTotalTat = this._calculateTat(aEnriched);
@@ -293,6 +294,56 @@ sap.ui.define([
 			
 			// Force UI refresh to ensure TAT is displayed correctly after updates
 			this._oActivityModel.refresh(true);
+		},
+
+		_getCardTimelineEvents: function (aEvents) {
+			var aSource = Array.isArray(aEvents) ? aEvents : [];
+			if (!aSource.length) {
+				return [];
+			}
+
+			// Hide synthetic/system summary rows from card timeline.
+			var aUserFacing = aSource.filter(function (oItem) {
+				var sDesc = String(oItem?.eventDescription || "").trim().toUpperCase();
+				return sDesc !== "OVERALL STATUS";
+			});
+
+			// Keep the latest event per EventID for cards to avoid duplicate card noise
+			// when backend sends multiple Seqno rows for the same stage/event.
+			var mByEventId = {};
+			aUserFacing.forEach(function (oItem) {
+				var sEventId = String(oItem?.raw?.EventID || "").trim();
+				if (!sEventId) {
+					return;
+				}
+				var sSeq = String(oItem?.raw?.Seqno || "").trim();
+				var iSeq = parseInt(sSeq, 10);
+				var iSafeSeq = isNaN(iSeq) ? 0 : iSeq;
+				var oPrev = mByEventId[sEventId];
+				if (!oPrev || iSafeSeq >= oPrev._cardSeq) {
+					var oCopy = Object.assign({}, oItem);
+					oCopy._cardSeq = iSafeSeq;
+					mByEventId[sEventId] = oCopy;
+				}
+			});
+
+			var aDistinct = Object.keys(mByEventId).map(function (sKey) {
+				return mByEventId[sKey];
+			});
+
+			// Preserve timeline order used elsewhere: EventID asc, then Seqno asc.
+			aDistinct.sort(function (a, b) {
+				var sEventIDA = String(a?.raw?.EventID || "").padStart(2, "0");
+				var sEventIDB = String(b?.raw?.EventID || "").padStart(2, "0");
+				if (sEventIDA === sEventIDB) {
+					var sSeqA = String(a?._cardSeq || 0).padStart(3, "0");
+					var sSeqB = String(b?._cardSeq || 0).padStart(3, "0");
+					return sSeqA.localeCompare(sSeqB);
+				}
+				return sEventIDA.localeCompare(sEventIDB);
+			});
+
+			return aDistinct;
 		},
 
 		_buildProcessFlowNodes: function (aEvents) {

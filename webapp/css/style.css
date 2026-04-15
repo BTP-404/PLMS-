@@ -3017,13 +3017,7 @@ body#content {
     border-radius: 0.75rem !important;
 }
 
-/* Keep typing behavior stable across all app inputs (caret should move right in LTR). */
-.sapMInputBaseInner,
-.sapMTextAreaInner {
-    direction: ltr !important;
-    unicode-bidi: plaintext !important;
-    text-align: left !important;
-}
+/* Let UI5/app language decide input direction/alignment (LTR/RTL). */
 
 .sapMInputBaseInner::placeholder,
 .sapMTextAreaInner::placeholder {

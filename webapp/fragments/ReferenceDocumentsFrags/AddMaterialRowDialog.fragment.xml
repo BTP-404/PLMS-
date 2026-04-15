@@ -140,6 +140,7 @@
                 text="Add"
                 type="Emphasized"
                 press=".onSaveMaterialDialog"
+                visible="{= !${globalData>/TripLocked} }"
             />
         </beginButton>
         <endButton>

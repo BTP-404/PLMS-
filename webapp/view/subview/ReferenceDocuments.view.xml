@@ -54,7 +54,7 @@
                                         icon="sap-icon://add"
                                         type="Emphasized"
                                         press="onAddRefDocRow"
-                                        visible="{= ${globalData>/IsScanningReporting} || ${globalData>/DisableRefDocMaterialsActions} ? false : true }"/>
+                                        visible="{= ${globalData>/IsScanningReporting} || ${globalData>/DisableRefDocMaterialsActions} || ${globalData>/TripLocked} ? false : true }"/>
                                 </Toolbar>
                             </headerToolbar>
 
@@ -141,22 +141,25 @@
                                             alignItems="Center"
                                             justifyContent="SpaceAround"
                                             width="100%"
-                                            visible="{= ${globalData>/IsScanningReporting} || ${globalData>/DisableRefDocMaterialsActions} ? false : true }">
+                                            visible="{= ${globalData>/IsScanningReporting} || ${globalData>/DisableRefDocMaterialsActions} || ${globalData>/TripLocked} ? false : true }">
                                             <Button
                                                 icon="sap-icon://list"
                                                 type="Transparent"
                                                 tooltip="Select Materials"
-                                                press=".onSelectMaterialsFromTable"/>
+                                                press=".onSelectMaterialsFromTable"
+                                                visible="{= !${globalData>/TripLocked} }"/>
                                             <Button
                                                 icon="sap-icon://edit"
                                                 type="Transparent"
                                                 tooltip="Edit"
-                                                press=".onEditRefDocRow"/>
+                                                press=".onEditRefDocRow"
+                                                visible="{= !${globalData>/TripLocked} }"/>
                                             <Button
                                                 icon="sap-icon://delete"
                                                 type="Transparent"
                                                 tooltip="Delete"
-                                                press=".onDeleteRefDocRow"/>
+                                                press=".onDeleteRefDocRow"
+                                                visible="{= !${globalData>/TripLocked} }"/>
                                         </HBox>
                                     </cells>
                                 </ColumnListItem>
@@ -235,17 +238,19 @@
                                             alignItems="Center"
                                             justifyContent="SpaceAround"
                                             width="100%"
-                                            visible="{= ${globalData>/IsScanningReporting} || ${globalData>/DisableRefDocMaterialsActions} ? false : true }">
+                                            visible="{= ${globalData>/IsScanningReporting} || ${globalData>/DisableRefDocMaterialsActions} || ${globalData>/TripLocked} ? false : true }">
                                             <Button
                                                 icon="sap-icon://edit"
                                                 type="Transparent"
                                                 tooltip="Edit"
-                                                press=".onEditMaterialRow"/>
+                                                press=".onEditMaterialRow"
+                                                visible="{= !${globalData>/TripLocked} }"/>
                                             <Button
                                                 icon="sap-icon://delete"
                                                 type="Transparent"
                                                 tooltip="Delete"
-                                                press=".onDeleteMaterialRow"/>
+                                                press=".onDeleteMaterialRow"
+                                                visible="{= !${globalData>/TripLocked} }"/>
                                         </HBox>
                                     </cells>
                                 </ColumnListItem>

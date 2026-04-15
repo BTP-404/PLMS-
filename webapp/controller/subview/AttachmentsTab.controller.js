@@ -21,6 +21,9 @@ sap.ui.define([
 		onInit: function() {
 			// Initialize attachments model
 			this._initAttachmentsModel();
+			this._sAttachmentsTripLoading = "";
+			this._sAttachmentsLastLoadedTrip = "";
+			this._iAttachmentsLastLoadedAt = 0;
 			
 			// Subscribe to TripData updates
 			this._oEventBus = sap.ui.getCore().getEventBus();
@@ -41,6 +44,9 @@ sap.ui.define([
 			if (this._oAttachmentsModel) {
 				this._oAttachmentsModel.setData({ attachments: [] });
 			}
+			this._sAttachmentsTripLoading = "";
+			this._sAttachmentsLastLoadedTrip = "";
+			this._iAttachmentsLastLoadedAt = 0;
 			
 			// Clear selected file
 			this._oSelectedFile = null;
@@ -199,7 +205,7 @@ sap.ui.define([
 			success: function () {
 				this.getView().setBusy(false);
 				MessageToast.show("Attachment uploaded successfully");
-				this._loadAttachments();
+				this._loadAttachments(true);
 				this._clearUploadForm();
 			}.bind(this),
 			error: function (oError) {
@@ -268,7 +274,7 @@ sap.ui.define([
 			success: function () {
 				this.getView().setBusy(false);
 				MessageToast.show("Attachment updated successfully");
-				this._loadAttachments();
+				this._loadAttachments(true);
 				this._clearUploadForm();
 			}.bind(this),
 			error: function (oError) {
@@ -342,14 +348,26 @@ sap.ui.define([
 			}
 		},
 
-		_loadAttachments: function () {
+		_loadAttachments: function (bForce) {
 			var oGlobalModel = sap.ui.getCore().getModel("globalData");
 			var sTripNumber = oGlobalModel?.getProperty("/TripNumber") || "";
 
 			if (!sTripNumber) {
 				this._oAttachmentsModel.setProperty("/attachments", []);
+				this._sAttachmentsTripLoading = "";
 				return;
 			}
+			if (!bForce && this._sAttachmentsTripLoading === sTripNumber) {
+				return;
+			}
+			if (
+				!bForce &&
+				this._sAttachmentsLastLoadedTrip === sTripNumber &&
+				Date.now() - (this._iAttachmentsLastLoadedAt || 0) < 1000
+			) {
+				return;
+			}
+			this._sAttachmentsTripLoading = sTripNumber;
 
 			var oService = this._getAttachmentsService();
 			oService.read("/Attachments", {
@@ -367,9 +385,13 @@ sap.ui.define([
 					});
 					this._oAttachmentsModel.setProperty("/attachments", aAttachments);
 					this._oAttachmentsModel.refresh(true);
+					this._sAttachmentsLastLoadedTrip = sTripNumber;
+					this._iAttachmentsLastLoadedAt = Date.now();
+					this._sAttachmentsTripLoading = "";
 				}.bind(this),
 				error: function () {
 					this._oAttachmentsModel.setProperty("/attachments", []);
+					this._sAttachmentsTripLoading = "";
 				}.bind(this)
 			});
 		},
@@ -624,7 +646,7 @@ sap.ui.define([
 				},
 				success: function () {
 					MessageToast.show("Attachment deleted successfully");
-					this._loadAttachments();
+					this._loadAttachments(true);
 				}.bind(this),
 				error: function (oError) {
 					MessageToast.show("Failed to delete attachment");

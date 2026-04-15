@@ -114,24 +114,6 @@
             </headerToolbar>
 
             <VBox class="sapUiSizeCompact" width="100%">
-                <HBox justifyContent="End" class="sapUiTinyMarginBottom">
-                    <Button
-                        id="idAddGateOutBinTrolleyRowBtn"
-                        text="Add Row"
-                        icon="sap-icon://add"
-                        type="Transparent"
-                        press="onAddTrackingRow"
-                    />
-                    <Button
-                        id="idSaveGateOutBinTrolleyRowBtn"
-                        text="Save"
-                        icon="sap-icon://save"
-                        type="Emphasized"
-                        class="sapUiTinyMarginBegin"
-                        press="onSaveTrackingRows"
-                    />
-                </HBox>
-
                 <Table
                     id="idGateOutBinTrolleyTable"
                     width="100%"
@@ -157,40 +139,24 @@
                         <Column hAlign="End" width="8rem" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
                             <Text text="Qty Out" />
                         </Column>
-                        <Column hAlign="Center" width="11rem" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
-                            <Text text="Qty In (Manual)" />
-                        </Column>
                         <Column hAlign="End" width="9rem" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
                             <Text text="Difference" />
                         </Column>
                         <Column hAlign="Center" width="11rem" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
                             <Text text="Return Status" />
                         </Column>
-                        <Column hAlign="Center" width="4rem" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
-                            <Text text="" />
-                        </Column>
                     </columns>
 
                     <items>
                         <ColumnListItem class="binTrolleyTrackingRow">
                             <cells>
-                                <Input value="{binTrolleyTracking>DocumentNumber}" editable="{binTrolleyTracking>IsManual}" />
-                                <Input value="{binTrolleyTracking>ItemNo}" editable="{binTrolleyTracking>IsManual}" />
-                                <Input value="{binTrolleyTracking>Material}" editable="{binTrolleyTracking>IsManual}" class="binTrolleyPartCode" />
-                                <Input value="{binTrolleyTracking>BinType}" editable="{binTrolleyTracking>IsManual}" />
+                                <Text text="{binTrolleyTracking>DocumentNumber}" />
+                                <Text text="{binTrolleyTracking>ItemNo}" />
+                                <Text text="{binTrolleyTracking>Material}" class="binTrolleyPartCode" />
+                                <Text text="{= ${binTrolleyTracking>BinTypeDesc} || ${binTrolleyTracking>BinType} }" />
                                 <ObjectNumber
                                     number="{binTrolleyTracking>QtyOut}"
                                     emphasized="false"
-                                />
-                                <Input
-                                    value="{binTrolleyTracking>QtyIn}"
-                                    placeholder="0"
-                                    type="Number"
-                                    textAlign="Center"
-                                    width="6rem"
-                                    valueState="{path: 'binTrolleyTracking>ReturnStatus', formatter: '.formatTrackingQtyValueState'}"
-                                    showValueStateMessage="false"
-                                    change="onTrackingFieldLiveChange"
                                 />
                                 <ObjectStatus
                                     text="{path: 'binTrolleyTracking>Difference', formatter: '.formatTrackingDifferenceText'}"
@@ -203,13 +169,6 @@
                                     icon="{path: 'binTrolleyTracking>ReturnStatus', formatter: '.formatTrackingStatusIcon'}"
                                     inverted="true"
                                 />
-                                <Button
-                                    icon="sap-icon://decline"
-                                    type="Transparent"
-                                    tooltip="Remove/Delete row"
-                                    press="onRemoveTrackingRow"
-                                    visible="true"
-                                />
                             </cells>
                         </ColumnListItem>
                     </items>
@@ -218,10 +177,6 @@
                 <HBox justifyContent="End" class="sapUiTinyMarginTop binTrolleyTrackingTotalBar">
                     <Text
                         text="{path: 'binTrolleyTracking>/totalQtyOut', formatter: '.formatTrackingTotalQtyOutLine'}"
-                        class="sapUiTinyMarginEnd binTrolleyTrackingTotalLabel"
-                    />
-                    <Text
-                        text="{path: 'binTrolleyTracking>/totalQtyIn', formatter: '.formatTrackingTotalQtyInLine'}"
                         class="sapUiTinyMarginEnd binTrolleyTrackingTotalLabel"
                     />
                     <Text

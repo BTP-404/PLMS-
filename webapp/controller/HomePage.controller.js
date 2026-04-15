@@ -40,12 +40,10 @@ sap.ui.define(
         });
         this.getView().setModel(oModel);
         this._sVehicleNumberNeedleLower = "";
+        this._bHomeInitialLoadDone = false;
 
-        var oTable = this.getView().byId("tripTable");
-        if (oTable) {
-          // Re-apply client-side VehicleNumber filtering whenever table updates (initial load, refresh, growing).
-          oTable.attachUpdateFinished(this._applyClientSideVehicleNumberFilter, this);
-        }
+        // Do not hook client-side visibility filtering to updateFinished when growing is enabled.
+        // It can cause repeated top-up reads (e.g. $skip=24&$top=1 loops).
         this.getView().setModel(
           new JSONModel({
             reportDateFrom: null,
@@ -70,8 +68,6 @@ sap.ui.define(
         if (oRouter) {
           oRouter.getRoute("HomePage").attachPatternMatched(this._onRouteMatched, this);
         }
-
-        this.onRefresh();
 
         this._oReportVehicleMatOptsModel = new JSONModel({
           selectedIndex: 0,
@@ -110,6 +106,7 @@ sap.ui.define(
         this._loadOutgoingMovementScenarioOptions();
         this._sLastPostedPoNumber = null;
         this._sPendingOrderDetailPo = null;
+        this._bIncomingFromCameraScan = false;
       },
 
       onExit: function () {
@@ -517,6 +514,7 @@ sap.ui.define(
         }
         this._sLastPostedPoNumber = null;
         this._sPendingOrderDetailPo = null;
+        this._bIncomingFromCameraScan = false;
       },
 
       /**
@@ -825,7 +823,7 @@ sap.ui.define(
           });
         };
 
-        // Prefer direct key read: PoNumberSH('<selectedPo>')
+        // Prefer direct key read first; fallback to collection read for any key-read error.
         oModel.read("/PoNumberSH('" + encodeURIComponent(sPo) + "')", {
           success: function (oData) {
             var oRow =
@@ -833,16 +831,11 @@ sap.ui.define(
             fnApplyAndNav(fnParsePoRow(oRow));
           },
           error: function (oError) {
-            // Only 404: try filter read; any other error — show message and stay on dialog.
-            var iStatus =
-              oError && oError.statusCode !== undefined
-                ? parseInt(oError.statusCode, 10)
-                : NaN;
-            if (iStatus === 404) {
-              fnReadPoNumberShCollection("PoNumber");
-            } else {
+            // Some backends reject direct key addressing even for valid PO values.
+            // Always try collection fallback before showing an error.
+            fnReadPoNumberShCollection("PoNumber", function () {
               fnShowPoNumberShReadFailed(oError);
-            }
+            });
           },
         });
       },
@@ -1146,6 +1139,7 @@ sap.ui.define(
         if (!sText) {
           return;
         }
+        this._bIncomingFromCameraScan = false;
         this._bIncomingScanSkipTripTableRefresh = true;
         this._incomingDialogProcessScannedCode(sText.split("|")[0]);
       },
@@ -1157,6 +1151,7 @@ sap.ui.define(
         if (!sText) {
           return;
         }
+        this._bIncomingFromCameraScan = false;
         this._incomingDialogProcessScannedCode(sText.split("|")[0]);
       },
 
@@ -1165,15 +1160,18 @@ sap.ui.define(
         BarcodeScanner.scan(
           function (oResult) {
             if (oResult.cancelled) {
+              that._bIncomingFromCameraScan = false;
               that._clearIncomingDialogScanInput(false);
               return;
             }
             var sParsed = (oResult.text || "").split("|")[0];
+            that._bIncomingFromCameraScan = true;
             that._bIncomingScanSkipTripTableRefresh = false;
             that._incomingDialogProcessScannedCode(sParsed);
             that._clearIncomingDialogScanInput();
           },
           function (oError) {
+            that._bIncomingFromCameraScan = false;
             MessageToast.show(
               "Scan failed: " + (oError.message || oError)
             );
@@ -1305,10 +1303,13 @@ sap.ui.define(
           oPayload = { AsnId: sAsnId, OrgId: sOrgId };
           this._sPendingOrderDetailPo = null;
         } else if (sPoNumber && String(sPoNumber).trim()) {
-          oPayload = { PoNumber: String(sPoNumber).trim() };
-          this._sPendingOrderDetailPo = String(sPoNumber).trim();
+          var sPoTrimmed = String(sPoNumber).trim();
+          oPayload = { PoNumber: sPoTrimmed };
+          // Create OrderDetails only when PO came from camera scan, not typed scan input.
+          this._sPendingOrderDetailPo = this._bIncomingFromCameraScan ? sPoTrimmed : null;
         } else {
           this._bIncomingScanSkipTripTableRefresh = false;
+          this._bIncomingFromCameraScan = false;
           MessageToast.show("Invalid input: provide ASN scan or PO number");
           this._clearIncomingDialogScanInput();
           return;
@@ -1344,6 +1345,7 @@ sap.ui.define(
         }
 
         this._bIncomingScanSkipTripTableRefresh = false;
+        this._bIncomingFromCameraScan = false;
         var oModel = this.getView().getModel();
         var that = this;
         this._sPendingOrderDetailPo = sPoNumber;
@@ -1391,21 +1393,48 @@ sap.ui.define(
           Name: "",
           Deleted: false,
         };
-        var that = this;
-        oModel.create("/OrderDetails", oPayload, {
-          headers: {
-            "X-Requested-With": "X",
-            "Content-Type": "application/json",
+        var fnCreateOrderDetail = function () {
+          oModel.create("/OrderDetails", oPayload, {
+            headers: {
+              "X-Requested-With": "X",
+              "Content-Type": "application/json",
+            },
+            success: function () {
+              if (typeof fnDone === "function") {
+                fnDone();
+              }
+            },
+            error: function () {
+              if (typeof fnDone === "function") {
+                fnDone();
+              }
+            },
+          });
+        };
+
+        oModel.read("/OrderDetails", {
+          filters: [
+            new Filter("TripNumber", FilterOperator.EQ, sTripPadded),
+            new Filter("DocType", FilterOperator.EQ, "PO"),
+            new Filter("DocumentNumber", FilterOperator.EQ, sPo),
+          ],
+          urlParameters: {
+            $top: "1",
+            $skip: "0",
           },
-          success: function () {
-            if (typeof fnDone === "function") {
-              fnDone();
+          success: function (oData) {
+            var aRows = (oData && oData.results) || [];
+            if (aRows.length > 0) {
+              if (typeof fnDone === "function") {
+                fnDone();
+              }
+              return;
             }
+            fnCreateOrderDetail();
           },
           error: function () {
-            if (typeof fnDone === "function") {
-              fnDone();
-            }
+            // On check failure, proceed with create and let backend enforce uniqueness.
+            fnCreateOrderDetail();
           },
         });
       },
@@ -1453,6 +1482,7 @@ sap.ui.define(
         } else {
           this._sPendingOrderDetailPo = null;
           this._bIncomingScanSkipTripTableRefresh = false;
+          this._bIncomingFromCameraScan = false;
           MessageToast.show(
             "Request completed but no trip number was returned."
           );
@@ -1505,6 +1535,7 @@ sap.ui.define(
         sPoForDedupReset
       ) {
         this._bIncomingScanSkipTripTableRefresh = false;
+        this._bIncomingFromCameraScan = false;
         if (this._oIncomingEntryMethodDialog) {
           this._oIncomingEntryMethodDialog.setBusy(false);
         }
@@ -2436,6 +2467,10 @@ sap.ui.define(
        * @private
        */
       _onRouteMatched: function () {
+        if (!this._bHomeInitialLoadDone) {
+          this._bHomeInitialLoadDone = true;
+          return;
+        }
         // Small delay to ensure view is fully rendered before refreshing
         setTimeout(function() {
           this.onRefresh();
@@ -2775,6 +2810,11 @@ sap.ui.define(
         );
 
         this._sVehicleNumberNeedleLower = sVehicleNeedleLower;
+        // Prevent growing top-up loops (e.g. $skip=24&$top=1) when rows are hidden
+        // by client-side vehicle filtering.
+        if (oTable && typeof oTable.setGrowing === "function") {
+          oTable.setGrowing(!sVehicleNeedleLower);
+        }
 
         oBinding.filter(aFilters.length ? new Filter(aFilters, true) : []);
         // Apply immediately for current items (updateFinished will also re-apply after refresh/growing).

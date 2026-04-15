@@ -29,6 +29,7 @@ sap.ui.define([
 			this._oEventBus.subscribe("TripData", "Updated", this._refreshPageTitleModel, this);
 			this._oEventBus.subscribe("TripData", "Updated", this._updateLoadingUnloadingTabs, this);
 			this._oEventBus.subscribe("TripData", "Updated", this._applyVehicleTypeTabRule, this);
+			this._oEventBus.subscribe("TripData", "Updated", this._updateTripLockState, this);
 			this._oEventBus.subscribe("TripData", "MovementTypeChanged", this._updateLoadingUnloadingTabs, this);
 			this._oEventBus.subscribe("TripData", "Updated", this._updateCancelButtonVisibility, this);
 			this._oEventBus.subscribe("Stage", "TripCreated", this._onTripCreated, this);
@@ -36,11 +37,13 @@ sap.ui.define([
 			this._oEventBus.subscribe("Stage", "ClearAllTabs", this._onClearAllTabs, this);
 			this._bPendingVehicleTypeTabAutoSelect = false;
 			this._sLastSelectedStageTabKey = "gateIn";
-			this._ensureStageUiModel();
+			this.getView().setModel(this._ensureStageUiModel(), "stageUi");
+			this._updateTripLockState();
 			this._updateReportingPlacementByVehicleType();
 			
 		},
 	onAfterRendering: function() {
+		this._updateTripLockState();
 		this._updateCancelButtonVisibility();
 		this._updateTabVisibilityForCreateMode();
 		this._updateLoadingUnloadingTabs(); // Call after _updateTabVisibilityForCreateMode to ensure movement type logic takes precedence
@@ -51,6 +54,7 @@ sap.ui.define([
 			this._oEventBus?.unsubscribe("TripData", "Updated", this._refreshPageTitleModel, this);
 			this._oEventBus?.unsubscribe("TripData", "Updated", this._updateLoadingUnloadingTabs, this);
 			this._oEventBus?.unsubscribe("TripData", "Updated", this._applyVehicleTypeTabRule, this);
+			this._oEventBus?.unsubscribe("TripData", "Updated", this._updateTripLockState, this);
 			this._oEventBus?.unsubscribe("TripData", "MovementTypeChanged", this._updateLoadingUnloadingTabs, this);
 			this._oEventBus?.unsubscribe("TripData", "Updated", this._updateCancelButtonVisibility, this);
 			this._oEventBus?.unsubscribe("Stage", "TripCreated", this._onTripCreated, this);
@@ -163,6 +167,7 @@ sap.ui.define([
 		this.resetPageTitleModel();   // ← finally clears
 		this._bPendingVehicleTypeTabAutoSelect = true;
 		this._applyVehicleTypeTabRule();
+		this._updateTripLockState();
 		this._updateCancelButtonVisibility();
 		this._updateTabVisibilityForCreateMode();
 		this._updateLoadingUnloadingTabs(); // Call after _updateTabVisibilityForCreateMode to ensure movement type logic takes precedence
@@ -200,6 +205,7 @@ sap.ui.define([
 				}
 
 				this._refreshPageTitleModel();
+				this._updateTripLockState();
 				this._updateCancelButtonVisibility();
 				this._updateTabVisibilityForCreateMode();
 				this._updateLoadingUnloadingTabs(); // Call after _updateTabVisibilityForCreateMode to ensure movement type logic takes precedence
@@ -240,11 +246,95 @@ sap.ui.define([
 			var oStageUi = sap.ui.getCore().getModel("stageUi");
 			if (!oStageUi) {
 				oStageUi = new JSONModel({
-					showReportingInGateOut: false
+					showReportingInGateOut: false,
+					tripLocked: false
 				});
 				sap.ui.getCore().setModel(oStageUi, "stageUi");
 			}
+			if (oStageUi.getProperty("/tripLocked") === undefined) {
+				oStageUi.setProperty("/tripLocked", false);
+			}
 			return oStageUi;
+		},
+
+		_isTripCompletedStatus: function (sTripStatus) {
+			var sNormalizedStatus = String(sTripStatus || "")
+				.trim()
+				.toLowerCase()
+				.replace(/[\s_-]+/g, "");
+			return sNormalizedStatus === "completed" || sNormalizedStatus === "tripcompleted" || sNormalizedStatus === "done";
+		},
+
+		_updateTripLockState: function () {
+			var oStageUi = this._ensureStageUiModel();
+			var oTripDataModel = sap.ui.getCore().getModel("TripData");
+			var sTripStatus = oTripDataModel ? oTripDataModel.getProperty("/TripStatus") : "";
+			if (!sTripStatus && this._oPageTitleModel) {
+				sTripStatus = this._oPageTitleModel.getProperty("/tripStatus") || "";
+			}
+			var bTripLocked = this._isTripCompletedStatus(sTripStatus);
+			oStageUi.setProperty("/tripLocked", bTripLocked);
+			var oGlobalModel = sap.ui.getCore().getModel("globalData");
+			if (!oGlobalModel) {
+				oGlobalModel = new JSONModel({
+					TripNumber: "",
+					TripLocked: false
+				});
+				sap.ui.getCore().setModel(oGlobalModel, "globalData");
+			}
+			oGlobalModel.setProperty("/TripLocked", bTripLocked);
+			this._applyTripLockActionButtons();
+		},
+
+		_applyTripLockActionButtons: function () {
+			var oStageUi = this._ensureStageUiModel();
+			var bTripLocked = !!oStageUi.getProperty("/tripLocked");
+			var oView = this.getView();
+			if (!oView || typeof oView.findAggregatedObjects !== "function") {
+				return;
+			}
+
+			if (!this._mTripLockButtonVisibility) {
+				this._mTripLockButtonVisibility = {};
+			}
+
+			var aButtons = oView.findAggregatedObjects(true, function (oControl) {
+				return !!(oControl && typeof oControl.isA === "function" && oControl.isA("sap.m.Button"));
+			});
+
+			aButtons.forEach(function (oButton) {
+				if (!this._isTripLockTargetButton(oButton)) {
+					return;
+				}
+
+				var sButtonId = oButton.getId();
+				if (bTripLocked) {
+					if (this._mTripLockButtonVisibility[sButtonId] === undefined) {
+						this._mTripLockButtonVisibility[sButtonId] = oButton.getVisible();
+					}
+					oButton.setVisible(false);
+					return;
+				}
+
+				if (this._mTripLockButtonVisibility[sButtonId] !== undefined) {
+					oButton.setVisible(this._mTripLockButtonVisibility[sButtonId]);
+					delete this._mTripLockButtonVisibility[sButtonId];
+				}
+			}.bind(this));
+		},
+
+		_isTripLockTargetButton: function (oButton) {
+			if (!oButton) {
+				return false;
+			}
+			var sCombined = [
+				oButton.getId ? oButton.getId() : "",
+				oButton.getText ? oButton.getText() : "",
+				oButton.getTooltip ? oButton.getTooltip() : "",
+				oButton.getIcon ? oButton.getIcon() : ""
+			].join(" ").toLowerCase();
+
+			return /(save|edit|delete|add|create|update)/.test(sCombined);
 		},
 
 		_updateReportingPlacementByVehicleType: function () {
@@ -535,6 +625,25 @@ sap.ui.define([
 				}
 				return;
 			}
+			var fnNormalizeTrip = function (sValue) {
+				var sNorm = String(sValue || "").trim();
+				return /^\d+$/.test(sNorm) ? sNorm.padStart(10, "0") : sNorm;
+			};
+			var oExistingTripData = sap.ui.getCore().getModel("TripData");
+			var sExistingTrip = oExistingTripData && oExistingTripData.getProperty
+				? oExistingTripData.getProperty("/TripNumber")
+				: "";
+			if (oExistingTripData && fnNormalizeTrip(sExistingTrip) === fnNormalizeTrip(sTrip)) {
+				// Trip already loaded (e.g. preloaded from Home page); reuse it to avoid duplicate read.
+				this._oEventBus.publish("TripData", "Updated");
+				this._oEventBus.publish("Stage", "TripCreated", {
+					tripNumber: sTrip
+				});
+				if (typeof fnDone === "function") {
+					fnDone();
+				}
+				return;
+			}
 			oService.read("/TripDetails('" + sTrip + "')", {
 				urlParameters: {
 					$expand: "OrderDetails,ItemDetails,Feeds,ActivityHistory",
@@ -607,8 +716,7 @@ sap.ui.define([
 			var sLowerStatus = sTripStatus.toLowerCase();
 			// Gate Out: "gate out" or "gate-out"
 			var bIsGateOut = sLowerStatus === "gate out" || sLowerStatus === "gate-out";
-			// Trip Completed: "completed", "trip completed", "done"
-			var bIsCompleted = sLowerStatus === "completed" || sLowerStatus === "trip completed" || sLowerStatus === "done";
+			var bIsCompleted = this._isTripCompletedStatus(sTripStatus);
 
 			// Hide button if Gate Out or Trip Completed
 			oCancelButton.setVisible(!bIsGateOut && !bIsCompleted);

@@ -123,8 +123,24 @@ sap.ui.define(
             const sTripNumber = oArgs.tripNo;
             // Change History shown only once at end of merged Gate In screen (GateIn.view.xml)
             this.getView().byId("changeHistoryPanel").setVisible(false);
-            
-            this._loadTripDetails(sTripNumber);
+
+            var fnNormalizeTrip = function (sTrip) {
+              var sVal = String(sTrip || "").trim();
+              return /^\d+$/.test(sVal) ? sVal.padStart(10, "0") : sVal;
+            };
+            var sReqTrip = fnNormalizeTrip(sTripNumber);
+            var oCoreTripData = sap.ui.getCore().getModel("TripData");
+            var sCoreTrip = oCoreTripData
+              ? fnNormalizeTrip(oCoreTripData.getProperty("/TripNumber"))
+              : "";
+            if (oCoreTripData && sReqTrip && sReqTrip === sCoreTrip) {
+              // Trip is already loaded by Stage route loader; reuse model and avoid duplicate backend read.
+              this.getView().setModel(oCoreTripData, "TripData");
+              this._setInputsEnabled(false);
+              this._setButtonStates(true, true);
+            } else {
+              this._loadTripDetails(sTripNumber);
+            }
             
             // Update scanner visibility when trip details are loaded
             setTimeout(function() {
@@ -708,9 +724,11 @@ sap.ui.define(
             }.bind(this));
           }
 
-          // Re-load suggestion sources after reset so type-ahead keeps working.
-          this._loadVehicleSuggestions();
+          // Reload Vehicle Type suggestions after reset because this controller
+          // instance is reused and onInit does not run on every "Report Vehicle".
           this._loadVehicleTypeSuggestions();
+
+          // Keep VehicleDetails de-duplicated (loaded on demand / initial startup).
 
           const oPoSugg = this.getView().getModel("poNumberSuggestions");
           if (oPoSugg) {
@@ -3072,6 +3090,7 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
           var oReportingPanel = this.getView().byId("reportingDetailsPanel");
           var oSaveButton = this.getView().byId("btnSaveReporting");
           var oTripData = sap.ui.getCore().getModel("TripData");
+          var bTripLocked = !!(sap.ui.getCore().getModel("globalData")?.getProperty("/TripLocked"));
 
           var oGlobalForMode = sap.ui.getCore().getModel("globalData");
           var bIncomingFlow =
@@ -3168,7 +3187,7 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
               oReportingPanel.setVisible(true);
             }
             if (oSaveButton) {
-              oSaveButton.setVisible(true);
+              oSaveButton.setVisible(!bTripLocked);
             }
 
             // In this case reporting is not done via scanner
@@ -3262,7 +3281,7 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
           
           // Update save button visibility - hide save button when scanner is visible
           if (oSaveButton) {
-            oSaveButton.setVisible(!bShowScanner);
+            oSaveButton.setVisible(!bShowScanner && !bTripLocked);
           }
 
           // Store scanner reporting mode in globalData model so other tabs can react
