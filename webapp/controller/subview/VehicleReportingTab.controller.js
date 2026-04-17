@@ -73,6 +73,17 @@ sap.ui.define(
           }
         },
 
+        _validateNumericDocNumber10: function (sValue, sLabel, bShowMessage) {
+          var sTrimmed = String(sValue || "").trim();
+          if (!/^\d{1,10}$/.test(sTrimmed)) {
+            if (bShowMessage) {
+              MessageBox.error("Enter a valid numeric " + sLabel + " (max 10 digits)");
+            }
+            return "";
+          }
+          return sTrimmed;
+        },
+
         onAfterRendering: function () {
           // Use setTimeout to ensure controls exist before updating scanner visibility
           setTimeout(function() {
@@ -168,6 +179,7 @@ sap.ui.define(
                 // Convert boolean to "Y"/"N" format for frontend
                 oData.WeighmentRequired = oData.Weighment_Req === true || oData.Weighment_Req === "X" ? "Y" : "N";
               }
+              that._hydrateReportingUiAliases(oData);
               
               // Create JSON model for trip data
               const oTripDataModel = new sap.ui.model.json.JSONModel(oData);
@@ -250,6 +262,7 @@ sap.ui.define(
                 // Convert boolean to "Y"/"N" format for frontend
                 oData.WeighmentRequired = oData.Weighment_Req === true || oData.Weighment_Req === "X" ? "Y" : "N";
               }
+              that._hydrateReportingUiAliases(oData);
               
               // Create JSON model for trip data
               const oTripDataModel = new sap.ui.model.json.JSONModel(oData);
@@ -390,9 +403,16 @@ sap.ui.define(
           aInputMappings.forEach(function (oMap) {
             var oControl = this.byId(oMap.id);
             if (oControl && oControl.getValue) {
+              var sInputValue = String(oControl.getValue() || "").trim();
+              if (oMap.id === "idVehicleNumber" || oMap.id === "idDriverLicense") {
+                sInputValue = sInputValue.toUpperCase();
+                if (oControl.setValue && oControl.getValue() !== sInputValue) {
+                  oControl.setValue(sInputValue);
+                }
+              }
               oTripDataModel.setProperty(
                 oMap.path,
-                String(oControl.getValue() || "").trim()
+                sInputValue
               );
             }
           }.bind(this));
@@ -473,6 +493,7 @@ sap.ui.define(
           delete oData.MovementScenarioItemKey;
           // Billing reference may exist on TripData from outgoing prefill/UI; omit from POST /TripDetails create.
           delete oData.BillingDocument;
+          this._applyReportingFieldsToTripPayload(oData);
 
           oData.MovementScenario =
             movementScenario !== undefined && movementScenario !== null && movementScenario !== ""
@@ -483,12 +504,7 @@ sap.ui.define(
               ? Mtype
               : oData.MovementType;
           //   oData.LR_Number = LRNumber;
-          var oDate = this.byId("idLRDate").getDateValue(); // JS Date object
-          if (oDate) {
-            oData.LR_Date = oDate.toISOString().split(".")[0];
-          } else {
-            oData.LR_Date =  null;
-          }
+          oData.LR_Date = this._getNormalizedDateTimeForPayload("idLRDate", "/LR_Date");
 
           const that = this;
 
@@ -612,6 +628,7 @@ sap.ui.define(
           delete oUpdateData.WeighmentRequired;
           delete oUpdateData.Weighment_Req;
           delete oUpdateData.MovementScenarioItemKey;
+          this._applyReportingFieldsToTripPayload(oUpdateData);
 
           oUpdateData.MovementScenario =
             movementScenario !== undefined && movementScenario !== null && movementScenario !== ""
@@ -623,12 +640,7 @@ sap.ui.define(
               : oUpdateData.MovementType;
           
           // Handle LR_Date format (same as create)
-          var oDate = this.byId("idLRDate").getDateValue(); // JS Date object
-          if (oDate) {
-            oUpdateData.LR_Date = oDate.toISOString().split(".")[0];
-          } else {
-            oUpdateData.LR_Date = null;
-          }
+          oUpdateData.LR_Date = this._getNormalizedDateTimeForPayload("idLRDate", "/LR_Date");
 
           // Only update TripDetails('<TripNumber>') – no deep update
           this.getView().setBusy(true);
@@ -760,6 +772,12 @@ sap.ui.define(
             DriverLicence: "",
             TripNumber: "",
             AdditionalInfo: "",
+            RefDocType: "",
+            RefDocNo: "",
+            EwbNo: "",
+            EwbActStartDate: "",
+            InvRefNo: "",
+            InvRefDate: "",
           });
           this.getView().setModel(oTripData, "TripData");
           this._syncMovementScenarioItemKeyOnTripData(oTripData);
@@ -767,6 +785,10 @@ sap.ui.define(
           const oMovementScenarioCb = this.byId("idMovementScenario");
           if (oMovementScenarioCb && oMovementScenarioCb.setSelectedKey) {
             oMovementScenarioCb.setSelectedKey("");
+          }
+          const oVehicleSizeSelect = this.byId("idVehicleSize");
+          if (oVehicleSizeSelect && oVehicleSizeSelect.setSelectedKey) {
+            oVehicleSizeSelect.setSelectedKey("");
           }
         },
 
@@ -864,12 +886,10 @@ sap.ui.define(
           const requiredFields = [
             "MovementScenarioItemKey",
             "MovementTypeDesc",
-            "VehicleNumber",
             "VehicleType",
             "TransporterName",
             "DriverName",
             "DriverMobile",
-            "DriverLicence",
           ];
           const isEditMode = this._mode === "EDIT";
           const requiredInCurrentMode = isEditMode
@@ -974,6 +994,21 @@ sap.ui.define(
           }
         },
 
+        onDriverLicenseLiveChange: function (oEvent) {
+          const oInput = oEvent.getSource();
+          const sRawValue = oEvent.getParameter("value") || "";
+          const sUpperValue = sRawValue.toUpperCase();
+
+          if (oInput && oInput.setValue && sRawValue !== sUpperValue) {
+            oInput.setValue(sUpperValue);
+          }
+
+          const oTripDataModel = this.getView().getModel("TripData");
+          if (oTripDataModel) {
+            oTripDataModel.setProperty("/DriverLicence", String(sUpperValue || "").trim());
+          }
+        },
+
         /* ===========================================================
          * FORMATTERS: CreatedOn / CreatedTime (Change History)
          * =========================================================== */
@@ -1049,6 +1084,26 @@ sap.ui.define(
           return sStr.replace(/^0+/, "") || "0";
         },
 
+        _hydrateReportingUiAliases: function (oData) {
+          if (!oData || typeof oData !== "object") {
+            return;
+          }
+
+          // Backend persists canonical names; reporting UI binds to these aliases.
+          if (!oData.RefDocType && oData.DocType) {
+            oData.RefDocType = oData.DocType;
+          }
+          if (!oData.RefDocNo && oData.DocumentNumber) {
+            oData.RefDocNo = oData.DocumentNumber;
+          }
+          if (!oData.EwbNo && oData.EwayBill) {
+            oData.EwbNo = oData.EwayBill;
+          }
+          if (!oData.EwbActStartDate && oData.EwaybillDate) {
+            oData.EwbActStartDate = oData.EwaybillDate;
+          }
+        },
+
         /**
          * Format LR Date to show only date, month, and year (no time)
          */
@@ -1063,6 +1118,15 @@ sap.ui.define(
           if (vDate instanceof Date) {
             oDate = vDate;
           }
+          // Handle OData date format (/Date(...)/)
+          else if (typeof vDate === "string" && vDate.indexOf("/Date") === 0) {
+            var iTimestamp = parseInt(vDate.replace(/\D/g, ""), 10);
+            if (!isNaN(iTimestamp)) {
+              oDate = new Date(iTimestamp);
+            } else {
+              return "";
+            }
+          }
           // Handle string date (e.g., "2023-12-31T10:30:00" or "2023-12-31")
           else if (typeof vDate === "string") {
             // If string contains time, extract only date part
@@ -1074,15 +1138,6 @@ sap.ui.define(
               vDate = vDate.split(" ")[0];
             }
             oDate = new Date(vDate);
-          }
-          // Handle OData date format (/Date(...)/)
-          else if (typeof vDate === "string" && vDate.indexOf("/Date") === 0) {
-            var iTimestamp = parseInt(vDate.replace(/\D/g, ""), 10);
-            if (!isNaN(iTimestamp)) {
-              oDate = new Date(iTimestamp);
-            } else {
-              return "";
-            }
           }
           else {
             return "";
@@ -1098,6 +1153,101 @@ sap.ui.define(
           var sMonth = String(oDate.getMonth() + 1).padStart(2, "0");
           var sDay = String(oDate.getDate()).padStart(2, "0");
           return sYear + "-" + sMonth + "-" + sDay;
+        },
+
+        _getNormalizedDateTimeForPayload: function (sControlId, sTripDataPath) {
+          var oCtrl = this.byId(sControlId);
+          var oDate = oCtrl && oCtrl.getDateValue ? oCtrl.getDateValue() : null;
+
+          if (!oDate) {
+            var oTripDataModel = this.getView().getModel("TripData");
+            var vRaw = oTripDataModel ? oTripDataModel.getProperty(sTripDataPath) : null;
+            oDate = this._parseDateLikeValue(vRaw);
+          }
+
+          if (!oDate || isNaN(oDate.getTime())) {
+            return null;
+          }
+
+          var sYear = oDate.getFullYear();
+          var sMonth = String(oDate.getMonth() + 1).padStart(2, "0");
+          var sDay = String(oDate.getDate()).padStart(2, "0");
+          return sYear + "-" + sMonth + "-" + sDay + "T00:00:00";
+        },
+
+        _applyReportingFieldsToTripPayload: function (oPayload) {
+          if (!oPayload) {
+            return;
+          }
+
+          var sRefDocType = String(oPayload.RefDocType || "").trim();
+          var sRefDocNo = String(oPayload.RefDocNo || "").trim();
+          var sEwbNo = String(oPayload.EwbNo || "").trim();
+          var sInvRefNo = String(oPayload.InvRefNo || "").trim();
+          var sEwbDate = this._getNormalizedDateTimeForPayload("idEwbDate", "/EwbActStartDate");
+          var sInvRefDate = this._getNormalizedDateTimeForPayload("idInvDcDate", "/InvRefDate");
+
+          if (sRefDocType) {
+            oPayload.DocType = sRefDocType;
+          }
+          if (sRefDocNo) {
+            oPayload.DocumentNumber = sRefDocNo;
+          }
+          if (sEwbNo) {
+            oPayload.EwayBill = sEwbNo;
+          }
+          if (sInvRefNo) {
+            oPayload.InvRefNo = sInvRefNo;
+          }
+          if (sEwbDate) {
+            oPayload.EwaybillDate = sEwbDate;
+          }
+          if (sInvRefDate) {
+            oPayload.InvRefDate = sInvRefDate;
+          }
+
+          // Keep UI-only aliases out of TripDetails CRUD payload.
+          delete oPayload.RefDocType;
+          delete oPayload.RefDocNo;
+          delete oPayload.EwbNo;
+          delete oPayload.EwbActStartDate;
+        },
+
+        _parseDateLikeValue: function (vDate) {
+          if (!vDate) {
+            return null;
+          }
+
+          if (vDate instanceof Date) {
+            return isNaN(vDate.getTime()) ? null : vDate;
+          }
+
+          if (typeof vDate !== "string") {
+            return null;
+          }
+
+          var sVal = vDate.trim();
+          if (!sVal) {
+            return null;
+          }
+
+          if (sVal.indexOf("/Date") === 0) {
+            var iTimestamp = parseInt(sVal.replace(/\D/g, ""), 10);
+            if (!isNaN(iTimestamp)) {
+              var oFromOData = new Date(iTimestamp);
+              return isNaN(oFromOData.getTime()) ? null : oFromOData;
+            }
+            return null;
+          }
+
+          if (sVal.indexOf("T") > 0) {
+            sVal = sVal.split("T")[0];
+          } else if (sVal.indexOf(" ") > 0) {
+            sVal = sVal.split(" ")[0];
+          }
+
+          var oFromString = new Date(sVal);
+          return isNaN(oFromString.getTime()) ? null : oFromString;
         },
 
         /* ===========================================================
@@ -2207,6 +2357,22 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
               new sap.ui.model.json.JSONModel({ items: aItems || [] }),
               "vehicleTypeSuggestions"
             );
+            var oTripDataModel = that.getView().getModel("TripData");
+            var sCurrentVehicleType = oTripDataModel
+              ? String(oTripDataModel.getProperty("/VehicleType") || "").trim()
+              : "";
+            if (
+              oTripDataModel &&
+              !sCurrentVehicleType &&
+              Array.isArray(aItems) &&
+              aItems.length > 1
+            ) {
+              oTripDataModel.setProperty("/VehicleType", aItems[1].ConfigID || "");
+              oTripDataModel.setProperty(
+                "/VehicleTypeDesc",
+                aItems[1].Description || ""
+              );
+            }
             that._syncComboSelectionByKey("idVehicleType", "/VehicleType");
           };
 
@@ -2250,8 +2416,19 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
         },
 
         onVehicleNumberLiveChange: function (oEvent) {
-          const sValue = (oEvent.getParameter("value") || "").trim();
-          this._applyVehicleNumberSuggestions(sValue);
+          const oInput = oEvent.getSource();
+          const sRawValue = oEvent.getParameter("value") || "";
+          const sUpperValue = sRawValue.toUpperCase();
+          if (oInput && oInput.setValue && sRawValue !== sUpperValue) {
+            oInput.setValue(sUpperValue);
+          }
+
+          const oTripDataModel = this.getView().getModel("TripData");
+          if (oTripDataModel) {
+            oTripDataModel.setProperty("/VehicleNumber", String(sUpperValue || "").trim());
+          }
+
+          this._applyVehicleNumberSuggestions(String(sUpperValue || "").trim());
         },
 
         _applyVehicleNumberSuggestions: function (sValue) {
@@ -2319,7 +2496,7 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
           if (oTripDataModel) {
             oTripDataModel.setProperty("/VehicleNumber", oVehicle.VehicleNumber || "");
             oTripDataModel.setProperty("/VehicleType", oVehicle.VehicleType || "");
-            oTripDataModel.setProperty("/VehicleSize", oVehicle.VehicleSize || "");
+            oTripDataModel.setProperty("/VehicleSize", "");
             oTripDataModel.setProperty("/TransporterName", oVehicle.TransporterName || "");
           }
 
@@ -2328,10 +2505,8 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
             this.byId("idTransporterName").setValue(oVehicle.TransporterName);
           }
           
-          // Set Vehicle Size (direct value)
-          if (oVehicle.VehicleSize) {
-            this.byId("idVehicleSize").setValue(oVehicle.VehicleSize);
-          }
+          // Keep Vehicle Size unselected in Reporting.
+          this.byId("idVehicleSize").setSelectedKey("");
           
           // Set Vehicle Type - need to get description if VehicleType is a code
           if (oVehicle.VehicleType) {
@@ -2403,7 +2578,7 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
 
           if (oVehicle) {
             this.byId("idVehicleType").setValue(oVehicle.VehicleType);
-            this.byId("idVehicleSize").setValue(oVehicle.VehicleSize);
+            this.byId("idVehicleSize").setSelectedKey("");
             this.byId("idTransporterName").setValue(oVehicle.TransporterName);
           } else {
             // Vehicle not found in VHModel
@@ -2630,6 +2805,13 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
           }
 
           const sSelectedKey = oCombo.getSelectedKey ? (oCombo.getSelectedKey() || "") : "";
+          if (sSelectedKey === "03") {
+            oTripDataModel.setProperty("/VehicleType", "03");
+            oTripDataModel.setProperty("/VehicleTypeDesc", sValue);
+            this._syncTripDataToCoreAndNotify(oTripDataModel);
+            return;
+          }
+
           if (sSelectedKey) {
             const aItems = (this.getView().getModel("vehicleTypeSuggestions")?.getProperty("/items")) || [];
             const oSelectedItem = aItems.find(function (item) {
@@ -2849,11 +3031,11 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
         },
 
         _submitPoNumberFromSearch: function (sPo) {
-          if (!sPo) {
-            MessageToast.show("Enter or select a PO number");
+          var sPoValidated = this._validateNumericDocNumber10(sPo, "PO number", true);
+          if (!sPoValidated) {
             return;
           }
-          this._postAsnDetails(null, null, sPo);
+          this._postAsnDetails(null, null, sPoValidated);
         },
 
         //---------------------------------------------
@@ -2933,11 +3115,11 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
             // ASN is not available - treat input as PO number
             var sPoNumber = sScannedCode.trim();
             
-            // Validate PO number (basic validation - adjust as needed)
-            if (sPoNumber && sPoNumber.length > 0) {
+            // For debounced manual typing, avoid toasts on partial values.
+            sPoNumber = this._validateNumericDocNumber10(sPoNumber, "PO number", !bSkipPostSuccessModelRefresh);
+            if (sPoNumber) {
               this._postAsnDetails(null, null, sPoNumber, bSkipPostSuccessModelRefresh);
-            } else {
-              MessageToast.show("Please enter a valid PO number");
+            } else if (!bSkipPostSuccessModelRefresh) {
               this._clearAndRefocusScanner();
             }
           }
@@ -2989,14 +3171,55 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
               OrgId: sOrgId
             };
           } else if (sPoNumber) {
+            var sPoValidated = this._validateNumericDocNumber10(
+              sPoNumber,
+              "PO number",
+              !bSkipPostSuccessModelRefresh
+            );
+            if (!sPoValidated) {
+              if (!bSkipPostSuccessModelRefresh) {
+                this._clearAndRefocusScanner();
+              }
+              return;
+            }
             // PO Number flow - include PoNumber
             oPayload = {
-              PoNumber: sPoNumber
+              PoNumber: sPoValidated
             };
           } else {
             MessageToast.show("Invalid input: Please provide either ASN details or PO number");
             this._clearAndRefocusScanner();
             return;
+          }
+
+          // Attach additional reporting fields when available.
+          var oTripDataModel = this.getView().getModel("TripData");
+          var sRefDocType = String(oTripDataModel?.getProperty("/RefDocType") || "").trim();
+          var sRefDocNo = String(oTripDataModel?.getProperty("/RefDocNo") || "").trim();
+          var sEwbNo = String(oTripDataModel?.getProperty("/EwbNo") || "").trim();
+          var sInvRefNo = String(oTripDataModel?.getProperty("/InvRefNo") || "").trim();
+          var oEwbDateCtrl = this.byId("idEwbDate");
+          var oInvDateCtrl = this.byId("idInvDcDate");
+          var oEwbDate = oEwbDateCtrl?.getDateValue?.();
+          var oInvRefDate = oInvDateCtrl?.getDateValue?.();
+
+          if (sRefDocType) {
+            oPayload.InvRefDocType = sRefDocType;
+          }
+          if (sRefDocNo) {
+            oPayload.PoIbdNumber = sRefDocNo;
+          }
+          if (sEwbNo) {
+            oPayload.EwbNo = sEwbNo;
+          }
+          if (sInvRefNo) {
+            oPayload.InvRefNo = sInvRefNo;
+          }
+          if (oEwbDate && !isNaN(oEwbDate.getTime())) {
+            oPayload.EwbActStartDate = oEwbDate.toISOString().split(".")[0];
+          }
+          if (oInvRefDate && !isNaN(oInvRefDate.getTime())) {
+            oPayload.InvRefDate = oInvRefDate.toISOString().split(".")[0];
           }
 
           var oModel = this.getView().getModel();
@@ -3185,6 +3408,7 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
             }
             if (oReportingPanel) {
               oReportingPanel.setVisible(true);
+              oReportingPanel.setExpanded(true);
             }
             if (oSaveButton) {
               oSaveButton.setVisible(!bTripLocked);
@@ -3277,6 +3501,9 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
           // Update form panel visibility - hide form when scanner is visible
           if (oReportingPanel) {
             oReportingPanel.setVisible(!bShowScanner);
+            if (!bShowScanner) {
+              oReportingPanel.setExpanded(true);
+            }
           }
           
           // Update save button visibility - hide save button when scanner is visible

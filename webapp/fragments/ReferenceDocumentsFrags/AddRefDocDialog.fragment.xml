@@ -47,57 +47,83 @@
                 change=".onRefDocNumberChange"
             />
 
-            <Label text="Document Date" />
+            <Label
+                text="Document Date"
+                visible="false"
+            />
             <DatePicker
                 id="idRefDocDate"
                 valueFormat="yyyy-MM-dd"
                 displayFormat="medium"
                 placeholder="{i18n>datePlaceholderExample}"
                 editable="false"
+                visible="false"
             />
 
-            <Label text="Sending / Receiving Party Code" />
+            <Label
+                text="Sending / Receiving Party Code"
+                
+            />
             <Input
                 id="idRefDocPartyCode"
                 valueLiveUpdate="true"
                 editable="false"
+                
             />
 
-            <Label text="Sending / Receiving Party Name" />
+            <Label
+                text="Sending / Receiving Party Name"
+                
+            />
             <Input
                 id="idRefDocPartyName"
                 valueLiveUpdate="true"
                 editable="false"
+                
             />
 
             <Label text="EwayBill Number" />
             <Input
                 id="idRefDocEwayBillNumber"
                 valueLiveUpdate="true"
-                editable="false"
+                editable="true"
             />
 
-            <Label text="EwayBill Date" />
+            <Label text="EwayBill Date" visible="false"/>
             <DatePicker
                 id="idRefDocEwayBillDate"
                 valueFormat="yyyy-MM-dd"
                 displayFormat="medium"
                 placeholder="{i18n>datePlaceholderExample}"
-                editable="false"
+                editable="true"
+                visible="false"
             />
 
-            <Label text="Order Number" />
+            <Label text="Inv/Dc" />
             <Input
                 id="idRefDocSalesDoc"
                 valueLiveUpdate="true"
-                editable="false"
+                editable="true"
             />
 
-            <Label text="Order Type" />
+            <Label text="INV/DC Date" />
+            <DatePicker
+                id="idRefDocInvRefDate"
+                valueFormat="yyyy-MM-dd"
+                displayFormat="medium"
+                placeholder="{i18n>datePlaceholderExample}"
+                editable="true"
+            />
+
+            <Label
+                text="Order Type"
+                visible="false"
+            />
             <Input
                 id="idRefDocSalesDoctype"
                 valueLiveUpdate="true"
                 editable="false"
+                visible="false"
             />
 
         </form:SimpleForm>

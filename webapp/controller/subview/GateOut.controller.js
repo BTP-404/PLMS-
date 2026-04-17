@@ -96,6 +96,17 @@ sap.ui.define(
           this.loadExitGateNumber();
         },
 
+        _validateNumericDocNumber10: function (sValue, sLabel, bShowMessage) {
+          var sTrimmed = String(sValue || "").trim();
+          if (!/^\d{1,10}$/.test(sTrimmed)) {
+            if (bShowMessage) {
+              MessageBox.error("Enter a valid numeric " + sLabel + " (max 10 digits)");
+            }
+            return "";
+          }
+          return sTrimmed;
+        },
+
         _initGateOutAttachmentsModel: function () {
           if (!this._oGateOutAttachmentsModel) {
             this._oGateOutAttachmentsModel = new JSONModel({ attachments: [] });
@@ -229,13 +240,24 @@ sap.ui.define(
               MessageBox.error("OData model is not loaded.");
               return;
             }
+            var aPreviousRows = aRows.slice();
+            aRows.splice(iIndex, 1);
+            if (!aRows.length) {
+              aRows.push(this._getEmptyTrackingRow());
+            }
+            this._setTrackingItems(oTrackingModel, aRows);
+            this._recalculateTrackingTotals();
+            this._persistTrackingRows();
+            oTrackingModel.setProperty("/isPosted", false);
             var sEntityPath = this._buildEmptyBinsPath(sTripNumber, sDocumentNumber, sItemNo);
             this.oModel.remove(sEntityPath, {
               success: function () {
-                this._loadGateOutBinTrolleyData();
                 MessageToast.show("Row deleted.");
               }.bind(this),
               error: function () {
+                this._setTrackingItems(oTrackingModel, aPreviousRows);
+                this._recalculateTrackingTotals();
+                this._persistTrackingRows();
                 MessageBox.error("Failed to delete row.");
               }
             });
@@ -358,8 +380,8 @@ sap.ui.define(
                 ItemNo: String(oRow.ItemNo || "").trim(),
                 Customer: String(oRow.Customer || ""),
                 Material: String(oRow.Material || ""),
-                BinType: String(oRow.BinType || oRow.BinTypes || oRow.BinTypeDesc || oRow.BinTypeDescription || "").trim(),
-                BinTypeDesc: String(oRow.BinTypeDesc || oRow.BinTypeDescription || oRow.BinType || oRow.BinTypes || "").trim(),
+                BinType: "",
+                BintypeDesc: String(oRow.BinTypeDesc || oRow.BintypeDesc || oRow.BinTypeDescription || oRow.BinType || oRow.BinTypes || "").trim(),
                 ActualQty: String(iActualQty),
                 QtyIn: String(iQtyIn),
                 QtyOut: String(iQtyOut)
@@ -394,24 +416,11 @@ sap.ui.define(
           var fnReadTripDetails = function () {
             return new Promise(function (resolve, reject) {
               oModel.read(sPath, {
+                urlParameters: {
+                  "$expand": "EmptyBins"
+                },
                 success: function (oData) {
                   resolve(oData || {});
-                },
-                error: function (oError) {
-                  reject(oError);
-                }
-              });
-            });
-          };
-
-          var fnReadEmptyBins = function () {
-            return new Promise(function (resolve, reject) {
-              oModel.read("/EmptyBins", {
-                filters: [
-                  new Filter("TripNumber", FilterOperator.EQ, sTripNumber)
-                ],
-                success: function (oData) {
-                  resolve((oData && oData.results) || []);
                 },
                 error: function (oError) {
                   reject(oError);
@@ -442,8 +451,9 @@ sap.ui.define(
                 Customer: String(r.Customer || "").trim(),
                 CusromerName: String(r.CusromerName || r.CustomerName || "").trim(),
                 Material: String(r.Material || "").trim(),
-                BinType: String(r.BinType || r.BinTypes || r.BinTypeDesc || r.BinTypeDescription || "").trim(),
-                BinTypeDesc: String(r.BinTypeDesc || r.BinTypeDescription || r.BinType || r.BinTypes || "").trim(),
+                BinType: String(r.BinType || r.BinTypes || r.BinTypeDesc || r.BintypeDesc || r.BinTypeDescription || "").trim(),
+                BinTypeDesc: String(r.BinTypeDesc || r.BintypeDesc || r.BinTypeDescription || r.BinType || r.BinTypes || "").trim(),
+                BintypeDesc: String(r.BinTypeDesc || r.BintypeDesc || r.BinTypeDescription || r.BinType || r.BinTypes || "").trim(),
                 QtyIn: iQtyIn,
                 QtyOut: iQtyOut,
                 Difference: iDiff,
@@ -461,21 +471,25 @@ sap.ui.define(
             }
           }.bind(this);
 
-          console.log("TripDetails deep-create payload", oPayload);
-
           return new Promise(function (resolve, reject) {
             oModel.create("/TripDetails", oPayload, {
               headers: { "X-Requested-With": "X" },
               success: function () {
-                Promise.all([fnReadTripDetails(), fnReadEmptyBins()])
-                  .then(function (aReadResults) {
-                    fnMergeSaveResponseToUi(aReadResults[0], aReadResults[1]);
-                    resolve(aReadResults[0]);
+                fnReadTripDetails()
+                  .then(function (oTripHeader) {
+                    var vExpanded = oTripHeader && oTripHeader.EmptyBins;
+                    var aExpandedEmptyBins = [];
+                    if (Array.isArray(vExpanded)) {
+                      aExpandedEmptyBins = vExpanded;
+                    } else if (vExpanded && Array.isArray(vExpanded.results)) {
+                      aExpandedEmptyBins = vExpanded.results;
+                    }
+                    fnMergeSaveResponseToUi(oTripHeader, aExpandedEmptyBins);
+                    resolve(oTripHeader);
                   })
                   .catch(function (oReadError) {
                     // Save already succeeded; avoid false failure popup on refresh-read issues.
                     try {
-                      console.warn("Bin tracking refresh read failed after save (Gate Out).", oReadError);
                     } catch (e) {
                       // no-op
                     }
@@ -563,7 +577,7 @@ sap.ui.define(
               String(oRow.TripNumber || "").trim() + "|" +
               String(oRow.DocumentNumber || "").trim() + "|" +
               String(oRow.ItemNo || "").trim() + "|" +
-              String(oRow.BinType || oRow.BinTypes || oRow.BinTypeDesc || oRow.BinTypeDescription || "").trim();
+              String(oRow.BinType || oRow.BinTypes || oRow.BinTypeDesc || oRow.BintypeDesc || oRow.BinTypeDescription || "").trim();
             if (sKey !== "||") {
               mPersistedByKey[sKey] = oRow;
             }
@@ -573,7 +587,7 @@ sap.ui.define(
               String(oRow.TripNumber || "").trim() + "|" +
               String(oRow.DocumentNumber || "").trim() + "|" +
               String(oRow.ItemNo || "").trim() + "|" +
-              String(oRow.BinType || oRow.BinTypes || oRow.BinTypeDesc || oRow.BinTypeDescription || "").trim();
+              String(oRow.BinType || oRow.BinTypes || oRow.BinTypeDesc || oRow.BintypeDesc || oRow.BinTypeDescription || "").trim();
             var oStored = mPersistedByKey[sKey];
             if (!oStored) {
               return oRow;
@@ -594,8 +608,9 @@ sap.ui.define(
               Customer: oRow.Customer,
               CusromerName: oRow.CusromerName,
               Material: oRow.Material,
-              BinType: oRow.BinType || oRow.BinTypes || oRow.BinTypeDesc || oRow.BinTypeDescription || "",
-              BinTypeDesc: oRow.BinTypeDesc || oRow.BinTypeDescription || oRow.BinType || oRow.BinTypes || "",
+              BinType: oRow.BinType || oRow.BinTypes || oRow.BinTypeDesc || oRow.BintypeDesc || oRow.BinTypeDescription || "",
+              BinTypeDesc: oRow.BinTypeDesc || oRow.BintypeDesc || oRow.BinTypeDescription || oRow.BinType || oRow.BinTypes || "",
+              BintypeDesc: oRow.BinTypeDesc || oRow.BintypeDesc || oRow.BinTypeDescription || oRow.BinType || oRow.BinTypes || "",
               QtyIn: iQtyIn,
               QtyOut: iQtyOut,
               Difference: iDiff,
@@ -611,7 +626,7 @@ sap.ui.define(
                 String(oRow.TripNumber || "").trim() + "|" +
                 String(oRow.DocumentNumber || "").trim() + "|" +
                 String(oRow.ItemNo || "").trim() + "|" +
-                String(oRow.BinType || oRow.BinTypes || oRow.BinTypeDesc || oRow.BinTypeDescription || "").trim() + "|" +
+                String(oRow.BinType || oRow.BinTypes || oRow.BinTypeDesc || oRow.BintypeDesc || oRow.BinTypeDescription || "").trim() + "|" +
                 String(oRow.Material || "").trim();
             }
             if (mSeenManual[sManualId]) {
@@ -635,8 +650,9 @@ sap.ui.define(
                 Customer: String(oRow.Customer || ""),
                 CusromerName: String(oRow.CusromerName || oRow.CustomerName || ""),
                 Material: String(oRow.Material || ""),
-                BinType: String(oRow.BinType || oRow.BinTypes || oRow.BinTypeDesc || oRow.BinTypeDescription || ""),
-                BinTypeDesc: String(oRow.BinTypeDesc || oRow.BinTypeDescription || oRow.BinType || oRow.BinTypes || ""),
+                BinType: String(oRow.BinType || oRow.BinTypes || oRow.BinTypeDesc || oRow.BintypeDesc || oRow.BinTypeDescription || ""),
+                BinTypeDesc: String(oRow.BinTypeDesc || oRow.BintypeDesc || oRow.BinTypeDescription || oRow.BinType || oRow.BinTypes || ""),
+                BintypeDesc: String(oRow.BinTypeDesc || oRow.BintypeDesc || oRow.BinTypeDescription || oRow.BinType || oRow.BinTypes || ""),
                 QtyIn: iQtyIn,
                 QtyOut: iQtyOut,
                 Difference: iDiff,
@@ -676,16 +692,17 @@ sap.ui.define(
             MessageToast.show("No valid Bin/Trolley rows to save.");
             return;
           }
-          console.log("EmptyBins deep update payload", {
-            TripNumber: sTripNumber,
-            TripStatus: "Vehicle Reported",
-            EmptyBins: aRowsForBackend
-          });
           this._saveEmptyBinsViaTripDetails(sTripNumber, aRowsForBackend)
             .then(function () {
               this._persistTrackingRows();
               oTrackingModel.setProperty("/isPosted", true);
-              this._loadGateOutBinTrolleyData();
+              var oVm = this.getView().getModel("gateOutUi");
+              var sMode = oVm
+                ? String(oVm.getProperty("/referenceByKey") || "INVOICE").toUpperCase()
+                : "INVOICE";
+              var sTypedDoc = oVm ? String(oVm.getProperty("/refDocSearchValue") || "").trim() : "";
+              var sDocNumber = this._getGateOutSelectedRefDocNumber(sMode, null, sTypedDoc);
+              this._refreshGateOutBinsForSelectedDocument(sDocNumber);
               MessageBox.success("Bin / Trolley tracking saved.");
               if (iScrollY !== null) {
                 setTimeout(function () {
@@ -751,7 +768,23 @@ sap.ui.define(
           if (!oUi) {
             return;
           }
-          oUi.setProperty("/showPanels", !!this._getTripNumber());
+          var sTripNumber = this._getTripNumber();
+          var bShowPanels = !!sTripNumber;
+          oUi.setProperty("/showPanels", bShowPanels);
+
+          // Debug: track each input used by GateOut reporting visibility binding.
+          var oStageUi = sap.ui.getCore().getModel("stageUi");
+          var oTripData = sap.ui.getCore().getModel("TripData");
+          var bShowReportingInGateOut = !!(
+            oStageUi && oStageUi.getProperty("/showReportingInGateOut")
+          );
+          var sMovementType = String(
+            (oTripData && oTripData.getProperty("/MovementType")) || ""
+          ).toUpperCase();
+          var bMovementAllowed = sMovementType !== "I";
+          var bReportingVisible =
+            bShowPanels && bShowReportingInGateOut && bMovementAllowed;
+
         },
         _initGateOutRefSuggestModel: function () {
           if (!this.getView().getModel("gateOutRefSuggest")) {
@@ -891,6 +924,47 @@ sap.ui.define(
             oM.setProperty("/items", []);
           }
         },
+        _clearGateOutPreviousSelectionState: function () {
+          var oG = sap.ui.getCore().getModel("globalData");
+          if (!oG) {
+            oG = new JSONModel({});
+            sap.ui.getCore().setModel(oG, "globalData");
+          }
+          oG.setProperty("/OutgoingBillingDocument", "");
+          oG.setProperty("/OutgoingBillingDocType", "");
+          oG.setProperty("/OutgoingPoNumber", "");
+          oG.setProperty("/OutgoingRefDocDocType", "");
+
+          var oTrip = sap.ui.getCore().getModel("TripData");
+          if (oTrip) {
+            oTrip.setProperty("/RefDocNo", "");
+            oTrip.setProperty("/RefDocType", "");
+            oTrip.setProperty("/PoNumber", "");
+            oTrip.setProperty("/BillingDocument", "");
+          }
+
+          var oVm = this.getView().getModel("gateOutUi");
+          if (oVm) {
+            oVm.setProperty("/refDocSearchValue", "");
+          }
+
+          var oRefDocModel = sap.ui.getCore().getModel("refDocModel");
+          if (oRefDocModel) {
+            oRefDocModel.setProperty("/referenceDocs", []);
+            oRefDocModel.setProperty("/materialDetails", []);
+            oRefDocModel.setProperty("/filteredMaterialDetails", []);
+            oRefDocModel.setProperty("/materialDocTypes", []);
+            oRefDocModel.setProperty("/materialRefDocNumbers", []);
+          }
+
+          var oRefCtrl = this._getRefDocsControllerFromGateOut();
+          if (oRefCtrl) {
+            oRefCtrl._oSelectedOrderDetail = null;
+            if (typeof oRefCtrl._clearSelectedReferenceDocFields === "function") {
+              oRefCtrl._clearSelectedReferenceDocFields();
+            }
+          }
+        },
         _escapeODataKey: function (s) {
           return String(s || "").trim().replace(/'/g, "''");
         },
@@ -908,6 +982,7 @@ sap.ui.define(
          */
         _applyGateOutRefDocGlobalFromRow: function (sMode, oRow) {
           var oG = sap.ui.getCore().getModel("globalData");
+          var oTrip = sap.ui.getCore().getModel("TripData");
           if (!oG) {
             oG = new JSONModel({});
             sap.ui.getCore().setModel(oG, "globalData");
@@ -928,9 +1003,10 @@ sap.ui.define(
             oG.setProperty("/OutgoingBillingDocType", sDt);
             oG.setProperty("/OutgoingPoNumber", "");
             oG.setProperty("/OutgoingReferenceByKey", "INVOICE");
-            var oTrip = sap.ui.getCore().getModel("TripData");
             if (oTrip && sBd) {
               oTrip.setProperty("/BillingDocument", sBd);
+              oTrip.setProperty("/RefDocNo", sBd);
+              oTrip.setProperty("/RefDocType", sDt);
             }
           } else if (sMode === "CHALLAN") {
             var sMd = oRow.MaterialDoc != null ? String(oRow.MaterialDoc).trim() : "";
@@ -939,6 +1015,10 @@ sap.ui.define(
             oG.setProperty("/OutgoingBillingDocType", sChDt);
             oG.setProperty("/OutgoingPoNumber", "");
             oG.setProperty("/OutgoingReferenceByKey", "CHALLAN");
+            if (oTrip && sMd) {
+              oTrip.setProperty("/RefDocNo", sMd);
+              oTrip.setProperty("/RefDocType", sChDt);
+            }
           } else if (sMode === "PO") {
             var sPo = oRow.PoNumber != null ? String(oRow.PoNumber).trim() : "";
             var sPoDt =
@@ -952,9 +1032,10 @@ sap.ui.define(
             oG.setProperty("/OutgoingBillingDocument", "");
             oG.setProperty("/OutgoingBillingDocType", "");
             oG.setProperty("/OutgoingReferenceByKey", "PO");
-            var oTripPo = sap.ui.getCore().getModel("TripData");
-            if (oTripPo && sPo) {
-              oTripPo.setProperty("/PoNumber", sPo);
+            if (oTrip && sPo) {
+              oTrip.setProperty("/PoNumber", sPo);
+              oTrip.setProperty("/RefDocNo", sPo);
+              oTrip.setProperty("/RefDocType", sPoDt);
             }
           }
         },
@@ -1010,7 +1091,13 @@ sap.ui.define(
                 iQtyOut = 0;
               }
               return {
-                DocumentNumber: String(oRow.refDocNo || oRow.RefDocNo || "").trim(),
+                DocumentNumber: String(
+                  oRow.refDocNo ||
+                  oRow.RefDocNo ||
+                  oRow.documentNumber ||
+                  oRow.DocumentNumber ||
+                  ""
+                ).trim(),
                 ItemNo: String(oRow.refDocItemNo || oRow.RefDocItemNo || "").trim(),
                 Material: String(
                   oRow.Material ||
@@ -1051,26 +1138,30 @@ sap.ui.define(
               }) === i;
             });
         },
-        _mapGateOutBinRows: function (aRows, sTripNumber) {
-          return (aRows || []).map(function (r) {
-            var iQtyOut = Number(r.QtyOut);
+        /**
+         * Builds Bin/Trolley grid rows from reference-document material keys only (no EmptyBins OData reads).
+         */
+        _buildGateOutBinRowsFromMaterialKeys: function (sTripNumber, fnKeyFilter) {
+          var aKeys = this._getGateOutEmptyBinsReadKeys();
+          if (typeof fnKeyFilter === "function") {
+            aKeys = (aKeys || []).filter(fnKeyFilter);
+          }
+          return (aKeys || []).map(function (oKey) {
+            var iQtyIn = 0;
+            var iQtyOut = Number(oKey.QtyOut);
             if (isNaN(iQtyOut) || iQtyOut < 0) {
               iQtyOut = 0;
             }
-            var iQtyIn = Number(r.QtyIn);
-            if (isNaN(iQtyIn) || iQtyIn < 0) {
-              iQtyIn = 0;
-            }
             var iDiff = iQtyIn - iQtyOut;
             return {
-              TripNumber: String(r.TripNumber || sTripNumber || "").trim(),
-              DocumentNumber: r.DocumentNumber || "",
-              ItemNo: r.ItemNo || "",
-              Customer: r.Customer || "",
-              CusromerName: r.CusromerName || r.CustomerName || "",
-              Material: r.Material || "",
-              BinType: r.BinType || r.BinTypes || r.BinTypeDesc || r.BinTypeDescription || "",
-              BinTypeDesc: r.BinTypeDesc || r.BinTypeDescription || r.BinType || r.BinTypes || "",
+              TripNumber: String(sTripNumber || "").trim(),
+              DocumentNumber: String(oKey.DocumentNumber || "").trim(),
+              ItemNo: String(oKey.ItemNo || "").trim(),
+              Customer: String(oKey.Customer || "").trim(),
+              CusromerName: String(oKey.CustomerName || "").trim(),
+              Material: String(oKey.Material || "").trim(),
+              BinType: "",
+              BinTypeDesc: "",
               QtyIn: iQtyIn,
               QtyOut: iQtyOut,
               Difference: iDiff,
@@ -1082,7 +1173,15 @@ sap.ui.define(
         _loadGateOutBinsByKeys: function (sTripNumber, sDocumentNumber, aItemNos) {
           var oModel = this.oModel;
           var oVm = this.getView().getModel("binTrolleyTracking");
+            tripNumber: sTripNumber,
+            documentNumber: sDocumentNumber,
+            itemNos: aItemNos
+          });
           if (!oModel || !oVm || !sDocumentNumber) {
+              hasModel: !!oModel,
+              hasVm: !!oVm,
+              hasDocument: !!sDocumentNumber
+            });
             return Promise.resolve();
           }
           var aUniqueItemNos = (aItemNos || [])
@@ -1095,9 +1194,22 @@ sap.ui.define(
             .filter(function (s, i, a) {
               return a.indexOf(s) === i;
             });
-          if (!aUniqueItemNos.length) {
-            return Promise.resolve();
-          }
+          var fnNormalizeItemNo = function (sItemNo) {
+            var s = String(sItemNo || "").trim();
+            if (!s) {
+              return "";
+            }
+            s = s.replace(/^0+/, "");
+            return s || "0";
+          };
+          var aNormalizedItemNos = aUniqueItemNos
+            .map(fnNormalizeItemNo)
+            .filter(function (s) {
+              return !!s;
+            })
+            .filter(function (s, i, a) {
+              return a.indexOf(s) === i;
+            });
           var aFilters = [
             new Filter("TripNumber", FilterOperator.EQ, sTripNumber),
             new Filter("DocumentNumber", FilterOperator.EQ, sDocumentNumber),
@@ -1111,16 +1223,83 @@ sap.ui.define(
                 },
                 success: function (oData) {
                   var aRows = (oData && oData.results) || [];
-                  var aMapped = this._mapGateOutBinRows(
-                    (aRows || [])
-                    .filter(function (r) {
-                      return aUniqueItemNos.indexOf(String(r.ItemNo || "").trim()) >= 0;
-                    }),
-                    sTripNumber
-                  );
+                  var aDocRows = aRows;
+                    totalRows: aRows.length,
+                    sample: aRows[0] || null
+                  });
+                  if (aUniqueItemNos.length) {
+                    aDocRows = (aRows || []).filter(function (r) {
+                      var sRaw = String(r.ItemNo || "").trim();
+                      var sNorm = fnNormalizeItemNo(sRaw);
+                      return (
+                        aUniqueItemNos.indexOf(sRaw) >= 0 ||
+                        aNormalizedItemNos.indexOf(sNorm) >= 0
+                      );
+                    });
+                  }
+                    filteredCount: (aDocRows || []).length,
+                    requestedItems: aUniqueItemNos,
+                    normalizedRequestedItems: aNormalizedItemNos
+                  });
+                  var aMapped = (aDocRows || []).map(function (r) {
+                    var iQtyOut = Number(r.QtyOut);
+                    if (isNaN(iQtyOut) || iQtyOut < 0) {
+                      iQtyOut = 0;
+                    }
+                    var iQtyIn = Number(r.QtyIn);
+                    if (isNaN(iQtyIn) || iQtyIn < 0) {
+                      iQtyIn = 0;
+                    }
+                    var iDiff = iQtyOut - iQtyIn;
+                    return {
+                      TripNumber: String(r.TripNumber || sTripNumber || "").trim(),
+                      DocumentNumber: r.DocumentNumber || "",
+                      ItemNo: r.ItemNo || "",
+                      Customer: r.Customer || "",
+                      CusromerName: r.CusromerName || r.CustomerName || "",
+                      Material: r.Material || "",
+                      BinType: r.BinType || r.BinTypes || r.BinTypeDesc || r.BintypeDesc || r.BinTypeDescription || "",
+                      BinTypeDesc: r.BinTypeDesc || r.BintypeDesc || r.BinTypeDescription || r.BinType || r.BinTypes || "",
+                      BintypeDesc: r.BinTypeDesc || r.BintypeDesc || r.BinTypeDescription || r.BinType || r.BinTypes || "",
+                      QtyIn: iQtyIn,
+                      QtyOut: iQtyOut,
+                      Difference: iDiff,
+                      ReturnStatus: this._deriveTrackingStatus(iQtyIn, iQtyOut, iDiff, "Pending", false),
+                      IsManual: false
+                    };
+                  }.bind(this));
+                  var mBackendByKey = {};
+                  (aMapped || []).forEach(function (oRow) {
+                    var sKey = String(oRow.DocumentNumber || "").trim() + "|" + String(oRow.ItemNo || "").trim();
+                    if (sKey !== "|") {
+                      mBackendByKey[sKey] = oRow;
+                    }
+                  });
+                  var aCurrentRows = this._getTrackingItems(oVm);
+                  var aMergedRows = (aCurrentRows || []).map(function (oRow) {
+                    if (oRow.IsManual === true) {
+                      return oRow;
+                    }
+                    var sKey = String(oRow.DocumentNumber || "").trim() + "|" + String(oRow.ItemNo || "").trim();
+                    var oBackendRow = mBackendByKey[sKey];
+                    if (!oBackendRow) {
+                      return oRow;
+                    }
+                    return Object.assign({}, oRow, oBackendRow, { IsManual: false });
+                  });
+                  (aMapped || []).forEach(function (oBackendRow) {
+                    var sKey = String(oBackendRow.DocumentNumber || "").trim() + "|" + String(oBackendRow.ItemNo || "").trim();
+                    var bExists = (aMergedRows || []).some(function (oRow) {
+                      var sRowKey = String(oRow.DocumentNumber || "").trim() + "|" + String(oRow.ItemNo || "").trim();
+                      return sRowKey === sKey;
+                    });
+                    if (!bExists) {
+                      aMergedRows.push(oBackendRow);
+                    }
+                  });
                   this._setTrackingItems(
                     oVm,
-                    this._mergeWithPersistedRows(sTripNumber, aMapped)
+                    this._mergeWithPersistedRows(sTripNumber, aMergedRows)
                   );
                   oVm.setProperty("/isPosted", true);
                   this._recalculateTrackingTotals();
@@ -1147,9 +1326,82 @@ sap.ui.define(
           return Promise.resolve();
         },
         _refreshGateOutBinsForSelectedDocument: function (sDocNumber) {
-          // Keep Gate Out behavior consistent with Gate In:
-          // always load trip-level EmptyBins instead of document-filtered rows.
-          this._loadGateOutBinTrolleyData();
+          var sTripNumber = this._getTripNumber();
+          var oVm = this.getView().getModel("binTrolleyTracking");
+            incomingDoc: sDocNumber,
+            tripNumber: sTripNumber,
+            hasTrackingModel: !!oVm
+          });
+          if (!oVm) {
+            return;
+          }
+          if (!sTripNumber) {
+            if (this._iGateOutBinReloadTimer) {
+              clearTimeout(this._iGateOutBinReloadTimer);
+              this._iGateOutBinReloadTimer = null;
+            }
+            // GateOut can fire before TripNumber is propagated into global/TripData.
+            // Retry shortly to align with GateIn's delayed reload behavior.
+            this._iGateOutBinReloadTimer = setTimeout(function () {
+              this._refreshGateOutBinsForSelectedDocument(sDocNumber);
+            }.bind(this), 150);
+            return;
+          }
+
+          var sTargetDoc = String(sDocNumber || "").trim();
+          var aKeys = this._getGateOutEmptyBinsReadKeys();
+            targetDoc: sTargetDoc,
+            keyCount: (aKeys || []).length,
+            keySample: (aKeys || [])[0] || null
+          });
+          var fnDocFilter = null;
+          if (sTargetDoc) {
+            fnDocFilter = function (oKey) {
+              return String(oKey.DocumentNumber || "").trim() === sTargetDoc;
+            };
+          }
+          var aUiRows = this._buildGateOutBinRowsFromMaterialKeys(sTripNumber, fnDocFilter);
+          this._setTrackingItems(
+            oVm,
+            this._mergeWithPersistedRows(sTripNumber, aUiRows)
+          );
+          oVm.setProperty("/isPosted", true);
+          this._recalculateTrackingTotals();
+
+          if (!sTargetDoc) {
+            var aDocs = (aKeys || [])
+              .map(function (oKey) {
+                return String(oKey.DocumentNumber || "").trim();
+              })
+              .filter(function (sDoc, i, aAll) {
+                return !!sDoc && aAll.indexOf(sDoc) === i;
+              });
+            if (aDocs.length === 1) {
+              sTargetDoc = aDocs[0];
+            }
+              docs: aDocs,
+              selectedDoc: sTargetDoc
+            });
+          }
+
+          if (!sTargetDoc) {
+            return;
+          }
+
+          var aItemNos = (aUiRows || [])
+            .map(function (oKey) {
+              return String(oKey.ItemNo || "").trim();
+            });
+            selectedDoc: sTargetDoc,
+            itemNosCount: aItemNos.length,
+            itemNos: aItemNos
+          });
+
+          if (!aItemNos.length) {
+            return;
+          }
+
+          this._loadGateOutBinsByKeys(sTripNumber, sTargetDoc, aItemNos);
         },
         _ensureGateOutOrderDetailForReference: function (sMode, sTypedValue, oRow) {
           var oModel = this.oModel || this.getView().getModel();
@@ -1271,6 +1523,16 @@ sap.ui.define(
           var sMode = oVm ? String(oVm.getProperty("/referenceByKey") || "INVOICE").toUpperCase() : "INVOICE";
           var oModel = this.oModel;
           if (!oModel || !sVal) {
+            return Promise.resolve(null);
+          }
+          if (sMode === "INVOICE") {
+            sVal = this._validateNumericDocNumber10(sVal, "Billing Doc", false);
+          } else if (sMode === "CHALLAN") {
+            sVal = this._validateNumericDocNumber10(sVal, "Material Doc", false);
+          } else if (sMode === "PO") {
+            sVal = this._validateNumericDocNumber10(sVal, "PO number", false);
+          }
+          if (!sVal) {
             return Promise.resolve(null);
           }
           var that = this;
@@ -1491,9 +1753,14 @@ sap.ui.define(
             oG = new JSONModel({});
             sap.ui.getCore().setModel(oG, "globalData");
           }
+          this._clearGateOutPreviousSelectionState();
           oG.setProperty("/OutgoingReferenceByKey", sKey || "INVOICE");
+          var oVm = this.getView().getModel("gateOutUi");
+          if (oVm) {
+            oVm.setProperty("/referenceByKey", sKey || "INVOICE");
+            oVm.setProperty("/refDocSearchValue", "");
+          }
           this._clearGateOutRefSuggestItems();
-          this._syncGateOutRefDocInputFromContext();
         },
         _updateBinTrolleyVisibility: function () {
           this._initBinTrolleyVisibilityModel();
@@ -1547,7 +1814,6 @@ sap.ui.define(
               this._syncGateOutReferenceBy();
               this._bGateOutAfterRenderInitialized = true;
             }
-            this._loadGateOutBinTrolleyData();
             this._updatePanelVisibility();
             this._updateBinTrolleyVisibility();
 
@@ -1619,12 +1885,18 @@ sap.ui.define(
         },
         _onRefDocMaterialsUpdated: function () {
           this._prunePersistedTrackingRowsByRefDocs();
-          // Wait one UI tick so refDocModel filtered materials are updated before deriving EmptyBins keys.
+          // Wait one UI tick so refDocModel filtered materials are updated before rebuilding bin rows.
           if (this._iGateOutRefDocReloadTimer) {
             clearTimeout(this._iGateOutRefDocReloadTimer);
           }
           this._iGateOutRefDocReloadTimer = setTimeout(function () {
-            this._loadGateOutBinTrolleyData();
+            var oVm = this.getView().getModel("gateOutUi");
+            var sMode = oVm
+              ? String(oVm.getProperty("/referenceByKey") || "INVOICE").toUpperCase()
+              : "INVOICE";
+            var sTypedDoc = oVm ? String(oVm.getProperty("/refDocSearchValue") || "").trim() : "";
+            var sDocNumber = this._getGateOutSelectedRefDocNumber(sMode, null, sTypedDoc);
+            this._refreshGateOutBinsForSelectedDocument(sDocNumber);
           }.bind(this), 0);
         },
         _onTripDataUpdate: function () {
@@ -1661,7 +1933,6 @@ sap.ui.define(
             }
 
             this._loadExitGateIfNeeded();
-            this._loadGateOutBinTrolleyData();
             this._normalizeTripDataItemDetails();
             this._syncGateOutReferenceBy();
             // Disable inputs if GateOut data already exists (display mode)
@@ -1714,6 +1985,9 @@ sap.ui.define(
           var oVm = this.getView().getModel("binTrolleyTracking");
           this._iGateOutBinLoadSeq = (this._iGateOutBinLoadSeq || 0) + 1;
           var iRequestSeq = this._iGateOutBinLoadSeq;
+            requestSeq: iRequestSeq,
+            hasTrackingModel: !!oVm
+          });
           if (!oVm) {
             return;
           }
@@ -1723,6 +1997,9 @@ sap.ui.define(
           var oUi = this.getView().getModel("ui");
           var bShowBinTrolley = !!(oUi && oUi.getProperty("/showBinTrolleyTracking"));
           var sTripNumber = this._getTripNumber();
+            showBinTrolley: bShowBinTrolley,
+            tripNumber: sTripNumber
+          });
           if (!bShowBinTrolley) {
             this._setTrackingItems(oVm, this._mergeWithPersistedRows(sTripNumber, []));
             oVm.setProperty("/isPosted", true);
@@ -1735,80 +2012,10 @@ sap.ui.define(
             this._recalculateTrackingTotals();
             return;
           }
-          this.oModel.read("/EmptyBins", {
-            filters: [
-              new Filter("TripNumber", FilterOperator.EQ, sTripNumber)
-            ],
-            urlParameters: {
-              $format: "json"
-            },
-            success: function (oData) {
-              if (iRequestSeq !== this._iGateOutBinLoadSeq) {
-                return;
-              }
-              var aRows = (oData && oData.results) || [];
-              var aMapped = this._mapGateOutBinRows(aRows, sTripNumber);
-              var aKeys = this._getGateOutEmptyBinsReadKeys();
-              var mExistingDocItem = {};
-              (aMapped || []).forEach(function (oRow) {
-                var sDoc = String(oRow.DocumentNumber || "").trim();
-                var sItem = String(oRow.ItemNo || "").trim();
-                if (sDoc && sItem) {
-                  mExistingDocItem[sDoc + "|" + sItem] = true;
-                }
-              });
-              // Always backfill rows for newly added materials not yet present in EmptyBins.
-              var aMissingRows = (aKeys || [])
-                .filter(function (oKey) {
-                  var sDoc = String(oKey.DocumentNumber || "").trim();
-                  var sItem = String(oKey.ItemNo || "").trim();
-                  if (!sDoc || !sItem) {
-                    return false;
-                  }
-                  return !mExistingDocItem[sDoc + "|" + sItem];
-                })
-                .map(function (oKey) {
-                  var iQtyIn = 0;
-                  var iQtyOut = Number(oKey.QtyOut);
-                  if (isNaN(iQtyOut) || iQtyOut < 0) {
-                    iQtyOut = 0;
-                  }
-                  var iDiff = iQtyIn - iQtyOut;
-                  return {
-                    TripNumber: String(sTripNumber || "").trim(),
-                    DocumentNumber: String(oKey.DocumentNumber || "").trim(),
-                    ItemNo: String(oKey.ItemNo || "").trim(),
-                    Customer: String(oKey.Customer || "").trim(),
-                    CusromerName: String(oKey.CustomerName || "").trim(),
-                    Material: String(oKey.Material || "").trim(),
-                    BinType: "",
-                    BinTypeDesc: "",
-                    QtyIn: iQtyIn,
-                    QtyOut: iQtyOut,
-                    Difference: iDiff,
-                    ReturnStatus: this._deriveTrackingStatus(iQtyIn, iQtyOut, iDiff, "Pending", false),
-                    IsManual: false
-                  };
-                }.bind(this));
-              if (aMissingRows.length) {
-                aMapped = aMapped.concat(aMissingRows);
-              }
-              this._setTrackingItems(
-                oVm,
-                this._mergeWithPersistedRows(sTripNumber, aMapped)
-              );
-              oVm.setProperty("/isPosted", true);
-              this._recalculateTrackingTotals();
-            }.bind(this),
-            error: function () {
-              if (iRequestSeq !== this._iGateOutBinLoadSeq) {
-                return;
-              }
-              this._setTrackingItems(oVm, this._mergeWithPersistedRows(sTripNumber, []));
-              oVm.setProperty("/isPosted", true);
-              this._recalculateTrackingTotals();
-            }.bind(this)
-          });
+          if (iRequestSeq !== this._iGateOutBinLoadSeq) {
+            return;
+          }
+          this._refreshGateOutBinsForSelectedDocument();
         },
         /**
          * Loads exit-gate ConfigValues for ConfigGroup ExitGate, always filtered by TripNumber when known.
@@ -2079,10 +2286,7 @@ sap.ui.define(
           if (isNaN(iDiff)) {
             return "0";
           }
-          if (iDiff > 0) {
-            return "+" + iDiff;
-          }
-          return String(iDiff);
+          return String(Math.abs(iDiff));
         },
         formatTrackingDifferenceState: function (vDifference) {
           var iDiff = Number(vDifference);
@@ -2145,8 +2349,8 @@ sap.ui.define(
           if (!oRow) {
             return "";
           }
-          var sBinType = oRow.BinTypeDesc || oRow.BinTypeDescription || oRow.BinTypes || oRow.BinType || "";
-          var sIcon = String(sBinType).toLowerCase().indexOf("plastic") >= 0 ? "📦" : "🛒";
+          var sBinType = oRow.BinTypeDesc || oRow.BintypeDesc || oRow.BinTypeDescription || oRow.BinTypes || oRow.BinType || "";
+          var sIcon = String(sBinType).toLowerCase().indexOf("plastic") >= 0 ? "ðŸ“¦" : "ðŸ›’";
           var sType = sBinType;
           var sMat = oRow.Material || "";
           return sIcon + " " + sType + (sMat ? "\n" + sMat : "");
@@ -2181,21 +2385,6 @@ sap.ui.define(
             return;
           }
 
-          if (this._requiresMandatoryGateOutBinDetails()) {
-            var oTracking = this.getView().getModel("binTrolleyTracking");
-            var aRows = this._getTrackingItems(oTracking);
-            var aValid = aRows.filter(function (oRow) {
-              var bHasMaterial = String(oRow.Material || "").trim() !== "";
-              var bHasQty = String(oRow.QtyIn || "").trim() !== "";
-              return bHasMaterial || bHasQty;
-            });
-            if (!aValid.length) {
-              MessageBox.error(
-                "Bin / Trolley details are required for this movement scenario. Load or enter bin lines before completing Gate Out."
-              );
-              return;
-            }
-          }
           var oTrackingSaveCheck = this.getView().getModel("binTrolleyTracking");
           var aTrackingRows = this._getTrackingItems(oTrackingSaveCheck);
           var aTrackingRowsValid = aTrackingRows.filter(function (oRow) {
@@ -2367,12 +2556,20 @@ sap.ui.define(
           });
         },
         onEditGateOut: function () {
+          var bTripLocked = !!(sap.ui.getCore().getModel("globalData")?.getProperty("/TripLocked"));
+          if (bTripLocked) {
+            MessageToast.show("Trip is completed. Editing is disabled.");
+            this._setInputsEnabled(false);
+            return;
+          }
           // Enable inputs for edit mode (authorization checks removed)
           this._setInputsEnabled(true);
           MessageToast.show("Edit mode activated");
         },
         _setInputsEnabled: function (bEnabled) {
           try {
+            var bTripLocked = !!(sap.ui.getCore().getModel("globalData")?.getProperty("/TripLocked"));
+            var bEffectiveEnabled = !!bEnabled && !bTripLocked;
             // Keep ExitGate dropdown always enabled/editable (as requested).
             var oExitGateCombo = this.getView().byId("idExitGateNumber");
 
@@ -2390,8 +2587,8 @@ sap.ui.define(
 
               // Don't disable the Exit Gate dropdown.
               if (oExitGateCombo && ctrl === oExitGateCombo) {
-                if (ctrl.setEnabled) ctrl.setEnabled(true);
-                if (ctrl.setEditable) ctrl.setEditable(true);
+                if (ctrl.setEnabled) ctrl.setEnabled(bEffectiveEnabled);
+                if (ctrl.setEditable) ctrl.setEditable(bEffectiveEnabled);
                 return;
               }
 
@@ -2409,7 +2606,7 @@ sap.ui.define(
               // Keep dropdowns as non-editable; only enable/disable them.
               if (ctrl.isA && ctrl.isA("sap.m.ComboBox")) {
                 if (ctrl.setEnabled) {
-                  ctrl.setEnabled(bEnabled);
+                  ctrl.setEnabled(bEffectiveEnabled);
                 }
                 return;
               }
@@ -2417,17 +2614,17 @@ sap.ui.define(
               // Try setEditable first (for Input, TextArea, etc.)
               if (ctrl.setEditable) {
                 try {
-                  ctrl.setEditable(bEnabled);
+                  ctrl.setEditable(bEffectiveEnabled);
                 } catch (e) {
                   // Fallback to setEnabled if setEditable fails
                   if (ctrl.setEnabled) {
-                    ctrl.setEnabled(bEnabled);
+                    ctrl.setEnabled(bEffectiveEnabled);
                   }
                 }
               } else if (ctrl.setEnabled) {
                 // For controls that only support setEnabled (like RadioButtonGroup, FileUploader)
                 try {
-                  ctrl.setEnabled(bEnabled);
+                  ctrl.setEnabled(bEffectiveEnabled);
                 } catch (e) {
                   // Ignore errors
                 }
@@ -2925,3 +3122,4 @@ sap.ui.define(
     );
   }
 );
+

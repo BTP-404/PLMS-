@@ -111,6 +111,7 @@ sap.ui.define([
 			var sIncomingDesc = (oGlobal?.getProperty("/IncomingMovementScenarioDesc") || "").toString();
 			var sIncomingSkip = (oGlobal?.getProperty("/IncomingRefDocSkip") || " ").toString();
 			var sIncomingPo = (oGlobal?.getProperty("/IncomingPoNumber") || "").toString().trim();
+			var sIncomingDocType = (oGlobal?.getProperty("/IncomingRefDocDocType") || "").toString().trim();
 			var sIncomingMt = (oGlobal?.getProperty("/IncomingMovementType") || "").toString().trim();
 			var sIncomingMs = (oGlobal?.getProperty("/IncomingMovementScenario") || "").toString().trim();
 
@@ -127,6 +128,8 @@ sap.ui.define([
 					new JSONModel({
 						MovementScenarioDesc: sIncomingDesc || "",
 						RefDocSkip: (sIncomingSkip && sIncomingSkip.trim() === "X") ? "X" : " ",
+						RefDocType: sIncomingDocType || "",
+						RefDocNo: sIncomingPo || "",
 						MovementType: sIncomingMt || "",
 						MovementScenario: sIncomingMs || "",
 						MovementScenarioItemKey: sScenarioItemKey,
@@ -141,14 +144,30 @@ sap.ui.define([
 				var sOgMs = (oGlobal.getProperty("/OutgoingMovementScenario") || "").toString().trim();
 				var sOgItemKey = (oGlobal.getProperty("/OutgoingMovementScenarioItemKey") || "").toString().trim();
 				var sOgBd = (oGlobal.getProperty("/OutgoingBillingDocument") || "").toString().trim();
+				var sOgRefKey = (oGlobal.getProperty("/OutgoingReferenceByKey") || "").toString().trim().toUpperCase();
+				var sOgBillingDocType = (oGlobal.getProperty("/OutgoingBillingDocType") || "").toString().trim();
+				var sOgPo = (oGlobal.getProperty("/OutgoingPoNumber") || "").toString().trim();
+				var sOgPoDocType = (oGlobal.getProperty("/OutgoingRefDocDocType") || "").toString().trim();
 				var sOgVt = (oGlobal.getProperty("/OutgoingVehicleType") || "").toString().trim();
 				var sOgVtDesc = (oGlobal.getProperty("/OutgoingVehicleTypeDesc") || "").toString().trim();
+				var sReportingRefDocNo = "";
+				var sReportingRefDocType = "";
+				if (sOgRefKey === "PO") {
+					sReportingRefDocNo = sOgPo;
+					sReportingRefDocType = sOgPoDocType;
+				} else {
+					// For INVOICE / CHALLAN, GateOut stores selected number in OutgoingBillingDocument.
+					sReportingRefDocNo = sOgBd;
+					sReportingRefDocType = sOgBillingDocType;
+				}
 				oGlobal.setProperty("/OutgoingReportPrefill", false);
 				var sOgKeySync = sOgItemKey || MovementScenarioIcons.getMovementScenarioItemKey("O", sOgMs) || "";
 				sap.ui.getCore().setModel(
 					new JSONModel({
 						MovementScenarioDesc: sOgDesc || "",
 						RefDocSkip: (sOgSkip && sOgSkip.trim() === "X") ? "X" : " ",
+						RefDocType: sReportingRefDocType || "",
+						RefDocNo: sReportingRefDocNo || "",
 						MovementType: "O",
 						MovementScenario: sOgMs || "",
 						MovementScenarioItemKey: sOgKeySync,
@@ -233,13 +252,10 @@ sap.ui.define([
 		,
 
 		/**
-		 * O02 + Internal (01) only: create mode defaults to Gate Out (not Gate In).
+		 * O02 + Internal (01) flow: reporting is placed in Gate Out.
 		 */
 		_isGateOutFirstScenario: function () {
-			return (
-				this._bCreateMode &&
-				O02GateException.isO02InternalException(sap.ui.getCore().getModel("TripData"))
-			);
+			return O02GateException.isO02InternalException(sap.ui.getCore().getModel("TripData"));
 		},
 
 		_ensureStageUiModel: function () {
@@ -339,8 +355,13 @@ sap.ui.define([
 
 		_updateReportingPlacementByVehicleType: function () {
 			var oStageUi = this._ensureStageUiModel();
+			var oTripData = sap.ui.getCore().getModel("TripData");
+			var sVehicleType = oTripData ? (oTripData.getProperty("/VehicleType") || "") : "";
+			var sMovementScenario = oTripData ? (oTripData.getProperty("/MovementScenario") || "") : "";
+			var sMovementScenarioItemKey = oTripData ? (oTripData.getProperty("/MovementScenarioItemKey") || "") : "";
+			var bIsO02InternalException = O02GateException.isO02InternalException(oTripData);
 			// Exception flow (O02 + Internal vehicle type 01): reporting is shown in Gate Out.
-			oStageUi.setProperty("/showReportingInGateOut", !!this._isGateOutFirstScenario());
+			oStageUi.setProperty("/showReportingInGateOut", !!bIsO02InternalException);
 		},
 
 		_applyVehicleTypeTabRule: function () {

@@ -317,7 +317,7 @@
                                     wrapping="true"
                                 />
                                 <Text
-                                    text="{VehicleType}"
+                                    text="{VehicleTypeDesc}"
                                     wrapping="true"
                                 />
                                 <Text

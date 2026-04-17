@@ -161,7 +161,7 @@
                             <Label
                                 text="Vehicle Number"
                                 design="Bold"
-                                required="true"
+                                required="false"
                             />
                             <Input
                                 id="idVehicleNumber"
@@ -201,7 +201,7 @@
                             <ComboBox
                                 id="idVehicleType"
                                 width="100%"
-                                forceSelection="true"
+                                forceSelection="{= ${TripData>/VehicleType} !== '03' }"
                                 items="{vehicleTypeSuggestions>/items}"
                                 selectedKey="{TripData>/VehicleType}"
                                 value="{TripData>/VehicleTypeDesc}"
@@ -223,13 +223,17 @@
                                 text="Vehicle Size"
                                 design="Bold"
                             />
-                            <Input
+                            <Select
                                 id="idVehicleSize"
                                 width="100%"
-                                value="{TripData>/VehicleSize}"
-                                placeholder="Enter vehicle size"
-                                editable="true"
-                            />
+                                
+                            >
+                                <core:Item key="Light" text="Light" />
+                                <core:Item key="Medium" text="Medium" />
+                                <core:Item key="Heavy" text="Heavy" />
+                                <core:Item key="Container" text="Container" />
+                                <core:Item key="Other" text="Other" />
+                            </Select>
                         </VBox>
                     </layout:content>
                     <layout:content>
@@ -318,12 +322,13 @@
                             <Label
                                 text="Driver License"
                                 design="Bold"
-                                required="true"
+                                required="false"
                             />
                             <Input
                                 id="idDriverLicense"
                                 width="100%"
                                 value="{TripData>/DriverLicence}"
+                                liveChange="onDriverLicenseLiveChange"
                                 valueLiveUpdate="true"
                             />
                         </VBox>
@@ -368,6 +373,90 @@
                         </VBox>
                     </layout:content>
                     <!-- ================== COLUMN 3 ================== -->
+                    <layout:content>
+                        <VBox>
+                            <Label
+                                text="Reference Document Type"
+                                design="Bold"
+                            />
+                            <Input
+                                id="idRefDocTypeReporting"
+                                width="100%"
+                                value="{TripData>/RefDocType}"
+                            />
+                        </VBox>
+                    </layout:content>
+                    <layout:content>
+                        <VBox>
+                            <Label
+                                text="Reference Document No"
+                                design="Bold"
+                            />
+                            <Input
+                                id="idRefDocNoReporting"
+                                width="100%"
+                                value="{TripData>/RefDocNo}"
+                            />
+                        </VBox>
+                    </layout:content>
+                    <layout:content>
+                        <VBox>
+                            <Label
+                                text="EWB Bill No"
+                                design="Bold"
+                            />
+                            <Input
+                                id="idEwbBillNo"
+                                width="100%"
+                                value="{TripData>/EwbNo}"
+                            />
+                        </VBox>
+                    </layout:content>
+                    <layout:content>
+                        <VBox>
+                            <Label
+                                text="EWB Date"
+                                design="Bold"
+                            />
+                            <DatePicker
+                                id="idEwbDate"
+                                width="100%"
+                                valueFormat="yyyy-MM-dd"
+                                displayFormat="medium"
+                                placeholder="{i18n>datePlaceholderExample}"
+                                value="{path: 'TripData>/EwbActStartDate', formatter: '.formatLRDate'}"
+                            />
+                        </VBox>
+                    </layout:content>
+                    <layout:content>
+                        <VBox>
+                            <Label
+                                text="INV/DC No"
+                                design="Bold"
+                            />
+                            <Input
+                                id="idInvDcNo"
+                                width="100%"
+                                value="{TripData>/InvRefNo}"
+                            />
+                        </VBox>
+                    </layout:content>
+                    <layout:content>
+                        <VBox>
+                            <Label
+                                text="INV/DC Date"
+                                design="Bold"
+                            />
+                            <DatePicker
+                                id="idInvDcDate"
+                                width="100%"
+                                valueFormat="yyyy-MM-dd"
+                                displayFormat="medium"
+                                placeholder="{i18n>datePlaceholderExample}"
+                                value="{path: 'TripData>/InvRefDate', formatter: '.formatLRDate'}"
+                            />
+                        </VBox>
+                    </layout:content>
                     <layout:content>
                         <VBox>
                             <Label

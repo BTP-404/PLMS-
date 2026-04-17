@@ -460,24 +460,21 @@ sap.ui.define([
 			if (!oItem) {
 				return null;
 			}
-			var oDate = this._parseODataDate(oItem.CreatedDate);
-			var iTimeMs = this._parseODataTime(oItem.CreatedTime);
-			if (!oDate || iTimeMs === null) {
-				return null;
-			}
-			return new Date(oDate.getTime() + iTimeMs);
+			// Keep date and time as separate backend values to avoid timezone shifts.
+			return {
+				date: this._parseODataDate(oItem.CreatedDate),
+				timeMs: this._parseODataTime(oItem.CreatedTime)
+			};
 		},
 
 		_toChangedDateObject: function (oItem) {
 			if (!oItem) {
 				return null;
 			}
-			var oDate = this._parseODataDate(oItem.ChangedDate);
-			var iTimeMs = this._parseODataTime(oItem.ChangedTime);
-			if (!oDate || iTimeMs === null) {
-				return null;
-			}
-			return new Date(oDate.getTime() + iTimeMs);
+			return {
+				date: this._parseODataDate(oItem.ChangedDate),
+				timeMs: this._parseODataTime(oItem.ChangedTime)
+			};
 		},
 
 		_parseODataDate: function (vDate) {
@@ -489,7 +486,8 @@ sap.ui.define([
 			}
 			if (typeof vDate === "string") {
 				// Support OData /Date(...)\/ and ISO date strings.
-				var iTimestamp = parseInt(vDate.replace(/\D/g, ""), 10);
+				var oMatch = vDate.match(/\/Date\((-?\d+)(?:[+-]\d+)?\)\//);
+				var iTimestamp = oMatch ? parseInt(oMatch[1], 10) : NaN;
 				if (!isNaN(iTimestamp)) {
 					return new Date(iTimestamp);
 				}
@@ -524,16 +522,41 @@ sap.ui.define([
 		},
 
 		_formatDateTime: function (oDate) {
-			if (!oDate || isNaN(oDate.getTime())) {
+			if (!oDate) {
 				return "";
 			}
-			return oDate.toLocaleString(undefined, {
+
+			// Backward compatibility for any remaining Date callers.
+			if (oDate instanceof Date) {
+				if (isNaN(oDate.getTime())) {
+					return "";
+				}
+				return oDate.toLocaleString(undefined, {
+					year: "numeric",
+					month: "short",
+					day: "2-digit",
+					hour: "2-digit",
+					minute: "2-digit",
+					hour12: false
+				});
+			}
+
+			var oDatePart = oDate.date;
+			var iTimeMs = oDate.timeMs;
+			if (!oDatePart || isNaN(oDatePart.getTime()) || iTimeMs === null || iTimeMs === undefined || isNaN(iTimeMs)) {
+				return "";
+			}
+
+			var sDate = oDatePart.toLocaleDateString(undefined, {
 				year: "numeric",
 				month: "short",
-				day: "2-digit",
-				hour: "2-digit",
-				minute: "2-digit"
+				day: "2-digit"
 			});
+			var iHours = Math.floor(iTimeMs / 3600000);
+			var iMinutes = Math.floor((iTimeMs % 3600000) / 60000);
+			var sHours = String(iHours).padStart(2, "0");
+			var sMinutes = String(iMinutes).padStart(2, "0");
+			return sDate + ", " + sHours + ":" + sMinutes;
 		},
 
 		_assignStageMetadata: function (aEvents) {
@@ -765,7 +788,9 @@ sap.ui.define([
 					timestamp: oItem.displayTimestamp || "",
 					icon: oItem._icon || "sap-icon://activities",
 					iconColor: "#107e3e",
-					description: sStageTitle || "",
+					// Keep card badge label aligned with card title to avoid mismatches
+					// when backend EventID stage mapping differs from EventDescription.
+					description: sDisplayTitle || "",
 					movementType: oItem.movementTypeDesc || "",
 					movementScenario: oItem.movementScenarioDesc || "",
 					createdBy: oItem.createdBy || "",

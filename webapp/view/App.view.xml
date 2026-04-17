@@ -5,6 +5,6 @@
   displayBlock="true">
 
   <!-- This is where the router will load your target views -->
-  <App id="app" />
+  <App id="app" class="myAppLTRFix" />
 
 </mvc:View>

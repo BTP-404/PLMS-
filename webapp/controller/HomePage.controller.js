@@ -107,6 +107,7 @@ sap.ui.define(
         this._sLastPostedPoNumber = null;
         this._sPendingOrderDetailPo = null;
         this._bIncomingFromCameraScan = false;
+        this._bIncomingScanBackendError = false;
       },
 
       onExit: function () {
@@ -148,6 +149,17 @@ sap.ui.define(
         if (oRouter) {
           oRouter.getRoute("HomePage").detachPatternMatched(this._onRouteMatched, this);
         }
+      },
+
+      _validateNumericDocNumber10: function (sValue, sLabel, bShowMessage) {
+        var sTrimmed = String(sValue || "").trim();
+        if (!/^\d{1,10}$/.test(sTrimmed)) {
+          if (bShowMessage) {
+            MessageBox.error("Enter a valid numeric " + sLabel + " (max 10 digits)");
+          }
+          return "";
+        }
+        return sTrimmed;
       },
 
       // --------------------------------------------
@@ -634,6 +646,12 @@ sap.ui.define(
         }
 
         if (m) {
+          if (m.docType !== undefined) {
+            oTripData.setProperty("/RefDocType", m.docType);
+          }
+          if (m.po !== undefined) {
+            oTripData.setProperty("/RefDocNo", m.po);
+          }
           if (m.refDocSkip !== undefined) {
             oTripData.setProperty("/RefDocSkip", m.refDocSkip);
           }
@@ -671,7 +689,8 @@ sap.ui.define(
       _incomingDialogNavigateToGateEntryWithPo: function () {
         var sViewId = this.getView().getId();
         var oIn = Fragment.byId(sViewId, "idIncomingDialogPoInput");
-        var sPo = oIn && oIn.getValue ? String(oIn.getValue() || "").trim() : "";
+        var sPoRaw = oIn && oIn.getValue ? String(oIn.getValue() || "").trim() : "";
+        var sPo = this._validateNumericDocNumber10(sPoRaw, "PO number", !!sPoRaw);
 
         var bSkip = !!(
           this._oIncomingEntryMethodModel &&
@@ -679,6 +698,10 @@ sap.ui.define(
         );
 
         // Validation: PO should be there OR Skip Document should be Yes
+        if (sPoRaw && !sPo) {
+          this._focusIncomingEntryMethodPrimaryInput(150);
+          return;
+        }
         if (!sPo && !bSkip) {
           var thatVal = this;
           MessageBox.error("Enter/select a PO number or choose Skip Document.", {
@@ -901,6 +924,13 @@ sap.ui.define(
       onContinueIncomingEntryMethodDialog: function () {
         var oOpts = this._oIncomingEntryMethodModel;
         if (!oOpts || !oOpts.getProperty("/entryComplete")) {
+          var sIncomingMode = oOpts
+            ? String(oOpts.getProperty("/selectedKey") || "").toUpperCase()
+            : "";
+          if (sIncomingMode === "SCAN" && this._bIncomingScanBackendError) {
+            this._focusIncomingEntryMethodPrimaryInput(150);
+            return;
+          }
           MessageToast.show("Complete PO submit or scan successfully first.");
           this._focusIncomingEntryMethodPrimaryInput(150);
           return;
@@ -1065,9 +1095,9 @@ sap.ui.define(
       _incomingDialogFetchTripByPoAndNavigate: function () {
         var sViewId = this.getView().getId();
         var oIn = Fragment.byId(sViewId, "idIncomingDialogPoInput");
-        var sPo = oIn && oIn.getValue ? String(oIn.getValue() || "").trim() : "";
+        var sPoRaw = oIn && oIn.getValue ? String(oIn.getValue() || "").trim() : "";
+        var sPo = this._validateNumericDocNumber10(sPoRaw, "PO number", true);
         if (!sPo) {
-          MessageToast.show("Enter or select a PO number");
           this._focusIncomingEntryMethodPrimaryInput(150);
           return;
         }
@@ -1139,6 +1169,7 @@ sap.ui.define(
         if (!sText) {
           return;
         }
+        this._bIncomingScanBackendError = false;
         this._bIncomingFromCameraScan = false;
         this._bIncomingScanSkipTripTableRefresh = true;
         this._incomingDialogProcessScannedCode(sText.split("|")[0]);
@@ -1298,12 +1329,24 @@ sap.ui.define(
         var oModel = this.getView().getModel();
         var that = this;
         var oPayload = {};
+        var sIncomingMode = this._oIncomingEntryMethodModel
+          ? String(this._oIncomingEntryMethodModel.getProperty("/selectedKey") || "").toUpperCase()
+          : "";
 
         if (sAsnId && sOrgId) {
           oPayload = { AsnId: sAsnId, OrgId: sOrgId };
           this._sPendingOrderDetailPo = null;
         } else if (sPoNumber && String(sPoNumber).trim()) {
           var sPoTrimmed = String(sPoNumber).trim();
+          if (sIncomingMode === "PO") {
+            sPoTrimmed = this._validateNumericDocNumber10(sPoTrimmed, "PO number", true);
+            if (!sPoTrimmed) {
+              this._bIncomingScanSkipTripTableRefresh = false;
+              this._bIncomingFromCameraScan = false;
+              this._clearIncomingDialogScanInput();
+              return;
+            }
+          }
           oPayload = { PoNumber: sPoTrimmed };
           // Create OrderDetails only when PO came from camera scan, not typed scan input.
           this._sPendingOrderDetailPo = this._bIncomingFromCameraScan ? sPoTrimmed : null;
@@ -1337,9 +1380,8 @@ sap.ui.define(
        * POST /PoNumberSH using PoNumber from metadata.
        */
       _incomingDialogPostPoNumber: function (sPo) {
-        var sPoNumber = String(sPo || "").trim();
+        var sPoNumber = this._validateNumericDocNumber10(sPo, "PO number", true);
         if (!sPoNumber) {
-          MessageToast.show("Enter or select a PO number");
           this._focusIncomingEntryMethodPrimaryInput(150);
           return;
         }
@@ -1440,6 +1482,7 @@ sap.ui.define(
       },
 
       _onIncomingIdentificationCreateSuccess: function (oResponse) {
+        this._bIncomingScanBackendError = false;
         if (this._oIncomingEntryMethodDialog) {
           this._oIncomingEntryMethodDialog.setBusy(false);
         }
@@ -1548,6 +1591,10 @@ sap.ui.define(
           this._sLastPostedPoNumber = null;
         }
         var sErrorMessage = this._getODataErrorMessage(oError, sDefaultMessage);
+        var sIncomingMode = this._oIncomingEntryMethodModel
+          ? String(this._oIncomingEntryMethodModel.getProperty("/selectedKey") || "").toUpperCase()
+          : "";
+        this._bIncomingScanBackendError = sIncomingMode === "SCAN";
         var that = this;
         MessageBox.error(sErrorMessage, {
           onClose: function () {
@@ -2161,6 +2208,12 @@ sap.ui.define(
 
         var that = this;
         var bChallan = this._isOutgoingChallanSelected();
+        var sDocLabel = bChallan ? "Material Doc" : "Billing Doc";
+        sInv = this._validateNumericDocNumber10(sInv, sDocLabel, false);
+        if (!sInv) {
+          fnClear();
+          return;
+        }
         var sKeyPath = bChallan
           ? this._buildChallanShKeyPath(sInv)
           : this._buildBillingDocKeyPath(sInv);
@@ -2284,12 +2337,15 @@ sap.ui.define(
                 this._oOutgoingEntryMethodModel.getProperty("/selectedVehicleType") || ""
               ).trim();
               if (!sCurrentKey && aItems.length) {
-                var sDefaultKey = String(aItems[0].ConfigID || "").trim();
-                var sDefaultText = String(aItems[0].Description || "").trim();
+                var oG = sap.ui.getCore().getModel("globalData");
+                var bAllTypeFlow = !!(oG && oG.getProperty("/IsCustomerSaleScenario02"));
+                var iDefaultIndex = bAllTypeFlow && aItems.length > 1 ? 1 : 0;
+                var oDefaultItem = aItems[iDefaultIndex] || aItems[0];
+                var sDefaultKey = String(oDefaultItem.ConfigID || "").trim();
+                var sDefaultText = String(oDefaultItem.Description || "").trim();
                 this._oOutgoingEntryMethodModel.setProperty("/selectedVehicleType", sDefaultKey);
                 this._oOutgoingEntryMethodModel.setProperty("/selectedVehicleTypeDesc", sDefaultText);
 
-                var oG = sap.ui.getCore().getModel("globalData");
                 if (!oG) {
                   oG = new JSONModel({});
                   sap.ui.getCore().setModel(oG, "globalData");

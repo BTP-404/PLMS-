@@ -83,7 +83,7 @@
         <mvc:XMLView
             viewName="com.incresolZ_INC_PLMS.view.subview.VehicleReportingTab"
             class="sapUiTinyMarginBottom"
-            visible="{= ${gateOutUi>/showPanels} === true &amp;&amp; ${stageUi>/showReportingInGateOut} === true &amp;&amp; String(${TripData>/MovementType} || '').toUpperCase() !== 'I' }"
+            visible="{= ${stageUi>/showReportingInGateOut} === true &amp;&amp; String(${TripData>/MovementType} || '').toUpperCase() !== 'I' }"
         />
 
         <!-- ========================================================= -->
@@ -139,12 +139,6 @@
                         <Column hAlign="End" width="8rem" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
                             <Text text="Qty Out" />
                         </Column>
-                        <Column hAlign="End" width="9rem" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
-                            <Text text="Difference" />
-                        </Column>
-                        <Column hAlign="Center" width="11rem" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Inline">
-                            <Text text="Return Status" />
-                        </Column>
                     </columns>
 
                     <items>
@@ -158,17 +152,6 @@
                                     number="{binTrolleyTracking>QtyOut}"
                                     emphasized="false"
                                 />
-                                <ObjectStatus
-                                    text="{path: 'binTrolleyTracking>Difference', formatter: '.formatTrackingDifferenceText'}"
-                                    state="{path: 'binTrolleyTracking>Difference', formatter: '.formatTrackingDifferenceState'}"
-                                    class="binTrolleyDifference"
-                                />
-                                <ObjectStatus
-                                    text="{binTrolleyTracking>ReturnStatus}"
-                                    state="{path: 'binTrolleyTracking>ReturnStatus', formatter: '.formatTrackingStatusState'}"
-                                    icon="{path: 'binTrolleyTracking>ReturnStatus', formatter: '.formatTrackingStatusIcon'}"
-                                    inverted="true"
-                                />
                             </cells>
                         </ColumnListItem>
                     </items>
@@ -178,10 +161,6 @@
                     <Text
                         text="{path: 'binTrolleyTracking>/totalQtyOut', formatter: '.formatTrackingTotalQtyOutLine'}"
                         class="sapUiTinyMarginEnd binTrolleyTrackingTotalLabel"
-                    />
-                    <Text
-                        text="{path: 'binTrolleyTracking>/totalReturnStatusSummary', formatter: '.formatTrackingTotalReturnStatusLine'}"
-                        class="binTrolleyTrackingTotalDiff"
                     />
                 </HBox>
             </VBox>
@@ -224,7 +203,7 @@
                             <ComboBox
                                 id="idExitGateNumber"
                                 width="100%"
-                                editable="true"
+                                editable="{= !${globalData>/TripLocked} }"
                                 placeholder="Select exit gate"
                                 selectedKey="{path: 'TripData>/ExitGateNum', mode: 'OneWay'}"
                                 items="{exitGateModel>/items}"
@@ -363,6 +342,7 @@
                         type="Emphasized"
                         icon="sap-icon://edit"
                         press="onEditGateOut"
+                        visible="{= !${globalData>/TripLocked} }"
                     />
                     <Button
                         id="btnSaveGateOut"
@@ -371,6 +351,7 @@
                         icon="sap-icon://save"
                         press="onSaveGateOut"
                         class="sapUiTinyMarginBegin"
+                        visible="{= !${globalData>/TripLocked} }"
                     />
                 </HBox>
             </VBox>

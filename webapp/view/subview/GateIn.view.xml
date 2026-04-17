@@ -1,6 +1,7 @@
 <mvc:View
     xmlns:mvc="sap.ui.core.mvc"
     xmlns="sap.m"
+    xmlns:core="sap.ui.core"
     xmlns:layout="sap.ui.layout"
     xmlns:form="sap.ui.layout.form"
     xmlns:unified="sap.ui.unified"
@@ -55,6 +56,7 @@
                         icon="sap-icon://add"
                         type="Transparent"
                         press="onAddTrackingRow"
+                        visible="{= !${globalData>/TripLocked} }"
                     />
                     <Button
                         id="idSaveBinTrolleyRowBtn"
@@ -63,6 +65,7 @@
                         type="Emphasized"
                         class="sapUiTinyMarginBegin"
                         press="onSaveTrackingRows"
+                        visible="{= !${globalData>/TripLocked} }"
                     />
                 </HBox>
 
@@ -108,10 +111,18 @@
                     <items>
                         <ColumnListItem class="binTrolleyTrackingRow">
                             <cells>
-                                <Input value="{binTrolleyTracking>DocumentNumber}" editable="{binTrolleyTracking>IsManual}" />
-                                <Input value="{binTrolleyTracking>ItemNo}" editable="{binTrolleyTracking>IsManual}" />
-                                <Input value="{binTrolleyTracking>Material}" editable="{binTrolleyTracking>IsManual}" class="binTrolleyPartCode" />
-                                <Input value="{binTrolleyTracking>BinTypeDesc}" editable="{binTrolleyTracking>IsManual}" />
+                                <Input value="{binTrolleyTracking>DocumentNumber}" editable="{= ${binTrolleyTracking>IsManual} &amp;&amp; !${globalData>/TripLocked} }" />
+                                <Input value="{binTrolleyTracking>ItemNo}" editable="{= ${binTrolleyTracking>IsManual} &amp;&amp; !${globalData>/TripLocked} }" />
+                                <Input value="{binTrolleyTracking>Material}" editable="{= ${binTrolleyTracking>IsManual} &amp;&amp; !${globalData>/TripLocked} }" class="binTrolleyPartCode" />
+                                <ComboBox
+                                    value="{binTrolleyTracking>BinTypeDesc}"
+                                    editable="{= ${binTrolleyTracking>IsManual} &amp;&amp; !${globalData>/TripLocked} }"
+                                    width="100%"
+                                >
+                                    <core:Item key="Muffler Trolley" text="Muffler Trolley" />
+                                    <core:Item key="Pipes Comp Trolley" text="Pipes Comp Trolley" />
+                                    <core:Item key="Plastic Bins" text="Plastic Bins" />
+                                </ComboBox>
                                 <ObjectNumber
                                     number="{binTrolleyTracking>QtyOut}"
                                     emphasized="false"
@@ -122,6 +133,7 @@
                                     type="Number"
                                     textAlign="Center"
                                     width="6rem"
+                                    editable="{= !${globalData>/TripLocked} }"
                                     valueState="{path: 'binTrolleyTracking>ReturnStatus', formatter: '.formatTrackingQtyValueState'}"
                                     showValueStateMessage="false"
                                     change="onTrackingFieldLiveChange"
@@ -134,15 +146,13 @@
                                 <ObjectStatus
                                     text="{binTrolleyTracking>ReturnStatus}"
                                     state="{path: 'binTrolleyTracking>ReturnStatus', formatter: '.formatTrackingStatusState'}"
-                                    icon="{path: 'binTrolleyTracking>ReturnStatus', formatter: '.formatTrackingStatusIcon'}"
-                                    inverted="true"
                                 />
                                 <Button
                                     icon="sap-icon://decline"
                                     type="Transparent"
                                     tooltip="Remove/Delete row"
                                     press="onRemoveTrackingRow"
-                                    visible="true"
+                                    visible="{= !${globalData>/TripLocked} }"
                                 />
                             </cells>
                         </ColumnListItem>
@@ -298,6 +308,7 @@
                         type="Emphasized"
                         icon="sap-icon://edit"
                         press="onEditGateInInfo"
+                        visible="{= !${globalData>/TripLocked} }"
                     />
                     <Button
                         id="btnSaveGateInInfo"
@@ -306,6 +317,7 @@
                         icon="sap-icon://save"
                         press="onSaveGateInInfo"
                         class="sapUiTinyMarginBegin"
+                        visible="{= !${globalData>/TripLocked} }"
                     />
                 </HBox>
             </VBox>

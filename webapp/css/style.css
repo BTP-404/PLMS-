@@ -3360,3 +3360,12 @@ body#content {
 #stagePage .sapMITBContent .sapUiView[data-controller-name*=".controller.subview."] .sapMListTblCnt {
     overflow-x: hidden !important;
 }
+
+/* Scoped LTR typing fix: prevent inherited RTL caret behavior in app inputs */
+.myAppLTRFix .sapMInputBaseInner,
+.myAppLTRFix .sapMTextAreaInner,
+.myAppLTRFix .sapMComboBoxBase .sapMInputBaseInner {
+    direction: ltr !important;
+    text-align: left !important;
+    unicode-bidi: normal !important;
+}

@@ -31,12 +31,6 @@
                 </headerToolbar>
                 <columns>
                     <Column>
-                        <Text text="Document No" />
-                    </Column>
-                    <Column>
-                        <Text text="Ref Doc Item No" />
-                    </Column>
-                    <Column>
                         <Text text="Material Code" />
                     </Column>
                     <Column>
@@ -45,6 +39,12 @@
                     <Column hAlign="End">
                         <Text text="Quantity" />
                     </Column>
+                    <Column hAlign="End">
+                        <Text text="ShippingQty" />
+                    </Column>
+                    <Column hAlign="End">
+                        <Text text="RemainQty" />
+                    </Column>
                     <Column>
                         <Text text="UoM" />
                     </Column>
@@ -52,11 +52,17 @@
                 <items>
                     <ColumnListItem>
                         <cells>
-                            <Text text="{materialsSelectionModel>RefDocNo}" />
-                            <Text text="{materialsSelectionModel>RefDocItemNo}" />
                             <Text text="{materialsSelectionModel>MaterialCode}" />
                             <Text text="{materialsSelectionModel>MaterialDescription}" />
                             <Text text="{materialsSelectionModel>Quantity}" />
+                            <Input
+                                value="{materialsSelectionModel>ShippingQty}"
+                                type="Number"
+                                valueLiveUpdate="true"
+                                liveChange=".onSelectMaterialShippingQtyLiveChange"
+                                editable="{= !${globalData>/TripLocked} }"
+                            />
+                            <Text text="{materialsSelectionModel>RemainQty}" />
                             <Text text="{materialsSelectionModel>UoM}" />
                         </cells>
                     </ColumnListItem>
