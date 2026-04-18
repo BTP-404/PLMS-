@@ -112,7 +112,6 @@
                     <Title text="Bin / Trolley Tracking" class="sectionPanelTitle" />
                 </OverflowToolbar>
             </headerToolbar>
-
             <VBox class="sapUiSizeCompact" width="100%">
                 <Table
                     id="idGateOutBinTrolleyTable"
@@ -140,7 +139,6 @@
                             <Text text="Qty Out" />
                         </Column>
                     </columns>
-
                     <items>
                         <ColumnListItem class="binTrolleyTrackingRow">
                             <cells>
@@ -148,15 +146,11 @@
                                 <Text text="{binTrolleyTracking>ItemNo}" />
                                 <Text text="{binTrolleyTracking>Material}" class="binTrolleyPartCode" />
                                 <Text text="{= ${binTrolleyTracking>BinTypeDesc} || ${binTrolleyTracking>BinType} }" />
-                                <ObjectNumber
-                                    number="{binTrolleyTracking>QtyOut}"
-                                    emphasized="false"
-                                />
+                                <ObjectNumber number="{binTrolleyTracking>QtyOut}" emphasized="false" />
                             </cells>
                         </ColumnListItem>
                     </items>
                 </Table>
-
                 <HBox justifyContent="End" class="sapUiTinyMarginTop binTrolleyTrackingTotalBar">
                     <Text
                         text="{path: 'binTrolleyTracking>/totalQtyOut', formatter: '.formatTrackingTotalQtyOutLine'}"

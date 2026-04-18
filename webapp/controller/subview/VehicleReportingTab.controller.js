@@ -146,6 +146,9 @@ sap.ui.define(
               : "";
             if (oCoreTripData && sReqTrip && sReqTrip === sCoreTrip) {
               // Trip is already loaded by Stage route loader; reuse model and avoid duplicate backend read.
+              this._hydrateReportingUiAliases(oCoreTripData.getData());
+              this._syncMovementScenarioItemKeyOnTripData(oCoreTripData);
+              oCoreTripData.refresh(true);
               this.getView().setModel(oCoreTripData, "TripData");
               this._setInputsEnabled(false);
               this._setButtonStates(true, true);

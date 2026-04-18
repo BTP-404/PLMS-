@@ -72,7 +72,7 @@
                                     <Text text="EWB No" wrapping="false"/>
                                 </Column>
                                 <Column id="colEwayBillDate" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Block" visible="false">
-                                    <Text text="EWB Date" wrapping="false" visible="false"/>
+                                    <Text text="EWB Date" wrapping="false"/>
                                 </Column>
                                 <Column
                                     id="colInvRefNo"
@@ -196,8 +196,8 @@
                     autoPopin="true"
                     popinLayout="GridSmall"
                     sticky="ColumnHeaders"
-                    growing="true"
-                    growingScrollToLoad="true"
+                    growing="false"
+                    growingScrollToLoad="false"
                     items="{path: 'refDocModel>/filteredMaterialDetails'}"
                     noDataText="No material rows added yet">
 
@@ -213,6 +213,9 @@
                                 </Column>
                                 <Column id="colMaterialQuantity" hAlign="End" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
                                     <Text text="Quantity" wrapping="false"/>
+                                </Column>
+                                <Column id="colMaterialBalanceQty" hAlign="End" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
+                                    <Text text="BalanceQty" wrapping="false"/>
                                 </Column>
                                 <Column id="colMaterialShippingQty" hAlign="End" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
                                     <Text text="ShippingQty" wrapping="false"/>
@@ -235,11 +238,8 @@
                                         <Text text="{refDocModel>refDocItemNo}"/>
                                         <Text text="{refDocModel>materialDescription}"/>
                                         <Text text="{refDocModel>qty}"/>
-                                        <Input
-                                            value="{refDocModel>shippingQty}"
-                                            type="Number"
-                                            valueLiveUpdate="true"
-                                            editable="{= !${globalData>/IsScanningReporting} &amp;&amp; !${globalData>/DisableRefDocMaterialsActions} &amp;&amp; !${globalData>/TripLocked} }"/>
+                                        <Text text="{refDocModel>balanceQty}"/>
+                                        <Text text="{refDocModel>shippingQty}"/>
                                         <Text text="{refDocModel>uom}"/>
                                         <Text text="{refDocModel>remainQty}"/>
                                         <HBox

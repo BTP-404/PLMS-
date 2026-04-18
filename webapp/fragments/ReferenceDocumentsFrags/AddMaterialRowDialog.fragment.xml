@@ -101,6 +101,17 @@
                 id="idMaterialQty"
                 type="Number"
                 valueLiveUpdate="true"
+                change=".onMaterialQtyOrBalanceDispatchChange"
+                liveChange=".onMaterialQtyOrBalanceDispatchChange"
+            />
+
+            <Label text="Balance Qty" />
+            <Input
+                id="idMaterialBalanceQty"
+                type="Number"
+                valueLiveUpdate="true"
+                change=".onMaterialBalanceOrDispatchQtyChange"
+                liveChange=".onMaterialBalanceOrDispatchQtyChange"
             />
 
             <Label text="Dispatch Qty" />
@@ -109,6 +120,8 @@
                 type="Number"
                 valueLiveUpdate="true"
                 editable="{= !${globalData>/TripLocked} }"
+                change=".onMaterialBalanceOrDispatchQtyChange"
+                liveChange=".onMaterialBalanceOrDispatchQtyChange"
             />
 
             <Label text="Remain Qty" />

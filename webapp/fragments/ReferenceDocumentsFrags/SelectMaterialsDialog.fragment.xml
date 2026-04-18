@@ -40,6 +40,9 @@
                         <Text text="Quantity" />
                     </Column>
                     <Column hAlign="End">
+                        <Text text="BalanceQty" />
+                    </Column>
+                    <Column hAlign="End">
                         <Text text="ShippingQty" />
                     </Column>
                     <Column hAlign="End">
@@ -55,6 +58,7 @@
                             <Text text="{materialsSelectionModel>MaterialCode}" />
                             <Text text="{materialsSelectionModel>MaterialDescription}" />
                             <Text text="{materialsSelectionModel>Quantity}" />
+                            <Text text="{materialsSelectionModel>BalanceQty}" />
                             <Input
                                 value="{materialsSelectionModel>ShippingQty}"
                                 type="Number"

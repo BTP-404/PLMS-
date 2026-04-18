@@ -483,6 +483,8 @@ sap.ui.define([
 			var oRefDocModel = this._ensureRefDocModel();
 			if (oRefDocModel) {
 				oRefDocModel.setData({
+					// Keep both keys reset for compatibility, while the table binds to `referenceDocs`.
+					referenceDocs: [],
 					referenceDocuments: [],
 					materialDetails: [],
 					filteredMaterialDetails: []
@@ -551,7 +553,8 @@ sap.ui.define([
 		_filterMaterialDetails: function () {
 			var oModel = this._ensureRefDocModel();
 			var aAllMaterials = oModel.getProperty("/materialDetails") || [];
-			oModel.setProperty("/filteredMaterialDetails", aAllMaterials);
+			// Use a fresh array reference so table bindings fully re-render rows.
+			oModel.setProperty("/filteredMaterialDetails", aAllMaterials.slice());
 		},
 
 		_normalizeKey: function (vValue) {
@@ -1174,6 +1177,7 @@ sap.ui.define([
 				new Filter("MaterialCode", FilterOperator.Contains, sQuery),
 				new Filter("MaterialDescription", FilterOperator.Contains, sQuery),
 				new Filter("Quantity", FilterOperator.Contains, sQuery),
+				new Filter("BalanceQty", FilterOperator.Contains, sQuery),
 				new Filter("ShippingQty", FilterOperator.Contains, sQuery),
 				new Filter("RemainQty", FilterOperator.Contains, sQuery),
 				new Filter("UoM", FilterOperator.Contains, sQuery)
@@ -1191,21 +1195,18 @@ sap.ui.define([
 
 			var sRowPath = oCtx.getPath();
 			var oRow = oModel.getProperty(sRowPath) || {};
-			var fQty = parseFloat(oRow.Quantity);
-			if (!isFinite(fQty) || fQty < 0) {
-				fQty = 0;
-			}
+			var fBalance = this._materialBalanceBaseForRemain(oRow);
 
 			var sShippingRaw = String((oEvent.getParameter("value") || "")).trim();
 			var fShipping = parseFloat(sShippingRaw);
 			if (!isFinite(fShipping) || fShipping < 0) {
 				fShipping = 0;
 			}
-			if (fShipping > fQty) {
-				fShipping = fQty;
+			if (fShipping > fBalance) {
+				fShipping = fBalance;
 			}
 
-			var fRemain = fQty - fShipping;
+			var fRemain = fBalance - fShipping;
 			if (!isFinite(fRemain) || fRemain < 0) {
 				fRemain = 0;
 			}
@@ -1215,6 +1216,48 @@ sap.ui.define([
 
 			oModel.setProperty(sRowPath + "/ShippingQty", sFormattedShipping);
 			oModel.setProperty(sRowPath + "/RemainQty", sFormattedRemain);
+		},
+
+		onMaterialQtyOrBalanceDispatchChange: function () {
+			this.onMaterialBalanceOrDispatchQtyChange();
+		},
+
+		onMaterialBalanceOrDispatchQtyChange: function () {
+			var sBal = (this.byId("idMaterialBalanceQty")?.getValue() || "").trim();
+			var sShip = (this.byId("idMaterialDispatchQty")?.getValue() || "").trim();
+			var fBalance = 0;
+			if (sBal) {
+				var fB = parseFloat(sBal);
+				if (!isNaN(fB) && isFinite(fB) && fB >= 0) {
+					fBalance = fB;
+				}
+			} else {
+				var sQty = (this.byId("idMaterialQty")?.getValue() || "").trim();
+				if (sQty) {
+					var fQ = parseFloat(sQty);
+					if (!isNaN(fQ) && isFinite(fQ) && fQ >= 0) {
+						fBalance = fQ;
+					}
+				}
+			}
+			var fShipping = 0;
+			if (sShip) {
+				var fS = parseFloat(sShip);
+				if (!isNaN(fS) && isFinite(fS) && fS >= 0) {
+					fShipping = fS;
+				}
+			}
+			if (fShipping > fBalance) {
+				fShipping = fBalance;
+				var sCap = (fShipping % 1 === 0) ? String(Math.floor(fShipping)) : fShipping.toFixed(2);
+				this.byId("idMaterialDispatchQty")?.setValue(sCap);
+			}
+			var fRemain = fBalance - fShipping;
+			if (!isFinite(fRemain) || fRemain < 0) {
+				fRemain = 0;
+			}
+			var sRem = (fRemain % 1 === 0) ? String(Math.floor(fRemain)) : fRemain.toFixed(2);
+			this.byId("idMaterialRemainQty")?.setValue(sRem);
 		},
 
 		onCloseSelectMaterialsDialog: function () {
@@ -1269,11 +1312,12 @@ sap.ui.define([
 			if (this._bIsRefDocEditMode && this._oEditingRefDoc) {
 				// Update existing reference document
 				var oOriginalRefDoc = Object.assign({}, this._oEditingRefDoc);
-				var sOptimisticRefEditKey = [
-					String(oOriginalRefDoc.tripNumber || oOriginalRefDoc.TripNumber || oPayload.TripNumber || "").trim().toUpperCase(),
-					String(oOriginalRefDoc.docType || oOriginalRefDoc.DocType || oPayload.DocType || "").trim().toUpperCase(),
-					String(oOriginalRefDoc.documentNumber || oOriginalRefDoc.DocumentNumber || oPayload.DocumentNumber || "").trim().toUpperCase()
-				].join("|");
+				var oEditGuardSource = Object.assign({}, oOriginalRefDoc, {
+					tripNumber: String(oOriginalRefDoc.tripNumber || oOriginalRefDoc.TripNumber || oPayload.TripNumber || "").trim(),
+					docType: String(oOriginalRefDoc.docType || oOriginalRefDoc.DocType || oPayload.DocType || "").trim(),
+					documentNumber: String(oOriginalRefDoc.documentNumber || oOriginalRefDoc.DocumentNumber || oPayload.DocumentNumber || "").trim()
+				});
+				var sOptimisticRefEditKey = this._getRefDocGuardKey(oEditGuardSource);
 				this._setUiGuard(this._mRefDocUiGuard, sOptimisticRefEditKey, "upsert");
 				// Immediate UI update
 				this._updateLocalReferenceDoc(oPayload, oOriginalRefDoc);
@@ -1281,12 +1325,7 @@ sap.ui.define([
 					.then(function (oResponse) {
 						var oUpdatedRefDoc = oResponse || oPayload;
 						this._updateLocalReferenceDoc(oUpdatedRefDoc, this._oEditingRefDoc);
-						var sRefDocKey = [
-							String(oUpdatedRefDoc.TripNumber || oUpdatedRefDoc.tripNumber || "").trim().toUpperCase(),
-							String(oUpdatedRefDoc.DocType || oUpdatedRefDoc.docType || "").trim().toUpperCase(),
-							String(oUpdatedRefDoc.DocumentNumber || oUpdatedRefDoc.documentNumber || "").trim().toUpperCase()
-						].join("|");
-						this._setUiGuard(this._mRefDocUiGuard, sRefDocKey, "upsert");
+						this._setUiGuard(this._mRefDocUiGuard, this._getRefDocGuardKey(oUpdatedRefDoc), "upsert");
 						MessageToast.show("Reference document updated");
 						this._loadRefDocSuggestions(this._sSelectedDocType || oPayload.DocType);
 						this._loadMaterialDocTypesFromRefDocs();
@@ -1308,11 +1347,7 @@ sap.ui.define([
 				docType: oPayload.DocType || "",
 				documentNumber: oPayload.DocumentNumber || ""
 			};
-			var sOptimisticRefDocKey = [
-				String(oOptimisticRefDoc.tripNumber || "").trim().toUpperCase(),
-				String(oOptimisticRefDoc.docType || "").trim().toUpperCase(),
-				String(oOptimisticRefDoc.documentNumber || "").trim().toUpperCase()
-			].join("|");
+			var sOptimisticRefDocKey = this._getRefDocGuardKey(oOptimisticRefDoc);
 			this._setUiGuard(this._mRefDocUiGuard, sOptimisticRefDocKey, "upsert");
 			// Optimistically update UI so users see the row immediately.
 			this._appendLocalReferenceDoc(oPayload);
@@ -1416,11 +1451,11 @@ sap.ui.define([
 						var oModel = this._ensureRefDocModel();
 						var aRefDocsSnapshot = (oModel.getProperty("/referenceDocs") || []).slice();
 						var aMaterialsSnapshot = (oModel.getProperty("/materialDetails") || []).slice();
-						var sRefDeleteKey = [
-							String(oRefDoc?.tripNumber || oRefDoc?.TripNumber || "").trim().toUpperCase(),
-							String(oRefDoc?.docType || oRefDoc?.DocType || "").trim().toUpperCase(),
-							String(oRefDoc?.documentNumber || oRefDoc?.DocumentNumber || "").trim().toUpperCase()
-						].join("|");
+						var oGlobalModelDel = sap.ui.getCore().getModel("globalData");
+						var sGlobalTripDel = String((oGlobalModelDel && oGlobalModelDel.getProperty("/TripNumber")) || "").trim();
+						var sRowTripDel = this._materialRowFieldStr(oRefDoc, "tripNumber", "TripNumber");
+						var oTripOvDel = !sRowTripDel && sGlobalTripDel ? { tripNumber: sGlobalTripDel } : undefined;
+						var sRefDeleteKey = this._getRefDocGuardKey(oRefDoc, oTripOvDel);
 						this._setUiGuard(this._mRefDocUiGuard, sRefDeleteKey, "delete");
 						// Immediate UI delete
 						this._removeLocalReferenceDoc(oRefDoc);
@@ -1581,12 +1616,14 @@ sap.ui.define([
 		onMaterialRefDocNoChange: function (oEvent) {
 			var sRefDocNo = oEvent.getParameter("value") || "";
 			var sDocType = this._sSelectedMaterialDocType || this.byId("idMaterialDocType")?.getValue().trim() || "";
+			console.log("[MaterialDebug] onMaterialRefDocNoChange", {
+				docType: sDocType,
+				refDocNo: sRefDocNo
+			});
 
 			// Load available material items for the selected reference document
 			if (sDocType && sRefDocNo) {
 				this._loadMaterialItemsForRefDoc(sDocType, sRefDocNo);
-				// Automatically add all materials from this reference document
-				this._addAllMaterialsFromRefDoc(sDocType, sRefDocNo);
 			} else {
 				// Clear material items if no reference document is selected
 				this._getMaterialItemsModel().setProperty("/items", []);
@@ -1858,7 +1895,18 @@ sap.ui.define([
 				oEvent.preventDefault?.();
 				oEvent.cancelBubble?.();
 			}
+			if (this._bSavingMaterialDialog) {
+				console.warn("[MaterialDebug] Save blocked: already in progress");
+				return;
+			}
 			var oPayload = this._buildMaterialDetailPayload();
+			console.log("[MaterialDebug] onSaveMaterialDialog payload", {
+				tripNumber: oPayload.TripNumber,
+				docType: oPayload.DocType,
+				refDocNo: oPayload.RefDocNo,
+				refDocItemNo: oPayload.RefDocItemNo,
+				isEditMode: !!this._bIsEditMode
+			});
 			if (!oPayload.TripNumber) {
 				return MessageToast.show("Trip Number missing. Please open a trip first.");
 			}
@@ -1880,6 +1928,12 @@ sap.ui.define([
 			if (oPayload.Quantity === null || oPayload.Quantity === undefined || isNaN(oPayload.Quantity)) {
 				return MessageToast.show("Quantity must be a valid number");
 			}
+			this._bSavingMaterialDialog = true;
+			this.byId("idMaterialDialogSaveBtn")?.setEnabled(false);
+			var fnReleaseMaterialSave = function () {
+				this._bSavingMaterialDialog = false;
+				this.byId("idMaterialDialogSaveBtn")?.setEnabled(true);
+			}.bind(this);
 			
 			if (this._bIsEditMode && this._oEditingMaterial) {
 				// Update existing material
@@ -1914,7 +1968,8 @@ sap.ui.define([
 						this._updateLocalMaterialDetail(oOriginalMaterial, oPayload);
 						var sMessage = this._extractErrorMessage(oError) || "Unable to update material row";
 						MessageToast.show(sMessage);
-					}.bind(this));
+					}.bind(this))
+					.finally(fnReleaseMaterialSave);
 			} else {
 				// Create new material
 				var oOptimisticMaterial = {
@@ -1934,6 +1989,14 @@ sap.ui.define([
 				this._appendLocalMaterialDetail(oPayload);
 				this._saveMaterialDetail(oPayload)
 					.then(function (oResponse) {
+						console.log("[MaterialDebug] saveMaterialDetail success", {
+							responseKey: [
+								oResponse?.TripNumber || oPayload.TripNumber,
+								oResponse?.DocType || oPayload.DocType,
+								oResponse?.RefDocNo || oPayload.RefDocNo,
+								oResponse?.RefDocItemNo || oPayload.RefDocItemNo
+							].join("|")
+						});
 						// Replace optimistic row with backend-confirmed payload fields.
 						this._updateLocalMaterialDetail(oResponse || oPayload, oOptimisticMaterial);
 						this._oEventBus?.publish("RefDoc", "MaterialsUpdated");
@@ -1942,12 +2005,14 @@ sap.ui.define([
 						this._resetMaterialDialog();
 					}.bind(this))
 					.catch(function (oError) {
+						console.error("[MaterialDebug] saveMaterialDetail failed", oError);
 						// Roll back optimistic row when backend create fails.
 						this._removeLocalMaterialDetail(oOptimisticMaterial);
 						delete this._mMaterialUiGuard[sOptimisticMaterialKey];
 						var sMessage = this._extractErrorMessage(oError) || "Unable to save material row";
 						MessageToast.show(sMessage);
-					}.bind(this));
+					}.bind(this))
+					.finally(fnReleaseMaterialSave);
 			}
 		},
 
@@ -2022,10 +2087,10 @@ sap.ui.define([
 						var oModel = this._ensureRefDocModel();
 						var aMaterialsSnapshot = (oModel.getProperty("/materialDetails") || []).slice();
 						var sMaterialDeleteKey = [
-							String(oMaterial?.tripNumber || oMaterial?.TripNumber || "").trim().toUpperCase(),
-							String(oMaterial?.docType || oMaterial?.DocType || "").trim().toUpperCase(),
-							String(oMaterial?.refDocNo || oMaterial?.RefDocNo || "").trim().toUpperCase(),
-							String(oMaterial?.refDocItemNo || oMaterial?.RefDocItemNo || "").trim().toUpperCase()
+							this._materialRowFieldStr(oMaterial, "tripNumber", "TripNumber").toUpperCase(),
+							this._materialRowFieldStr(oMaterial, "docType", "DocType").toUpperCase(),
+							this._materialRowFieldStr(oMaterial, "refDocNo", "RefDocNo").toUpperCase(),
+							this._materialRowFieldStr(oMaterial, "refDocItemNo", "RefDocItemNo").toUpperCase()
 						].join("|");
 						this._setUiGuard(this._mMaterialUiGuard, sMaterialDeleteKey, "delete");
 						// Immediate UI delete
@@ -2147,6 +2212,91 @@ sap.ui.define([
 			}
 			var sNoZeros = s.replace(/^0+/, "");
 			return sNoZeros || "0";
+		},
+
+		/** Trip / doc / item keys: do not use `||` so numeric 0 (e.g. line 0) is preserved. */
+		_materialRowFieldStr: function (oRow, sLowerProp, sUpperProp) {
+			if (!oRow) {
+				return "";
+			}
+			var v = oRow[sLowerProp];
+			if (v === undefined || v === null) {
+				v = oRow[sUpperProp];
+			}
+			if (v === undefined || v === null) {
+				return "";
+			}
+			return String(v).trim();
+		},
+
+		/**
+		 * Base quantity for RemainQty = BalanceQty - ShippingQty. Uses BalanceQty when present; otherwise Quantity.
+		 */
+		_materialBalanceBaseForRemain: function (oRow) {
+			if (!oRow) {
+				return 0;
+			}
+			var vBal = oRow.BalanceQty;
+			if (vBal === undefined || vBal === null) {
+				vBal = oRow.balanceQty;
+			}
+			var fBal = parseFloat(vBal);
+			if (isFinite(fBal) && fBal >= 0) {
+				return fBal;
+			}
+			var vQty = oRow.Quantity;
+			if (vQty === undefined || vQty === null) {
+				vQty = oRow.quantity;
+			}
+			var fQty = parseFloat(vQty);
+			return (isFinite(fQty) && fQty >= 0) ? fQty : 0;
+		},
+
+		/**
+		 * Canonical ref-doc key for UI guards and _setReferenceDocsFromService merge (trip|docType|docNo), uppercased.
+		 * @param {object} [oDoc] row or payload (camelCase and/or PascalCase)
+		 * @param {object} [oOverrides] shallow-merged onto oDoc (e.g. tripNumber from globalData when the row has no trip)
+		 */
+		_getRefDocGuardKey: function (oDoc, oOverrides) {
+			var o = oDoc;
+			if (oDoc && oOverrides) {
+				o = Object.assign({}, oDoc, oOverrides);
+			} else if (!oDoc && oOverrides) {
+				o = oOverrides;
+			}
+			if (!o) {
+				return "";
+			}
+			var fnNormalize = function (vValue) {
+				return String(vValue || "").trim().toUpperCase();
+			};
+			var fnGetVal = function (oObj, sPrimary, sFallback) {
+				return (oObj && (oObj[sPrimary] || oObj[sFallback])) || "";
+			};
+			return [
+				fnNormalize(fnGetVal(o, "tripNumber", "TripNumber")),
+				fnNormalize(fnGetVal(o, "docType", "DocType")),
+				fnNormalize(fnGetVal(o, "documentNumber", "DocumentNumber"))
+			].join("|");
+		},
+
+		/**
+		 * Skip merging an empty ItemDetails snapshot when orders still exist and multiple material
+		 * rows are shown for the trip (avoids wiping the table on partial/stale payloads).
+		 * Single-row / zero-row cases are not skipped so last-line delete can clear the UI.
+		 */
+		_shouldSkipEmptyMaterialSnapshot: function (aItemDetails, aOrderDetails, aMaterialRows, sTripTrim) {
+			var aItems = aItemDetails || [];
+			var aOrders = aOrderDetails || [];
+			var aMat = aMaterialRows || [];
+			var sTrip = String(sTripTrim || "").trim();
+			if (aItems.length !== 0 || aOrders.length === 0 || aMat.length <= 1 || !sTrip) {
+				return false;
+			}
+			var that = this;
+			return aMat.some(function (m) {
+				return that._materialRowFieldStr(m, "tripNumber", "TripNumber") === sTrip;
+			});
 		},
 
 		_findMatchingOrderDetail: function (sDocType, sDocNumber, bForceServer) {
@@ -2598,15 +2748,24 @@ sap.ui.define([
 						if (!isFinite(fQty) || fQty < 0) {
 							fQty = 0;
 						}
+						var fBalance = that._materialBalanceBaseForRemain(oItem);
+						var vBalRaw = oItem.BalanceQty;
+						if (vBalRaw === undefined || vBalRaw === null || vBalRaw === "") {
+							vBalRaw = oItem.balanceQty;
+						}
+						var fBalDisplay = parseFloat(vBalRaw);
+						if (!isFinite(fBalDisplay) || fBalDisplay < 0) {
+							fBalDisplay = fBalance;
+						}
 						var fShipping = parseFloat(vShippingQty);
 						if (!isFinite(fShipping) || fShipping < 0) {
 							fShipping = 0;
 						}
-						if (fShipping > fQty) {
-							fShipping = fQty;
+						if (fShipping > fBalance) {
+							fShipping = fBalance;
 						}
 						if (vRemainQty === null || vRemainQty === undefined || vRemainQty === "") {
-							vRemainQty = fQty - fShipping;
+							vRemainQty = fBalance - fShipping;
 						}
 						var fRemain = parseFloat(vRemainQty);
 						if (!isFinite(fRemain) || fRemain < 0) {
@@ -2614,6 +2773,7 @@ sap.ui.define([
 						}
 						return Object.assign({}, oItem, {
 							Quantity: (fQty % 1 === 0) ? String(Math.floor(fQty)) : fQty.toFixed(2),
+							BalanceQty: (fBalDisplay % 1 === 0) ? String(Math.floor(fBalDisplay)) : fBalDisplay.toFixed(2),
 							ShippingQty: (fShipping % 1 === 0) ? String(Math.floor(fShipping)) : fShipping.toFixed(2),
 							RemainQty: (fRemain % 1 === 0) ? String(Math.floor(fRemain)) : fRemain.toFixed(2)
 						});
@@ -2713,6 +2873,11 @@ sap.ui.define([
 				
 				var oMaterial = aMaterials[iIndex];
 				var sQuantity = oMaterial.Quantity !== null && oMaterial.Quantity !== undefined ? String(oMaterial.Quantity) : "0";
+				var vBal = oMaterial.BalanceQty;
+				if (vBal === undefined || vBal === null || vBal === "") {
+					vBal = oMaterial.balanceQty;
+				}
+				var sBalanceQty = (vBal !== undefined && vBal !== null && vBal !== "") ? String(vBal) : "";
 				var sShippingQty = oMaterial.ShippingQty !== null && oMaterial.ShippingQty !== undefined && oMaterial.ShippingQty !== "" ?
 					String(oMaterial.ShippingQty) :
 					"0";
@@ -2725,6 +2890,7 @@ sap.ui.define([
 					MaterialCode: oMaterial.MaterialCode || "",
 					MaterialDescription: oMaterial.MaterialDescription || oMaterial.MaterialCode || "",
 					Quantity: sQuantity,
+					BalanceQty: sBalanceQty,
 					ShippingQty: sShippingQty,
 					RemainQty: sRemainQty,
 					UoM: oMaterial.UoM || "",
@@ -2938,6 +3104,7 @@ sap.ui.define([
 				"idMaterialCode",
 				"idMaterialDesc",
 				"idMaterialQty",
+				"idMaterialBalanceQty",
 				"idMaterialDispatchQty",
 				"idMaterialRemainQty",
 				"idMaterialUoM"
@@ -2968,6 +3135,7 @@ sap.ui.define([
 			this.byId("idMaterialDesc")?.setEditable(!bTripLocked);
 			this.byId("idMaterialUoM")?.setEditable(!bTripLocked);
 			this.byId("idMaterialQty")?.setEditable(!bTripLocked);
+			this.byId("idMaterialBalanceQty")?.setEditable(!bTripLocked);
 			this.byId("idMaterialDispatchQty")?.setEditable(!bTripLocked);
 			this.byId("idMaterialRemainQty")?.setEditable(false);
 			this.byId("idMaterialDispatchDate")?.setEditable(!bTripLocked);
@@ -2985,12 +3153,18 @@ sap.ui.define([
 			this.byId("idMaterialCode")?.setValue(oMaterial.materialCode || "");
 			this.byId("idMaterialDesc")?.setValue(oMaterial.materialDescription || "");
 			this.byId("idMaterialQty")?.setValue(oMaterial.qty || "");
+			var vBalQty = oMaterial.balanceQty;
+			if (vBalQty === undefined || vBalQty === null || vBalQty === "") {
+				vBalQty = oMaterial.BalanceQty;
+			}
+			this.byId("idMaterialBalanceQty")?.setValue(vBalQty != null && vBalQty !== "" ? String(vBalQty) : "");
 			var vShippingQty = oMaterial.shippingQty;
 			if (vShippingQty === undefined || vShippingQty === null || vShippingQty === "") {
 				vShippingQty = oMaterial.dispatchQty;
 			}
 			this.byId("idMaterialDispatchQty")?.setValue(vShippingQty != null && vShippingQty !== "" ? String(vShippingQty) : "");
 			this.byId("idMaterialRemainQty")?.setValue(oMaterial.remainQty != null && oMaterial.remainQty !== "" ? String(oMaterial.remainQty) : "");
+			this.onMaterialBalanceOrDispatchQtyChange();
 			this.byId("idMaterialDispatchDate")?.setValue(oMaterial.dispatchDate || "");
 			this.byId("idMaterialUoM")?.setValue(oMaterial.uom || "");
 			
@@ -3332,7 +3506,14 @@ sap.ui.define([
 			var vQty = oItem.Quantity;
 			var sQty = (vQty === null || vQty === undefined) ? "" : String(vQty);
 			this.byId("idMaterialQty")?.setValue(sQty);
+			var vBal = oItem.BalanceQty;
+			if (vBal === undefined || vBal === null) {
+				vBal = oItem.balanceQty;
+			}
+			var sBal = (vBal === null || vBal === undefined) ? "" : String(vBal);
+			this.byId("idMaterialBalanceQty")?.setValue(sBal);
 			this.byId("idMaterialUoM")?.setValue(oItem.UoM || "");
+			this.onMaterialBalanceOrDispatchQtyChange();
 		},
 
 		_showItemDetailsValueHelp: function (aItems) {
@@ -3455,8 +3636,14 @@ sap.ui.define([
 			this.byId("idMaterialCode")?.setValue(oItem.MaterialCode || "");
 			this.byId("idMaterialDesc")?.setValue(oItem.MaterialDescription || "");
 			this.byId("idMaterialQty")?.setValue(oItem.Quantity || "");
+			var vBalRow = oItem.BalanceQty;
+			if (vBalRow === undefined || vBalRow === null) {
+				vBalRow = oItem.balanceQty;
+			}
+			this.byId("idMaterialBalanceQty")?.setValue(vBalRow !== undefined && vBalRow !== null ? String(vBalRow) : "");
 			this.byId("idMaterialUoM")?.setValue(oItem.UoM || "");
 			this._sSelectedMaterialDocType = this.byId("idMaterialDocType")?.getValue() || this._sSelectedMaterialDocType;
+			this.onMaterialBalanceOrDispatchQtyChange();
 		},
 
 		_fetchItemDetails: function (sDocType) {
@@ -3703,9 +3890,9 @@ sap.ui.define([
 				// While user types in Document Number search, do NOT force PO filter,
 				// so they can search/select another document.
 				if (!sTripNumber && sIncomingPo && !bIncomingSkip && !bOutgoingSkip && !sSearchTerm) {
-					// Create-mode PO prefill: use Contains to tolerate backend formatting
-					// differences (e.g. leading zeros in stored document number).
-					aFilters.push(new Filter("DocumentNumber", FilterOperator.Contains, sIncomingPo));
+					// Create-mode PO prefill: use exact match to avoid stale/partial matches
+					// from previous or unrelated trips.
+					aFilters.push(new Filter("DocumentNumber", FilterOperator.EQ, sIncomingPo));
 				}
 
 				var mReadParams = {
@@ -4085,9 +4272,23 @@ sap.ui.define([
 					var aMaterialsToAdd = aNewMaterials.map(function (oItem) {
 						var vQty = oItem.Quantity;
 						var sQtyDisplay = (vQty === null || vQty === undefined || vQty === "") ? "" : String(vQty);
+						var vBal = oItem.BalanceQty;
+						if (vBal === undefined || vBal === null) {
+							vBal = oItem.balanceQty;
+						}
+						var sBalanceQtyDisplay = (vBal === null || vBal === undefined || vBal === "") ? "" : String(vBal);
 						var vShippingQty = (oItem.ShippingQty !== undefined && oItem.ShippingQty !== null) ? oItem.ShippingQty : oItem.DispatchQty;
 						var sShippingQtyDisplay = (vShippingQty === null || vShippingQty === undefined || vShippingQty === "") ? "" : String(vShippingQty);
 						var sRemainQtyDisplay = (oItem.RemainQty === null || oItem.RemainQty === undefined || oItem.RemainQty === "") ? "" : String(oItem.RemainQty);
+						if (sRemainQtyDisplay === "") {
+							var fB = that._materialBalanceBaseForRemain(oItem);
+							var fS = parseFloat(sShippingQtyDisplay);
+							if (isFinite(fB) && !isNaN(fS) && isFinite(fS)) {
+								sRemainQtyDisplay = String(fB - fS);
+							} else if (isFinite(fB)) {
+								sRemainQtyDisplay = String(fB);
+							}
+						}
 						
 						return {
 							tripNumber: oItem.TripNumber || "",
@@ -4097,6 +4298,7 @@ sap.ui.define([
 							materialCode: oItem.MaterialCode || "",
 							materialDescription: oItem.MaterialDescription || "",
 							qty: sQtyDisplay,
+							balanceQty: sBalanceQtyDisplay,
 							shippingQty: sShippingQtyDisplay,
 							dispatchQty: sShippingQtyDisplay,
 							remainQty: sRemainQtyDisplay,
@@ -4138,7 +4340,14 @@ sap.ui.define([
 			var vQty = oItem.Quantity;
 			var sQty = (vQty === null || vQty === undefined) ? "" : String(vQty);
 			this.byId("idMaterialQty")?.setValue(sQty);
+			var vBal = oItem.BalanceQty;
+			if (vBal === undefined || vBal === null) {
+				vBal = oItem.balanceQty;
+			}
+			var sBal = (vBal === null || vBal === undefined) ? "" : String(vBal);
+			this.byId("idMaterialBalanceQty")?.setValue(sBal);
 			this.byId("idMaterialUoM")?.setValue(oItem.UoM || "");
+			this.onMaterialBalanceOrDispatchQtyChange();
 		},
 
 		_openMaterialItemValueHelpDialog: function (sDocType, sRefDocNo) {
@@ -4342,6 +4551,7 @@ sap.ui.define([
 			var sMaterialCode = (this.byId("idMaterialCode")?.getValue() || "").trim();
 			var sMaterialDesc = (this.byId("idMaterialDesc")?.getValue() || "").trim();
 			var sQty = (this.byId("idMaterialQty")?.getValue() || "").trim();
+			var sBalanceQty = (this.byId("idMaterialBalanceQty")?.getValue() || "").trim();
 			var sShippingQty = (this.byId("idMaterialDispatchQty")?.getValue() || "").trim();
 			var sUoM = (this.byId("idMaterialUoM")?.getValue() || "").trim();
 
@@ -4354,6 +4564,15 @@ sap.ui.define([
 					fQty = fParsed;
 				}
 			}
+			var fBalanceBase = 0;
+			if (sBalanceQty) {
+				var fBalParsed = parseFloat(sBalanceQty);
+				if (!isNaN(fBalParsed) && isFinite(fBalParsed) && fBalParsed >= 0) {
+					fBalanceBase = fBalParsed;
+				}
+			} else {
+				fBalanceBase = fQty;
+			}
 			var fShippingQty = 0;
 			if (sShippingQty) {
 				var fS = parseFloat(sShippingQty);
@@ -4361,7 +4580,10 @@ sap.ui.define([
 					fShippingQty = fS;
 				}
 			}
-			var fRemainQty = fQty - fShippingQty;
+			if (fShippingQty > fBalanceBase) {
+				fShippingQty = fBalanceBase;
+			}
+			var fRemainQty = fBalanceBase - fShippingQty;
 			if (!isFinite(fRemainQty)) {
 				fRemainQty = 0;
 			}
@@ -4388,6 +4610,10 @@ sap.ui.define([
 			}
 			var sFormattedShippingQty = (fShippingQty % 1 === 0) ? String(Math.floor(fShippingQty)) : fShippingQty.toFixed(2);
 			var sFormattedRemainQty = (fRemainQty % 1 === 0) ? String(Math.floor(fRemainQty)) : fRemainQty.toFixed(2);
+			var sFormattedBalanceQty = "";
+			if (sBalanceQty || fBalanceBase !== 0) {
+				sFormattedBalanceQty = (fBalanceBase % 1 === 0) ? String(Math.floor(fBalanceBase)) : fBalanceBase.toFixed(2);
+			}
 			var bScannerScenarioActive = this._isScannerScenarioActive();
 
 			var oPayload = {
@@ -4398,6 +4624,7 @@ sap.ui.define([
 				MaterialCode: sMaterialCode,
 				MaterialDescription: sMaterialDesc || sMaterialCode, // Required, fallback to MaterialCode
 				Quantity: sFormattedQty,
+				BalanceQty: sFormattedBalanceQty,
 				ShippingQty: sFormattedShippingQty,
 				RemainQty: sFormattedRemainQty,
 				UoM: sUoM || "", // Set to empty string if not provided
@@ -4510,14 +4737,13 @@ sap.ui.define([
 						"X-Requested-With": "X"
 					},
 					success: function (oData) {
-						// Immediately update local model (don't wait for refresh)
-						that._removeLocalReferenceDoc(oRefDoc);
-						var sRefDocKey = [
-							String(oRefDoc?.tripNumber || oRefDoc?.TripNumber || "").trim().toUpperCase(),
-							String(oRefDoc?.docType || oRefDoc?.DocType || "").trim().toUpperCase(),
-							String(oRefDoc?.documentNumber || oRefDoc?.DocumentNumber || "").trim().toUpperCase()
-						].join("|");
-						that._setUiGuard(that._mRefDocUiGuard, sRefDocKey, "delete");
+						var oGlobalModelOk = sap.ui.getCore().getModel("globalData");
+						var sGlobalTripOk = String((oGlobalModelOk && oGlobalModelOk.getProperty("/TripNumber")) || "").trim();
+						var sRowTripOk = that._materialRowFieldStr(oRefDoc, "tripNumber", "TripNumber");
+						var oTripOvOk = !sRowTripOk && sGlobalTripOk ? { tripNumber: sGlobalTripOk } : undefined;
+						that._setUiGuard(that._mRefDocUiGuard, that._getRefDocGuardKey(oRefDoc, oTripOvOk), "delete");
+						// Keep TripData in sync so TripData/Updated handlers do not repaint deleted rows.
+						that._stripDeletedRefDocFromTripDataModel(oRefDoc);
 						// Keep suggestions fresh from backend (source of truth).
 						var sDocTypeRaw = String(oRefDoc?.DocType || oRefDoc?.docType || that._sSelectedDocType || "").trim();
 						if (sDocTypeRaw) {
@@ -4527,10 +4753,7 @@ sap.ui.define([
 						}
 						
 						MessageToast.show("Reference document deleted");
-						
-						// Optionally refresh from backend to ensure sync (but UI already updated)
-						// that._refreshBothTables();
-						
+
 						resolve(oData);
 					}.bind(this),
 					error: function (oError) {
@@ -4562,7 +4785,7 @@ sap.ui.define([
 				return !(sDocTrip === sTargetTrip && sDocType === sTargetDocType && bDocNoMatch);
 			}.bind(this));
 			
-			oModel.setProperty("/referenceDocs", aFiltered, true);
+			oModel.setProperty("/referenceDocs", aFiltered);
 			
 			// Also remove related materials
 			var aMaterials = oModel.getProperty("/materialDetails") || [];
@@ -4577,7 +4800,7 @@ sap.ui.define([
 				return !(sMatTrip === sTargetTrip && sMatDocType === sTargetDocType && bMatDocMatch);
 			}.bind(this));
 			
-			oModel.setProperty("/materialDetails", aFilteredMaterials, true);
+			oModel.setProperty("/materialDetails", aFilteredMaterials);
 			
 			// Update filtered materials
 			this._filterMaterialDetails();
@@ -4815,6 +5038,7 @@ sap.ui.define([
 				MaterialCode: oPayload.MaterialCode,
 				MaterialDescription: oPayload.MaterialDescription,
 				Quantity: oPayload.Quantity,
+				BalanceQty: oPayload.BalanceQty || "",
 				ShippingQty: oPayload.ShippingQty || oPayload.DispatchQty || "",
 				RemainQty: oPayload.RemainQty || "",
 				UoM: oPayload.UoM || "",
@@ -4856,12 +5080,12 @@ sap.ui.define([
 			var oGlobalModel = sap.ui.getCore().getModel("globalData");
 			var sCurrentTripNumber = oGlobalModel?.getProperty("/TripNumber") || "";
 
-			var sDocType = this._escapeODataValue(oMaterial.docType || oMaterial.DocType || "");
+			var sDocType = this._escapeODataValue(this._materialRowFieldStr(oMaterial, "docType", "DocType"));
 			var sTripNumber = this._escapeODataValue(
-				oMaterial.tripNumber || oMaterial.TripNumber || sCurrentTripNumber || ""
+				this._materialRowFieldStr(oMaterial, "tripNumber", "TripNumber") || (sCurrentTripNumber || "")
 			);
-			var sRefDocNo = this._escapeODataValue(oMaterial.refDocNo || oMaterial.RefDocNo || "");
-			var sRefDocItemNo = this._escapeODataValue(oMaterial.refDocItemNo || oMaterial.RefDocItemNo || "");
+			var sRefDocNo = this._escapeODataValue(this._materialRowFieldStr(oMaterial, "refDocNo", "RefDocNo"));
+			var sRefDocItemNo = this._escapeODataValue(this._materialRowFieldStr(oMaterial, "refDocItemNo", "RefDocItemNo"));
 
 			// Validate that we have all required key fields
 			if (!sTripNumber || !sDocType || !sRefDocNo || !sRefDocItemNo) {
@@ -4882,22 +5106,19 @@ sap.ui.define([
 						"X-Requested-With": "X"
 					},
 					success: function (oData) {
-						// Immediately update local model
-						that._removeLocalMaterialDetail(oMaterial);
 						var sMaterialKey = [
-							String(oMaterial?.tripNumber || oMaterial?.TripNumber || "").trim().toUpperCase(),
-							String(oMaterial?.docType || oMaterial?.DocType || "").trim().toUpperCase(),
-							String(oMaterial?.refDocNo || oMaterial?.RefDocNo || "").trim().toUpperCase(),
-							String(oMaterial?.refDocItemNo || oMaterial?.RefDocItemNo || "").trim().toUpperCase()
+							that._materialRowFieldStr(oMaterial, "tripNumber", "TripNumber").toUpperCase(),
+							that._materialRowFieldStr(oMaterial, "docType", "DocType").toUpperCase(),
+							that._materialRowFieldStr(oMaterial, "refDocNo", "RefDocNo").toUpperCase(),
+							that._materialRowFieldStr(oMaterial, "refDocItemNo", "RefDocItemNo").toUpperCase()
 						].join("|");
 						that._setUiGuard(that._mMaterialUiGuard, sMaterialKey, "delete");
 						// Notify dependent tabs (Gate In / Gate Out) that materials changed.
 						that._oEventBus?.publish("RefDoc", "MaterialsUpdated");
 						
 						MessageToast.show("Material row deleted");
-						
-						// Optionally refresh from backend (but UI already updated)
-						// that._refreshBothTables();
+
+						that._refreshBothTables({ forceBackend: true });
 						
 						resolve(oData);
 					}.bind(this),
@@ -4913,22 +5134,32 @@ sap.ui.define([
 		_removeLocalMaterialDetail: function (oMaterial) {
 			var oModel = this._ensureRefDocModel();
 			var aMaterials = oModel.getProperty("/materialDetails") || [];
-			var sTargetTrip = String(oMaterial?.tripNumber || oMaterial?.TripNumber || "").trim();
-			var sTargetDocType = String(oMaterial?.docType || oMaterial?.DocType || "").trim().toUpperCase();
-			var sTargetRefNo = String(oMaterial?.refDocNo || oMaterial?.RefDocNo || "").trim();
-			var sTargetItemNo = String(oMaterial?.refDocItemNo || oMaterial?.RefDocItemNo || "").trim();
+			var sTargetTrip = this._materialRowFieldStr(oMaterial, "tripNumber", "TripNumber");
+			var sTargetDocType = this._materialRowFieldStr(oMaterial, "docType", "DocType").toUpperCase();
+			var sTargetRefNoRaw = this._materialRowFieldStr(oMaterial, "refDocNo", "RefDocNo");
+			var sTargetItemNoRaw = this._materialRowFieldStr(oMaterial, "refDocItemNo", "RefDocItemNo");
+			var sTargetRefNoNorm = this._normalizeDocNumberForMatch(sTargetRefNoRaw);
+			var sTargetItemNoNorm = this._normalizeDocNumberForMatch(sTargetItemNoRaw);
 			
 			// Remove the material
 			var aFiltered = aMaterials.filter(function (oMat) {
-				var sMatTrip = String(oMat?.tripNumber || oMat?.TripNumber || "").trim();
-				var sMatDocType = String(oMat?.docType || oMat?.DocType || "").trim().toUpperCase();
-				var sMatRefNo = String(oMat?.refDocNo || oMat?.RefDocNo || "").trim();
-				var sMatItemNo = String(oMat?.refDocItemNo || oMat?.RefDocItemNo || "").trim();
+				var sMatTrip = this._materialRowFieldStr(oMat, "tripNumber", "TripNumber");
+				var sMatDocType = this._materialRowFieldStr(oMat, "docType", "DocType").toUpperCase();
+				var sMatRefNoRaw = this._materialRowFieldStr(oMat, "refDocNo", "RefDocNo");
+				var sMatItemNoRaw = this._materialRowFieldStr(oMat, "refDocItemNo", "RefDocItemNo");
+				var sMatRefNoNorm = this._normalizeDocNumberForMatch(sMatRefNoRaw);
+				var sMatItemNoNorm = this._normalizeDocNumberForMatch(sMatItemNoRaw);
+				var bRefNoMatch =
+					(sMatRefNoRaw && sTargetRefNoRaw && sMatRefNoRaw === sTargetRefNoRaw) ||
+					(sMatRefNoNorm && sTargetRefNoNorm && sMatRefNoNorm === sTargetRefNoNorm);
+				var bItemNoMatch =
+					(sMatItemNoRaw && sTargetItemNoRaw && sMatItemNoRaw === sTargetItemNoRaw) ||
+					(sMatItemNoNorm && sTargetItemNoNorm && sMatItemNoNorm === sTargetItemNoNorm);
 				return !(sMatTrip === sTargetTrip &&
 						 sMatDocType === sTargetDocType &&
-						 sMatRefNo === sTargetRefNo &&
-						 sMatItemNo === sTargetItemNo);
-			});
+						 bRefNoMatch &&
+						 bItemNoMatch);
+			}.bind(this));
 			
 			oModel.setProperty("/materialDetails", aFiltered, true);
 			
@@ -4957,6 +5188,15 @@ sap.ui.define([
 			});
 
 			if (iIndex >= 0) {
+				console.log("[MaterialDebug] _updateLocalMaterialDetail matched existing row", {
+					index: iIndex,
+					target: {
+						trip: sTargetTrip,
+						docType: sTargetDocType,
+						refDocNo: sTargetRefNo,
+						refDocItemNo: sTargetItemNo
+					}
+				});
 				var vQty = oPayload.Quantity;
 				var sQtyDisplay = (vQty === null || vQty === undefined || vQty === "") ? "" : String(vQty);
 
@@ -4966,10 +5206,20 @@ sap.ui.define([
 					vShippingQtyDisplay = oPayload.DispatchQty;
 				}
 				var sShippingQtyDisplay = (vShippingQtyDisplay === null || vShippingQtyDisplay === undefined || vShippingQtyDisplay === "") ? "" : String(vShippingQtyDisplay);
-				var fQtyDisplay = parseFloat(sQtyDisplay);
+				var vBalPl = oPayload.BalanceQty;
+				if (vBalPl === undefined || vBalPl === null || vBalPl === "") {
+					vBalPl = oPayload.balanceQty;
+				}
+				var sBalanceQtyDisplay = (vBalPl === null || vBalPl === undefined || vBalPl === "") ? "" : String(vBalPl);
+				var fBaseDisplay = this._materialBalanceBaseForRemain({
+					BalanceQty: sBalanceQtyDisplay,
+					balanceQty: sBalanceQtyDisplay,
+					Quantity: sQtyDisplay,
+					quantity: sQtyDisplay
+				});
 				var fShippingDisplay = parseFloat(sShippingQtyDisplay);
-				var sRemainQtyDisplay = (!isNaN(fQtyDisplay) && isFinite(fQtyDisplay) && !isNaN(fShippingDisplay) && isFinite(fShippingDisplay)) ?
-					String(fQtyDisplay - fShippingDisplay) :
+				var sRemainQtyDisplay = (isFinite(fBaseDisplay) && !isNaN(fShippingDisplay) && isFinite(fShippingDisplay)) ?
+					String(fBaseDisplay - fShippingDisplay) :
 					((oPayload.RemainQty === null || oPayload.RemainQty === undefined || oPayload.RemainQty === "") ? "" : String(oPayload.RemainQty));
 				aMaterials[iIndex] = Object.assign({}, aMaterials[iIndex], {
 					// Keep uppercase versions for backend compatibility
@@ -4977,6 +5227,7 @@ sap.ui.define([
 					DocType: oPayload.DocType || aMaterials[iIndex].DocType || aMaterials[iIndex].docType,
 					RefDocNo: oPayload.RefDocNo || aMaterials[iIndex].RefDocNo || aMaterials[iIndex].refDocNo,
 					RefDocItemNo: oPayload.RefDocItemNo || aMaterials[iIndex].RefDocItemNo || aMaterials[iIndex].refDocItemNo,
+					BalanceQty: sBalanceQtyDisplay || oPayload.BalanceQty || aMaterials[iIndex].BalanceQty,
 					// Lowercase versions for UI binding
 					tripNumber: oPayload.TripNumber || aMaterials[iIndex].tripNumber,
 					docType: oPayload.DocType || aMaterials[iIndex].docType,
@@ -4985,13 +5236,16 @@ sap.ui.define([
 					materialCode: oPayload.MaterialCode || aMaterials[iIndex].materialCode,
 					materialDescription: oPayload.MaterialDescription || aMaterials[iIndex].materialDescription,
 					qty: sQtyDisplay,
+					balanceQty: sBalanceQtyDisplay || aMaterials[iIndex].balanceQty,
 					shippingQty: sShippingQtyDisplay,
 					dispatchQty: sShippingQtyDisplay,
 					remainQty: sRemainQtyDisplay,
 					uom: oPayload.UoM || aMaterials[iIndex].uom,
 					changedBy: oPayload.ChangedBy || aMaterials[iIndex].changedBy || "",
 					changedOnDate: this._formatODataDate(oPayload.ChangedDate) || aMaterials[iIndex].changedOnDate,
-					changedOnTime: this._formatODataTime(oPayload.ChangedTime) || aMaterials[iIndex].changedOnTime
+					changedOnTime: this._formatODataTime(oPayload.ChangedTime) || aMaterials[iIndex].changedOnTime,
+					// Convert optimistic local row to confirmed backend row after successful save.
+					_isLocal: false
 				});
 
 				// Force model refresh by setting the entire array
@@ -5012,20 +5266,52 @@ sap.ui.define([
 			var sDialogMaterial = this.byId("idMaterialCode")?.getValue() || "";
 			var sDialogDesc = this.byId("idMaterialDesc")?.getValue() || "";
 			var sDialogQty = this.byId("idMaterialQty")?.getValue() || "";
+			var sDialogBal = (this.byId("idMaterialBalanceQty")?.getValue() || "").trim();
 			var sDialogUoM = this.byId("idMaterialUoM")?.getValue() || "";
 
 			var vQty = oPayload.Quantity;
 			var sQtyDisplay = (vQty === null || vQty === undefined || vQty === "") ? sDialogQty : String(vQty);
+			var vBalPl = oPayload.BalanceQty;
+			if (vBalPl === undefined || vBalPl === null || vBalPl === "") {
+				vBalPl = oPayload.balanceQty;
+			}
+			var sBalanceQtyDisplay = (vBalPl === null || vBalPl === undefined || vBalPl === "") ? sDialogBal : String(vBalPl);
 			var vShippingQtyDisplay = oPayload.ShippingQty;
 			if (vShippingQtyDisplay === undefined || vShippingQtyDisplay === null || vShippingQtyDisplay === "") {
 				vShippingQtyDisplay = oPayload.DispatchQty;
 			}
 			var sShippingQtyDisplay = (vShippingQtyDisplay === null || vShippingQtyDisplay === undefined || vShippingQtyDisplay === "") ? "" : String(vShippingQtyDisplay);
-			var fQtyDisplay = parseFloat(sQtyDisplay);
+			var fBaseDisplay = this._materialBalanceBaseForRemain({
+				BalanceQty: sBalanceQtyDisplay,
+				balanceQty: sBalanceQtyDisplay,
+				Quantity: sQtyDisplay,
+				quantity: sQtyDisplay
+			});
 			var fShippingDisplay = parseFloat(sShippingQtyDisplay);
-			var sRemainQtyDisplay = (!isNaN(fQtyDisplay) && isFinite(fQtyDisplay) && !isNaN(fShippingDisplay) && isFinite(fShippingDisplay)) ?
-				String(fQtyDisplay - fShippingDisplay) :
+			var sRemainQtyDisplay = (isFinite(fBaseDisplay) && !isNaN(fShippingDisplay) && isFinite(fShippingDisplay)) ?
+				String(fBaseDisplay - fShippingDisplay) :
 				((oPayload.RemainQty === null || oPayload.RemainQty === undefined || oPayload.RemainQty === "") ? "" : String(oPayload.RemainQty));
+			var sTripKey = String(oPayload.TripNumber || "").trim().toUpperCase();
+			var sDocTypeKey = String(oPayload.DocType || sDialogDocType || "").trim().toUpperCase();
+			var sRefDocKey = String(oPayload.RefDocNo || sDialogRefDocNo || "").trim().toUpperCase();
+			var sItemKey = String(oPayload.RefDocItemNo || sDialogRefDocItem || "").trim().toUpperCase();
+			var bExists = aMaterials.some(function (oMat) {
+				return String(oMat?.tripNumber || oMat?.TripNumber || "").trim().toUpperCase() === sTripKey &&
+					String(oMat?.docType || oMat?.DocType || "").trim().toUpperCase() === sDocTypeKey &&
+					String(oMat?.refDocNo || oMat?.RefDocNo || "").trim().toUpperCase() === sRefDocKey &&
+					String(oMat?.refDocItemNo || oMat?.RefDocItemNo || "").trim().toUpperCase() === sItemKey;
+			});
+			if (bExists) {
+				console.warn("[MaterialDebug] _appendLocalMaterialDetail duplicate blocked", {
+					key: [sTripKey, sDocTypeKey, sRefDocKey, sItemKey].join("|"),
+					existingCount: aMaterials.length
+				});
+				return;
+			}
+			console.log("[MaterialDebug] _appendLocalMaterialDetail adding row", {
+				key: [sTripKey, sDocTypeKey, sRefDocKey, sItemKey].join("|"),
+				beforeCount: aMaterials.length
+			});
 
 			aMaterials.push({
 				tripNumber: oPayload.TripNumber || "",
@@ -5035,6 +5321,7 @@ sap.ui.define([
 				materialCode: oPayload.MaterialCode || sDialogMaterial,
 				materialDescription: oPayload.MaterialDescription || sDialogDesc,
 				qty: sQtyDisplay,
+				balanceQty: sBalanceQtyDisplay,
 				shippingQty: sShippingQtyDisplay,
 				dispatchQty: sShippingQtyDisplay,
 				remainQty: sRemainQtyDisplay,
@@ -5051,6 +5338,9 @@ sap.ui.define([
 
 			// Force model refresh by setting the entire array
 			oModel.setProperty("/materialDetails", aMaterials, true); // true = force refresh
+			console.log("[MaterialDebug] _appendLocalMaterialDetail added row", {
+				afterCount: aMaterials.length
+			});
 			// If ref docs are missing (for example material-first flow), derive minimal rows.
 			this._backfillReferenceDocsFromMaterialsIfMissing();
 			// Update filtered list after adding new material
@@ -5151,7 +5441,7 @@ sap.ui.define([
 				}
 			}
 			
-			if (bHasResults || vItemDetails) {
+			if (bHasResults) {
 				// Data is already available from $expand (has results property), use it directly
 				// DO NOT make separate ItemDetails calls - use the expanded data
 				var aOrderDetails = this._extractResults(vOrderDetails);
@@ -5160,11 +5450,26 @@ sap.ui.define([
 				// Pass flag=true to indicate ItemDetails is already loaded from expand
 				// This prevents _loadAllMaterialsForAllRefDocs from making separate calls
 				this._setReferenceDocsFromService(aOrderDetails, true);
-				this._setMaterialDetailsFromService(aItemDetails);
+				var sTripCtx = String(oTripData.getProperty("/TripNumber") || "").trim();
+				var bSkipEmptyItems = this._shouldSkipEmptyMaterialSnapshot(
+					aItemDetails,
+					aOrderDetails,
+					aExistingMaterials,
+					sTripCtx
+				);
+				if (!bSkipEmptyItems) {
+					this._setMaterialDetailsFromService(aItemDetails);
+				}
 			} else {
-				// No ItemDetails data available
+				// No usable ItemDetails shape on TripData — refresh ref docs, load items from service
+				// instead of clearing materials (avoids wiping on partial TripData payloads).
 				this._setReferenceDocsFromService(this._extractResults(vOrderDetails), true);
-				this._setMaterialDetailsFromService([]);
+				var sTripElse = String(oTripData.getProperty("/TripNumber") || "").trim();
+				if (sTripElse) {
+					this._loadItemDetailsSeparately(sTripElse);
+				} else {
+					this._setMaterialDetailsFromService([]);
+				}
 			}
 		},
 
@@ -5175,12 +5480,6 @@ sap.ui.define([
 			}
 			var oModel = this._ensureRefDocModel();
 			var aExisting = oModel.getProperty("/referenceDocs") || [];
-			var fnNormalize = function (vValue) {
-				return String(vValue || "").trim().toUpperCase();
-			};
-			var fnGetVal = function (oObj, sPrimary, sFallback) {
-				return (oObj && (oObj[sPrimary] || oObj[sFallback])) || "";
-			};
 			var aLocalRefDocs = aExisting.filter(function (oDoc) {
 				return oDoc && oDoc._isLocal === true;
 			});
@@ -5227,20 +5526,12 @@ sap.ui.define([
 				}.bind(this));
 			var mExistingRefDocByKey = {};
 			aExisting.forEach(function (oDoc) {
-				var sExistingKey = [
-					fnNormalize(fnGetVal(oDoc, "tripNumber", "TripNumber")),
-					fnNormalize(fnGetVal(oDoc, "docType", "DocType")),
-					fnNormalize(fnGetVal(oDoc, "documentNumber", "DocumentNumber"))
-				].join("|");
+				var sExistingKey = this._getRefDocGuardKey(oDoc);
 				mExistingRefDocByKey[sExistingKey] = oDoc;
-			});
+			}.bind(this));
 			var aGuardedBackendRefDocs = [];
 			aBackendRefDocs.forEach(function (oDoc) {
-				var sKey = [
-					fnNormalize(fnGetVal(oDoc, "tripNumber", "TripNumber")),
-					fnNormalize(fnGetVal(oDoc, "docType", "DocType")),
-					fnNormalize(fnGetVal(oDoc, "documentNumber", "DocumentNumber"))
-				].join("|");
+				var sKey = this._getRefDocGuardKey(oDoc);
 				var oGuard = this._getUiGuard(this._mRefDocUiGuard, sKey);
 				if (oGuard && oGuard.type === "delete") {
 					return;
@@ -5254,11 +5545,7 @@ sap.ui.define([
 			var aRefDocs = aGuardedBackendRefDocs.concat(aLocalRefDocs);
 			var oRefDocsByKey = {};
 			aRefDocs.forEach(function (oDoc) {
-				var sKey = [
-					fnNormalize(fnGetVal(oDoc, "tripNumber", "TripNumber")),
-					fnNormalize(fnGetVal(oDoc, "docType", "DocType")),
-					fnNormalize(fnGetVal(oDoc, "documentNumber", "DocumentNumber"))
-				].join("|");
+				var sKey = this._getRefDocGuardKey(oDoc);
 				var oExistingDoc = oRefDocsByKey[sKey];
 				if (!oExistingDoc) {
 					oRefDocsByKey[sKey] = oDoc;
@@ -5268,7 +5555,7 @@ sap.ui.define([
 				if (oExistingDoc._isLocal === true && oDoc._isLocal !== true) {
 					oRefDocsByKey[sKey] = oDoc;
 				}
-			});
+			}.bind(this));
 			aRefDocs = Object.values(oRefDocsByKey);
 			oModel.setProperty("/referenceDocs", aRefDocs);
 			// Update Material Doc Types and Document Numbers when Reference Documents are loaded
@@ -5439,11 +5726,16 @@ sap.ui.define([
 		_setMaterialDetailsFromService: function (aItems) {
 			var oModel = this._ensureRefDocModel();
 			var aExisting = oModel.getProperty("/materialDetails") || [];
+			var that = this;
+			console.log("[MaterialDebug] _setMaterialDetailsFromService start", {
+				existingCount: aExisting.length,
+				incomingCount: (aItems || []).length
+			});
 			var fnNormalize = function (vValue) {
-				return String(vValue || "").trim().toUpperCase();
-			};
-			var fnGetVal = function (oObj, sPrimary, sFallback) {
-				return (oObj && (oObj[sPrimary] || oObj[sFallback])) || "";
+				if (vValue === undefined || vValue === null) {
+					return "";
+				}
+				return String(vValue).trim().toUpperCase();
 			};
 			var aLocalMaterials = aExisting.filter(function (oMat) {
 				return oMat && oMat._isLocal === true;
@@ -5457,16 +5749,21 @@ sap.ui.define([
 					var vCases = oItem.Cases;
 					var sCasesDisplay = (vCases === null || vCases === undefined || vCases === "") ? "" : String(vCases);
 					var vQuantity = (oItem.Quantity === null || oItem.Quantity === undefined) ? "" : String(oItem.Quantity);
+					var vBalanceQty = oItem.BalanceQty;
+					if (vBalanceQty === undefined || vBalanceQty === null) {
+						vBalanceQty = oItem.balanceQty;
+					}
+					var sBalanceQty = (vBalanceQty === null || vBalanceQty === undefined || vBalanceQty === "") ? "" : String(vBalanceQty);
 					var vShippingQty = (oItem.ShippingQty === null || oItem.ShippingQty === undefined) ? oItem.DispatchQty : oItem.ShippingQty;
 					var sShippingQty = (vShippingQty === null || vShippingQty === undefined) ? "" : String(vShippingQty);
 					var vRemainQty = oItem.RemainQty;
 					if (vRemainQty === null || vRemainQty === undefined || vRemainQty === "") {
-						var fQty = parseFloat(vQuantity);
+						var fBase = that._materialBalanceBaseForRemain(oItem);
 						var fShip = parseFloat(sShippingQty);
-						if (!isNaN(fQty) && isFinite(fQty) && !isNaN(fShip) && isFinite(fShip)) {
-							vRemainQty = String(fQty - fShip);
-						} else if (!isNaN(fQty) && isFinite(fQty)) {
-							vRemainQty = String(fQty);
+						if (isFinite(fBase) && !isNaN(fShip) && isFinite(fShip)) {
+							vRemainQty = String(fBase - fShip);
+						} else if (isFinite(fBase)) {
+							vRemainQty = String(fBase);
 						} else {
 							vRemainQty = "";
 						}
@@ -5474,22 +5771,24 @@ sap.ui.define([
 					return {
 						// Store both original service values (uppercase) and local model values (lowercase)
 						// This ensures we can use the correct values for OData operations
-						TripNumber: oItem.TripNumber || "",
-						DocType: oItem.DocType || "",
-						RefDocNo: oItem.RefDocNo || "",
-						RefDocItemNo: oItem.RefDocItemNo || "",
+						TripNumber: oItem.TripNumber === undefined || oItem.TripNumber === null ? "" : String(oItem.TripNumber),
+						DocType: oItem.DocType === undefined || oItem.DocType === null ? "" : String(oItem.DocType),
+						RefDocNo: oItem.RefDocNo === undefined || oItem.RefDocNo === null ? "" : String(oItem.RefDocNo),
+						RefDocItemNo: oItem.RefDocItemNo === undefined || oItem.RefDocItemNo === null ? "" : String(oItem.RefDocItemNo),
 						ScheduleItem: oItem.SheduleItem || oItem.ScheduleItem || "",
 						MovementType: oItem.MovementType || "",
 						Cases: sCasesDisplay,
-						tripNumber: oItem.TripNumber || "",
-						docType: oItem.DocType || "",
-						refDocNo: oItem.RefDocNo || "",
-						refDocItemNo: oItem.RefDocItemNo || "",
+						tripNumber: oItem.TripNumber === undefined || oItem.TripNumber === null ? "" : String(oItem.TripNumber),
+						docType: oItem.DocType === undefined || oItem.DocType === null ? "" : String(oItem.DocType),
+						refDocNo: oItem.RefDocNo === undefined || oItem.RefDocNo === null ? "" : String(oItem.RefDocNo),
+						refDocItemNo: oItem.RefDocItemNo === undefined || oItem.RefDocItemNo === null ? "" : String(oItem.RefDocItemNo),
 						scheduleItem: oItem.SheduleItem || oItem.ScheduleItem || "",
 						movementType: oItem.MovementType || "",
 						materialCode: oItem.MaterialCode || "",
 						materialDescription: oItem.MaterialDescription || "",
 						qty: vQuantity,
+						balanceQty: sBalanceQty,
+						BalanceQty: sBalanceQty,
 						// Backend ItemDetails "Cases" shown as "Bins (Trolleys)" in UI
 						binsTrolleys: sCasesDisplay,
 						uom: oItem.UoM || "",
@@ -5510,25 +5809,21 @@ sap.ui.define([
 					};
 				}.bind(this));
 			var mExistingMaterialByKey = {};
-			aExisting.forEach(function (oMat) {
-				var sExistingKey = [
-					fnNormalize(fnGetVal(oMat, "tripNumber", "TripNumber")),
-					fnNormalize(fnGetVal(oMat, "docType", "DocType")),
-					fnNormalize(fnGetVal(oMat, "refDocNo", "RefDocNo")),
-					fnNormalize(fnGetVal(oMat, "refDocItemNo", "RefDocItemNo")),
-					fnNormalize(fnGetVal(oMat, "scheduleItem", "ScheduleItem"))
+			var fnMaterialMergeKey = function (oMat) {
+				return [
+					fnNormalize(that._materialRowFieldStr(oMat, "tripNumber", "TripNumber")),
+					fnNormalize(that._materialRowFieldStr(oMat, "docType", "DocType")),
+					fnNormalize(that._materialRowFieldStr(oMat, "refDocNo", "RefDocNo")),
+					fnNormalize(that._materialRowFieldStr(oMat, "refDocItemNo", "RefDocItemNo"))
 				].join("|");
+			};
+			aExisting.forEach(function (oMat) {
+				var sExistingKey = fnMaterialMergeKey(oMat);
 				mExistingMaterialByKey[sExistingKey] = oMat;
 			});
 			var aGuardedBackendMaterials = [];
 			aBackendMaterials.forEach(function (oMat) {
-				var sKey = [
-					fnNormalize(fnGetVal(oMat, "tripNumber", "TripNumber")),
-					fnNormalize(fnGetVal(oMat, "docType", "DocType")),
-					fnNormalize(fnGetVal(oMat, "refDocNo", "RefDocNo")),
-					fnNormalize(fnGetVal(oMat, "refDocItemNo", "RefDocItemNo")),
-					fnNormalize(fnGetVal(oMat, "scheduleItem", "ScheduleItem"))
-				].join("|");
+				var sKey = fnMaterialMergeKey(oMat);
 				var oGuard = this._getUiGuard(this._mMaterialUiGuard, sKey);
 				if (oGuard && oGuard.type === "delete") {
 					return;
@@ -5542,13 +5837,7 @@ sap.ui.define([
 			var aMaterials = aGuardedBackendMaterials.concat(aLocalMaterials);
 			var oMaterialsByKey = {};
 			aMaterials.forEach(function (oMat) {
-				var sKey = [
-					fnNormalize(fnGetVal(oMat, "tripNumber", "TripNumber")),
-					fnNormalize(fnGetVal(oMat, "docType", "DocType")),
-					fnNormalize(fnGetVal(oMat, "refDocNo", "RefDocNo")),
-					fnNormalize(fnGetVal(oMat, "refDocItemNo", "RefDocItemNo")),
-					fnNormalize(fnGetVal(oMat, "scheduleItem", "ScheduleItem"))
-				].join("|");
+				var sKey = fnMaterialMergeKey(oMat);
 				var oExistingMat = oMaterialsByKey[sKey];
 				if (!oExistingMat) {
 					oMaterialsByKey[sKey] = oMat;
@@ -5561,6 +5850,9 @@ sap.ui.define([
 			});
 			aMaterials = Object.values(oMaterialsByKey);
 			oModel.setProperty("/materialDetails", aMaterials);
+			console.log("[MaterialDebug] _setMaterialDetailsFromService end", {
+				finalCount: aMaterials.length
+			});
 			// If backend returned materials but no OrderDetails payload, keep Reference Docs table usable.
 			this._backfillReferenceDocsFromMaterialsIfMissing();
 			// Update filtered list after setting all materials
@@ -5617,6 +5909,73 @@ sap.ui.define([
 			});
 		},
 
+		/**
+		 * Removes the deleted reference document (and its item lines) from the in-memory
+		 * TripData model so subscribers do not flash stale expanded data before OData reads finish.
+		 */
+		_stripDeletedRefDocFromTripDataModel: function (oRefDoc) {
+			var oTripData = sap.ui.getCore().getModel("TripData");
+			if (!oTripData || !oRefDoc) {
+				return;
+			}
+			var oGlobalModel = sap.ui.getCore().getModel("globalData");
+			var sGlobalTrip = oGlobalModel ? String(oGlobalModel.getProperty("/TripNumber") || "").trim() : "";
+			var fnNorm = function (v) {
+				return String(v || "").trim().toUpperCase();
+			};
+			var sTrip = fnNorm(oRefDoc.tripNumber || oRefDoc.TripNumber || sGlobalTrip);
+			var sDocType = fnNorm(oRefDoc.docType || oRefDoc.DocType);
+			var sDocRaw = String(oRefDoc.documentNumber || oRefDoc.DocumentNumber || "").trim();
+			var sDocNorm = this._normalizeDocNumberForMatch(sDocRaw);
+			if (!sTrip || !sDocType) {
+				return;
+			}
+			var that = this;
+			var fnMatchRefDocRow = function (sRowTrip, sRowDocType, sRowDocNoRaw) {
+				var t = fnNorm(sRowTrip);
+				var d = fnNorm(sRowDocType);
+				var nRaw = String(sRowDocNoRaw || "").trim();
+				var nNorm = that._normalizeDocNumberForMatch(nRaw);
+				if (t !== sTrip || d !== sDocType) {
+					return false;
+				}
+				return (
+					!!(sDocRaw && nRaw && sDocRaw === nRaw) ||
+					!!(sDocNorm && nNorm && sDocNorm === nNorm)
+				);
+			};
+
+			var vOD = oTripData.getProperty("/OrderDetails");
+			var aOD = this._extractResults(vOD);
+			if (aOD && aOD.length) {
+				var aFilteredOD = aOD.filter(function (o) {
+					return !fnMatchRefDocRow(o.TripNumber, o.DocType, o.DocumentNumber);
+				});
+				if (aFilteredOD.length !== aOD.length) {
+					if (Array.isArray(vOD)) {
+						oTripData.setProperty("/OrderDetails", aFilteredOD);
+					} else if (vOD && Array.isArray(vOD.results)) {
+						oTripData.setProperty("/OrderDetails/results", aFilteredOD);
+					}
+				}
+			}
+
+			var vID = oTripData.getProperty("/ItemDetails");
+			var aID = this._extractResults(vID);
+			if (aID && aID.length) {
+				var aFilteredID = aID.filter(function (o) {
+					return !fnMatchRefDocRow(o.TripNumber, o.DocType, o.RefDocNo);
+				});
+				if (aFilteredID.length !== aID.length) {
+					if (Array.isArray(vID)) {
+						oTripData.setProperty("/ItemDetails", aFilteredID);
+					} else if (vID && Array.isArray(vID.results)) {
+						oTripData.setProperty("/ItemDetails/results", aFilteredID);
+					}
+				}
+			}
+		},
+
 		_refreshBothTables: function (mOptions) {
 			var bForceBackend = !!(mOptions && mOptions.forceBackend);
 			// Try to use TripData first (from $expand) to avoid separate calls
@@ -5630,10 +5989,15 @@ sap.ui.define([
 				if (bHasResults) {
 					var aOrderDetails = this._extractResults(vOrderDetails);
 					var aItemDetails = this._extractResults(vItemDetails);
-					
+					var oModelCache = this._ensureRefDocModel();
+					var aExMatCache = oModelCache.getProperty("/materialDetails") || [];
+					var sTripCache = String(oTripData.getProperty("/TripNumber") || "").trim();
+
 					// Use data from TripData (already loaded from expand)
 					this._setReferenceDocsFromService(aOrderDetails, true);
-					this._setMaterialDetailsFromService(aItemDetails);
+					if (!this._shouldSkipEmptyMaterialSnapshot(aItemDetails, aOrderDetails, aExMatCache, sTripCache)) {
+						this._setMaterialDetailsFromService(aItemDetails);
+					}
 					return; // Exit early - no separate calls needed
 				}
 			}
@@ -5649,34 +6013,67 @@ sap.ui.define([
 			var that = this;
 			var oOrderService = this._getOrderDetailsService();
 			var oItemService = this._getItemDetailsService();
+			var sTripAtRefresh = String(sTripNumber).trim();
+			var iRefreshToken = Date.now();
+			this._iLastRefDocRefreshToken = iRefreshToken;
 
-			// Load OrderDetails
-			oOrderService.read("/OrderDetails", {
-				filters: [
-					new Filter("TripNumber", FilterOperator.EQ, sTripNumber),
-					new Filter("Deleted", FilterOperator.NE, true)
-				],
-				success: function (oData) {
-					var aOrderDetails = oData.results || [];
-					that._setReferenceDocsFromService(aOrderDetails, false);
-				},
-				error: function (oError) {
-					that._setReferenceDocsFromService([], false);
-				}
+			var pOrders = new Promise(function (resolve, reject) {
+				oOrderService.read("/OrderDetails", {
+					filters: [
+						new Filter("TripNumber", FilterOperator.EQ, sTripAtRefresh),
+						new Filter("Deleted", FilterOperator.NE, true)
+					],
+					success: function (oData) {
+						resolve((oData && oData.results) ? oData.results : []);
+					},
+					error: function (oError) {
+						reject(oError);
+					}
+				});
 			});
 
-			// Load ItemDetails
-			oItemService.read("/ItemDetails", {
-				filters: [
-					new Filter("TripNumber", FilterOperator.EQ, sTripNumber),
-					new Filter("IsDeleted", FilterOperator.NE, "X")
-				],
-				success: function (oData) {
-					var aItemDetails = oData.results || [];
+			var pItems = new Promise(function (resolve, reject) {
+				oItemService.read("/ItemDetails", {
+					filters: [
+						new Filter("TripNumber", FilterOperator.EQ, sTripAtRefresh),
+						new Filter("IsDeleted", FilterOperator.NE, "X")
+					],
+					success: function (oData) {
+						resolve((oData && oData.results) ? oData.results : []);
+					},
+					error: function (oError) {
+						reject(oError);
+					}
+				});
+			});
+
+			Promise.all([pOrders, pItems]).then(function (aResults) {
+				if (that._iLastRefDocRefreshToken !== iRefreshToken) {
+					return;
+				}
+				var oGd = sap.ui.getCore().getModel("globalData");
+				var sTripNow = String(oGd && oGd.getProperty("/TripNumber") || "").trim();
+				if (sTripNow !== sTripAtRefresh) {
+					return;
+				}
+				var aOrderDetails = aResults[0] || [];
+				var aItemDetails = aResults[1] || [];
+				var oModelRef = that._ensureRefDocModel();
+				var aExMat = oModelRef.getProperty("/materialDetails") || [];
+				var bSkipEmptyItems = that._shouldSkipEmptyMaterialSnapshot(
+					aItemDetails,
+					aOrderDetails,
+					aExMat,
+					sTripAtRefresh
+				);
+				that._setReferenceDocsFromService(aOrderDetails, true);
+				if (!bSkipEmptyItems) {
 					that._setMaterialDetailsFromService(aItemDetails);
-				},
-				error: function (oError) {
-					that._setMaterialDetailsFromService([]);
+				}
+			}).catch(function (oError) {
+				// Do not clear UI on refresh failure (error is not "empty trip").
+				if (typeof console !== "undefined" && console.error) {
+					console.error("ReferenceDocuments: atomic refresh failed", oError);
 				}
 			});
 		},
