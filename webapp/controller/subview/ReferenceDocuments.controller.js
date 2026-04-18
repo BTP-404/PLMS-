@@ -5411,6 +5411,10 @@ sap.ui.define([
 					""
 				).trim();
 				if (sTripFromTripData && sTripFromExistingData && sTripFromTripData === sTripFromExistingData) {
+					// Same trip but materials not loaded yet: still fetch /ItemDetails (partial TripData must not block this).
+					if (aExistingMaterials.length === 0) {
+						this._loadItemDetailsSeparately(sTripFromTripData);
+					}
 					return;
 				}
 			}
