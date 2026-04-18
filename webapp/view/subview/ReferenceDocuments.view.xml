@@ -71,7 +71,13 @@
                                 <Column id="colEwayBillNumber" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Block" visible="true">
                                     <Text text="EWB No" wrapping="false"/>
                                 </Column>
-                                <Column id="colEwayBillDate" demandPopin="true" minScreenWidth="Desktop" popinDisplay="Block" visible="false">
+                                <Column
+                                    id="colEwayBillDate"
+                                    width="8rem"
+                                    demandPopin="true"
+                                    minScreenWidth="Desktop"
+                                    popinDisplay="Block"
+                                    visible="true">
                                     <Text text="EWB Date" wrapping="false"/>
                                 </Column>
                                 <Column

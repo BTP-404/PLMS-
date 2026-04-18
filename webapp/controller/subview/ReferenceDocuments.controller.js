@@ -6522,7 +6522,13 @@ sap.ui.define([
 			aColumns.forEach(function (oColumn) {
 				var oCol = this.byId(oColumn.id);
 				if (oCol) {
-					oCol.setVisible(oColumn.visible);
+					var bVis = !!oColumn.visible;
+					oCol.setVisible(bVis);
+					// Column visibility and header control visibility can get out of sync (e.g. EWB Date header stayed blank).
+					var oHeader = oCol.getHeader();
+					if (oHeader && oHeader.setVisible) {
+						oHeader.setVisible(bVis);
+					}
 				}
 			}.bind(this));
 		},
