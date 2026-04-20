@@ -12,7 +12,7 @@
         <!-- ========================================================= -->
         <Panel
             expandable="true"
-            expanded="false"
+            expanded="true"
             width="100%"
             class="sapUiNoContentPadding sapUiTinyMarginBottom">
 

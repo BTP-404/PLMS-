@@ -3139,6 +3139,7 @@ sap.ui.define([
 			var oGlobalModel = sap.ui.getCore().getModel("globalData");
 			var sTripNumber = oGlobalModel?.getProperty("/TripNumber") || "";
 			var bScannerScenarioActive = this._isScannerScenarioActive();
+			var sDocForRefresh = "";
 			
 			if (!sTripNumber) {
 				return MessageToast.show("Trip Number missing. Please open a trip first.");
@@ -3161,6 +3162,8 @@ sap.ui.define([
 				oAddButton.setEnabled(false);
 				oAddButton.setText("Adding...");
 			}
+			// Busy indicator until backend save+bind completes.
+			this._setMaterialsSectionBusy(true);
 			
 			// Process materials sequentially
 			var iIndex = 0;
@@ -3173,6 +3176,7 @@ sap.ui.define([
 					}
 
 					that._bIsAddingSelectedMaterials = false;
+					that._setMaterialsSectionBusy(false);
 					
 					var sMessage = "";
 					if (iSuccess > 0 && iFailed === 0) {
@@ -3223,21 +3227,33 @@ sap.ui.define([
 				if (bScannerScenarioActive || sSchedScan) {
 					oPayload.SheduleItem = sSchedScan;
 				}
+				if (!sDocForRefresh) {
+					sDocForRefresh = String(oPayload.RefDocNo || "").trim();
+				}
 
 				that._saveMaterialDetail(oPayload)
 					.then(function (oResponse) {
 						iSuccess++;
+						// Protect freshly-saved rows from being dropped by a stale backend snapshot
+						// during a subsequent refresh (e.g. delete-triggered refresh immediately after add).
+						var sSchedGuard = String(oPayload.SheduleItem || oPayload.ScheduleItem || "").trim();
+						var oGuardRow = {
+							tripNumber: oPayload.TripNumber || "",
+							docType: oPayload.DocType || "",
+							refDocNo: oPayload.RefDocNo || "",
+							refDocItemNo: oPayload.RefDocItemNo || "",
+							scheduleItem: sSchedGuard,
+							SheduleItem: sSchedGuard,
+							materialCode: oPayload.MaterialCode || "",
+							MaterialCode: oPayload.MaterialCode || ""
+						};
+						var sGuardKey = that._getMaterialDetailMergeKey(oGuardRow);
+						that._setUiGuard(that._mMaterialUiGuard, sGuardKey, "upsert", 15000);
 
-						// Show the row immediately (no need to wait for final refresh).
-						// Avoid duplicates if user triggers the action multiple times.
-						var oModel = that._ensureRefDocModel();
-						var aExisting = oModel.getProperty("/materialDetails") || [];
-						var bExists = aExisting.some(function (oMat) {
-							return that._getMaterialDetailMergeKey(oMat) === that._getMaterialDetailMergeKey(oPayload);
+						// No local append: refresh from backend so table binds only persisted data.
+						that._requestMaterialsRefreshFromBackend({
+							documentNumber: sDocForRefresh
 						});
-						if (!bExists) {
-							that._appendLocalMaterialDetail(oPayload);
-						}
 
 						iIndex++;
 						processNext();
@@ -3252,6 +3268,16 @@ sap.ui.define([
 			};
 			
 			processNext();
+		},
+
+		_requestMaterialsRefreshFromBackend: function (mOptions) {
+			// Debounce repeated refresh calls during bulk add
+			if (this._iMaterialsRefreshTimer) {
+				clearTimeout(this._iMaterialsRefreshTimer);
+			}
+			this._iMaterialsRefreshTimer = setTimeout(function () {
+				this._refreshMaterialsTable(mOptions);
+			}.bind(this), 0);
 		},
 
 	_refreshMaterialsTable: function (mOptions) {
@@ -6109,18 +6135,42 @@ sap.ui.define([
 			var oModel = this._ensureRefDocModel();
 			var aExisting = oModel.getProperty("/materialDetails") || [];
 			var that = this;
+			var fnGet = function (oObj, sUpper, sLower) {
+				if (!oObj) {
+					return undefined;
+				}
+				var v = oObj[sUpper];
+				if (v === undefined || v === null) {
+					v = oObj[sLower];
+				}
+				return v;
+			};
 			var aLocalMaterials = aExisting.filter(function (oMat) {
 				return oMat && oMat._isLocal === true;
 			});
 			// Filter out deleted records (IsDeleted === "X")
 			var aBackendMaterials = (aItems || [])
 				.filter(function (oItem) {
-					return oItem.IsDeleted !== "X";
+					return fnGet(oItem, "IsDeleted", "isDeleted") !== "X";
 				})
 				.map(function (oItem) {
+					var vTripNumber = fnGet(oItem, "TripNumber", "tripNumber");
+					var vDocType = fnGet(oItem, "DocType", "docType");
+					var vRefDocNo = fnGet(oItem, "RefDocNo", "refDocNo");
+					var vRefDocItemNo = fnGet(oItem, "RefDocItemNo", "refDocItemNo");
+					var vMaterialCode = fnGet(oItem, "MaterialCode", "materialCode");
+					var vMaterialDesc = fnGet(oItem, "MaterialDescription", "materialDescription");
+					var vUom = fnGet(oItem, "UoM", "uom");
+					var vMoveType = fnGet(oItem, "MovementType", "movementType");
+					var vSched = fnGet(oItem, "SheduleItem", "sheduleItem");
+					if (vSched === undefined || vSched === null || String(vSched).trim() === "") {
+						vSched = fnGet(oItem, "ScheduleItem", "scheduleItem");
+					}
+
 					var vCases = oItem.Cases;
 					var sCasesDisplay = (vCases === null || vCases === undefined || vCases === "") ? "" : String(vCases);
-					var vQuantity = (oItem.Quantity === null || oItem.Quantity === undefined) ? "" : String(oItem.Quantity);
+					var vQuantityRaw = fnGet(oItem, "Quantity", "qty");
+					var vQuantity = (vQuantityRaw === null || vQuantityRaw === undefined) ? "" : String(vQuantityRaw);
 					var vBalanceQty = oItem.BalanceQty;
 					if (vBalanceQty === undefined || vBalanceQty === null) {
 						vBalanceQty = oItem.balanceQty;
@@ -6143,28 +6193,28 @@ sap.ui.define([
 					return {
 						// Store both original service values (uppercase) and local model values (lowercase)
 						// This ensures we can use the correct values for OData operations
-						TripNumber: oItem.TripNumber === undefined || oItem.TripNumber === null ? "" : String(oItem.TripNumber),
-						DocType: oItem.DocType === undefined || oItem.DocType === null ? "" : String(oItem.DocType),
-						RefDocNo: oItem.RefDocNo === undefined || oItem.RefDocNo === null ? "" : String(oItem.RefDocNo),
-						RefDocItemNo: oItem.RefDocItemNo === undefined || oItem.RefDocItemNo === null ? "" : String(oItem.RefDocItemNo),
-						SheduleItem: oItem.SheduleItem || oItem.ScheduleItem || "",
-						ScheduleItem: oItem.SheduleItem || oItem.ScheduleItem || "",
-						MovementType: oItem.MovementType || "",
+						TripNumber: vTripNumber === undefined || vTripNumber === null ? "" : String(vTripNumber),
+						DocType: vDocType === undefined || vDocType === null ? "" : String(vDocType),
+						RefDocNo: vRefDocNo === undefined || vRefDocNo === null ? "" : String(vRefDocNo),
+						RefDocItemNo: vRefDocItemNo === undefined || vRefDocItemNo === null ? "" : String(vRefDocItemNo),
+						SheduleItem: vSched === undefined || vSched === null ? "" : String(vSched),
+						ScheduleItem: vSched === undefined || vSched === null ? "" : String(vSched),
+						MovementType: vMoveType || "",
 						Cases: sCasesDisplay,
-						tripNumber: oItem.TripNumber === undefined || oItem.TripNumber === null ? "" : String(oItem.TripNumber),
-						docType: oItem.DocType === undefined || oItem.DocType === null ? "" : String(oItem.DocType),
-						refDocNo: oItem.RefDocNo === undefined || oItem.RefDocNo === null ? "" : String(oItem.RefDocNo),
-						refDocItemNo: oItem.RefDocItemNo === undefined || oItem.RefDocItemNo === null ? "" : String(oItem.RefDocItemNo),
-						scheduleItem: oItem.SheduleItem || oItem.ScheduleItem || "",
-						movementType: oItem.MovementType || "",
-						materialCode: oItem.MaterialCode || "",
-						materialDescription: oItem.MaterialDescription || "",
+						tripNumber: vTripNumber === undefined || vTripNumber === null ? "" : String(vTripNumber),
+						docType: vDocType === undefined || vDocType === null ? "" : String(vDocType),
+						refDocNo: vRefDocNo === undefined || vRefDocNo === null ? "" : String(vRefDocNo),
+						refDocItemNo: vRefDocItemNo === undefined || vRefDocItemNo === null ? "" : String(vRefDocItemNo),
+						scheduleItem: vSched === undefined || vSched === null ? "" : String(vSched),
+						movementType: vMoveType || "",
+						materialCode: vMaterialCode || "",
+						materialDescription: vMaterialDesc || "",
 						qty: vQuantity,
 						balanceQty: sBalanceQty,
 						BalanceQty: sBalanceQty,
 						// Backend ItemDetails "Cases" shown as "Bins (Trolleys)" in UI
 						binsTrolleys: sCasesDisplay,
-						uom: oItem.UoM || "",
+						uom: vUom || "",
 						// ShippingQty shown separately from Quantity; fallback to DispatchQty for legacy payloads
 						shippingQty: sShippingQty,
 						dispatchQty: (oItem.DispatchQty === null || oItem.DispatchQty === undefined) ?
