@@ -2550,7 +2550,7 @@ sap.ui.define(
                     if (bSuccess) {
                       MessageBox.success(sMessage + " Attachments uploaded successfully!", {
                         onClose: function () {
-                          this._navigateToHomeAfterGateSave();
+                          this._refreshHomeTripTableAfterGateSave();
                         }.bind(this),
                       });
                     } else {
@@ -2558,7 +2558,7 @@ sap.ui.define(
                         onClose: function () {
                           MessageBox.warning("Some attachments failed to upload.", {
                             onClose: function () {
-                              this._navigateToHomeAfterGateSave();
+                              this._refreshHomeTripTableAfterGateSave();
                             }.bind(this),
                           });
                         }.bind(this),
@@ -2570,7 +2570,7 @@ sap.ui.define(
                 } else {
                   MessageBox.success(sMessage, {
                     onClose: function () {
-                      this._navigateToHomeAfterGateSave();
+                      this._refreshHomeTripTableAfterGateSave();
                     }.bind(this),
                   });
                 }
@@ -3317,12 +3317,8 @@ sap.ui.define(
           document.body.removeChild(oLink);
         },
 
-        _navigateToHomeAfterGateSave: function () {
+        _refreshHomeTripTableAfterGateSave: function () {
           this._eventBus.publish("HomePage", "RefreshTripTable");
-          var oRouter = this.getOwnerComponent() && this.getOwnerComponent().getRouter();
-          if (oRouter) {
-            oRouter.navTo("HomePage");
-          }
         },
 
         _reloadTripDataAfterSave: function (sTripNumber, sEntryGateNumber, sDelayReasons) {

@@ -123,41 +123,38 @@
             <Label text="Quantity" />
             <Input
                 id="idMaterialQty"
-                type="Number"
                 valueLiveUpdate="true"
-                change=".onMaterialQtyOrBalanceDispatchChange"
-                liveChange=".onMaterialQtyOrBalanceDispatchChange"
+                change=".onMaterialDialogWholeQtyLiveChange"
+                liveChange=".onMaterialDialogWholeQtyLiveChange"
             />
 
             <Label text="Balance Qty" />
             <Input
                 id="idMaterialBalanceQty"
-                type="Number"
                 valueLiveUpdate="true"
-                change=".onMaterialBalanceOrDispatchQtyChange"
-                liveChange=".onMaterialBalanceOrDispatchQtyChange"
+                change=".onMaterialDialogWholeQtyLiveChange"
+                liveChange=".onMaterialDialogWholeQtyLiveChange"
             />
 
-            <Label text="Dispatch Qty" />
+            <Label text="Shipping Qty" />
             <Input
                 id="idMaterialDispatchQty"
-                type="Number"
                 valueLiveUpdate="true"
                 editable="{= !${globalData>/TripLocked} }"
-                change=".onMaterialBalanceOrDispatchQtyChange"
-                liveChange=".onMaterialBalanceOrDispatchQtyChange"
+                change=".onMaterialDialogWholeQtyLiveChange"
+                liveChange=".onMaterialDialogWholeQtyLiveChange"
             />
 
             <Label text="Remain Qty" />
             <Input
                 id="idMaterialRemainQty"
-                type="Number"
                 valueLiveUpdate="true"
             />
 
-            <Label text="Dispatch Date" />
+            <Label text="Dispatch Date" visible="false" />
             <DatePicker
                 id="idMaterialDispatchDate"
+                visible="false"
                 valueFormat="yyyy-MM-dd"
                 displayFormat="medium"
                 placeholder="{i18n>datePlaceholderExample}"

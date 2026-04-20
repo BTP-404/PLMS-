@@ -488,6 +488,28 @@ sap.ui.define(
             var sVehicleTypeVal = oVehicleType.getValue
               ? String(oVehicleType.getValue() || "").trim()
               : "";
+            // If the combo shows a description but selectedKey is still empty (timing / typing),
+            // resolve ConfigID from the suggestion list so validation does not fail on VehicleType.
+            var oVehicleTypeItemsModel = this.getView().getModel("vehicleTypeSuggestions");
+            if (!sVehicleTypeKey && sVehicleTypeVal && oVehicleTypeItemsModel) {
+              var aVtRows =
+                (oVehicleTypeItemsModel.getProperty &&
+                  oVehicleTypeItemsModel.getProperty("/items")) ||
+                [];
+              var oVtRow = aVtRows.find(function (r) {
+                if (!r) {
+                  return false;
+                }
+                var sDesc = String(r.Description || "").trim().toLowerCase();
+                return sDesc && sDesc === sVehicleTypeVal.toLowerCase();
+              });
+              if (oVtRow && oVtRow.ConfigID) {
+                sVehicleTypeKey = String(oVtRow.ConfigID).trim();
+                if (oVehicleType.setSelectedKey) {
+                  oVehicleType.setSelectedKey(sVehicleTypeKey);
+                }
+              }
+            }
             if (sVehicleTypeKey) {
               oTripDataModel.setProperty("/VehicleType", sVehicleTypeKey);
             } else {
@@ -500,7 +522,31 @@ sap.ui.define(
             }
           }
 
+          this._ensureMovementTypeDescFromMovementType(oTripDataModel);
+
           sap.ui.getCore().applyChanges();
+        },
+
+        /**
+         * Ensures TripData has MovementTypeDesc when MovementType is set (e.g. OData load omits it).
+         * Does not recompute MovementScenarioItemKey — avoid clearing a valid key before save validation.
+         */
+        _ensureMovementTypeDescFromMovementType: function (oTripDataModel) {
+          if (!oTripDataModel) {
+            return;
+          }
+          var sMtd = oTripDataModel.getProperty("/MovementTypeDesc");
+          if (String(sMtd || "").trim() !== "") {
+            return;
+          }
+          var sMtU = String(oTripDataModel.getProperty("/MovementType") || "")
+            .trim()
+            .toUpperCase();
+          if (sMtU === "I") {
+            oTripDataModel.setProperty("/MovementTypeDesc", "Inward");
+          } else if (sMtU === "O") {
+            oTripDataModel.setProperty("/MovementTypeDesc", "Outward");
+          }
         },
 
         /* ===========================================================
@@ -1821,6 +1867,17 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
           var ms = oTripDataModel.getProperty("/MovementScenario");
           var sKey = MovementScenarioIcons.getMovementScenarioItemKey(mt, ms);
           oTripDataModel.setProperty("/MovementScenarioItemKey", sKey || "");
+          // TripDetails from OData often has MovementType (I/O) but no MovementTypeDesc;
+          // validation uses MovementTypeDesc, so derive it when missing.
+          var sMtd = oTripDataModel.getProperty("/MovementTypeDesc");
+          if (String(sMtd || "").trim() === "") {
+            var sMtU = String(mt || "").trim().toUpperCase();
+            if (sMtU === "I") {
+              oTripDataModel.setProperty("/MovementTypeDesc", "Inward");
+            } else if (sMtU === "O") {
+              oTripDataModel.setProperty("/MovementTypeDesc", "Outward");
+            }
+          }
         },
 
         _syncMovementScenarioFromRow: function (row) {

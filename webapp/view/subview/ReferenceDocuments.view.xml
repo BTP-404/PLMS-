@@ -198,7 +198,7 @@
                     inset="false"
                     width="100%"
                     class="sapUiSizeCompact plmsPanelDataTable"
-                    fixedLayout="false"
+                    fixedLayout="true"
                     autoPopin="true"
                     popinLayout="GridSmall"
                     sticky="ColumnHeaders"
@@ -208,11 +208,29 @@
                     noDataText="No material rows added yet">
 
                             <columns>
-                                <Column id="colMaterialDocumentNo" demandPopin="true" minScreenWidth="Phone" popinDisplay="Inline">
+                                <Column
+                                    id="colMaterialDocumentNo"
+                                    width="9rem"
+                                    demandPopin="true"
+                                    minScreenWidth="Phone"
+                                    popinDisplay="Inline">
                                     <Text text="Document Number" wrapping="false"/>
                                 </Column>
-                                <Column id="colMaterialRefDocItemNo" demandPopin="true" minScreenWidth="Phone" popinDisplay="Inline">
+                                <Column
+                                    id="colMaterialRefDocItemNo"
+                                    width="6rem"
+                                    demandPopin="true"
+                                    minScreenWidth="Phone"
+                                    popinDisplay="Inline">
                                     <Text text="Ref Doc Item No" wrapping="false"/>
+                                </Column>
+                                <Column
+                                    id="colMaterialCode"
+                                    width="9rem"
+                                    demandPopin="true"
+                                    minScreenWidth="Phone"
+                                    popinDisplay="Inline">
+                                    <Text text="Material Code" wrapping="false"/>
                                 </Column>
                                 <Column
                                     id="colMaterialScheduleLine"
@@ -230,7 +248,12 @@
                                     }">
                                     <Text text="Schedule line" wrapping="false"/>
                                 </Column>
-                                <Column id="colMaterialDescription" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
+                                <Column
+                                    id="colMaterialDescription"
+                                    minWidth="10rem"
+                                    demandPopin="true"
+                                    minScreenWidth="Tablet"
+                                    popinDisplay="Inline">
                                     <Text text="Material Description" wrapping="false"/>
                                 </Column>
                                 <Column id="colMaterialQuantity" hAlign="End" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
@@ -256,10 +279,12 @@
                             <items>
                                 <ColumnListItem>
                                     <cells>
-                                        <Text text="{= ${refDocModel>documentNumber} || ${refDocModel>refDocNo} }"/>
-                                        <Text text="{refDocModel>refDocItemNo}"/>
+                                        <Text text="{= ${refDocModel>documentNumber} || ${refDocModel>refDocNo} }" wrapping="false"/>
+                                        <Text text="{refDocModel>refDocItemNo}" wrapping="false"/>
+                                        <Text text="{refDocModel>materialCode}" wrapping="false"/>
                                         <Text
                                             text="{= ${refDocModel>scheduleItem} || ${refDocModel>ScheduleItem} || ${refDocModel>SheduleItem} || '' }"
+                                            wrapping="false"
                                             visible="{
                                                 parts: [
                                                     { path: 'TripData>/MovementScenarioItemKey' },
@@ -268,12 +293,12 @@
                                                 ],
                                                 formatter: '.formatMaterialScheduleLineVisible'
                                             }"/>
-                                        <Text text="{refDocModel>materialDescription}"/>
-                                        <Text text="{refDocModel>qty}"/>
-                                        <Text text="{refDocModel>balanceQty}"/>
-                                        <Text text="{refDocModel>shippingQty}"/>
-                                        <Text text="{refDocModel>uom}"/>
-                                        <Text text="{refDocModel>remainQty}"/>
+                                        <Text text="{refDocModel>materialDescription}" wrapping="false"/>
+                                        <Text text="{refDocModel>qty}" wrapping="false" textAlign="End"/>
+                                        <Text text="{refDocModel>balanceQty}" wrapping="false" textAlign="End"/>
+                                        <Text text="{refDocModel>shippingQty}" wrapping="false" textAlign="End"/>
+                                        <Text text="{refDocModel>uom}" wrapping="false"/>
+                                        <Text text="{refDocModel>remainQty}" wrapping="false" textAlign="End"/>
                                         <HBox
                                             alignItems="Center"
                                             justifyContent="SpaceAround"
