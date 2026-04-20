@@ -99,20 +99,22 @@
                 visible="true"
             />
 
-            <Label text="Inv/Dc" />
+            <Label text="Inv/Dc" visible="{path: 'TripData>/MovementType', formatter: '.formatInvRefColumnsVisible'}" />
             <Input
                 id="idRefDocSalesDoc"
                 valueLiveUpdate="true"
                 editable="true"
+                visible="{path: 'TripData>/MovementType', formatter: '.formatInvRefColumnsVisible'}"
             />
 
-            <Label text="INV/DC Date" />
+            <Label text="INV/DC Date" visible="{path: 'TripData>/MovementType', formatter: '.formatInvRefColumnsVisible'}" />
             <DatePicker
                 id="idRefDocInvRefDate"
                 valueFormat="yyyy-MM-dd"
                 displayFormat="medium"
                 placeholder="{i18n>datePlaceholderExample}"
                 editable="true"
+                visible="{path: 'TripData>/MovementType', formatter: '.formatInvRefColumnsVisible'}"
             />
 
             <Label

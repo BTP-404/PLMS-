@@ -4184,6 +4184,8 @@ sap.ui.define([
 			this.byId("idRefDocDate")?.setValue(this._formatODataDate(oDoc.DocumentDate));
 			this.byId("idRefDocPartyCode")?.setValue(oDoc.Vendor || oDoc.Customer || "");
 			this.byId("idRefDocPartyName")?.setValue(oDoc.Name || "");
+			this.byId("idRefDocEwayBillNumber")?.setValue(oDoc.EwayBill || "");
+			this.byId("idRefDocEwayBillDate")?.setValue(this._blankIfInvalidDate(this._formatODataDate(oDoc.EwaybillDate)));
 			this.byId("idRefDocSalesDoc")?.setValue(oDoc.InvRefNo || oDoc.InvDc || oDoc.SalesDoc || "");
 			this.byId("idRefDocInvRefDate")?.setValue(this._formatODataDate(oDoc.InvRefDate || null));
 			this.byId("idRefDocSalesDoctype")?.setValue(oDoc.SalesDoctype || "");

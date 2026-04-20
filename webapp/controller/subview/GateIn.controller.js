@@ -548,7 +548,7 @@ sap.ui.define(
                 QtyIn: String(iQtyIn),
                 QtyOut: String(iQtyOut)
               };
-            });
+            }.bind(this));
         },
 
         /**
@@ -2262,11 +2262,35 @@ sap.ui.define(
                 "") + "";
             sCode = sCode.trim();
           }
+          var fnNormKey = function (v) {
+            var s = v == null ? "" : String(v);
+            s = s.trim().replace(/\s+/g, " ");
+            if (/^\d+$/.test(s)) {
+              // Normalize purely-numeric keys to avoid leading-zero mismatches
+              s = s.replace(/^0+/, "") || "0";
+            }
+            return s;
+          };
+
           if (sCode) {
-            var bFound = aItems.some(function (i) {
-              return String(i.ProductId) === String(sCode);
-            });
-            this._oDelayReasonSelectModel.setProperty("/SelectedDelayKey", bFound ? sCode : "");
+            // Resolve to the actual ProductId from the collection (handles leading zeros / spacing)
+            var sCodeNorm = fnNormKey(sCode);
+            var oFound =
+              aItems.find(function (i) {
+                return String(i.ProductId).trim() === String(sCode).trim();
+              }) ||
+              aItems.find(function (i) {
+                return fnNormKey(i.ProductId) === sCodeNorm;
+              });
+
+            if (oFound) {
+              this._oDelayReasonSelectModel.setProperty("/SelectedDelayKey", String(oFound.ProductId));
+              if (oTripData && String(oTripData.getProperty("/DelayReason") || "").trim() !== String(oFound.ProductId).trim()) {
+                oTripData.setProperty("/DelayReason", String(oFound.ProductId));
+              }
+            } else {
+              this._oDelayReasonSelectModel.setProperty("/SelectedDelayKey", "");
+            }
             return;
           }
           if (oTripData) {

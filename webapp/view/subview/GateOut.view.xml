@@ -8,6 +8,15 @@
     displayBlock="true"
 >
     <VBox class="sapUiSizeCompact" width="100%">
+        <!-- Inwards: user-controlled Gate Out ref-doc search strip (default hidden) -->
+        <CheckBox
+            id="idGateOutEnableRefDocSearchInward"
+            text="Add Invoice / Challan "
+            selected="{gateOutUi>/enableGateOutRefSearchInward}"
+            select="onGateOutRefSearchInwardToggle"
+            class="sapUiTinyMarginBottom"
+            visible="{= String(${TripData>/MovementType} || '').toUpperCase() === 'I' }"
+        />
         <!-- Search by + document value help (hidden for O02 + vehicle type 02, or outbound O + type 02 + External; use Reference Documents "Add Document") -->
         <layout:Grid
             defaultSpan="L12 M12 S12"

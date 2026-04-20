@@ -179,6 +179,47 @@ sap.ui.define(
         return sTrimmed;
       },
 
+      _extractErrorMessage: function (oError) {
+        if (!oError) return "Something went wrong";
+
+        var fnPickFromPayload = function (oPayload) {
+          var sDetail = oPayload?.error?.innererror?.errordetails?.[0]?.message;
+          if (sDetail) return sDetail;
+
+          var sMsgValue = oPayload?.error?.message?.value;
+          if (sMsgValue) return sMsgValue;
+
+          var sMsg = oPayload?.error?.message;
+          if (typeof sMsg === "string" && sMsg) return sMsg;
+
+          return "";
+        };
+
+        if (oError.responseText) {
+          try {
+            var oParsed = JSON.parse(oError.responseText);
+            var sParsedMsg = fnPickFromPayload(oParsed);
+            if (sParsedMsg) return sParsedMsg;
+          } catch (e) {
+            // ignore parse errors
+          }
+        }
+
+        if (oError.responseJSON) {
+          var sJsonMsg = fnPickFromPayload(oError.responseJSON);
+          if (sJsonMsg) return sJsonMsg;
+        }
+
+        if (typeof oError.message === "string" && oError.message) {
+          return oError.message;
+        }
+        if (oError.message?.value) {
+          return oError.message.value;
+        }
+
+        return "Something went wrong";
+      },
+
       // --------------------------------------------
       // NAVIGATION
       // --------------------------------------------
@@ -2453,36 +2494,60 @@ sap.ui.define(
             var oFirst = oData && oData.d ? oData.d : oData;
             fnApplyInvoiceResult(oFirst || null, oFirst ? [oFirst] : []);
           },
-          error: function () {
-            if (bChallan) {
-              oModel.read("/ChallanSh", {
-                filters: [
-                  new Filter("MaterialDoc", FilterOperator.EQ, sInv),
-                ],
-                urlParameters: { $top: "10" },
-                success: function (oData) {
-                  var a = (oData && oData.results) || [];
-                  var oFirst = a && a.length ? a[0] : null;
-                  fnApplyInvoiceResult(oFirst, a);
-                },
-                error: function () {
-                  fnClear();
+          error: function (oErr1) {
+            var sM1 = that._extractErrorMessage(oErr1);
+
+            var fnContinueWithFallback = function () {
+              if (bChallan) {
+                oModel.read("/ChallanSh", {
+                  filters: [
+                    new Filter("MaterialDoc", FilterOperator.EQ, sInv),
+                  ],
+                  urlParameters: { $top: "10" },
+                  success: function (oData) {
+                    var a = (oData && oData.results) || [];
+                    var oFirst = a && a.length ? a[0] : null;
+                    fnApplyInvoiceResult(oFirst, a);
+                  },
+                  error: function (oErr2) {
+                    var sM2 = that._extractErrorMessage(oErr2);
+                    var sShow = sM2 && sM2 !== "Something went wrong" ? sM2 : sM1;
+                    MessageBox.error(sShow);
+                    fnClear();
+                  },
+                });
+              } else {
+                oModel.read("/BillingDocSH", {
+                  filters: [new Filter("BillingDoc", FilterOperator.EQ, sInv)],
+                  urlParameters: { $top: "10" },
+                  success: function (oData) {
+                    var a = (oData && oData.results) || [];
+                    var oFirst = a && a.length ? a[0] : null;
+                    fnApplyInvoiceResult(oFirst, a);
+                  },
+                  error: function (oErr2) {
+                    var sM2 = that._extractErrorMessage(oErr2);
+                    var sShow = sM2 && sM2 !== "Something went wrong" ? sM2 : sM1;
+                    MessageBox.error(sShow);
+                    fnClear();
+                  },
+                });
+              }
+            };
+
+            // Requirement: show backend error first, then continue the next process.
+            // If we have a meaningful business message, wait until user closes it.
+            if (sM1 && sM1 !== "Something went wrong") {
+              MessageBox.error(sM1, {
+                onClose: function () {
+                  fnContinueWithFallback();
                 },
               });
-            } else {
-              oModel.read("/BillingDocSH", {
-                filters: [new Filter("BillingDoc", FilterOperator.EQ, sInv)],
-                urlParameters: { $top: "10" },
-                success: function (oData) {
-                  var a = (oData && oData.results) || [];
-                  var oFirst = a && a.length ? a[0] : null;
-                  fnApplyInvoiceResult(oFirst, a);
-                },
-                error: function () {
-                  fnClear();
-                },
-              });
+              return;
             }
+
+            // No meaningful message; just proceed with fallback read.
+            fnContinueWithFallback();
           },
         });
       },
@@ -3336,7 +3401,6 @@ sap.ui.define(
           "colMovementScenario",
           "colPartyName",
           "colGRN",
-          "colBillofLading",
         ];
         return aDefaultVisible.indexOf(sKey) !== -1;
       },
@@ -3430,35 +3494,71 @@ sap.ui.define(
           return "";
         }
         var DateFormat = sap.ui.core.format.DateFormat;
+
+        // Force same display across locales (matches Analysis tab expectation).
+        // Example: "Apr 20, 2026 8:43 PM"
+        var oDateTimeFmt = DateFormat.getDateTimeInstance({
+          pattern: "MMM dd, yyyy h:mm a",
+        });
+
+        var oDatePart = null;
+        if (vOn !== undefined && vOn !== null && vOn !== "") {
+          if (vOn instanceof Date) {
+            oDatePart = vOn;
+          } else if (typeof vOn === "string") {
+            var m = /\/Date\((-?\d+)\)\//.exec(vOn);
+            if (m) {
+              oDatePart = new Date(parseInt(m[1], 10));
+            }
+          }
+        }
+
+        var iTimeMs = null;
+        if (vTime !== undefined && vTime !== null && vTime !== "") {
+          if (typeof vTime === "object" && typeof vTime.ms === "number") {
+            iTimeMs = vTime.ms;
+          } else if (typeof vTime === "number") {
+            iTimeMs = vTime;
+          } else if (vTime instanceof Date && !isNaN(vTime.getTime())) {
+            iTimeMs =
+              vTime.getHours() * 3600000 +
+              vTime.getMinutes() * 60000 +
+              vTime.getSeconds() * 1000 +
+              vTime.getMilliseconds();
+          }
+        }
+
+        // If we can combine date+time, do it (preferred).
+        if (oDatePart && !isNaN(oDatePart.getTime()) && typeof iTimeMs === "number" && !isNaN(iTimeMs)) {
+          var iHours = Math.floor(iTimeMs / 3600000);
+          var iMinutes = Math.floor((iTimeMs % 3600000) / 60000);
+          var oCombined = new Date(
+            oDatePart.getFullYear(),
+            oDatePart.getMonth(),
+            oDatePart.getDate(),
+            iHours,
+            iMinutes,
+            0,
+            0
+          );
+          return oDateTimeFmt.format(oCombined);
+        }
+
+        // Fallback: keep previous behavior (best-effort).
         var oDateFmt = DateFormat.getDateInstance({ style: "medium" });
         var oTimeFmt = DateFormat.getTimeInstance({ style: "short" });
         var sDate = "";
         var sTime = "";
-        if (vOn !== undefined && vOn !== null && vOn !== "") {
-          var oD = null;
-          if (vOn instanceof Date) {
-            oD = vOn;
-          } else if (typeof vOn === "string") {
-            var m = /\/Date\((-?\d+)\)\//.exec(vOn);
-            if (m) {
-              oD = new Date(parseInt(m[1], 10));
-            }
-          }
-          if (oD && !isNaN(oD.getTime())) {
-            sDate = oDateFmt.format(oD);
-          }
+        if (oDatePart && !isNaN(oDatePart.getTime())) {
+          sDate = oDateFmt.format(oDatePart);
         }
-        if (vTime !== undefined && vTime !== null && vTime !== "") {
-          if (typeof vTime === "object" && vTime.ms !== undefined) {
-            var oT = new Date(vTime.ms);
-            if (!isNaN(oT.getTime())) {
-              sTime = oTimeFmt.format(oT);
-            }
-          } else if (vTime instanceof Date && !isNaN(vTime.getTime())) {
-            sTime = oTimeFmt.format(vTime);
-          } else if (typeof vTime === "string") {
-            sTime = vTime;
+        if (typeof iTimeMs === "number" && !isNaN(iTimeMs)) {
+          var oT = new Date(iTimeMs);
+          if (!isNaN(oT.getTime())) {
+            sTime = oTimeFmt.format(oT);
           }
+        } else if (typeof vTime === "string") {
+          sTime = vTime;
         }
         if (sDate && sTime) {
           return sDate + " " + sTime;

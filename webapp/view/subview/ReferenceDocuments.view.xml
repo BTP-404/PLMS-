@@ -294,11 +294,39 @@
                                                 formatter: '.formatMaterialScheduleLineVisible'
                                             }"/>
                                         <Text text="{refDocModel>materialDescription}" wrapping="false"/>
-                                        <Text text="{refDocModel>qty}" wrapping="false" textAlign="End"/>
-                                        <Text text="{refDocModel>balanceQty}" wrapping="false" textAlign="End"/>
-                                        <Text text="{refDocModel>shippingQty}" wrapping="false" textAlign="End"/>
+                                        <Text
+                                            text="{
+                                                path: 'refDocModel>qty',
+                                                type: 'sap.ui.model.type.Float',
+                                                formatOptions: { minFractionDigits: 0, maxFractionDigits: 3 }
+                                            }"
+                                            wrapping="false"
+                                            textAlign="End"/>
+                                        <Text
+                                            text="{
+                                                path: 'refDocModel>balanceQty',
+                                                type: 'sap.ui.model.type.Float',
+                                                formatOptions: { minFractionDigits: 0, maxFractionDigits: 3 }
+                                            }"
+                                            wrapping="false"
+                                            textAlign="End"/>
+                                        <Text
+                                            text="{
+                                                path: 'refDocModel>shippingQty',
+                                                type: 'sap.ui.model.type.Float',
+                                                formatOptions: { minFractionDigits: 0, maxFractionDigits: 3 }
+                                            }"
+                                            wrapping="false"
+                                            textAlign="End"/>
                                         <Text text="{refDocModel>uom}" wrapping="false"/>
-                                        <Text text="{refDocModel>remainQty}" wrapping="false" textAlign="End"/>
+                                        <Text
+                                            text="{
+                                                path: 'refDocModel>remainQty',
+                                                type: 'sap.ui.model.type.Float',
+                                                formatOptions: { minFractionDigits: 0, maxFractionDigits: 3 }
+                                            }"
+                                            wrapping="false"
+                                            textAlign="End"/>
                                         <HBox
                                             alignItems="Center"
                                             justifyContent="SpaceAround"

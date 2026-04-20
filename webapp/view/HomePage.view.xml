@@ -250,6 +250,7 @@
                         </Column>
                         <Column
                             id="colBillofLading"
+                            visible="false"
                             demandPopin="true"
                             minScreenWidth="Desktop"
                             popinDisplay="Inline"

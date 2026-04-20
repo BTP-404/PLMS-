@@ -815,24 +815,18 @@ sap.ui.define(
               }
             }.bind(this))
             .catch(function (oError) {
-              var sErrorMessage = "Failed to save Bin / Trolley tracking.";
-              try {
-                if (oError && oError.responseText) {
-                  var oErr = JSON.parse(oError.responseText);
-                  if (oErr.error && oErr.error.message && oErr.error.message.value) {
-                    sErrorMessage = oErr.error.message.value;
-                  }
-                }
-              } catch (e) {
-                // Ignore parse failure
-              }
+              var sBackendMsg = this._extractErrorMessage(oError);
+              var sErrorMessage =
+                sBackendMsg && sBackendMsg !== "Something went wrong"
+                  ? sBackendMsg
+                  : "Failed to save Bin / Trolley tracking.";
               MessageBox.error(sErrorMessage);
               if (iScrollY !== null) {
                 setTimeout(function () {
                   window.scrollTo(0, iScrollY);
                 }, 0);
               }
-            });
+            }.bind(this));
         },
         _initBinTrolleyVisibilityModel: function () {
           if (!this.getView().getModel("ui")) {
@@ -848,6 +842,7 @@ sap.ui.define(
               new JSONModel({
                 referenceByKey: "INVOICE",
                 refDocSearchValue: "",
+                enableGateOutRefSearchInward: false,
                 showPanels: false,
                 showGateOutRefSearchStrip: true
               }),
@@ -857,6 +852,9 @@ sap.ui.define(
             var oUi = this.getView().getModel("gateOutUi");
             if (oUi.getProperty("/refDocSearchValue") === undefined) {
               oUi.setProperty("/refDocSearchValue", "");
+            }
+            if (oUi.getProperty("/enableGateOutRefSearchInward") === undefined) {
+              oUi.setProperty("/enableGateOutRefSearchInward", false);
             }
             if (oUi.getProperty("/showPanels") === undefined) {
               oUi.setProperty("/showPanels", false);
@@ -908,11 +906,31 @@ sap.ui.define(
               O02GateException.isO02FromTripData(oTripData) &&
               sVtNorm === "2") ||
             bExternalVt02OutboundHide;
+          var bInward = sMovementType === "I";
+          var bUserEnabledInward = !!oUi.getProperty("/enableGateOutRefSearchInward");
+          var bPrevVisible = !!oUi.getProperty("/showGateOutRefSearchStrip");
           oUi.setProperty(
             "/showGateOutRefSearchStrip",
-            bMovementAllowed && !bO02Vt02HideTopSearch
+            !bO02Vt02HideTopSearch && (bInward ? bUserEnabledInward : bMovementAllowed)
           );
+          var bNowVisible = !!oUi.getProperty("/showGateOutRefSearchStrip");
+          if (bPrevVisible && !bNowVisible) {
+            // Strip just became hidden due to movement/scenario rules; clear the field in all cases.
+            this._clearGateOutRefDocSearchField();
+          }
 
+        },
+
+        onGateOutRefSearchInwardToggle: function () {
+          // Re-evaluate visibility immediately when user toggles checkbox
+          var oUi = this.getView().getModel("gateOutUi");
+          var bEnabled = !!(oUi && oUi.getProperty("/enableGateOutRefSearchInward"));
+          if (!bEnabled) {
+            // If user disables the strip, clear typed value, suggestions and any previous ref-doc selection context.
+            this._clearGateOutRefDocSearchField();
+            this._clearGateOutPreviousSelectionState();
+          }
+          this._updatePanelVisibility();
         },
         _initGateOutRefSuggestModel: function () {
           if (!this.getView().getModel("gateOutRefSuggest")) {
@@ -1110,6 +1128,30 @@ sap.ui.define(
         _escapeODataKey: function (s) {
           return String(s || "").trim().replace(/'/g, "''");
         },
+        _parseDdMmYyyyDateLikeToIsoDate: function (v) {
+          if (!v) return "";
+          if (v instanceof Date && !isNaN(v.getTime())) {
+            var y = v.getFullYear();
+            var m = String(v.getMonth() + 1).padStart(2, "0");
+            var d = String(v.getDate()).padStart(2, "0");
+            return y + "-" + m + "-" + d;
+          }
+          var s = String(v || "").trim();
+          // Common backend format seen in EwaybillDate: "23/02/2026 12:25:00 PM"
+          var m1 = s.match(/^(\d{2})\/(\d{2})\/(\d{4})(?:\s|$)/);
+          if (m1) {
+            return m1[3] + "-" + m1[2] + "-" + m1[1];
+          }
+          // ISO-like string (or any string Date can parse) → keep date only
+          var o = new Date(s);
+          if (!isNaN(o.getTime())) {
+            var yy = o.getFullYear();
+            var mm = String(o.getMonth() + 1).padStart(2, "0");
+            var dd = String(o.getDate()).padStart(2, "0");
+            return yy + "-" + mm + "-" + dd;
+          }
+          return "";
+        },
         _extractErrorMessage: function (oError) {
           if (!oError) return "Something went wrong";
 
@@ -1186,9 +1228,41 @@ sap.ui.define(
             oG.setProperty("/OutgoingPoNumber", "");
             oG.setProperty("/OutgoingReferenceByKey", "INVOICE");
             if (oTrip && sBd) {
+              // Always set reference doc fields for downstream panels.
               oTrip.setProperty("/BillingDocument", sBd);
               oTrip.setProperty("/RefDocNo", sBd);
               oTrip.setProperty("/RefDocType", sDt);
+
+              // Auto-populate Reporting fields from Invoice SH response (do not overwrite non-empty values).
+              var fnSetIfEmpty = function (sPath, vVal) {
+                if (!oTrip || vVal === undefined || vVal === null) return;
+                var sExisting = String(oTrip.getProperty(sPath) || "").trim();
+                var sNew = String(vVal || "").trim();
+                if (!sExisting && sNew) {
+                  oTrip.setProperty(sPath, sNew);
+                }
+              };
+
+              fnSetIfEmpty("/VehicleNumber", oRow.VehicleNumber);
+              fnSetIfEmpty("/TransporterName", oRow.TransporterName);
+              fnSetIfEmpty("/LR_Number", oRow.LR_Number);
+              fnSetIfEmpty("/DriverName", oRow.DriverName);
+              // Driver contact isn't returned in your sample payload; set only if present.
+              fnSetIfEmpty("/DriverMobile", oRow.DriverMobile || oRow.DriverContact);
+
+              // Map EWB fields (Reporting binds to EwbNo + EwbActStartDate).
+              fnSetIfEmpty("/EwbNo", oRow.EwayBill);
+              var sEwbIso = this._parseDdMmYyyyDateLikeToIsoDate(oRow.EwaybillDate || oRow.EwbActStartDate);
+              if (!String(oTrip.getProperty("/EwbActStartDate") || "").trim() && sEwbIso) {
+                oTrip.setProperty("/EwbActStartDate", sEwbIso);
+              }
+
+              // Invoice reference fields (only shown for Inward in UI, but safe to map if present).
+              fnSetIfEmpty("/InvRefNo", oRow.InvRefNo);
+              var sInvIso = this._parseDdMmYyyyDateLikeToIsoDate(oRow.InvRefDate);
+              if (!String(oTrip.getProperty("/InvRefDate") || "").trim() && sInvIso) {
+                oTrip.setProperty("/InvRefDate", sInvIso);
+              }
             }
           } else if (sMode === "CHALLAN") {
             var sMd = oRow.MaterialDoc != null ? String(oRow.MaterialDoc).trim() : "";
@@ -1200,6 +1274,26 @@ sap.ui.define(
             if (oTrip && sMd) {
               oTrip.setProperty("/RefDocNo", sMd);
               oTrip.setProperty("/RefDocType", sChDt);
+
+              // Best-effort auto-population for Reporting fields if present on Challan SH.
+              var fnSetIfEmptyCh = function (sPath, vVal) {
+                if (!oTrip || vVal === undefined || vVal === null) return;
+                var sExisting = String(oTrip.getProperty(sPath) || "").trim();
+                var sNew = String(vVal || "").trim();
+                if (!sExisting && sNew) {
+                  oTrip.setProperty(sPath, sNew);
+                }
+              };
+              fnSetIfEmptyCh("/VehicleNumber", oRow.VehicleNumber);
+              fnSetIfEmptyCh("/TransporterName", oRow.TransporterName);
+              fnSetIfEmptyCh("/LR_Number", oRow.LR_Number);
+              fnSetIfEmptyCh("/DriverName", oRow.DriverName);
+              fnSetIfEmptyCh("/DriverMobile", oRow.DriverMobile || oRow.DriverContact);
+              fnSetIfEmptyCh("/EwbNo", oRow.EwayBill);
+              var sEwbIsoCh = this._parseDdMmYyyyDateLikeToIsoDate(oRow.EwaybillDate || oRow.EwbActStartDate);
+              if (!String(oTrip.getProperty("/EwbActStartDate") || "").trim() && sEwbIsoCh) {
+                oTrip.setProperty("/EwbActStartDate", sEwbIsoCh);
+              }
             }
           } else if (sMode === "PO") {
             var sPo = oRow.PoNumber != null ? String(oRow.PoNumber).trim() : "";
@@ -1746,24 +1840,39 @@ sap.ui.define(
                   resolve(oFirst || null);
                 },
                 error: function (oErr) {
-                  oModel.read("/BillingDocSH", {
-                    filters: [new Filter("BillingDoc", FilterOperator.EQ, sVal)],
-                    urlParameters: { $top: "1" },
-                    success: function (oData2) {
-                      var a = (oData2 && oData2.results) || [];
-                      that._applyGateOutRefDocGlobalFromRow("INVOICE", a[0] || null);
-                      that._afterGateOutRefDocResolved("INVOICE", sVal, a[0] || null);
-                      resolve(a[0] || null);
-                    },
-                    error: function (oErr2) {
-                      var sM2 = that._extractErrorMessage(oErr2);
-                      var sM1 = that._extractErrorMessage(oErr);
-                      var sShow =
-                        sM2 && sM2 !== "Something went wrong" ? sM2 : sM1;
-                      MessageBox.error(sShow);
-                      resolve(null);
-                    },
-                  });
+                  var sM1 = that._extractErrorMessage(oErr);
+
+                  var fnContinueWithFallback = function () {
+                    oModel.read("/BillingDocSH", {
+                      filters: [new Filter("BillingDoc", FilterOperator.EQ, sVal)],
+                      urlParameters: { $top: "1" },
+                      success: function (oData2) {
+                        var a = (oData2 && oData2.results) || [];
+                        that._applyGateOutRefDocGlobalFromRow("INVOICE", a[0] || null);
+                        that._afterGateOutRefDocResolved("INVOICE", sVal, a[0] || null);
+                        resolve(a[0] || null);
+                      },
+                      error: function (oErr2) {
+                        var sM2 = that._extractErrorMessage(oErr2);
+                        var sShow =
+                          sM2 && sM2 !== "Something went wrong" ? sM2 : sM1;
+                        MessageBox.error(sShow);
+                        resolve(null);
+                      },
+                    });
+                  };
+
+                  // Show backend business message first, then continue with fallback read.
+                  if (sM1 && sM1 !== "Something went wrong") {
+                    MessageBox.error(sM1, {
+                      onClose: function () {
+                        fnContinueWithFallback();
+                      },
+                    });
+                    return;
+                  }
+
+                  fnContinueWithFallback();
                 },
               });
             });
@@ -2352,9 +2461,14 @@ sap.ui.define(
                 }
               }
             }.bind(this),
-            error: function () {
-              sap.m.MessageBox.error("Failed to load Exit gates.");
-            },
+            error: function (oError) {
+              var sBackendMsg = this._extractErrorMessage(oError);
+              var sErrorMessage =
+                sBackendMsg && sBackendMsg !== "Something went wrong"
+                  ? sBackendMsg
+                  : "Failed to load Exit gates.";
+              sap.m.MessageBox.error(sErrorMessage);
+            }.bind(this),
           });
         },
 
@@ -2801,21 +2915,11 @@ sap.ui.define(
                   }
                 }.bind(this),
                 error: function (oError) {
-                  var sErrorMessage = "Failed Gate Out ";
-                  try {
-                    if (oError && oError.responseText) {
-                      var oErr = JSON.parse(oError.responseText);
-                      if (
-                        oErr.error &&
-                        oErr.error.message &&
-                        oErr.error.message.value
-                      ) {
-                        sErrorMessage = oErr.error.message.value;
-                      }
-                    }
-                  } catch (e) {
-                    // Failed to parse OData error
-                  }
+                  var sBackendMsg = this._extractErrorMessage(oError);
+                  var sErrorMessage =
+                    sBackendMsg && sBackendMsg !== "Something went wrong"
+                      ? sBackendMsg
+                      : "Failed Gate Out.";
                   MessageBox.error(sErrorMessage);
                 },
               });

@@ -430,7 +430,7 @@
                         </VBox>
                     </layout:content>
                     <layout:content>
-                        <VBox>
+                        <VBox visible="{path: 'TripData>/MovementType', formatter: '.formatInvRefColumnsVisible'}">
                             <Label
                                 text="INV/DC No"
                                 design="Bold"
@@ -443,7 +443,7 @@
                         </VBox>
                     </layout:content>
                     <layout:content>
-                        <VBox>
+                        <VBox visible="{path: 'TripData>/MovementType', formatter: '.formatInvRefColumnsVisible'}">
                             <Label
                                 text="INV/DC Date"
                                 design="Bold"

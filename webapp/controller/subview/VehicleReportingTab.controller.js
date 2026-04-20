@@ -36,6 +36,18 @@ sap.ui.define(
     return Controller.extend(
       "com.incresolZ_INC_PLMS.controller.subview.VehicleReportingTab",
       {
+        /**
+         * Invoice reference fields apply to Inward flows only (MovementType = "I").
+         * @param {string} sMovementType TripData MovementType (I/O per OData)
+         * @returns {boolean}
+         */
+        formatInvRefColumnsVisible: function (sMovementType) {
+          if (sMovementType === undefined || sMovementType === null || sMovementType === "") {
+            return false;
+          }
+          return String(sMovementType).trim().toUpperCase() === "I";
+        },
+
         /* ===========================================================
          * NO CHANGE: onInit (kept original, only comment added)
          * =========================================================== */
@@ -1318,6 +1330,12 @@ sap.ui.define(
             return;
           }
 
+          var oTripDataModel = this.getView().getModel("TripData");
+          var sMovementType = String(oTripDataModel?.getProperty("/MovementType") || "")
+            .trim()
+            .toUpperCase();
+          var bIsInward = sMovementType === "I";
+
           var sRefDocType = String(oPayload.RefDocType || "").trim();
           var sRefDocNo = String(oPayload.RefDocNo || "").trim();
           var sEwbNo = String(oPayload.EwbNo || "").trim();
@@ -1334,14 +1352,18 @@ sap.ui.define(
           if (sEwbNo) {
             oPayload.EwayBill = sEwbNo;
           }
-          if (sInvRefNo) {
+          if (bIsInward && sInvRefNo) {
             oPayload.InvRefNo = sInvRefNo;
+          } else {
+            delete oPayload.InvRefNo;
           }
           if (sEwbDate) {
             oPayload.EwaybillDate = sEwbDate;
           }
-          if (sInvRefDate) {
+          if (bIsInward && sInvRefDate) {
             oPayload.InvRefDate = sInvRefDate;
+          } else {
+            delete oPayload.InvRefDate;
           }
 
           // Keep UI-only aliases out of TripDetails CRUD payload.
@@ -3345,6 +3367,10 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
 
           // Attach additional reporting fields when available.
           var oTripDataModel = this.getView().getModel("TripData");
+          var sMovementType = String(oTripDataModel?.getProperty("/MovementType") || "")
+            .trim()
+            .toUpperCase();
+          var bIsInward = sMovementType === "I";
           var sRefDocType = String(oTripDataModel?.getProperty("/RefDocType") || "").trim();
           var sRefDocNo = String(oTripDataModel?.getProperty("/RefDocNo") || "").trim();
           var sEwbNo = String(oTripDataModel?.getProperty("/EwbNo") || "").trim();
@@ -3363,13 +3389,13 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
           if (sEwbNo) {
             oPayload.EwbNo = sEwbNo;
           }
-          if (sInvRefNo) {
+          if (bIsInward && sInvRefNo) {
             oPayload.InvRefNo = sInvRefNo;
           }
           if (oEwbDate && !isNaN(oEwbDate.getTime())) {
             oPayload.EwbActStartDate = oEwbDate.toISOString().split(".")[0];
           }
-          if (oInvRefDate && !isNaN(oInvRefDate.getTime())) {
+          if (bIsInward && oInvRefDate && !isNaN(oInvRefDate.getTime())) {
             oPayload.InvRefDate = oInvRefDate.toISOString().split(".")[0];
           }
 
