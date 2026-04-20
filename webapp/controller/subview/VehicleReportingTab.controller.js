@@ -426,6 +426,7 @@ sap.ui.define(
           var aInputMappings = [
             { id: "idVehicleNumber", path: "/VehicleNumber" },
             { id: "idTransporterName", path: "/TransporterName" },
+            { id: "idBillOfLading", path: "/BillofLading" },
             { id: "idDriverName", path: "/DriverName" },
             { id: "idDriverContact", path: "/DriverMobile" },
             { id: "idDriverLicense", path: "/DriverLicence" }

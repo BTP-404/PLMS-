@@ -1265,18 +1265,28 @@ sap.ui.define([
 				if (!isFinite(fShipping) || fShipping < 0) {
 					fShipping = 0;
 				}
-				if (fShipping > fBalance) {
-					fShipping = fBalance;
-				}
 				sFormattedShipping = (fShipping % 1 === 0) ? String(Math.floor(fShipping)) : fShipping.toFixed(2);
 			}
 
 			var fRemain = fBalance - fShipping;
-			if (!isFinite(fRemain) || fRemain < 0) {
+			if (!isFinite(fRemain)) {
 				fRemain = 0;
 			}
 
-			var sFormattedRemain = (fRemain % 1 === 0) ? String(Math.floor(fRemain)) : fRemain.toFixed(2);
+			var sFormattedRemain = (fRemain % 1 === 0) ? String(fRemain) : fRemain.toFixed(2);
+
+			// Allow ShippingQty to exceed balance (warn only) and let RemainQty go negative.
+			if (oInput && oInput.setValueState) {
+				var bExcess = isFinite(fShipping) && isFinite(fBalance) && fShipping > fBalance;
+				oInput.setValueState(bExcess ? sap.ui.core.ValueState.Warning : sap.ui.core.ValueState.None);
+				if (oInput.setValueStateText) {
+					oInput.setValueStateText(
+						bExcess ?
+							"Shipping Quantity exceeds Balance Quantity. Remaining Quantity will be negative." :
+							""
+					);
+				}
+			}
 
 			oModel.setProperty(sRowPath + "/ShippingQty", sFormattedShipping);
 			oModel.setProperty(sRowPath + "/RemainQty", sFormattedRemain);
@@ -3080,14 +3090,11 @@ sap.ui.define([
 						if (!isFinite(fShipping) || fShipping < 0) {
 							fShipping = 0;
 						}
-						if (fShipping > fBalance) {
-							fShipping = fBalance;
-						}
 						if (vRemainQty === null || vRemainQty === undefined || vRemainQty === "") {
 							vRemainQty = fBalance - fShipping;
 						}
 						var fRemain = parseFloat(vRemainQty);
-						if (!isFinite(fRemain) || fRemain < 0) {
+						if (!isFinite(fRemain)) {
 							fRemain = 0;
 						}
 						// Do not show default 0 from service in the ShippingQty input; treat as unset (empty).
@@ -3097,7 +3104,7 @@ sap.ui.define([
 							Quantity: (fQty % 1 === 0) ? String(Math.floor(fQty)) : fQty.toFixed(2),
 							BalanceQty: (fBalDisplay % 1 === 0) ? String(Math.floor(fBalDisplay)) : fBalDisplay.toFixed(2),
 							ShippingQty: sShippingQtyUi,
-							RemainQty: (fRemain % 1 === 0) ? String(Math.floor(fRemain)) : fRemain.toFixed(2)
+							RemainQty: (fRemain % 1 === 0) ? String(fRemain) : fRemain.toFixed(2)
 						});
 					});
 					// Set materials data

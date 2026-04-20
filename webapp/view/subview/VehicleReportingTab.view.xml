@@ -461,6 +461,20 @@
                     <layout:content>
                         <VBox>
                             <Label
+                                text="Bill Of Lading"
+                                design="Bold"
+                            />
+                            <Input
+                                id="idBillOfLading"
+                                width="100%"
+                                value="{TripData>/BillofLading}"
+                                enabled="{= !${globalData>/TripLocked} }"
+                            />
+                        </VBox>
+                    </layout:content>
+                    <layout:content>
+                        <VBox>
+                            <Label
                                 text="Gate Pass No"
                                 design="Bold"
                             />

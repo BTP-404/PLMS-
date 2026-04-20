@@ -96,8 +96,49 @@ sap.ui.define(
           // Initialize selected files array
           this._aSelectedFiles = [];
           PanelAccordion.attach(this.getView());
+          this._attachGateInPanelExpansionPersistence();
           this._updatePanelVisibility();
 
+        },
+        _attachGateInPanelExpansionPersistence: function () {
+          try {
+            var oView = this.getView();
+            if (!oView || typeof oView.findAggregatedObjects !== "function") {
+              return;
+            }
+            var oUi = oView.getModel("gateInUi");
+            if (!oUi) {
+              this._initGateInUiModel();
+              oUi = oView.getModel("gateInUi");
+            }
+            var aPanels = oView.findAggregatedObjects(true, function (o) {
+              return o && o.isA && o.isA("sap.m.Panel") && o.getExpandable && o.getExpandable();
+            });
+            aPanels.forEach(function (oPanel) {
+              if (oPanel._plmsExpandPersistAttached) {
+                return;
+              }
+              oPanel._plmsExpandPersistAttached = true;
+              oPanel.attachExpand(function (oEvent) {
+                if (!oEvent.getParameter("expand")) {
+                  return;
+                }
+                // Persist the last expanded panel (store local ID so it survives view recreation).
+                try {
+                  var sViewPrefix = (typeof oView.getId === "function" ? oView.getId() : "") + "--";
+                  var sFullId = oPanel.getId();
+                  var sLocalId = sFullId && sViewPrefix && sFullId.indexOf(sViewPrefix) === 0
+                    ? sFullId.slice(sViewPrefix.length)
+                    : sFullId;
+                  oUi && oUi.setProperty("/lastExpandedPanelLocalId", sLocalId);
+                } catch (e2) {
+                  // ignore
+                }
+              });
+            });
+          } catch (e) {
+            // ignore
+          }
         },
         _initGateInUiModel: function () {
           if (!this.getView().getModel("gateInUi")) {
@@ -131,6 +172,15 @@ sap.ui.define(
          */
         _applyGateInTabDefaultPanelExpansion: function () {
           try {
+            var oUi = this.getView().getModel("gateInUi");
+            var sLastExpandedLocalId = oUi && oUi.getProperty("/lastExpandedPanelLocalId");
+            if (sLastExpandedLocalId) {
+              var oLast = this.getView().byId(sLastExpandedLocalId);
+              if (oLast && oLast.setExpanded) {
+                PanelAccordion.collapseAllExcept(this.getView(), oLast);
+                return;
+              }
+            }
             var oStageUi = sap.ui.getCore().getModel("stageUi");
             var bReportingOnGateOut = !!(oStageUi && oStageUi.getProperty("/showReportingInGateOut"));
             var oEmb = this.getView().byId("idVehicleReportingEmbeddedGateIn");

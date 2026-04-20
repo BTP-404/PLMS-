@@ -89,14 +89,14 @@
                 editable="true"
             />
 
-            <Label text="EwayBill Date" visible="false"/>
+            <Label text="EwayBill Date" visible="true"/>
             <DatePicker
                 id="idRefDocEwayBillDate"
                 valueFormat="yyyy-MM-dd"
                 displayFormat="medium"
                 placeholder="{i18n>datePlaceholderExample}"
                 editable="true"
-                visible="false"
+                visible="true"
             />
 
             <Label text="Inv/Dc" />
