@@ -3593,9 +3593,6 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
               if (!oReportingPanel.getVisible()) {
                 oReportingPanel.setVisible(true);
               }
-              if (!oReportingPanel.getExpanded()) {
-                oReportingPanel.setExpanded(true);
-              }
             }
             if (oSaveButton) {
               oSaveButton.setVisible(!bTripLocked);
@@ -3694,9 +3691,6 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
             var bWantReportingVisible = !bShowScanner;
             if (!!oReportingPanel.getVisible() !== !!bWantReportingVisible) {
               oReportingPanel.setVisible(bWantReportingVisible);
-            }
-            if (!bShowScanner && !oReportingPanel.getExpanded()) {
-              oReportingPanel.setExpanded(true);
             }
           }
           

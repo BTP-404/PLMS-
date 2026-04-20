@@ -93,7 +93,7 @@
         <Panel
             id="reportingDetailsPanel"
             expandable="true"
-            expanded="true"
+            expanded="false"
             class="sapUiNoContentPadding sapUiTinyMarginBottom"
             width="100%"
         >
