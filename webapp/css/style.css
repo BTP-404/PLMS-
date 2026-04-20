@@ -112,32 +112,12 @@ body#content {
     width: 100%;
     box-sizing: border-box;
     margin-bottom: 0 !important;
+    /* Inset the card from the DynamicPage / Semantic header edges */
+    padding: 0 1rem 0.375rem 1rem !important;
 }
 
-.homeFilterToolbar.sapMTB {
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-    min-height: 2rem !important;
-    padding-right: 0 !important;
-    padding-bottom: 0.125rem !important;
-}
-
-.homeFilterToolbar .sapMTBStandard {
-    border-bottom: none !important;
-}
-
-.homeFilterToolbarIcon {
-    color: var(--plms-primary) !important;
-    font-size: 1.125rem !important;
-    line-height: 1 !important;
-}
-
-.homeFilterToolbarTitle.sapMTitle {
-    color: var(--plms-primary-text) !important;
-    font-weight: 600 !important;
-    font-size: 1rem !important;
-    margin: 0 !important;
+.homeSemanticPage .sapFDynamicPageHeader .homeFilterSection {
+    max-width: 100%;
 }
 
 .homeFilterField {
@@ -150,13 +130,14 @@ body#content {
     letter-spacing: 0.02em;
 }
 
+/* Home trip filters: white card, thin blue top bar, rounded border (reference layout) */
 .homeFilterCard {
-    background: linear-gradient(180deg, #fafcfe 0%, #ffffff 55%, #ffffff 100%) !important;
+    background: #ffffff !important;
     border-radius: var(--plms-radius) !important;
-    box-shadow: var(--plms-shadow), inset 0 3px 0 0 var(--plms-primary) !important;
     border: 1px solid var(--plms-neutral-border) !important;
-    /* Less padding at bottom — was equal 1.25rem on all sides */
-    padding: 1rem 1.25rem 0.375rem 1.25rem !important;
+    border-top: 3px solid var(--plms-primary) !important;
+    box-shadow: 0 1px 3px rgba(15, 34, 58, 0.06) !important;
+    padding: 1.125rem 1.5rem 1.25rem 1.5rem !important;
     margin-bottom: 0 !important;
     width: 100% !important;
     box-sizing: border-box !important;
@@ -197,7 +178,8 @@ body#content {
 }
 
 .homeSemanticPage .homePageContent {
-    padding: 0.125rem 0 0.5rem 0 !important;
+    padding: 0.25rem 1rem 0.5rem 1rem !important;
+    box-sizing: border-box;
 }
 
 /* Trip Status: remove stacked left inset from global ScrollContainer + Table rules */
@@ -215,8 +197,16 @@ body#content {
 }
 
 /* Filter Grid uses sap.ui.layout.Grid — global .sapUiLayoutGrid adds margin-left */
-.homeSemanticPage .homeFilterCard.sapUiLayoutGrid {
+.homeSemanticPage .homeFilterGrid.sapUiLayoutGrid,
+.homeSemanticPage .homeFilterCard .sapUiLayoutGrid {
     margin-left: 0 !important;
+}
+
+.homeFilterField .sapMDRS,
+.homeFilterField .sapMInputBase {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 .btnReportVehicle .sapMBtnInner {
@@ -229,15 +219,47 @@ body#content {
 
 /* ==================== REPORT VEHICLE (COMBINED DIALOG) ==================== */
 .plmsRvDialog .sapMDialogScrollCont {
-    padding-top: 0.25rem !important;
+    padding-top: 0.5rem !important;
+    background: var(--plms-neutral-bg-soft, #fafbfc) !important;
 }
 
-.plmsRvDialog .plmsRvSection {
+.plmsRvDialog .plmsRvDialogHdrIcon {
+    color: var(--plms-primary, #0070f2) !important;
+}
+
+/* Card-style sections + movement block */
+.plmsRvDialog .plmsRvSection.sapMPanel,
+.plmsRvDialog .plmsRvMovementBlock {
     margin-top: 0.75rem !important;
+    border: 1px solid var(--plms-neutral-border, #dfe7f2) !important;
+    border-radius: var(--plms-radius-sm, 8px) !important;
+    background: #fff !important;
+    box-shadow: var(--plms-shadow, 0 4px 12px rgba(0, 0, 0, 0.08)) !important;
+    overflow: hidden;
+}
+
+.plmsRvDialog .plmsRvMovementBlock {
+    padding: 0.75rem 1rem 1rem !important;
+    box-sizing: border-box;
+}
+
+/* Movement Type label: match app-wide bold labels (design="Bold" + weight) */
+.plmsRvMovementTypeLabel.sapMLabel .sapMLabelInner,
+.plmsRvMovementTypeLabel.sapMLabel .sapMLabelTextWrapper {
+    font-weight: 700 !important;
+}
+
+.plmsRvDialog .plmsRvMovementBlock:first-child {
+    margin-top: 0 !important;
+}
+
+.plmsRvDialog .plmsRvSection .sapMPanelContent {
+    padding: 0 0.75rem 0.75rem !important;
 }
 
 .plmsRvDialog .sapMPanelHdr,
 .plmsRvDialog .sapMPanelWrappingDivTb {
+    background: var(--plms-neutral-bg, #f5f8fc) !important;
     border-bottom: 1px solid var(--plms-neutral-border, #dfe7f2) !important;
 }
 
@@ -247,10 +269,21 @@ body#content {
     min-width: 16rem;
 }
 
-.plmsRvDialog .plmsRvCheckbox {
-    margin-left: 0.75rem !important;
+/* PO row: compact input + Skip Document on same line */
+.plmsRvDialog .plmsRvPoInputRow {
+    gap: 0.25rem;
+}
+
+.plmsRvDialog .plmsRvPoInputRow .plmsRvPoInputCompact {
+    width: 14rem;
+    max-width: 16rem;
+    flex: 0 0 auto;
+}
+
+.plmsRvDialog .plmsRvPoInputRow .plmsRvCheckbox {
     margin-top: 0 !important;
     align-self: center !important;
+    flex: 0 0 auto;
 }
 
 .plmsRvDialog .plmsRvScannerBtn {
@@ -262,7 +295,8 @@ body#content {
     gap: 0 !important;
 }
 
-.plmsRvDialog .plmsRvScanInput .sapMInputBaseContentWrapper {
+/* Only square the input when it sits flush against the scan button */
+.plmsRvDialog .plmsRvScanRow .plmsRvScanInput .sapMInputBaseContentWrapper {
     border-top-right-radius: 0 !important;
     border-bottom-right-radius: 0 !important;
 }
@@ -276,6 +310,34 @@ body#content {
 /* Prevent the scan button from dropping below */
 .plmsRvDialog .plmsRvScanBtn {
     margin-top: 0 !important;
+}
+
+/* Incoming: PO / Scan + field row */
+.plmsRvDialog .plmsRvIncomingSearchRow {
+    gap: 0.5rem;
+    align-items: flex-start;
+}
+
+.plmsRvDialog .plmsRvIncomingModeGroup {
+    flex: 0 0 auto;
+    margin-top: 0.125rem;
+}
+
+.plmsRvDialog .plmsRvIncomingFieldGrow {
+    flex: 1 1 12rem;
+    min-width: 0;
+}
+
+/* Outgoing: label + select on one line */
+.plmsRvDialog .plmsRvOutgoingRow {
+    gap: 0.5rem;
+}
+
+.plmsRvDialog .plmsRvOutgoingRowLabel {
+    flex: 0 0 auto;
+    min-width: 5.5rem;
+    font-weight: 600;
+    color: var(--plms-primary-text, #1c4e80);
 }
 
 /* ==================== STAGE HEADER BAR (STICKY) ==================== */
@@ -704,14 +766,45 @@ body#content {
 
 .darkCancelButton .sapMBtnInner:hover,
 .darkCancelButton .sapMBtnInner:focus {
-    background-color: #c00000 !important;
-    border-color: #c00000 !important;
+    background-color: #a10000 !important;
+    border-color: #a10000 !important;
     color: #fff !important;
     background-image: none !important;
 }
 
-.darkCancelButton .sapMBtnIcon {
+/* Theme sets label/icon color on .sapMBtnContent / bdi — keep white in every state */
+.darkCancelButton:not(.sapMBtnDisabled) .sapMBtnInner .sapMBtnContent,
+.darkCancelButton:not(.sapMBtnDisabled) .sapMBtnInner .sapMBtnContent bdi,
+.darkCancelButton:not(.sapMBtnDisabled) .sapMBtnInner:hover .sapMBtnContent,
+.darkCancelButton:not(.sapMBtnDisabled) .sapMBtnInner:hover .sapMBtnContent bdi,
+.darkCancelButton:not(.sapMBtnDisabled) .sapMBtnInner:focus .sapMBtnContent,
+.darkCancelButton:not(.sapMBtnDisabled) .sapMBtnInner:focus .sapMBtnContent bdi,
+.darkCancelButton:not(.sapMBtnDisabled) .sapMBtnInner:active .sapMBtnContent,
+.darkCancelButton:not(.sapMBtnDisabled) .sapMBtnInner:active .sapMBtnContent bdi,
+.darkCancelButton.sapMBtn:hover:not(.sapMBtnDisabled) .sapMBtnContent,
+.darkCancelButton.sapMBtn:hover:not(.sapMBtnDisabled) .sapMBtnContent bdi {
     color: #fff !important;
+}
+
+/* Footer bar themes sometimes win on specificity */
+.sapMFooter-CTX .darkCancelButton:not(.sapMBtnDisabled) .sapMBtnInner .sapMBtnContent,
+.sapMFooter-CTX .darkCancelButton:not(.sapMBtnDisabled) .sapMBtnInner .sapMBtnContent bdi,
+.sapMFooter-CTX .darkCancelButton.sapMBtn:hover:not(.sapMBtnDisabled) .sapMBtnContent,
+.sapMFooter-CTX .darkCancelButton.sapMBtn:hover:not(.sapMBtnDisabled) .sapMBtnContent bdi {
+    color: #fff !important;
+}
+
+.darkCancelButton .sapMBtnIcon,
+.darkCancelButton .sapMBtnInner:hover .sapMBtnIcon,
+.darkCancelButton .sapMBtnInner:focus .sapMBtnIcon,
+.darkCancelButton .sapMBtnInner:active .sapMBtnIcon,
+.darkCancelButton .sapMBtnIcon.sapUiIcon::before {
+    color: #fff !important;
+}
+
+.darkCancelButton.sapMBtn:hover .sapMBtnInner:not(.sapMBtnDisabled),
+.darkCancelButton.sapMBtn:active .sapMBtnInner:not(.sapMBtnDisabled) {
+    transform: none !important;
 }
 
 /* Trip table container: no horizontal scroll */
@@ -732,22 +825,31 @@ body#content {
 .homeTripTable .sapMColumnHeader {
     background-color: var(--plms-neutral-bg);
     border-bottom: 2px solid var(--plms-neutral-border);
+    font-weight: 700 !important;
 }
 
 .homeTripTable .sapMColumnHeaderText {
-    font-weight: 600;
+    font-weight: 700 !important;
     color: var(--plms-primary-text);
+}
+
+.homeTripTable .sapMListTblHeaderCell,
+.homeTripTable .sapMListTblHeaderCell .sapMText,
+.homeTripTable .sapMColumnHeader .sapMText {
+    font-weight: 700 !important;
 }
 
 .homeTripTable .sapMListTblRow {
     transition: background-color 0.15s ease;
 }
 
-.homeTripTable .sapMListTblRow:nth-child(even) {
+/* Zebra striping — skip status-tinted rows so category colors show */
+.homeTripTable .sapMListTblRow:nth-child(even):not(.tripStatusCategoryInProgress):not(.tripStatusCategoryCompleted) {
     background-color: var(--plms-row-alt);
 }
 
-.homeTripTable .sapMListTblRow:hover {
+/* Hover only for rows without trip-status category tint */
+.homeTripTable tr.sapMListTblRow:not(.tripStatusCategoryInProgress):not(.tripStatusCategoryCompleted):hover {
     background-color: var(--plms-row-hover);
 }
 
@@ -2528,72 +2630,26 @@ body#content {
     }
 }
 
-/* ==================== TRIP STATUS ROW COLORS ==================== */
+/* ==================== TRIP STATUS ROW COLORS (HOME) ==================== */
+/* Yellow = not trip-completed; green = trip finished (Completed / Done / Trip Completed / …). */
+/* Classes are applied on tr.sapMListTblRow (see HomePage onTripTableUpdateFinished). */
 
-/* Trip Status Row Colors - Light and Professional */
-.tripStatusNew {
-    background-color: #E3F2FD !important; /* Light Blue - New/Created */
-    border-left: 4px solid #2196F3 !important;
+.homeTripTable tr.sapMListTblRow.tripStatusCategoryInProgress,
+.homeTripTable tr.sapMListTblRow.tripStatusCategoryInProgress > .sapMListTblCell {
+    background-color: #fff9c4 !important;
 }
 
-.tripStatusPending {
-    background-color: #FFF3E0 !important; /* Light Orange - Pending */
-    border-left: 4px solid #FF9800 !important;
+.homeTripTable tr.sapMListTblRow.tripStatusCategoryInProgress {
+    border-left: 4px solid #fbc02d !important;
 }
 
-.tripStatusInProgress {
-    background-color: #E8F5E9 !important; /* Light Green - In Progress */
-    border-left: 4px solid #4CAF50 !important;
+.homeTripTable tr.sapMListTblRow.tripStatusCategoryCompleted,
+.homeTripTable tr.sapMListTblRow.tripStatusCategoryCompleted > .sapMListTblCell {
+    background-color: #e8f5e9 !important;
 }
 
-.tripStatusGateIn {
-    background-color: #F3E5F5 !important; /* Light Purple - Gate In */
-    border-left: 4px solid #9C27B0 !important;
-}
-
-.tripStatusLoading {
-    background-color: #E1F5FE !important; /* Light Cyan - Loading */
-    border-left: 4px solid #00BCD4 !important;
-}
-
-.tripStatusGateOut {
-    background-color: #E8F5E9 !important; /* Light Green - Gate Out */
-    border-left: 4px solid #4CAF50 !important;
-}
-
-.tripStatusCompleted {
-    background-color: #C8E6C9 !important; /* Medium Green - Completed */
-    border-left: 4px solid #388E3C !important;
-}
-
-.tripStatusCancelled {
-    background-color: #FFCDD2 !important; /* Light Red - Cancelled */
-    border-left: 4px solid #F44336 !important;
-}
-
-.tripStatusError {
-    background-color: #FFEBEE !important; /* Light Pink - Error */
-    border-left: 4px solid #E91E63 !important;
-}
-
-.tripStatusTest {
-    background-color: #FFF8E1 !important; /* Light Amber - Test */
-    border-left: 4px solid #FFC107 !important;
-}
-
-/* Hover effect for trip status rows */
-.tripStatusNew:hover,
-.tripStatusPending:hover,
-.tripStatusInProgress:hover,
-.tripStatusGateIn:hover,
-.tripStatusLoading:hover,
-.tripStatusGateOut:hover,
-.tripStatusCompleted:hover,
-.tripStatusCancelled:hover,
-.tripStatusError:hover,
-.tripStatusTest:hover {
-    opacity: 0.9;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+.homeTripTable tr.sapMListTblRow.tripStatusCategoryCompleted {
+    border-left: 4px solid #66bb6a !important;
 }
 
 /* ==================== LOADING/UNLOADING TABLE INPUT FIELDS STYLING ==================== */
@@ -3214,7 +3270,7 @@ body#content {
     gap: 0.5rem !important; /* consistent spacing for PO + SCAN rows */
 }
 
-/* Ensure both PO input and Scan input look identical */
+/* Standalone inputs (e.g. PO): full radius; scan row overrides corners above */
 .incomingMaterialsDialog .plmsRvScanInput .sapMInputBaseContentWrapper {
     border-radius: var(--plms-radius-sm, 8px) !important;
 }

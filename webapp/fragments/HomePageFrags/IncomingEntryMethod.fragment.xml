@@ -4,7 +4,6 @@
 >
     <Dialog
         id="incomingEntryMethodDialog"
-        title="Report Vehicle"
         contentWidth="40rem"
         stretchOnPhone="true"
         draggable="true"
@@ -12,27 +11,44 @@
         class="incomingMaterialsDialog plmsRvDialog"
         afterOpen=".onIncomingEntryMethodDialogAfterOpen"
     >
+        <customHeader>
+            <Bar design="Header">
+                <contentLeft>
+                    <core:Icon
+                        src="sap-icon://shipping-status"
+                        class="sapUiTinyMarginBegin sapUiTinyMarginEnd plmsRvDialogHdrIcon"
+                    />
+                    <Title
+                        text="Report Vehicle"
+                        level="H4"
+                    />
+                </contentLeft>
+            </Bar>
+        </customHeader>
+
         <content>
             <VBox width="100%" class="sapUiResponsivePadding">
 
                 <!-- Movement Type -->
-                <Label
-                    text="Movement Type"
-                    labelFor="idReportVehicleMovementGroup"
-                    type="Bold"
-                />
-                <RadioButtonGroup
-                    id="idReportVehicleMovementGroup"
-                    selectedIndex="{reportVehicleMatOpts>/selectedIndex}"
-                    select=".onReportVehicleMaterialRadioSelect"
-                    
-                >
-                    <RadioButton text="Incoming Materials" />
-                    <RadioButton text="Outgoing Materials" />
-                </RadioButtonGroup>
+                <VBox class="plmsRvMovementBlock">
+                    <Label
+                        text="Movement Type"
+                        labelFor="idReportVehicleMovementGroup"
+                        design="Bold"
+                        class="sapUiTinyMarginBottom plmsRvMovementTypeLabel"
+                    />
+                    <RadioButtonGroup
+                        id="idReportVehicleMovementGroup"
+                        columns="2"
+                        selectedIndex="{reportVehicleMatOpts>/selectedIndex}"
+                        select=".onReportVehicleMaterialRadioSelect"
+                    >
+                        <RadioButton text="Incoming" />
+                        <RadioButton text="Outgoing" />
+                    </RadioButtonGroup>
+                </VBox>
 
-                <!-- ========== Incoming (same layout order as before) ========== -->
-                <!-- Search By Panel -->
+                <!-- ========== Incoming: Search by + PO / Scan in one compact block ========== -->
                 <Panel
                     expandable="false"
                     backgroundDesign="Transparent"
@@ -45,116 +61,121 @@
                         </Toolbar>
                     </headerToolbar>
                     <content>
-                        <Select
-                            id="idIncomingEntrySearchSelect"
+                        <HBox
+                            alignItems="Start"
                             width="100%"
-                            selectedKey="{incomingEntryMethod>/selectedKey}"
-                            change=".onIncomingEntryMethodSelectChange"
+                            wrap="Wrap"
+                            class="sapUiTinyMarginTop plmsRvIncomingSearchRow"
                         >
-                            <core:ListItem key="PO" text="PO number" />
-                            <core:ListItem key="SCAN" text="Scan D-Note" />
-                        </Select>
-                    </content>
-                </Panel>
-
-                <!-- PO Panel -->
-                <Panel
-                    expandable="false"
-                    backgroundDesign="Transparent"
-                    visible="{= ${reportVehicleMatOpts>/selectedIndex} === 0 &amp;&amp; ${incomingEntryMethod>/selectedKey} === 'PO' }"
-                    class="sapUiNoContentPadding plmsRvSection"
-                >
-                    <headerToolbar>
-                        <Toolbar design="Transparent">
-                            <Title text="Purchase order" level="H5" />
-                        </Toolbar>
-                    </headerToolbar>
-                    <content>
-                        <HBox alignItems="Center" width="100%" class="sapUiTinyMarginTop plmsRvScanRow" wrap="Wrap">
-
-                            <Input
-                                id="idIncomingDialogPoInput"
-                                width="100%"
-                                placeholder="Type PO number"
-                                liveChange=".onIncomingDialogPoInputLiveChange"
-                                showSuggestion="true"
-                                suggestionItems="{incomingPoSuggest>/items}"
-                                suggest=".onIncomingDialogPoSuggest"
-                                suggestionItemSelected=".onIncomingDialogPoSuggestionSelected"
-                                class="sapUiTinyMarginEnd plmsRvFieldGrow plmsRvScanInput"
+                            <RadioButtonGroup
+                                id="idIncomingEntrySearchModeGroup"
+                                columns="2"
+                                select=".onIncomingEntryMethodSelectChange"
+                                class="sapUiTinyMarginEnd plmsRvIncomingModeGroup"
                             >
-                                <suggestionItems>
-                                    <SuggestionItem
-                                        text="{incomingPoSuggest>PoNumber}"
-                                        description="{incomingPoSuggest>VendorName}"
+                                <RadioButton text="PO" />
+                                <RadioButton text="Scan" />
+                            </RadioButtonGroup>
+
+                            <VBox class="plmsRvIncomingFieldGrow" width="100%">
+                                <VBox
+                                    width="100%"
+                                    visible="{= ${incomingEntryMethod>/selectedKey} === 'PO' }"
+                                    class="plmsRvPoStack"
+                                >
+                                    <HBox
+                                        alignItems="Center"
+                                        wrap="Wrap"
+                                        width="100%"
+                                        class="plmsRvPoInputRow"
+                                    >
+                                        <Input
+                                            id="idIncomingDialogPoInput"
+                                            placeholder="PO number"
+                                            liveChange=".onIncomingDialogPoInputLiveChange"
+                                            showSuggestion="true"
+                                            suggestionItems="{incomingPoSuggest>/items}"
+                                            suggest=".onIncomingDialogPoSuggest"
+                                            suggestionItemSelected=".onIncomingDialogPoSuggestionSelected"
+                                            class="plmsRvScanInput plmsRvPoInputCompact"
+                                        >
+                                            <suggestionItems>
+                                                <SuggestionItem
+                                                    text="{incomingPoSuggest>PoNumber}"
+                                                    description="{incomingPoSuggest>VendorName}"
+                                                />
+                                            </suggestionItems>
+                                        </Input>
+
+                                        <CheckBox
+                                            id="idIncomingSkipDocument"
+                                            text="Skip Document"
+                                            selected="{incomingEntryMethod>/skipDocument}"
+                                            enabled="{= !${incomingEntryMethod>/hasPoValue} }"
+                                            select=".onIncomingSkipDocumentSelect"
+                                            class="sapUiTinyMarginBegin plmsRvCheckbox"
+                                        />
+                                    </HBox>
+                                </VBox>
+
+                                <VBox
+                                    width="100%"
+                                    visible="{= ${incomingEntryMethod>/selectedKey} === 'SCAN' }"
+                                >
+                                    <Text
+                                        text="Scan the D-Note or type the code."
+                                        class="sapUiTinyMarginBottom"
                                     />
-                                </suggestionItems>
-                            </Input>
+                                    <HBox
+                                        alignItems="Stretch"
+                                        width="100%"
+                                        class="plmsRvScanRow"
+                                    >
+                                        <Input
+                                            id="idIncomingDialogScanInput"
+                                            width="100%"
+                                            placeholder="Scan / Enter code"
+                                            change=".onIncomingDialogScanChange"
+                                            class="plmsRvFieldGrow plmsRvScanInput"
+                                        />
 
-                            <CheckBox
-                                id="idIncomingSkipDocument"
-                                text="Skip Document"
-                                selected="{incomingEntryMethod>/skipDocument}"
-                                enabled="{= !${incomingEntryMethod>/hasPoValue} }"
-                                select=".onIncomingSkipDocumentSelect"
-                                class="plmsRvCheckbox"
-                            />
-
+                                        <Button
+                                            icon="sap-icon://bar-code"
+                                            type="Emphasized"
+                                            press=".onIncomingDialogScanPress"
+                                            tabIndex="-1"
+                                            class="plmsRvScannerBtn plmsRvScanBtn"
+                                        />
+                                    </HBox>
+                                </VBox>
+                            </VBox>
                         </HBox>
                     </content>
                 </Panel>
 
-                <!-- Scan Panel -->
-                <Panel
-                    expandable="false"
-                    backgroundDesign="Transparent"
-                    visible="{= ${reportVehicleMatOpts>/selectedIndex} === 0 &amp;&amp; ${incomingEntryMethod>/selectedKey} === 'SCAN' }"
-                    class="sapUiNoContentPadding plmsRvSection"
-                >
-                    <headerToolbar>
-                        <Toolbar design="Transparent">
-                            <Title text="Delivery note" level="H5" />
-                        </Toolbar>
-                    </headerToolbar>
-                    <content>
-                        <Text
-                            text="Scan the D-Note or type the code."
-                        />
-
-                        <HBox alignItems="Stretch" width="100%" class="sapUiTinyMarginTop plmsRvScanRow">
-                            <Input
-                                id="idIncomingDialogScanInput"
-                                width="100%"
-                                placeholder="Scan / Enter code"
-                                change=".onIncomingDialogScanChange"
-                                class="plmsRvFieldGrow plmsRvScanInput"
-                            />
-
-                            <Button
-                                icon="sap-icon://bar-code"
-                                type="Emphasized"
-                                press=".onIncomingDialogScanPress"
-                                tabIndex="-1"
-                                class="plmsRvScannerBtn plmsRvScanBtn"
-                            />
-                        </HBox>
-                    </content>
-                </Panel>
-
-                <!-- ========== Outgoing: Movement scenario (OrderTypeSH, outward only) ========== -->
+                <!-- ========== Outgoing: compact label + field rows (same pattern as incoming) ========== -->
                 <Panel
                     expandable="false"
                     backgroundDesign="Transparent"
                     visible="{= ${reportVehicleMatOpts>/selectedIndex} === 1 }"
                     class="sapUiNoContentPadding plmsRvSection"
                 >
+                    <headerToolbar>
+                        <Toolbar design="Transparent">
+                            <Title text="Movement scenario" level="H5" />
+                        </Toolbar>
+                    </headerToolbar>
                     <content>
-                        <VBox width="100%">
+                        <HBox
+                            alignItems="Center"
+                            width="100%"
+                            wrap="Wrap"
+                            class="sapUiTinyMarginTop plmsRvOutgoingRow"
+                        >
                             <Label
-                                text="Movement Scenario"
+                                text="Scenario"
                                 labelFor="idOutgoingMovementScenarioSelect"
-                                type="Bold"
-                                class="sapUiNoMarginBottom"
+                                class="plmsRvOutgoingRowLabel sapUiTinyMarginEnd"
                             />
                             <Select
                                 id="idOutgoingMovementScenarioSelect"
@@ -165,24 +186,27 @@
                                     path: 'outgoingMovementScenarioOptions>/items'
                                 }"
                             >
+                                <layoutData>
+                                    <FlexItemData growFactor="1" shrinkFactor="1" baseSize="0" />
+                                </layoutData>
                                 <core:ListItem
                                     key="{outgoingMovementScenarioOptions>ItemKey}"
                                     text="{outgoingMovementScenarioOptions>LongText}"
                                 />
                             </Select>
-                        </VBox>
+                        </HBox>
 
-                        <!-- O02: vehicle type required before Continue (exception vs normal flow) -->
-                        <VBox
+                        <HBox
+                            alignItems="Center"
                             width="100%"
-                            class="sapUiTinyMarginTop"
+                            wrap="Wrap"
+                            class="sapUiSmallMarginTop plmsRvOutgoingRow"
                             visible="{= ${reportVehicleMatOpts>/selectedIndex} === 1 &amp;&amp; ${outgoingEntryMethod>/selectedScenarioItemKey} === 'O02' }"
                         >
                             <Label
-                                text="Vehicle Type"
+                                text="Vehicle type"
                                 labelFor="idOutgoingVehicleTypeSelect"
-                                type="Bold"
-                                class="sapUiNoMarginBottom"
+                                class="plmsRvOutgoingRowLabel sapUiTinyMarginEnd"
                             />
                             <Select
                                 id="idOutgoingVehicleTypeSelect"
@@ -193,18 +217,21 @@
                                     path: 'outgoingVehicleTypeOptions>/items'
                                 }"
                             >
+                                <layoutData>
+                                    <FlexItemData growFactor="1" shrinkFactor="1" baseSize="0" />
+                                </layoutData>
                                 <core:ListItem
                                     key="{outgoingVehicleTypeOptions>ConfigID}"
                                     text="{outgoingVehicleTypeOptions>Description}"
                                 />
                             </Select>
-                        </VBox>
+                        </HBox>
                     </content>
                 </Panel>
 
                 <!-- Success Text -->
                 <Text
-                    text="Trip created. Press Continue to open it."
+                    text="Gate pass created. Press Continue to open it."
                     visible="{= ${incomingEntryMethod>/entryComplete} }"
                 />
 
@@ -214,6 +241,7 @@
         <beginButton>
             <Button
                 text="Cancel"
+                type="Transparent"
                 press=".onCancelIncomingEntryMethodDialog"
             />
         </beginButton>

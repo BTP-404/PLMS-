@@ -10,7 +10,8 @@ sap.ui.define(
     "sap/m/StandardListItem",
     "sap/ui/model/Filter",
     "sap/ui/model/FilterOperator",
-    "com/incresolZ_INC_PLMS/util/PanelAccordion"
+    "com/incresolZ_INC_PLMS/util/PanelAccordion",
+    "com/incresolZ_INC_PLMS/util/TripDataDocumentsVerified"
 ],
 function (
     Controller,
@@ -23,7 +24,8 @@ function (
     StandardListItem,
     Filter,
     FilterOperator,
-    PanelAccordion
+    PanelAccordion,
+    TripDataDocumentsVerified
 ) {
 "use strict";
 
@@ -635,6 +637,8 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Loading", {
             TripNumber: oMaterial.TripNumber || oMaterial.tripNumber || "",
             RefDocNumber: oMaterial.RefDocNo || oMaterial.refDocNo || "",
             RefDocItemNumber: oMaterial.RefDocItemNo || oMaterial.refDocItemNo || "",
+            ScheduleItem: oMaterial.SheduleItem || oMaterial.ScheduleItem || oMaterial.scheduleItem || "",
+            SheduleItem: oMaterial.SheduleItem || oMaterial.ScheduleItem || oMaterial.scheduleItem || "",
             MaterialCode: oMaterial.MaterialCode || oMaterial.materialCode || "",
             MaterialDescription: oMaterial.MaterialDescription || oMaterial.materialDescription || "",
             Qty: oMaterial.Quantity || oMaterial.qty || "",
@@ -1365,67 +1369,95 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Loading", {
         var sDocType = oMaterial.DocType || oMaterial.docType || "";
         var sRefDocNo = oMaterial.RefDocNumber || oMaterial.RefDocNo || oMaterial.refDocNo || "";
         var sRefDocItemNo = oMaterial.RefDocItemNumber || oMaterial.RefDocItemNo || oMaterial.refDocItemNo || "";
-        
+        var fnSchedStr = function (o) {
+            if (!o) {
+                return "";
+            }
+            var v = o.scheduleItem || o.ScheduleItem || o.SheduleItem || o.sheduleItem;
+            return String(v == null ? "" : v).trim();
+        };
+        var sSchedMat = fnSchedStr(oMaterial);
+
         // If DocType is missing, get it from TripData ItemDetails using RefDocNo and RefDocItemNo
         if (!sDocType && sRefDocNo && sRefDocItemNo) {
             var oTripData = sap.ui.getCore().getModel("TripData");
             if (oTripData) {
                 var aItemDetails = this._extractResults(oTripData.getProperty("/ItemDetails")) || [];
                 var oFoundItem = aItemDetails.find(function(oItem) {
-                    return (oItem.RefDocNo === sRefDocNo || oItem.RefDocNo === oMaterial.RefDocNumber) && 
-                           (oItem.RefDocItemNo === sRefDocItemNo || oItem.RefDocItemNo === oMaterial.RefDocItemNumber);
+                    var bRef = (oItem.RefDocNo === sRefDocNo || oItem.RefDocNo === oMaterial.RefDocNumber);
+                    var bItem = (oItem.RefDocItemNo === sRefDocItemNo || oItem.RefDocItemNo === oMaterial.RefDocItemNumber);
+                    if (!bRef || !bItem) {
+                        return false;
+                    }
+                    if (!sSchedMat) {
+                        return true;
+                    }
+                    return fnSchedStr(oItem) === sSchedMat;
                 });
                 if (oFoundItem) {
                     sDocType = oFoundItem.DocType || "";
                 }
             }
         }
-        
+
         // Also try to get from refDocModel if still missing
         if (!sDocType && sRefDocNo) {
             var oRefDocModel = sap.ui.getCore().getModel("refDocModel");
             if (oRefDocModel) {
                 var aRefDocMaterials = oRefDocModel.getProperty("/materialDetails") || [];
                 var oFoundRefDocMaterial = aRefDocMaterials.find(function(oMat) {
-                    return (oMat.refDocNo === sRefDocNo || oMat.RefDocNo === sRefDocNo) && 
-                           (oMat.refDocItemNo === sRefDocItemNo || oMat.RefDocItemNo === sRefDocItemNo);
+                    var bRef = (oMat.refDocNo === sRefDocNo || oMat.RefDocNo === sRefDocNo);
+                    var bItem = (oMat.refDocItemNo === sRefDocItemNo || oMat.RefDocItemNo === sRefDocItemNo);
+                    if (!bRef || !bItem) {
+                        return false;
+                    }
+                    if (!sSchedMat) {
+                        return true;
+                    }
+                    return fnSchedStr(oMat) === sSchedMat;
                 });
                 if (oFoundRefDocMaterial) {
                     sDocType = oFoundRefDocMaterial.DocType || oFoundRefDocMaterial.docType || "";
                 }
             }
         }
-        
+
         if (!sDocType || !sRefDocNo || !sRefDocItemNo || !sTripNumber) {
             return null;
         }
-        
+
         // Escape OData values
         var sEscapedDocType = this._escapeODataValue(sDocType);
         var sEscapedTripNumber = this._escapeODataValue(sTripNumber);
         var sEscapedRefDocNo = this._escapeODataValue(sRefDocNo);
         var sEscapedRefDocItemNo = this._escapeODataValue(sRefDocItemNo);
-        
+
         // Build OData entity key path
         var sEntityPath = "/ItemDetails(DocType='" + sEscapedDocType +
             "',TripNumber='" + sEscapedTripNumber +
             "',RefDocNo='" + sEscapedRefDocNo +
             "',RefDocItemNo='" + sEscapedRefDocItemNo + "')";
-        
+
         // Get current ItemDetails from TripData ItemDetails collection (since GET_ENTITY is not supported)
-        var oTripData = sap.ui.getCore().getModel("TripData");
+        var oTripData2 = sap.ui.getCore().getModel("TripData");
         var oCurrentData = null;
-        
-        if (oTripData) {
-            var aItemDetails = this._extractResults(oTripData.getProperty("/ItemDetails")) || [];
-            oCurrentData = aItemDetails.find(function(oItem) {
-                return oItem.DocType === sDocType &&
-                       oItem.TripNumber === sTripNumber &&
-                       oItem.RefDocNo === sRefDocNo &&
-                       oItem.RefDocItemNo === sRefDocItemNo;
+
+        if (oTripData2) {
+            var aItemDetails2 = this._extractResults(oTripData2.getProperty("/ItemDetails")) || [];
+            oCurrentData = aItemDetails2.find(function(oItem) {
+                if (oItem.DocType !== sDocType ||
+                    oItem.TripNumber !== sTripNumber ||
+                    oItem.RefDocNo !== sRefDocNo ||
+                    oItem.RefDocItemNo !== sRefDocItemNo) {
+                    return false;
+                }
+                if (!sSchedMat) {
+                    return true;
+                }
+                return fnSchedStr(oItem) === sSchedMat;
             });
         }
-        
+
         // Build update payload with existing fields from TripData + weight fields from material
         var oUpdatePayload = {
             TripNumber: sTripNumber,
@@ -1437,7 +1469,8 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Loading", {
             Quantity: (oCurrentData && oCurrentData.Quantity) || parseFloat(oMaterial.Qty) || 0,
             UoM: (oCurrentData && oCurrentData.UoM) || oMaterial.UoM || "",
             IsDeleted: (oCurrentData && oCurrentData.IsDeleted) || "",
-            IsSplitActive: (oCurrentData && oCurrentData.IsSplitActive !== undefined) ? oCurrentData.IsSplitActive : false
+            IsSplitActive: (oCurrentData && oCurrentData.IsSplitActive !== undefined) ? oCurrentData.IsSplitActive : false,
+            SheduleItem: fnSchedStr(oCurrentData) || sSchedMat || ""
         };
         
                 // Add weight fields if they have values - use correct property names from metadata
@@ -1535,6 +1568,7 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Loading", {
         var aLoadingColumns = [
             { id: "colLoadingRefDocNumber", label: "Ref Doc Number", visible: true },
             { id: "colLoadingRefDocItemNumber", label: "Ref Doc Item Number", visible: true },
+            { id: "colLoadingScheduleLine", label: "Schedule line", visible: true },
             { id: "colLoadingMaterialCode", label: "Material Code", visible: true },
             { id: "colLoadingMaterialDescription", label: "Material Description", visible: true },
             { id: "colLoadingQty", label: "Qty", visible: true },
@@ -1605,6 +1639,7 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Loading", {
         var aDefaultColumns = [
             { id: "colLoadingRefDocNumber", label: "Ref Doc Number", visible: true },
             { id: "colLoadingRefDocItemNumber", label: "Ref Doc Item Number", visible: true },
+            { id: "colLoadingScheduleLine", label: "Schedule line", visible: true },
             { id: "colLoadingMaterialCode", label: "Material Code", visible: true },
             { id: "colLoadingMaterialDescription", label: "Material Description", visible: true },
             { id: "colLoadingQty", label: "Qty", visible: true },
@@ -1733,6 +1768,7 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Loading", {
                 "$expand": "OrderDetails,ItemDetails,Feeds,ActivityHistory"
             },
             success: function (oData) {
+                TripDataDocumentsVerified.applyDocumentsVerifiedToVerifiedDocs(oData);
                 var oTripDataModel = new sap.ui.model.json.JSONModel(oData);
                 sap.ui.getCore().setModel(oTripDataModel, "TripData");
                 sap.ui.getCore().getEventBus().publish("TripData", "Updated");
@@ -1761,6 +1797,7 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Loading", {
                 "$expand": "OrderDetails,ItemDetails,Feeds,ActivityHistory"
             },
             success: function (oData) {
+                TripDataDocumentsVerified.applyDocumentsVerifiedToVerifiedDocs(oData);
                 var oTripDataModel = new sap.ui.model.json.JSONModel(oData);
                 sap.ui.getCore().setModel(oTripDataModel, "TripData");
                 this.getView().setModel(oTripDataModel, "TripData");

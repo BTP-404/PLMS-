@@ -26,7 +26,7 @@
                     placeholder="Scan D-Note or enter PO number"
                     width="100%"
                     change="onScanLiveupdate"
-                    
+                    enabled="{= !${globalData>/TripLocked} }"
                     class="sapUiTinyMarginEnd"
                 />
                 <Button
@@ -64,6 +64,7 @@
                     id="idReportingPoSearchInput"
                     placeholder="Type PO number (suggestions from open orders)"
                     width="100%"
+                    enabled="{= !${globalData>/TripLocked} }"
                     showSuggestion="true"
                     suggestionItems="{poNumberSuggestions>/items}"
                     suggest="onPoNumberSuggest"

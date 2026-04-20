@@ -84,6 +84,30 @@
                 </suggestionItems>
             </Input>
 
+            <Label
+                text="Schedule line"
+                visible="{
+                    parts: [
+                        { path: 'TripData>/MovementScenarioItemKey' },
+                        { path: 'TripData>/MovementType' },
+                        { path: 'TripData>/MovementScenario' }
+                    ],
+                    formatter: '.formatMaterialScheduleLineVisible'
+                }" />
+            <Input
+                id="idMaterialSheduleItem"
+                valueLiveUpdate="true"
+                placeholder="e.g. 000001"
+                visible="{
+                    parts: [
+                        { path: 'TripData>/MovementScenarioItemKey' },
+                        { path: 'TripData>/MovementType' },
+                        { path: 'TripData>/MovementScenario' }
+                    ],
+                    formatter: '.formatMaterialScheduleLineVisible'
+                }"
+            />
+
             <Label text="Material Code" />
             <Input
                 id="idMaterialCode"

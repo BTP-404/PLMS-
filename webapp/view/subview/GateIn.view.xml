@@ -13,6 +13,7 @@
             <!-- =================== Reporting (merged) =================== -->
             <!-- ========================================================= -->
             <mvc:XMLView
+                id="idVehicleReportingEmbeddedGateIn"
                 viewName="com.incresolZ_INC_PLMS.view.subview.VehicleReportingTab"
                 class="sapUiTinyMarginBottom"
                 visible="{= ${stageUi>/showReportingInGateOut} !== true }"
@@ -113,16 +114,34 @@
                             <cells>
                                 <Input value="{binTrolleyTracking>DocumentNumber}" editable="{= ${binTrolleyTracking>IsManual} &amp;&amp; !${globalData>/TripLocked} }" />
                                 <Input value="{binTrolleyTracking>ItemNo}" editable="{= ${binTrolleyTracking>IsManual} &amp;&amp; !${globalData>/TripLocked} }" />
-                                <Input value="{binTrolleyTracking>Material}" editable="{= ${binTrolleyTracking>IsManual} &amp;&amp; !${globalData>/TripLocked} }" class="binTrolleyPartCode" />
-                                <ComboBox
+                                <Input
+                                    value="{binTrolleyTracking>Material}"
+                                    editable="{= ${binTrolleyTracking>IsManual} &amp;&amp; !${globalData>/TripLocked} }"
+                                    showValueHelp="{= ${binTrolleyTracking>IsManual} &amp;&amp; !${globalData>/TripLocked} }"
+                                    valueHelpRequest=".onPartCodeValueHelpRequest"
+                                    change="onBinTrolleyPartCodeChange"
+                                    showSuggestion="true"
+                                    suggestionItems="{partCodeSuggest>/items}"
+                                    suggest=".onBinTrolleyPartCodeSuggest"
+                                    suggestionItemSelected=".onBinTrolleyPartCodeSuggestionSelected"
+                                    filterSuggests="false"
+                                    startSuggestion="1"
+                                    class="binTrolleyPartCode"
+                                >
+                                    <suggestionItems>
+                                        <core:Item
+                                            text="{partCodeSuggest>PartCode}"
+                                            additionalText="{partCodeSuggest>PartcodeDesc}"
+                                            key="{= ${partCodeSuggest>PartCode} + '|' + ${partCodeSuggest>BinType} }"
+                                        />
+                                    </suggestionItems>
+                                </Input>
+                                <Input
                                     value="{binTrolleyTracking>BinTypeDesc}"
                                     editable="{= ${binTrolleyTracking>IsManual} &amp;&amp; !${globalData>/TripLocked} }"
                                     width="100%"
-                                >
-                                    <core:Item key="Muffler Trolley" text="Muffler Trolley" />
-                                    <core:Item key="Pipes Comp Trolley" text="Pipes Comp Trolley" />
-                                    <core:Item key="Plastic Bins" text="Plastic Bins" />
-                                </ComboBox>
+                                    tooltip="{binTrolleyTracking>BinTypeDesc}"
+                                />
                                 <ObjectNumber
                                     number="{binTrolleyTracking>QtyOut}"
                                     emphasized="false"
@@ -130,12 +149,15 @@
                                 <Input
                                     value="{binTrolleyTracking>QtyIn}"
                                     placeholder="0"
-                                    type="Number"
+                                    type="Text"
+                                    valueLiveUpdate="true"
                                     textAlign="Center"
                                     width="6rem"
                                     editable="{= !${globalData>/TripLocked} }"
                                     valueState="{path: 'binTrolleyTracking>ReturnStatus', formatter: '.formatTrackingQtyValueState'}"
                                     showValueStateMessage="false"
+                                    liveChange="onBinTrackingQtyInLiveChange"
+                                    paste="onBinTrackingQtyInPaste"
                                     change="onTrackingFieldLiveChange"
                                 />
                                 <ObjectStatus

@@ -73,6 +73,28 @@ sap.ui.define(["sap/m/Panel"], function (Panel) {
    * Scoped accordion: only the provided panel IDs are mutually exclusive.
    * This avoids collapsing unrelated expandable panels in nested XMLViews.
    */
+  /**
+   * Sets expanded state on every expandable sap.m.Panel under oRoot.
+   * Exactly one panel stays expanded when oExpandedPanel is provided; otherwise all collapse.
+   */
+  function collapseAllExcept(oRoot, oExpandedPanel) {
+    if (!oRoot || typeof oRoot.findAggregatedObjects !== "function") {
+      return;
+    }
+    var aPanels = oRoot.findAggregatedObjects(true, function (o) {
+      return (
+        o instanceof Panel &&
+        o.getExpandable &&
+        o.getExpandable()
+      );
+    });
+    aPanels.forEach(function (oPanel) {
+      if (oPanel.setExpanded) {
+        oPanel.setExpanded(!!oExpandedPanel && oPanel === oExpandedPanel);
+      }
+    });
+  }
+
   function attachByIds(oRoot, aPanelIds) {
     if (!oRoot || typeof oRoot.byId !== "function" || !Array.isArray(aPanelIds)) {
       return;
@@ -100,6 +122,7 @@ sap.ui.define(["sap/m/Panel"], function (Panel) {
 
   return {
     attach: attach,
-    attachByIds: attachByIds
+    attachByIds: attachByIds,
+    collapseAllExcept: collapseAllExcept
   };
 });

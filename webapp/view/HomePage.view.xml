@@ -47,107 +47,111 @@
             <VBox
                 width="100%"
                 class="homeFilterSection"
-            >                <layout:Grid
+            >
+                <layout:Grid
                     width="100%"
                     defaultSpan="XL4 L4 M4 S12"
                     hSpacing="2"
                     vSpacing="2"
-                    class="sapUiTinyMarginTop homeFilterCard"
+                    class="sapUiTinyMarginTop homeFilterCard homeFilterGrid"
                 >
-                <!-- Trip Number -->
-                <layout:content>
-                    <VBox class="homeFilterField">
-                        <layoutData>
-                            <layout:GridData span="XL4 L4 M4 S12" />
-                        </layoutData>
-                        <Label
-                            design="Bold"
-                            text="Trip Number:"
-                            class="homeFilterLabel"
-                        />
-                        <Input
-                            width="100%"
-                            showSuggestion="true"
-                            suggest=".onSuggest"
-                            filterSuggests="true"
-                            suggestThreshold="1"
-                            suggestionItemSelected=".onSuggestionItemSelected"
-                            change=".onFilterInputChange"
-                            liveChange=".onFilterInputLiveChange"
-                        >
-                            <customData>
-                                <core:CustomData
-                                    key="field"
-                                    value="tripNo"
-                                />
-                            </customData>
-                        </Input>
-                    </VBox>
-                </layout:content>
-                <!-- Vehicle Number -->
-                <layout:content>
-                    <VBox class="homeFilterField">
-                        <layoutData>
-                            <layout:GridData span="XL4 L4 M4 S12" />
-                        </layoutData>
-                        <Label
-                            design="Bold"
-                            text="Vehicle Number:"
-                            class="homeFilterLabel"
-                        />
-                        <Input
-                            width="100%"
-                            showSuggestion="true"
-                            suggest=".onSuggest"
-                            filterSuggests="true"
-                            suggestThreshold="1"
-                            suggestionItemSelected=".onSuggestionItemSelected"
-                            change=".onFilterInputChange"
-                            liveChange=".onFilterInputLiveChange"
-                        >
-                            <customData>
-                                <core:CustomData
-                                    key="field"
-                                    value="vehicleNumber"
-                                />
-                            </customData>
-                        </Input>
-                    </VBox>
-                </layout:content>
-                <!-- Vehicle reported date range; filters apply when dates or Trip/Vehicle inputs change -->
-                <layout:content>
-                    <VBox class="homeFilterField">
-                        <layoutData>
-                            <layout:GridData span="XL4 L4 M4 S12" />
-                        </layoutData>
-                        <Label
-                            design="Bold"
-                            text="Vehicle Reported Date Range:"
-                            class="homeFilterLabel"
-                        />
-                        <DateRangeSelection
-                            id="ReportDateRange"
-                            width="100%"
-                            displayFormat="medium"
-                            showCurrentDateButton="true"
-                            showFooter="true"
-                            change=".onReportDateRangeChange"
-                            value="{
-                                parts: [
-                                    { path: 'homeFilter>/reportDateFrom', type: 'sap.ui.model.type.Date' },
-                                    { path: 'homeFilter>/reportDateTo', type: 'sap.ui.model.type.Date' }
-                                ],
-                                type: 'sap.ui.model.type.DateInterval'
-                            }"
-                        />
-                    </VBox>
-                </layout:content>
-
+                    <!-- Trip Number -->
+                    <layout:content>
+                        <VBox class="homeFilterField">
+                            <layoutData>
+                                <layout:GridData span="XL4 L4 M4 S12" />
+                            </layoutData>
+                            <Label
+                                design="Bold"
+                                text="Gate Pass No:"
+                                class="homeFilterLabel"
+                            />
+                            <Input
+                                width="100%"
+                                showSuggestion="true"
+                                suggest=".onSuggest"
+                                filterSuggests="true"
+                                suggestThreshold="1"
+                                suggestionItemSelected=".onSuggestionItemSelected"
+                                change=".onFilterInputChange"
+                                liveChange=".onFilterInputLiveChange"
+                            >
+                                <customData>
+                                    <core:CustomData
+                                        key="field"
+                                        value="tripNo"
+                                    />
+                                </customData>
+                            </Input>
+                        </VBox>
+                    </layout:content>
+                    <!-- Vehicle Number -->
+                    <layout:content>
+                        <VBox class="homeFilterField">
+                            <layoutData>
+                                <layout:GridData span="XL4 L4 M4 S12" />
+                            </layoutData>
+                            <Label
+                                design="Bold"
+                                text="Vehicle Number:"
+                                class="homeFilterLabel"
+                            />
+                            <Input
+                                width="100%"
+                                showSuggestion="true"
+                                suggest=".onSuggest"
+                                filterSuggests="true"
+                                suggestThreshold="1"
+                                suggestionItemSelected=".onSuggestionItemSelected"
+                                change=".onFilterInputChange"
+                                liveChange=".onFilterInputLiveChange"
+                            >
+                                <customData>
+                                    <core:CustomData
+                                        key="field"
+                                        value="vehicleNumber"
+                                    />
+                                </customData>
+                            </Input>
+                        </VBox>
+                    </layout:content>
+                    <!-- Vehicle reported date range; filters apply when dates or Trip/Vehicle inputs change -->
+                    <layout:content>
+                        <VBox class="homeFilterField">
+                            <layoutData>
+                                <layout:GridData span="XL4 L4 M4 S12" />
+                            </layoutData>
+                            <Label
+                                design="Bold"
+                                text="Vehicle Reported Date Range:"
+                                class="homeFilterLabel"
+                            />
+                            <DateRangeSelection
+                                id="ReportDateRange"
+                                width="100%"
+                                displayFormat="medium"
+                                showCurrentDateButton="true"
+                                showFooter="true"
+                                change=".onReportDateRangeChange"
+                                value="{
+                                    parts: [
+                                        { path: 'homeFilter>/reportDateFrom', type: 'sap.ui.model.type.Date' },
+                                        { path: 'homeFilter>/reportDateTo', type: 'sap.ui.model.type.Date' }
+                                    ],
+                                    type: 'sap.ui.model.type.DateInterval'
+                                }"
+                            />
+                        </VBox>
+                    </layout:content>
                 </layout:Grid>
             </VBox>
         </semantic:headerContent>
         <!-- ==================== CONTENT AREA ==================== -->
         <semantic:content>
+            <VBox
+                width="100%"
+                class="homePageContent"
+            >
             <Table
                 id="tripTable"
                 inset="false"
@@ -164,7 +168,8 @@
                 autoPopin="true"
                 popinLayout="GridSmall"
                 fixedLayout="true"
-                selectionChange="onTripPress"
+                selectionChange=".onTripPress"
+                updateFinished=".onTripTableUpdateFinished"
             >
                     <headerToolbar>
                     <Toolbar>
@@ -185,15 +190,7 @@
                             minScreenWidth="Phone"
                             popinDisplay="Inline"
                         >
-                            <Text text="Trip Number" />
-                        </Column>
-                        <Column
-                            id="colVehicleNumber"
-                            demandPopin="true"
-                            minScreenWidth="Phone"
-                            popinDisplay="Inline"
-                        >
-                            <Text text="Vehicle Number" />
+                            <Text text="Gate Pass No" />
                         </Column>
                         <Column
                             id="colTripStatus"
@@ -202,6 +199,22 @@
                             popinDisplay="Inline"
                         >
                             <Text text="Trip Status" />
+                        </Column>
+                        <Column
+                            id="colVehicleNumber"
+                            demandPopin="true"
+                            minScreenWidth="Phone"
+                            popinDisplay="Inline"
+                        >
+                            <Text text="Vehicle No" />
+                        </Column>
+                        <Column
+                            id="colReportingDateTime"
+                            demandPopin="true"
+                            minScreenWidth="Tablet"
+                            popinDisplay="Inline"
+                        >
+                            <Text text="Report Date Time" />
                         </Column>
                         <Column
                             id="colMovementType"
@@ -217,7 +230,31 @@
                             minScreenWidth="Tablet"
                             popinDisplay="Inline"
                         >
-                            <Text text="Movement Scenario" />
+                            <Text text="Scenario" />
+                        </Column>
+                        <Column
+                            id="colPartyName"
+                            demandPopin="true"
+                            minScreenWidth="Desktop"
+                            popinDisplay="Inline"
+                        >
+                            <Text text="Party name" />
+                        </Column>
+                        <Column
+                            id="colGRN"
+                            demandPopin="true"
+                            minScreenWidth="Desktop"
+                            popinDisplay="Inline"
+                        >
+                            <Text text="GRN" />
+                        </Column>
+                        <Column
+                            id="colBillofLading"
+                            demandPopin="true"
+                            minScreenWidth="Desktop"
+                            popinDisplay="Inline"
+                        >
+                            <Text text="Bill of Lading" />
                         </Column>
                         <Column
                             id="colVehicleType"
@@ -279,10 +316,7 @@
                     <items>
                         <ColumnListItem 
                             vAlign="Middle"
-                            class="{
-                                path: 'TripStatus',
-                                formatter: '.getTripStatusClass'
-                            }">
+                        >
                             <cells>
                                 <Text
                                     text="{
@@ -292,11 +326,21 @@
                                     wrapping="true"
                                 />
                                 <Text
+                                    text="{TripStatus}"
+                                    wrapping="true"
+                                />
+                                <Text
                                     text="{VehicleNumber}"
                                     wrapping="true"
                                 />
                                 <Text
-                                    text="{TripStatus}"
+                                    text="{
+                                        parts: [
+                                            { path: 'CreatedOn' },
+                                            { path: 'CreatedTime' }
+                                        ],
+                                        formatter: '.formatReportingDateTime'
+                                    }"
                                     wrapping="true"
                                 />
                                 <Text
@@ -314,6 +358,18 @@
                                         ],
                                         formatter: '.formatMovementScenarioDesc'
                                     }"
+                                    wrapping="true"
+                                />
+                                <Text
+                                    text="{PartyName}"
+                                    wrapping="true"
+                                />
+                                <Text
+                                    text="{MatDocNumber}"
+                                    wrapping="true"
+                                />
+                                <Text
+                                    text="{BillofLading}"
                                     wrapping="true"
                                 />
                                 <Text
@@ -354,6 +410,7 @@
                         </ColumnListItem>
                     </items>
                 </Table>
+            </VBox>
         </semantic:content>
     </semantic:SemanticPage>
 </mvc:View>

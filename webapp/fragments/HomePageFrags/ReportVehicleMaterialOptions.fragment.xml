@@ -16,6 +16,8 @@
                 <Label
                     text="Movement Type"
                     labelFor="GroupA"
+                    design="Bold"
+                    class="plmsRvMovementTypeLabel"
                 />
                 <RadioButtonGroup
                     id="GroupA"

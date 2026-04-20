@@ -11,6 +11,7 @@ sap.ui.define(
     "sap/ndc/BarcodeScanner",
     "com/incresolZ_INC_PLMS/util/MovementScenarioIcons",
     "com/incresolZ_INC_PLMS/util/MovementScenarioConfig",
+    "com/incresolZ_INC_PLMS/util/TripDataDocumentsVerified",
     "sap/ui/core/format/DateFormat",
   ],
   function (
@@ -25,6 +26,7 @@ sap.ui.define(
     BarcodeScanner,
     MovementScenarioIcons,
     MovementScenarioConfig,
+    TripDataDocumentsVerified,
     DateFormat
   ) {
     "use strict";
@@ -88,6 +90,7 @@ sap.ui.define(
           // Use setTimeout to ensure controls exist before updating scanner visibility
           setTimeout(function() {
             this._updateScannerVisibility();
+            this._setButtonStates(true, true);
           }.bind(this), 200);
         },
 
@@ -147,6 +150,9 @@ sap.ui.define(
             if (oCoreTripData && sReqTrip && sReqTrip === sCoreTrip) {
               // Trip is already loaded by Stage route loader; reuse model and avoid duplicate backend read.
               this._hydrateReportingUiAliases(oCoreTripData.getData());
+              TripDataDocumentsVerified.applyDocumentsVerifiedToVerifiedDocs(
+                oCoreTripData.getData()
+              );
               this._syncMovementScenarioItemKeyOnTripData(oCoreTripData);
               oCoreTripData.refresh(true);
               this.getView().setModel(oCoreTripData, "TripData");
@@ -183,7 +189,8 @@ sap.ui.define(
                 oData.WeighmentRequired = oData.Weighment_Req === true || oData.Weighment_Req === "X" ? "Y" : "N";
               }
               that._hydrateReportingUiAliases(oData);
-              
+              TripDataDocumentsVerified.applyDocumentsVerifiedToVerifiedDocs(oData);
+
               // Create JSON model for trip data
               const oTripDataModel = new sap.ui.model.json.JSONModel(oData);
               that._syncMovementScenarioItemKeyOnTripData(oTripDataModel);
@@ -266,7 +273,8 @@ sap.ui.define(
                 oData.WeighmentRequired = oData.Weighment_Req === true || oData.Weighment_Req === "X" ? "Y" : "N";
               }
               that._hydrateReportingUiAliases(oData);
-              
+              TripDataDocumentsVerified.applyDocumentsVerifiedToVerifiedDocs(oData);
+
               // Create JSON model for trip data
               const oTripDataModel = new sap.ui.model.json.JSONModel(oData);
               that._syncMovementScenarioItemKeyOnTripData(oTripDataModel);
@@ -312,6 +320,11 @@ sap.ui.define(
          * - corrected so Edit enables inputs.
          * =========================================================== */
         onEditReporting: function () {
+          var bTripLocked = !!(sap.ui.getCore().getModel("globalData")?.getProperty("/TripLocked"));
+          if (bTripLocked) {
+            MessageToast.show("Trip is completed. Editing is disabled.");
+            return;
+          }
           this._mode = "EDIT";
 
           this._setInputsEnabled(true);
@@ -327,6 +340,11 @@ sap.ui.define(
          * =========================================================== */
         onSaveReporting: function () {
           if (this._bReportingSaveInFlight) {
+            return;
+          }
+          var bTripLocked = !!(sap.ui.getCore().getModel("globalData")?.getProperty("/TripLocked"));
+          if (bTripLocked) {
+            MessageToast.show("Trip is completed. Save is not available.");
             return;
           }
           this._setReportingSaveInFlight(true);
@@ -351,17 +369,26 @@ sap.ui.define(
             this.getView().getModel("TripData")?.getProperty("/DriverMobile") || "";
           if (!this._isValidMobile(sMobile)) {
             this._setReportingSaveInFlight(false);
-            this.byId("idDriverContact").setValueState("Error");
-            this.byId("idDriverContact").setValueStateText(
-              "Driver contact must be exactly 10 digits"
-            );
+            var oDriverContact = this.byId("idDriverContact");
+            if (oDriverContact) {
+              oDriverContact.setValueState("Error");
+              oDriverContact.setValueStateText(
+                "Driver contact must be exactly 10 digits"
+              );
+            }
             MessageBox.warning(
               "Please enter a valid driver contact number (exactly 10 digits)."
             );
             return;
           } else {
             // clear any previous error state
-            this.byId("idDriverContact").setValueState("None");
+            var oDriverContactOk = this.byId("idDriverContact");
+            if (oDriverContactOk) {
+              oDriverContactOk.setValueState("None");
+              if (oDriverContactOk.setValueStateText) {
+                oDriverContactOk.setValueStateText("");
+              }
+            }
           }
 
           var sMode = this._mode;
@@ -486,8 +513,8 @@ sap.ui.define(
           // Store driver photo separately in Attachments, not in TripDetails
           var sDriverPhoto = oData.DriverPhoto;
           delete oData.DriverPhoto; // Remove from TripDetails payload
-          // TripDetails has no `VerifiedDocs` property in service metadata.
-          // (VerifiedDocuments is only a GateOut function import parameter.)
+          // Do not send DocumentsVerified / UI-only VerifiedDocs on TripDetails create.
+          delete oData.DocumentsVerified;
           delete oData.VerifiedDocs;
           // TripDetails does not expose weighment properties in metadata.
           // Keep this only in UI model; do not send in create payload.
@@ -612,8 +639,8 @@ sap.ui.define(
           var sDriverPhoto = oUpdateData.DriverPhoto;
           var sDriverName = oUpdateData.DriverName;
           delete oUpdateData.DriverPhoto; // Remove from TripDetails payload
-          // TripDetails has no `VerifiedDocs` property in service metadata.
-          // (VerifiedDocuments is only a GateOut function import parameter.)
+          // Do not send DocumentsVerified / UI-only VerifiedDocs on TripDetails update.
+          delete oUpdateData.DocumentsVerified;
           delete oUpdateData.VerifiedDocs;
 
           // Remove navigation properties / deferred / collections
@@ -793,6 +820,27 @@ sap.ui.define(
           if (oVehicleSizeSelect && oVehicleSizeSelect.setSelectedKey) {
             oVehicleSizeSelect.setSelectedKey("");
           }
+
+          [
+            "idMovementScenario",
+            "idMovementType",
+            "idVehicleNumber",
+            "idVehicleType",
+            "idTransporterName",
+            "idDriverName",
+            "idDriverContact",
+            "idDriverLicense",
+          ].forEach(
+            function (sId) {
+              var oC = this.byId(sId);
+              if (oC && oC.setValueState) {
+                oC.setValueState("None");
+                if (oC.setValueStateText) {
+                  oC.setValueStateText("");
+                }
+              }
+            }.bind(this)
+          );
         },
 
         /* ===========================================================
@@ -817,16 +865,18 @@ sap.ui.define(
         _setInputsEnabled: function (bEnabled) {
           // ADDED
           try {
+            var bTripLocked = !!(sap.ui.getCore().getModel("globalData")?.getProperty("/TripLocked"));
+            var bEffective = !!bEnabled && !bTripLocked;
             const oPanel = this.byId("reportingDetailsPanel");
             if (!oPanel) return;
             var oMovementScenarioCombo = this.byId("idMovementScenario");
             // the panel content -> VBox -> Grid -> layout:content -> VBoxes -> Inputs etc.
             const aChildren = oPanel.findAggregatedObjects(true); // deep search
             aChildren.forEach((ctrl) => {
-              // Keep Movement Scenario selectable even in display / after description is loaded
+              // Movement scenario: keep usable when unlocked; fully read-only when trip is completed.
               if (oMovementScenarioCombo && ctrl === oMovementScenarioCombo) {
                 if (ctrl.setEnabled) {
-                  ctrl.setEnabled(true);
+                  ctrl.setEnabled(!bTripLocked);
                 }
                 return;
               }
@@ -834,14 +884,14 @@ sap.ui.define(
               if (ctrl.isA && ctrl.isA("sap.m.Button")) return;
               if (ctrl.setEditable) {
                 try {
-                  ctrl.setEditable(bEnabled);
+                  ctrl.setEditable(bEffective);
                 } catch (e) {
                   // some controls might reject setEditable; fallback to setEnabled
-                  if (ctrl.setEnabled) ctrl.setEnabled(bEnabled);
+                  if (ctrl.setEnabled) ctrl.setEnabled(bEffective);
                 }
               } else if (ctrl.setEnabled) {
                 try {
-                  ctrl.setEnabled(bEnabled);
+                  ctrl.setEnabled(bEffective);
                 } catch (e) {
                   // ignore
                 }
@@ -859,9 +909,20 @@ sap.ui.define(
          * UPDATED: _setButtonStates - Hide Edit button in CREATE mode
          * =========================================================== */
         _setButtonStates: function (bEditEnabled, bSaveEnabled) {
+          var bTripLocked = !!(sap.ui.getCore().getModel("globalData")?.getProperty("/TripLocked"));
           var oEditButton = this.byId("btnEditReporting");
           var oSaveButton = this.byId("btnSaveReporting");
-          
+
+          if (bTripLocked) {
+            if (oEditButton) {
+              oEditButton.setVisible(false);
+            }
+            if (oSaveButton) {
+              oSaveButton.setVisible(false);
+            }
+            return;
+          }
+
           if (oEditButton) {
             // Hide Edit button in CREATE mode, show in DISPLAY mode
             if (this._mode === "CREATE") {
@@ -879,7 +940,7 @@ sap.ui.define(
 
         /* ===========================================================
          * UPDATED: _validateRequiredFields
-         * - keeps your field list; marks fields with value state
+         * - keeps your field list; marks fields with value state + message
          * =========================================================== */
         _validateRequiredFields: function () {
           const oTripDataModel = this.getView().getModel("TripData");
@@ -912,6 +973,35 @@ sap.ui.define(
             DriverLicence: "idDriverLicense",
           };
 
+          const mFieldValueStateText = {
+            MovementScenarioItemKey: "Select a movement scenario",
+            MovementTypeDesc: "Movement type is required",
+            VehicleType: "Select a vehicle type",
+            TransporterName: "Enter transporter name",
+            DriverName: "Enter driver name",
+            DriverMobile: "Enter driver contact",
+          };
+
+          const fnClearValueState = function (oCtrl) {
+            if (!oCtrl || !oCtrl.setValueState) {
+              return;
+            }
+            oCtrl.setValueState("None");
+            if (oCtrl.setValueStateText) {
+              oCtrl.setValueStateText("");
+            }
+          };
+
+          const fnSetErrorValueState = function (oCtrl, sText) {
+            if (!oCtrl || !oCtrl.setValueState) {
+              return;
+            }
+            oCtrl.setValueState("Error");
+            if (oCtrl.setValueStateText) {
+              oCtrl.setValueStateText(sText || "This field is required");
+            }
+          };
+
           let valid = true;
           requiredInCurrentMode.forEach(
             function (field) {
@@ -922,11 +1012,12 @@ sap.ui.define(
               const oCtrl = sCtrlId ? this.byId(sCtrlId) : null;
               if (bMissing) {
                 valid = false;
-                if (oCtrl && oCtrl.setValueState) {
-                  oCtrl.setValueState("Error");
-                }
-              } else if (oCtrl && oCtrl.setValueState) {
-                oCtrl.setValueState("None");
+                fnSetErrorValueState(
+                  oCtrl,
+                  mFieldValueStateText[field]
+                );
+              } else {
+                fnClearValueState(oCtrl);
               }
             }.bind(this)
           );
@@ -937,10 +1028,7 @@ sap.ui.define(
                 if (requiredInCurrentMode.indexOf(field) !== -1) {
                   return;
                 }
-                var oCtrl = this.byId(mFieldToControl[field]);
-                if (oCtrl && oCtrl.setValueState) {
-                  oCtrl.setValueState("None");
-                }
+                fnClearValueState(this.byId(mFieldToControl[field]));
               }.bind(this)
             );
           }
@@ -2952,6 +3040,8 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
             }
             this._updateScannerVisibility();
           }
+          this._setInputsEnabled(this._mode === "EDIT" || this._mode === "CREATE");
+          this._setButtonStates(true, true);
         },
 
         //---------------------------------------------
@@ -3315,6 +3405,10 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
           // Get the form panel and save button
           var oReportingPanel = this.getView().byId("reportingDetailsPanel");
           var oSaveButton = this.getView().byId("btnSaveReporting");
+          // Snapshot UI before updates — TripData/Updated fires from Gate In / Ref Docs too.
+          // Avoid redundant expand/focus that scroll the page back to Reporting.
+          var bPrevScannerVBoxVisible = !!oScannerVBox.getVisible();
+          var bPrevPoSearchVisible = !!(oPoSearchVBox && oPoSearchVBox.getVisible());
           var oTripData = sap.ui.getCore().getModel("TripData");
           var bTripLocked = !!(sap.ui.getCore().getModel("globalData")?.getProperty("/TripLocked"));
 
@@ -3391,15 +3485,17 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
             }
             oGlobalForMode.setProperty("/IsScanningReporting", true);
             oGlobalForMode.setProperty("/DisableRefDocMaterialsActions", false);
-            setTimeout(
-              function () {
-                var oScannerInput = this.getView().byId("idReportingScannerInput");
-                if (oScannerInput) {
-                  oScannerInput.focus();
-                }
-              }.bind(this),
-              300
-            );
+            if (!bPrevScannerVBoxVisible) {
+              setTimeout(
+                function () {
+                  var oScannerInput = this.getView().byId("idReportingScannerInput");
+                  if (oScannerInput) {
+                    oScannerInput.focus();
+                  }
+                }.bind(this),
+                300
+              );
+            }
             return;
           }
 
@@ -3410,8 +3506,12 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
               oPoSearchVBox.setVisible(false);
             }
             if (oReportingPanel) {
-              oReportingPanel.setVisible(true);
-              oReportingPanel.setExpanded(true);
+              if (!oReportingPanel.getVisible()) {
+                oReportingPanel.setVisible(true);
+              }
+              if (!oReportingPanel.getExpanded()) {
+                oReportingPanel.setExpanded(true);
+              }
             }
             if (oSaveButton) {
               oSaveButton.setVisible(!bTripLocked);
@@ -3462,15 +3562,17 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
               oGlobalForMode.setProperty("/IsScanningReporting", false);
               oGlobalForMode.setProperty("/DisableRefDocMaterialsActions", false);
             }
-            setTimeout(
-              function () {
-                var oPoInput = this.byId("idReportingPoSearchInput");
-                if (oPoInput) {
-                  oPoInput.focus();
-                }
-              }.bind(this),
-              300
-            );
+            if (!bPrevPoSearchVisible) {
+              setTimeout(
+                function () {
+                  var oPoInput = this.byId("idReportingPoSearchInput");
+                  if (oPoInput) {
+                    oPoInput.focus();
+                  }
+                }.bind(this),
+                300
+              );
+            }
             return;
           }
 
@@ -3499,12 +3601,17 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
             MovementScenarioIcons.isScannerMovementScenarioItemKey(sItemKey);
 
           // Update scanner visibility
-          oScannerVBox.setVisible(bShowScanner);
+          if (!!oScannerVBox.getVisible() !== !!bShowScanner) {
+            oScannerVBox.setVisible(bShowScanner);
+          }
           
           // Update form panel visibility - hide form when scanner is visible
           if (oReportingPanel) {
-            oReportingPanel.setVisible(!bShowScanner);
-            if (!bShowScanner) {
+            var bWantReportingVisible = !bShowScanner;
+            if (!!oReportingPanel.getVisible() !== !!bWantReportingVisible) {
+              oReportingPanel.setVisible(bWantReportingVisible);
+            }
+            if (!bShowScanner && !oReportingPanel.getExpanded()) {
               oReportingPanel.setExpanded(true);
             }
           }
@@ -3524,8 +3631,8 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
           // Trip not yet reported: ref-doc restrictions for I02 come from IsScanningReporting; clear stale flag
           oGlobalModel.setProperty("/DisableRefDocMaterialsActions", false);
           
-          // If scanner is visible, focus on input after a short delay
-          if (bShowScanner) {
+          // Focus scanner only when newly shown (avoids scroll steal on TripData refresh from Gate In / Ref Docs)
+          if (bShowScanner && !bPrevScannerVBoxVisible) {
             setTimeout(function() {
               var oScannerInput = this.getView().byId("idReportingScannerInput");
               if (oScannerInput) {

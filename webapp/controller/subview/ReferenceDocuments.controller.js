@@ -61,7 +61,10 @@ sap.ui.define([
 		this._oEventBus = sap.ui.getCore().getEventBus();
 		this._oEventBus.subscribe("TripData", "Updated", this._onTripDataUpdated, this);
 		this._oEventBus.subscribe("Stage", "ClearAllTabs", this._clearAllData, this);
-		// this._onTripDataUpdated(); // Initial load
+		// If TripData was published before this subview subscribed (e.g. fast navigation), sync once.
+		if (sap.ui.getCore().getModel("TripData")) {
+			setTimeout(this._onTripDataUpdated.bind(this), 0);
+		}
 		this._initializeColumnVisibility();
 		this._initDocNoPagingState();
 		this._iReqId = 0; // latest request wins for doc resolution
@@ -73,8 +76,31 @@ sap.ui.define([
 		this._bRefDocInitialPrefillDone = false;
 		this._mRefDocUiGuard = {};
 		this._mMaterialUiGuard = {};
+		// Gate In embed idRefDocsViewGateIn (see _isGateInEmbeddedRefDocsOnly for any tab-specific rules).
+		this._bGateInEmbeddedRefDocsOnly = this._detectGateInEmbeddedRefDocsView();
 		// Apply any view-related initialization after render using delegates if needed
 	},
+
+		/**
+		 * True when this view is embedded on the Gate In tab (not Gate Out).
+		 * Used for Gate In–specific behavior where needed.
+		 */
+		_detectGateInEmbeddedRefDocsView: function () {
+			var v = this.getView();
+			var i = 0;
+			while (v && i++ < 25) {
+				var sId = (typeof v.getId === "function" && v.getId()) || "";
+				if (sId.indexOf("idRefDocsViewGateIn") >= 0) {
+					return true;
+				}
+				v = typeof v.getParent === "function" ? v.getParent() : null;
+			}
+			return false;
+		},
+
+		_isGateInEmbeddedRefDocsOnly: function () {
+			return this._bGateInEmbeddedRefDocsOnly === true;
+		},
 
 		_setUiGuard: function (mGuard, sKey, sType, iDurationMs) {
 			if (!mGuard || !sKey) {
@@ -128,6 +154,19 @@ sap.ui.define([
 				);
 			}
 			return MovementScenarioIcons.isScannerMovementScenarioItemKey(sItemKey);
+		},
+
+		/**
+		 * MovementType "I" = Inward (see VehicleReportingTab). For inward, do not auto-append
+		 * material rows from ItemDetails reads; user selects/adds lines explicitly.
+		 */
+		_isInwardMovement: function () {
+			var oTripData = this.getView().getModel("TripData") || sap.ui.getCore().getModel("TripData");
+			var oGlobalModel = sap.ui.getCore().getModel("globalData");
+			var sMt = (oTripData && oTripData.getProperty("/MovementType")) ||
+				(oGlobalModel && oGlobalModel.getProperty("/MovementType")) ||
+				"";
+			return String(sMt).trim().toUpperCase() === "I";
 		},
 
 		_getComboBoxPickerList: function (oCombo) {
@@ -580,6 +619,11 @@ sap.ui.define([
 		onDocTypeChange: function (oEvent) {
 			this._oSelectedOrderDetail = null;
 			var sSelectedKey = oEvent.getParameter("selectedItem")?.getKey();
+			var oDocNumberCtrl = this.byId("idRefDocNumber");
+			if (oDocNumberCtrl && typeof oDocNumberCtrl.setValue === "function") {
+				oDocNumberCtrl.setValue("");
+			}
+			this._sLastDocNo = "";
 			if (sSelectedKey) {
 				this._sSelectedDocType = sSelectedKey;
 				this._loadRefDocSuggestions(sSelectedKey);
@@ -598,6 +642,11 @@ sap.ui.define([
 				var sDocType = oItem.getKey();
 				oEvent.getSource().setValue(sDocType);
 				this._sSelectedDocType = sDocType;
+				var oDocNumberCtrl = this.byId("idRefDocNumber");
+				if (oDocNumberCtrl && typeof oDocNumberCtrl.setValue === "function") {
+					oDocNumberCtrl.setValue("");
+				}
+				this._sLastDocNo = "";
 				this._loadRefDocSuggestions(sDocType);
 			}
 		},
@@ -715,6 +764,14 @@ sap.ui.define([
 					this._oSelectedOrderDetail = null;
 					MessageBox.error(this._extractErrorMessage(oError));
 					return null;
+				}.bind(this))
+				.finally(function () {
+					if (iCurrentReq !== this._iReqId) {
+						return;
+					}
+					// Keep Document Number in the Add Reference Document dialog until the user
+					// adds or clears it (do not wipe the field after lookup error / not found).
+					this._sLastDocNo = "";
 				}.bind(this));
 		},
 
@@ -1198,12 +1255,20 @@ sap.ui.define([
 			var fBalance = this._materialBalanceBaseForRemain(oRow);
 
 			var sShippingRaw = String((oEvent.getParameter("value") || "")).trim();
-			var fShipping = parseFloat(sShippingRaw);
-			if (!isFinite(fShipping) || fShipping < 0) {
+			var fShipping;
+			var sFormattedShipping;
+			if (sShippingRaw === "") {
 				fShipping = 0;
-			}
-			if (fShipping > fBalance) {
-				fShipping = fBalance;
+				sFormattedShipping = "";
+			} else {
+				fShipping = parseFloat(sShippingRaw);
+				if (!isFinite(fShipping) || fShipping < 0) {
+					fShipping = 0;
+				}
+				if (fShipping > fBalance) {
+					fShipping = fBalance;
+				}
+				sFormattedShipping = (fShipping % 1 === 0) ? String(Math.floor(fShipping)) : fShipping.toFixed(2);
 			}
 
 			var fRemain = fBalance - fShipping;
@@ -1211,7 +1276,6 @@ sap.ui.define([
 				fRemain = 0;
 			}
 
-			var sFormattedShipping = (fShipping % 1 === 0) ? String(Math.floor(fShipping)) : fShipping.toFixed(2);
 			var sFormattedRemain = (fRemain % 1 === 0) ? String(Math.floor(fRemain)) : fRemain.toFixed(2);
 
 			oModel.setProperty(sRowPath + "/ShippingQty", sFormattedShipping);
@@ -1451,6 +1515,7 @@ sap.ui.define([
 						var oModel = this._ensureRefDocModel();
 						var aRefDocsSnapshot = (oModel.getProperty("/referenceDocs") || []).slice();
 						var aMaterialsSnapshot = (oModel.getProperty("/materialDetails") || []).slice();
+						var mTripNavSnap = this._snapshotTripDataOrderItemNav();
 						var oGlobalModelDel = sap.ui.getCore().getModel("globalData");
 						var sGlobalTripDel = String((oGlobalModelDel && oGlobalModelDel.getProperty("/TripNumber")) || "").trim();
 						var sRowTripDel = this._materialRowFieldStr(oRefDoc, "tripNumber", "TripNumber");
@@ -1459,8 +1524,12 @@ sap.ui.define([
 						this._setUiGuard(this._mRefDocUiGuard, sRefDeleteKey, "delete");
 						// Immediate UI delete
 						this._removeLocalReferenceDoc(oRefDoc);
+						// Keep TripData in sync immediately so TripData/Updated does not merge deleted rows back in.
+						this._stripDeletedRefDocFromTripDataModel(oRefDoc);
 						this._deleteOrderDetail(oRefDoc).catch(function () {
 							// Roll back immediate UI delete on backend failure.
+							delete this._mRefDocUiGuard[sRefDeleteKey];
+							this._restoreTripDataOrderItemNav(mTripNavSnap);
 							oModel.setProperty("/referenceDocs", aRefDocsSnapshot, true);
 							oModel.setProperty("/materialDetails", aMaterialsSnapshot, true);
 							this._filterMaterialDetails();
@@ -1616,10 +1685,6 @@ sap.ui.define([
 		onMaterialRefDocNoChange: function (oEvent) {
 			var sRefDocNo = oEvent.getParameter("value") || "";
 			var sDocType = this._sSelectedMaterialDocType || this.byId("idMaterialDocType")?.getValue().trim() || "";
-			console.log("[MaterialDebug] onMaterialRefDocNoChange", {
-				docType: sDocType,
-				refDocNo: sRefDocNo
-			});
 
 			// Load available material items for the selected reference document
 			if (sDocType && sRefDocNo) {
@@ -1896,17 +1961,9 @@ sap.ui.define([
 				oEvent.cancelBubble?.();
 			}
 			if (this._bSavingMaterialDialog) {
-				console.warn("[MaterialDebug] Save blocked: already in progress");
 				return;
 			}
 			var oPayload = this._buildMaterialDetailPayload();
-			console.log("[MaterialDebug] onSaveMaterialDialog payload", {
-				tripNumber: oPayload.TripNumber,
-				docType: oPayload.DocType,
-				refDocNo: oPayload.RefDocNo,
-				refDocItemNo: oPayload.RefDocItemNo,
-				isEditMode: !!this._bIsEditMode
-			});
 			if (!oPayload.TripNumber) {
 				return MessageToast.show("Trip Number missing. Please open a trip first.");
 			}
@@ -1938,12 +1995,7 @@ sap.ui.define([
 			if (this._bIsEditMode && this._oEditingMaterial) {
 				// Update existing material
 				var oOriginalMaterial = Object.assign({}, this._oEditingMaterial);
-				var sOptimisticMaterialEditKey = [
-					String(oOriginalMaterial.tripNumber || oOriginalMaterial.TripNumber || oPayload.TripNumber || "").trim().toUpperCase(),
-					String(oOriginalMaterial.docType || oOriginalMaterial.DocType || oPayload.DocType || "").trim().toUpperCase(),
-					String(oOriginalMaterial.refDocNo || oOriginalMaterial.RefDocNo || oPayload.RefDocNo || "").trim().toUpperCase(),
-					String(oOriginalMaterial.refDocItemNo || oOriginalMaterial.RefDocItemNo || oPayload.RefDocItemNo || "").trim().toUpperCase()
-				].join("|");
+				var sOptimisticMaterialEditKey = this._getMaterialDetailMergeKey(oOriginalMaterial);
 				this._setUiGuard(this._mMaterialUiGuard, sOptimisticMaterialEditKey, "upsert");
 				// Immediate UI update
 				this._updateLocalMaterialDetail(oPayload, oOriginalMaterial);
@@ -1951,12 +2003,7 @@ sap.ui.define([
 					.then(function (oResponse) {
 						var oUpdatedMaterial = oResponse || oPayload;
 						this._updateLocalMaterialDetail(oUpdatedMaterial, this._oEditingMaterial);
-						var sMaterialKey = [
-							String(oUpdatedMaterial.TripNumber || oUpdatedMaterial.tripNumber || "").trim().toUpperCase(),
-							String(oUpdatedMaterial.DocType || oUpdatedMaterial.docType || "").trim().toUpperCase(),
-							String(oUpdatedMaterial.RefDocNo || oUpdatedMaterial.refDocNo || "").trim().toUpperCase(),
-							String(oUpdatedMaterial.RefDocItemNo || oUpdatedMaterial.refDocItemNo || "").trim().toUpperCase()
-						].join("|");
+						var sMaterialKey = this._getMaterialDetailMergeKey(oUpdatedMaterial);
 						this._setUiGuard(this._mMaterialUiGuard, sMaterialKey, "upsert");
 						this._oEventBus?.publish("RefDoc", "MaterialsUpdated");
 						MessageToast.show("Material row updated");
@@ -1972,31 +2019,21 @@ sap.ui.define([
 					.finally(fnReleaseMaterialSave);
 			} else {
 				// Create new material
+				var sSchedOpt = (oPayload.SheduleItem || oPayload.ScheduleItem || "").trim();
 				var oOptimisticMaterial = {
 					tripNumber: oPayload.TripNumber || "",
 					docType: oPayload.DocType || "",
 					refDocNo: oPayload.RefDocNo || "",
-					refDocItemNo: oPayload.RefDocItemNo || ""
+					refDocItemNo: oPayload.RefDocItemNo || "",
+					scheduleItem: sSchedOpt,
+					SheduleItem: sSchedOpt
 				};
-				var sOptimisticMaterialKey = [
-					String(oOptimisticMaterial.tripNumber || "").trim().toUpperCase(),
-					String(oOptimisticMaterial.docType || "").trim().toUpperCase(),
-					String(oOptimisticMaterial.refDocNo || "").trim().toUpperCase(),
-					String(oOptimisticMaterial.refDocItemNo || "").trim().toUpperCase()
-				].join("|");
+				var sOptimisticMaterialKey = this._getMaterialDetailMergeKey(oOptimisticMaterial);
 				this._setUiGuard(this._mMaterialUiGuard, sOptimisticMaterialKey, "upsert");
 				// Optimistically update UI so users see the row immediately.
 				this._appendLocalMaterialDetail(oPayload);
 				this._saveMaterialDetail(oPayload)
 					.then(function (oResponse) {
-						console.log("[MaterialDebug] saveMaterialDetail success", {
-							responseKey: [
-								oResponse?.TripNumber || oPayload.TripNumber,
-								oResponse?.DocType || oPayload.DocType,
-								oResponse?.RefDocNo || oPayload.RefDocNo,
-								oResponse?.RefDocItemNo || oPayload.RefDocItemNo
-							].join("|")
-						});
 						// Replace optimistic row with backend-confirmed payload fields.
 						this._updateLocalMaterialDetail(oResponse || oPayload, oOptimisticMaterial);
 						this._oEventBus?.publish("RefDoc", "MaterialsUpdated");
@@ -2005,7 +2042,6 @@ sap.ui.define([
 						this._resetMaterialDialog();
 					}.bind(this))
 					.catch(function (oError) {
-						console.error("[MaterialDebug] saveMaterialDetail failed", oError);
 						// Roll back optimistic row when backend create fails.
 						this._removeLocalMaterialDetail(oOptimisticMaterial);
 						delete this._mMaterialUiGuard[sOptimisticMaterialKey];
@@ -2086,12 +2122,7 @@ sap.ui.define([
 					if (sAction === MessageBox.Action.YES) {
 						var oModel = this._ensureRefDocModel();
 						var aMaterialsSnapshot = (oModel.getProperty("/materialDetails") || []).slice();
-						var sMaterialDeleteKey = [
-							this._materialRowFieldStr(oMaterial, "tripNumber", "TripNumber").toUpperCase(),
-							this._materialRowFieldStr(oMaterial, "docType", "DocType").toUpperCase(),
-							this._materialRowFieldStr(oMaterial, "refDocNo", "RefDocNo").toUpperCase(),
-							this._materialRowFieldStr(oMaterial, "refDocItemNo", "RefDocItemNo").toUpperCase()
-						].join("|");
+						var sMaterialDeleteKey = this._getMaterialDetailMergeKey(oMaterial);
 						this._setUiGuard(this._mMaterialUiGuard, sMaterialDeleteKey, "delete");
 						// Immediate UI delete
 						this._removeLocalMaterialDetail(oMaterial);
@@ -2230,6 +2261,39 @@ sap.ui.define([
 		},
 
 		/**
+		 * Schedule line from a material row (OData SheduleItem typo + UI camelCase).
+		 */
+		_materialScheduleLineStr: function (oRow) {
+			if (!oRow) {
+				return "";
+			}
+			var v = this._materialRowFieldStr(oRow, "scheduleItem", "ScheduleItem");
+			if (!v) {
+				v = this._materialRowFieldStr(oRow, "sheduleItem", "SheduleItem");
+			}
+			return String(v || "").trim();
+		},
+
+		/**
+		 * Unique UI key for material rows: trip|docType|refDoc|item|schedule (normalized).
+		 */
+		_getMaterialDetailMergeKey: function (oMat) {
+			if (!oMat) {
+				return "";
+			}
+			var fnNorm = function (v) {
+				return String(v === undefined || v === null ? "" : v).trim().toUpperCase();
+			};
+			return [
+				fnNorm(this._materialRowFieldStr(oMat, "tripNumber", "TripNumber")),
+				fnNorm(this._materialRowFieldStr(oMat, "docType", "DocType")),
+				fnNorm(this._materialRowFieldStr(oMat, "refDocNo", "RefDocNo")),
+				fnNorm(this._materialRowFieldStr(oMat, "refDocItemNo", "RefDocItemNo")),
+				fnNorm(this._materialScheduleLineStr(oMat))
+			].join("|");
+		},
+
+		/**
 		 * Base quantity for RemainQty = BalanceQty - ShippingQty. Uses BalanceQty when present; otherwise Quantity.
 		 */
 		_materialBalanceBaseForRemain: function (oRow) {
@@ -2297,6 +2361,124 @@ sap.ui.define([
 			return aMat.some(function (m) {
 				return that._materialRowFieldStr(m, "tripNumber", "TripNumber") === sTrip;
 			});
+		},
+
+		_countMaterialsForTrip: function (aMats, sTrip, bExcludeLocal) {
+			var sT = String(sTrip || "").trim();
+			var n = 0;
+			(aMats || []).forEach(function (m) {
+				if (!m || this._materialRowFieldStr(m, "tripNumber", "TripNumber") !== sT) {
+					return;
+				}
+				if (bExcludeLocal && m._isLocal === true) {
+					return;
+				}
+				n++;
+			}.bind(this));
+			return n;
+		},
+
+		_countItemDetailsForTrip: function (aItems, sTrip) {
+			var sT = String(sTrip || "").trim();
+			var n = 0;
+			(aItems || []).forEach(function (oItem) {
+				if (oItem && String(oItem.TripNumber || "").trim() === sT) {
+					n++;
+				}
+			});
+			return n;
+		},
+
+		_countDistinctMaterialRefKeysForTrip: function (aMats, sTrip) {
+			var m = {};
+			var sT = String(sTrip || "").trim();
+			(aMats || []).forEach(function (oMat) {
+				if (!oMat || this._materialRowFieldStr(oMat, "tripNumber", "TripNumber") !== sT) {
+					return;
+				}
+				var dt = this._materialRowFieldStr(oMat, "docType", "DocType").toUpperCase();
+				var r = this._normalizeDocNumberForMatch(this._materialRowFieldStr(oMat, "refDocNo", "RefDocNo"));
+				var k = dt + "|" + r;
+				if (dt || r) {
+					m[k] = true;
+				}
+			}.bind(this));
+			return Object.keys(m).length;
+		},
+
+		_countDistinctItemDetailsRefKeysForTrip: function (aItems, sTrip) {
+			var m = {};
+			var sT = String(sTrip || "").trim();
+			(aItems || []).forEach(function (oItem) {
+				if (!oItem || String(oItem.TripNumber || "").trim() !== sT) {
+					return;
+				}
+				var dt = String(oItem.DocType || "").trim().toUpperCase();
+				var r = this._normalizeDocNumberForMatch(String(oItem.RefDocNo || "").trim());
+				var k = dt + "|" + r;
+				if (dt || r) {
+					m[k] = true;
+				}
+			}.bind(this));
+			return Object.keys(m).length;
+		},
+
+		_countReferenceDocsForTrip: function (aRefDocs, sTrip) {
+			var n = 0;
+			var sT = String(sTrip || "").trim();
+			(aRefDocs || []).forEach(function (oDoc) {
+				if (!oDoc) {
+					return;
+				}
+				var t = String(oDoc.tripNumber || oDoc.TripNumber || "").trim();
+				if (t === sT) {
+					n++;
+				}
+			});
+			return n;
+		},
+
+		/**
+		 * Expanded TripData ItemDetails can be stale or partial vs the UI model.
+		 * When true, load full ItemDetails for the trip instead of replacing from expand only.
+		 */
+		_shouldDeferTripExpandedMaterialMerge: function (aItemDetails, aExistingMaterials, aExistingRefDocs, sTripTrim) {
+			var sTrip = String(sTripTrim || "").trim();
+			var aItems = aItemDetails || [];
+			if (!sTrip || aItems.length === 0) {
+				return false;
+			}
+			var nMatNonLocal = this._countMaterialsForTrip(aExistingMaterials, sTrip, true);
+			var nItemTrip = this._countItemDetailsForTrip(aItems, sTrip);
+			if (nMatNonLocal > nItemTrip) {
+				return true;
+			}
+			var nUiRefs = this._countDistinctMaterialRefKeysForTrip(aExistingMaterials, sTrip);
+			var nInRefs = this._countDistinctItemDetailsRefKeysForTrip(aItems, sTrip);
+			if (nUiRefs > 1 && nInRefs < nUiRefs) {
+				return true;
+			}
+			var nRefDocs = this._countReferenceDocsForTrip(aExistingRefDocs, sTrip);
+			if (nRefDocs > 1 && nInRefs < nRefDocs) {
+				return true;
+			}
+			return false;
+		},
+
+		_setMaterialsSectionBusy: function (bBusy) {
+			try {
+				this.byId("idMaterialDetailsTable")?.setBusy?.(!!bBusy);
+			} catch (e) {
+				// ignore
+			}
+		},
+
+		_setRefDocsSectionBusy: function (bBusy) {
+			try {
+				this.byId("idReferenceDocsTable")?.setBusy?.(!!bBusy);
+			} catch (e) {
+				// ignore
+			}
 		},
 
 		_findMatchingOrderDetail: function (sDocType, sDocNumber, bForceServer) {
@@ -2626,6 +2808,14 @@ sap.ui.define([
 		},
 
 		_openAddMaterialDialog: function () {
+			var that = this;
+			var fnAttachTripDataModel = function (oDialog) {
+				var oTrip =
+					that.getView().getModel("TripData") || sap.ui.getCore().getModel("TripData");
+				if (oTrip && oDialog && oDialog.setModel) {
+					oDialog.setModel(oTrip, "TripData");
+				}
+			};
 			return new Promise(function (resolve, reject) {
 				if (!this._oAddMaterialDialog) {
 					Fragment.load({
@@ -2649,6 +2839,7 @@ sap.ui.define([
 						this._loadMaterialDocTypesFromRefDocs();
 						this._loadMaterialRefDocNumbersFromRefDocs();
 						this._loadMaterialSuggestions(this._sSelectedMaterialDocType);
+						fnAttachTripDataModel(oDialog);
 						oDialog.open();
 						resolve(oDialog);
 					}.bind(this))
@@ -2665,6 +2856,7 @@ sap.ui.define([
 					this._loadMaterialDocTypesFromRefDocs();
 					this._loadMaterialRefDocNumbersFromRefDocs();
 					this._loadMaterialSuggestions(this._sSelectedMaterialDocType);
+					fnAttachTripDataModel(this._oAddMaterialDialog);
 					this._oAddMaterialDialog.open();
 					resolve(this._oAddMaterialDialog);
 				}
@@ -2771,10 +2963,13 @@ sap.ui.define([
 						if (!isFinite(fRemain) || fRemain < 0) {
 							fRemain = 0;
 						}
+						// Do not show default 0 from service in the ShippingQty input; treat as unset (empty).
+						var sShippingQtyUi = (fShipping === 0) ? "" :
+							((fShipping % 1 === 0) ? String(Math.floor(fShipping)) : fShipping.toFixed(2));
 						return Object.assign({}, oItem, {
 							Quantity: (fQty % 1 === 0) ? String(Math.floor(fQty)) : fQty.toFixed(2),
 							BalanceQty: (fBalDisplay % 1 === 0) ? String(Math.floor(fBalDisplay)) : fBalDisplay.toFixed(2),
-							ShippingQty: (fShipping % 1 === 0) ? String(Math.floor(fShipping)) : fShipping.toFixed(2),
+							ShippingQty: sShippingQtyUi,
 							RemainQty: (fRemain % 1 === 0) ? String(Math.floor(fRemain)) : fRemain.toFixed(2)
 						});
 					});
@@ -2897,10 +3092,11 @@ sap.ui.define([
 					IsDeleted: "",
 					IsSplitActive: false
 				};
-				if (bScannerScenarioActive) {
-					oPayload.SheduleItem = oMaterial.SheduleItem || "";
+				var sSchedScan = (oMaterial.SheduleItem || oMaterial.ScheduleItem || oMaterial.scheduleItem || "").trim();
+				if (bScannerScenarioActive || sSchedScan) {
+					oPayload.SheduleItem = sSchedScan;
 				}
-				
+
 				that._saveMaterialDetail(oPayload)
 					.then(function (oResponse) {
 						iSuccess++;
@@ -2910,10 +3106,7 @@ sap.ui.define([
 						var oModel = that._ensureRefDocModel();
 						var aExisting = oModel.getProperty("/materialDetails") || [];
 						var bExists = aExisting.some(function (oMat) {
-							return oMat.tripNumber === oPayload.TripNumber &&
-								oMat.docType === oPayload.DocType &&
-								oMat.refDocNo === oPayload.RefDocNo &&
-								oMat.refDocItemNo === oPayload.RefDocItemNo;
+							return that._getMaterialDetailMergeKey(oMat) === that._getMaterialDetailMergeKey(oPayload);
 						});
 						if (!bExists) {
 							that._appendLocalMaterialDetail(oPayload);
@@ -2946,9 +3139,8 @@ sap.ui.define([
 		}
 
 		var that = this;
-		// Always fetch fresh data from server after adding materials to ensure latest data
-		// This ensures newly added materials are immediately visible in the table
 		var oService = this._getItemDetailsService();
+		that._setMaterialsSectionBusy(true);
 		return new Promise(function (resolve) {
 			oService.read("/ItemDetails", {
 				filters: [
@@ -2957,10 +3149,7 @@ sap.ui.define([
 				],
 				success: function (oData) {
 					var aItemDetails = oData.results || [];
-					// Update material table with all ItemDetails for this TripNumber
 					that._setMaterialDetailsFromService(aItemDetails);
-					// _setMaterialDetailsFromService already calls _filterMaterialDetails()
-					// to filter by selected reference document if any
 					if (sDocNumber) {
 						var oModel = that._ensureRefDocModel();
 						var aRefDocs = oModel.getProperty("/referenceDocs") || [];
@@ -2972,10 +3161,11 @@ sap.ui.define([
 							that._filterMaterialDetails();
 						}
 					}
+					that._setMaterialsSectionBusy(false);
 					resolve(aItemDetails);
 				},
 				error: function () {
-					// Silently fail - material table will show existing data
+					that._setMaterialsSectionBusy(false);
 					resolve([]);
 				}
 			});
@@ -3101,6 +3291,7 @@ sap.ui.define([
 				"idMaterialDocType",
 				"idMaterialRefDocNo",
 				"idMaterialRefDocItem",
+				"idMaterialSheduleItem",
 				"idMaterialCode",
 				"idMaterialDesc",
 				"idMaterialQty",
@@ -3139,6 +3330,7 @@ sap.ui.define([
 			this.byId("idMaterialDispatchQty")?.setEditable(!bTripLocked);
 			this.byId("idMaterialRemainQty")?.setEditable(false);
 			this.byId("idMaterialDispatchDate")?.setEditable(!bTripLocked);
+			this.byId("idMaterialSheduleItem")?.setEditable(!bTripLocked);
 		},
 
 		_populateMaterialDialog: function (oMaterial) {
@@ -3150,6 +3342,7 @@ sap.ui.define([
 			this._sSelectedMaterialDocType = oMaterial.docType || "";
 			this.byId("idMaterialRefDocNo")?.setValue(oMaterial.refDocNo || "");
 			this.byId("idMaterialRefDocItem")?.setValue(oMaterial.refDocItemNo || "");
+			this.byId("idMaterialSheduleItem")?.setValue(this._materialScheduleLineStr(oMaterial));
 			this.byId("idMaterialCode")?.setValue(oMaterial.materialCode || "");
 			this.byId("idMaterialDesc")?.setValue(oMaterial.materialDescription || "");
 			this.byId("idMaterialQty")?.setValue(oMaterial.qty || "");
@@ -3423,19 +3616,18 @@ sap.ui.define([
 		},
 
 	_fetchItemDetailsByRefDocNo: function (sDocType, sRefDocNo, bForceNetworkCall) {
+		var that = this;
 		return new Promise(function (resolve, reject) {
-			// Only check cache if bForceNetworkCall is false or undefined
+			var sTypeNorm = String(sDocType || "").trim().toUpperCase();
+			var sRefTrim = String(sRefDocNo || "").trim();
+			var sRefNorm = that._normalizeDocNumberForMatch(sRefTrim);
+
 			if (!bForceNetworkCall) {
-				// FIRST: ALWAYS check if ItemDetails is already available from TripData $expand
-				// If so, filter from that data instead of making a separate call
-				// This prevents duplicate calls even if _loadAllMaterialsForAllRefDocs is called
 				var oTripData = sap.ui.getCore().getModel("TripData");
 				if (oTripData) {
 					var vItemDetails = oTripData.getProperty("/ItemDetails");
 					if (vItemDetails) {
-						var aAllItemDetails = null; // Initialize as null, not empty array
-						
-						// Handle different data structures from OData $expand
+						var aAllItemDetails = null;
 						if (Array.isArray(vItemDetails)) {
 							aAllItemDetails = vItemDetails;
 						} else if (vItemDetails && typeof vItemDetails === "object" && vItemDetails.results) {
@@ -3443,57 +3635,59 @@ sap.ui.define([
 								aAllItemDetails = vItemDetails.results;
 							}
 						}
-						
-						// If we successfully extracted ItemDetails data from TripData, use it
-						// This means data was loaded via $expand, so NO separate OData call needed
 						if (aAllItemDetails !== null && Array.isArray(aAllItemDetails)) {
-							// Filter by DocType and RefDocNo from the already-loaded data
-							var aFiltered = aAllItemDetails.filter(function(oItem) {
-								return oItem && 
-									   typeof oItem === "object" &&
-									   oItem.DocType === sDocType && 
-									   oItem.RefDocNo === sRefDocNo && 
-									   oItem.IsDeleted !== "X";
+							var aFiltered = aAllItemDetails.filter(function (oItem) {
+								if (!oItem || typeof oItem !== "object" || oItem.IsDeleted === "X") {
+									return false;
+								}
+								var dt = String(oItem.DocType || "").trim().toUpperCase();
+								if (dt !== sTypeNorm) {
+									return false;
+								}
+								var rRaw = String(oItem.RefDocNo || "").trim();
+								if (sRefTrim && rRaw === sRefTrim) {
+									return true;
+								}
+								return !!(sRefNorm && that._normalizeDocNumberForMatch(rRaw) === sRefNorm);
 							});
-							// Return filtered results - NO OData call needed
-							// Even if filtered array is empty, return it because data was already loaded
-							resolve(aFiltered);
-							return; // CRITICAL: Exit early to prevent OData call
+							if (aFiltered.length > 0) {
+								resolve(aFiltered);
+								return;
+							}
+							// Expanded data exists but no rows for this ref doc (or empty expand): fall through to OData.
 						}
 					}
 				}
 			}
 
-			// Always make network call when bForceNetworkCall is true
-			// Fallback: Make separate call only if data is not available from TripData
-			var oService = this._getItemDetailsService();
-				var oGlobalModel = sap.ui.getCore().getModel("globalData");
-				var sTripNumber = oGlobalModel?.getProperty("/TripNumber") || "";
+			var oService = that._getItemDetailsService();
+			var oGlobalModel = sap.ui.getCore().getModel("globalData");
+			var sTripNumber = oGlobalModel?.getProperty("/TripNumber") || "";
 
-				if (!sTripNumber) {
-					reject(new Error("Trip Number missing"));
-					return;
+			if (!sTripNumber) {
+				reject(new Error("Trip Number missing"));
+				return;
+			}
+
+			var aFilters = [
+				new Filter("TripNumber", FilterOperator.EQ, sTripNumber),
+				new Filter("DocType", FilterOperator.EQ, sDocType),
+				new Filter("RefDocNo", FilterOperator.EQ, sRefDocNo),
+				new Filter("IsDeleted", FilterOperator.NE, "X")
+			];
+
+			oService.read("/ItemDetails", {
+				filters: aFilters,
+				success: function (oData) {
+					var aResults = oData.results || [];
+					resolve(aResults);
+				},
+				error: function (oError) {
+					reject(oError);
 				}
-
-				var aFilters = [
-					new Filter("TripNumber", FilterOperator.EQ, sTripNumber),
-					new Filter("DocType", FilterOperator.EQ, sDocType),
-					new Filter("RefDocNo", FilterOperator.EQ, sRefDocNo),
-					new Filter("IsDeleted", FilterOperator.NE, "X") // Exclude deleted items
-				];
-
-				oService.read("/ItemDetails", {
-					filters: aFilters,
-					success: function (oData) {
-						var aResults = oData.results || [];
-						resolve(aResults);
-					},
-					error: function (oError) {
-						reject(oError);
-					}
-				});
-			}.bind(this));
-		},
+			});
+		});
+	},
 
 		_populateMaterialFromItemDetail: function (oItem) {
 			if (!oItem) {
@@ -4224,6 +4418,93 @@ sap.ui.define([
 				}.bind(this));
 		},
 
+		/**
+		 * Append rows to the material table only from persisted backend ItemDetails (item table).
+		 * No synthetic lines: empty service result or only keys already in the table → 0 appended.
+		 * @param {object[]} aItemRows OData /ItemDetails read results
+		 * @returns {number} number of new rows appended to refDocModel>/materialDetails
+		 */
+		_mergePersistedItemDetailsIntoMaterialTableIfAny: function (aItemRows) {
+			var that = this;
+			var aServerItems = aItemRows || [];
+			if (!aServerItems.length) {
+				return 0;
+			}
+			var oModel = this._ensureRefDocModel();
+			var aLatestExisting = oModel.getProperty("/materialDetails") || [];
+			var oExistingKeys = {};
+			aLatestExisting.forEach(function (oMat) {
+				var sK = that._getMaterialDetailMergeKey(oMat);
+				if (sK) {
+					oExistingKeys[sK] = true;
+				}
+			});
+			var aNewMaterials = aServerItems.filter(function (oItem) {
+				var sKey = that._getMaterialDetailMergeKey({
+					tripNumber: oItem.TripNumber,
+					TripNumber: oItem.TripNumber,
+					docType: oItem.DocType,
+					DocType: oItem.DocType,
+					refDocNo: oItem.RefDocNo,
+					RefDocNo: oItem.RefDocNo,
+					refDocItemNo: oItem.RefDocItemNo,
+					RefDocItemNo: oItem.RefDocItemNo,
+					scheduleItem: oItem.ScheduleItem || oItem.SheduleItem,
+					ScheduleItem: oItem.ScheduleItem || oItem.SheduleItem,
+					SheduleItem: oItem.SheduleItem || oItem.ScheduleItem
+				});
+				return sKey && !oExistingKeys[sKey];
+			});
+			if (!aNewMaterials.length) {
+				return 0;
+			}
+			var aMaterialsToAdd = aNewMaterials.map(function (oItem) {
+				var vQty = oItem.Quantity;
+				var sQtyDisplay = (vQty === null || vQty === undefined || vQty === "") ? "" : String(vQty);
+				var vBal = oItem.BalanceQty;
+				if (vBal === undefined || vBal === null) {
+					vBal = oItem.balanceQty;
+				}
+				var sBalanceQtyDisplay = (vBal === null || vBal === undefined || vBal === "") ? "" : String(vBal);
+				var vShippingQty = (oItem.ShippingQty !== undefined && oItem.ShippingQty !== null) ? oItem.ShippingQty : oItem.DispatchQty;
+				var sShippingQtyDisplay = (vShippingQty === null || vShippingQty === undefined || vShippingQty === "") ? "" : String(vShippingQty);
+				var sRemainQtyDisplay = (oItem.RemainQty === null || oItem.RemainQty === undefined || oItem.RemainQty === "") ? "" : String(oItem.RemainQty);
+				if (sRemainQtyDisplay === "") {
+					var fB = that._materialBalanceBaseForRemain(oItem);
+					var fS = parseFloat(sShippingQtyDisplay);
+					if (isFinite(fB) && !isNaN(fS) && isFinite(fS)) {
+						sRemainQtyDisplay = String(fB - fS);
+					} else if (isFinite(fB)) {
+						sRemainQtyDisplay = String(fB);
+					}
+				}
+				return {
+					tripNumber: oItem.TripNumber || "",
+					docType: oItem.DocType || "",
+					refDocNo: oItem.RefDocNo || "",
+					refDocItemNo: oItem.RefDocItemNo || "",
+					materialCode: oItem.MaterialCode || "",
+					materialDescription: oItem.MaterialDescription || "",
+					qty: sQtyDisplay,
+					balanceQty: sBalanceQtyDisplay,
+					shippingQty: sShippingQtyDisplay,
+					dispatchQty: sShippingQtyDisplay,
+					remainQty: sRemainQtyDisplay,
+					uom: oItem.UoM || "",
+					createdBy: oItem.CreatedBy || "",
+					createdOnDate: that._formatODataDate(oItem.CreatedOn),
+					createdOnTime: that._formatODataTime(oItem.CreatedTime),
+					changedBy: oItem.ChangedBy || "",
+					changedOnDate: that._formatODataDate(oItem.ChangedDate),
+					changedOnTime: that._formatODataTime(oItem.ChangedTime)
+				};
+			});
+			var aFresh = oModel.getProperty("/materialDetails") || [];
+			oModel.setProperty("/materialDetails", aFresh.concat(aMaterialsToAdd));
+			this._filterMaterialDetails();
+			return aNewMaterials.length;
+		},
+
 		_addAllMaterialsFromRefDoc: function (sDocType, sRefDocNo) {
 			var that = this;
 			var oGlobalModel = sap.ui.getCore().getModel("globalData");
@@ -4234,91 +4515,23 @@ sap.ui.define([
 				return;
 			}
 
-			// Fetch all existing ItemDetails for this Ref Doc
-			this._fetchItemDetailsByRefDocNo(sDocType, sRefDocNo)
+			if (that._isInwardMovement()) {
+				return;
+			}
+
+			that._setMaterialsSectionBusy(true);
+			// Read ItemDetails (item table); map only persisted rows (see _mergePersistedItemDetailsIntoMaterialTableIfAny).
+			this._fetchItemDetailsByRefDocNo(sDocType, sRefDocNo, true)
 				.then(function (aItems) {
-					// Get existing materials from local model to avoid duplicates
-					var oModel = that._ensureRefDocModel();
-					var aExistingMaterials = oModel.getProperty("/materialDetails") || [];
-					
-					// Create a set of existing material keys for quick lookup
-					var oExistingKeys = {};
-					aExistingMaterials.forEach(function (oMat) {
-						var sKey = (oMat.tripNumber || "") + "|" + 
-								   (oMat.docType || "") + "|" + 
-								   (oMat.refDocNo || "") + "|" + 
-								   (oMat.refDocItemNo || "");
-						oExistingKeys[sKey] = true;
-					});
-
-					// Filter out materials that already exist
-					var aNewMaterials = aItems.filter(function (oItem) {
-						var sKey = (oItem.TripNumber || "") + "|" + 
-								   (oItem.DocType || "") + "|" + 
-								   (oItem.RefDocNo || "") + "|" + 
-								   (oItem.RefDocItemNo || "");
-						return !oExistingKeys[sKey];
-					});
-
-					if (aNewMaterials.length === 0) {
-						// Close the dialog since all materials are already added
+					var nAdded = that._mergePersistedItemDetailsIntoMaterialTableIfAny(aItems);
+					if (nAdded === 0) {
 						that._closeMaterialDialog();
 						that._resetMaterialDialog();
 						that._oEventBus?.publish("RefDoc", "MaterialsUpdated");
 						return;
 					}
 
-					// Add all new materials to local model
-					var aMaterialsToAdd = aNewMaterials.map(function (oItem) {
-						var vQty = oItem.Quantity;
-						var sQtyDisplay = (vQty === null || vQty === undefined || vQty === "") ? "" : String(vQty);
-						var vBal = oItem.BalanceQty;
-						if (vBal === undefined || vBal === null) {
-							vBal = oItem.balanceQty;
-						}
-						var sBalanceQtyDisplay = (vBal === null || vBal === undefined || vBal === "") ? "" : String(vBal);
-						var vShippingQty = (oItem.ShippingQty !== undefined && oItem.ShippingQty !== null) ? oItem.ShippingQty : oItem.DispatchQty;
-						var sShippingQtyDisplay = (vShippingQty === null || vShippingQty === undefined || vShippingQty === "") ? "" : String(vShippingQty);
-						var sRemainQtyDisplay = (oItem.RemainQty === null || oItem.RemainQty === undefined || oItem.RemainQty === "") ? "" : String(oItem.RemainQty);
-						if (sRemainQtyDisplay === "") {
-							var fB = that._materialBalanceBaseForRemain(oItem);
-							var fS = parseFloat(sShippingQtyDisplay);
-							if (isFinite(fB) && !isNaN(fS) && isFinite(fS)) {
-								sRemainQtyDisplay = String(fB - fS);
-							} else if (isFinite(fB)) {
-								sRemainQtyDisplay = String(fB);
-							}
-						}
-						
-						return {
-							tripNumber: oItem.TripNumber || "",
-							docType: oItem.DocType || "",
-							refDocNo: oItem.RefDocNo || "",
-							refDocItemNo: oItem.RefDocItemNo || "",
-							materialCode: oItem.MaterialCode || "",
-							materialDescription: oItem.MaterialDescription || "",
-							qty: sQtyDisplay,
-							balanceQty: sBalanceQtyDisplay,
-							shippingQty: sShippingQtyDisplay,
-							dispatchQty: sShippingQtyDisplay,
-							remainQty: sRemainQtyDisplay,
-							uom: oItem.UoM || "",
-							createdBy: oItem.CreatedBy || "",
-							createdOnDate: that._formatODataDate(oItem.CreatedOn),
-							createdOnTime: that._formatODataTime(oItem.CreatedTime),
-							changedBy: oItem.ChangedBy || "",
-							changedOnDate: that._formatODataDate(oItem.ChangedDate),
-							changedOnTime: that._formatODataTime(oItem.ChangedTime)
-						};
-					});
-
-					// Add all materials to the local model
-					var aAllMaterials = aExistingMaterials.concat(aMaterialsToAdd);
-					oModel.setProperty("/materialDetails", aAllMaterials);
-					that._filterMaterialDetails();
-
-					// Show success message and close dialog
-					MessageToast.show(aNewMaterials.length + " material(s) added successfully");
+					MessageToast.show(nAdded + " material(s) added successfully");
 					that._closeMaterialDialog();
 					that._resetMaterialDialog();
 					that._oEventBus?.publish("RefDoc", "MaterialsUpdated");
@@ -4326,6 +4539,9 @@ sap.ui.define([
 				.catch(function (oError) {
 					var sMessage = that._extractErrorMessage(oError) || "Unable to fetch materials for the selected reference document";
 					MessageToast.show(sMessage);
+				})
+				.then(function () {
+					that._setMaterialsSectionBusy(false);
 				});
 		},
 
@@ -4615,6 +4831,7 @@ sap.ui.define([
 				sFormattedBalanceQty = (fBalanceBase % 1 === 0) ? String(Math.floor(fBalanceBase)) : fBalanceBase.toFixed(2);
 			}
 			var bScannerScenarioActive = this._isScannerScenarioActive();
+			var sScheduleLineDlg = (this.byId("idMaterialSheduleItem")?.getValue() || "").trim();
 
 			var oPayload = {
 				TripNumber: sTripNumber,
@@ -4631,8 +4848,8 @@ sap.ui.define([
 				IsDeleted: "", // Required MaxLength="1", use empty string for not deleted
 				IsSplitActive: false
 			};
-			if (bScannerScenarioActive) {
-				oPayload.SheduleItem = (this.byId("idMaterialSheduleItem")?.getValue() || "").trim();
+			if (bScannerScenarioActive || sScheduleLineDlg) {
+				oPayload.SheduleItem = sScheduleLineDlg;
 			}
 
 			return oPayload;
@@ -4793,10 +5010,8 @@ sap.ui.define([
 				var sMatTrip = String(oMat?.tripNumber || oMat?.TripNumber || "").trim();
 				var sMatDocType = String(oMat?.docType || oMat?.DocType || "").trim().toUpperCase();
 				var sMatRefRaw = String(oMat?.refDocNo || oMat?.RefDocNo || "").trim();
-				var sMatRefNorm = this._normalizeDocNumberForMatch(sMatRefRaw);
-				var bMatDocMatch =
-					(sMatRefRaw && sTargetDocNoRaw && sMatRefRaw === sTargetDocNoRaw) ||
-					(sMatRefNorm && sTargetDocNoNorm && sMatRefNorm === sTargetDocNoNorm);
+				// Strict document number match only (avoids stripping two different refs to the same norm).
+				var bMatDocMatch = !!(sMatRefRaw && sTargetDocNoRaw && sMatRefRaw === sTargetDocNoRaw);
 				return !(sMatTrip === sTargetTrip && sMatDocType === sTargetDocType && bMatDocMatch);
 			}.bind(this));
 			
@@ -5045,11 +5260,12 @@ sap.ui.define([
 				IsDeleted: oPayload.IsDeleted || "",
 				IsSplitActive: oPayload.IsSplitActive !== undefined ? oPayload.IsSplitActive : false
 			};
-			if (this._isScannerScenarioActive()) {
-				oUpdatePayload.SheduleItem = oPayload.SheduleItem || "";
-			}
-
-			
+			var sSchedUpd = (
+				this._materialScheduleLineStr(oOriginalMaterial) ||
+				this._materialScheduleLineStr(oPayload) ||
+				String(oPayload.SheduleItem || oPayload.ScheduleItem || "").trim()
+			);
+			oUpdatePayload.SheduleItem = sSchedUpd;
 
 			var oService = this._getItemDetailsService();
 			return new Promise(function (resolve, reject) {
@@ -5106,12 +5322,7 @@ sap.ui.define([
 						"X-Requested-With": "X"
 					},
 					success: function (oData) {
-						var sMaterialKey = [
-							that._materialRowFieldStr(oMaterial, "tripNumber", "TripNumber").toUpperCase(),
-							that._materialRowFieldStr(oMaterial, "docType", "DocType").toUpperCase(),
-							that._materialRowFieldStr(oMaterial, "refDocNo", "RefDocNo").toUpperCase(),
-							that._materialRowFieldStr(oMaterial, "refDocItemNo", "RefDocItemNo").toUpperCase()
-						].join("|");
+						var sMaterialKey = that._getMaterialDetailMergeKey(oMaterial);
 						that._setUiGuard(that._mMaterialUiGuard, sMaterialKey, "delete");
 						// Notify dependent tabs (Gate In / Gate Out) that materials changed.
 						that._oEventBus?.publish("RefDoc", "MaterialsUpdated");
@@ -5134,31 +5345,12 @@ sap.ui.define([
 		_removeLocalMaterialDetail: function (oMaterial) {
 			var oModel = this._ensureRefDocModel();
 			var aMaterials = oModel.getProperty("/materialDetails") || [];
-			var sTargetTrip = this._materialRowFieldStr(oMaterial, "tripNumber", "TripNumber");
-			var sTargetDocType = this._materialRowFieldStr(oMaterial, "docType", "DocType").toUpperCase();
-			var sTargetRefNoRaw = this._materialRowFieldStr(oMaterial, "refDocNo", "RefDocNo");
-			var sTargetItemNoRaw = this._materialRowFieldStr(oMaterial, "refDocItemNo", "RefDocItemNo");
-			var sTargetRefNoNorm = this._normalizeDocNumberForMatch(sTargetRefNoRaw);
-			var sTargetItemNoNorm = this._normalizeDocNumberForMatch(sTargetItemNoRaw);
-			
-			// Remove the material
+			var sDeleteKey = this._getMaterialDetailMergeKey(oMaterial);
+			if (!sDeleteKey) {
+				return;
+			}
 			var aFiltered = aMaterials.filter(function (oMat) {
-				var sMatTrip = this._materialRowFieldStr(oMat, "tripNumber", "TripNumber");
-				var sMatDocType = this._materialRowFieldStr(oMat, "docType", "DocType").toUpperCase();
-				var sMatRefNoRaw = this._materialRowFieldStr(oMat, "refDocNo", "RefDocNo");
-				var sMatItemNoRaw = this._materialRowFieldStr(oMat, "refDocItemNo", "RefDocItemNo");
-				var sMatRefNoNorm = this._normalizeDocNumberForMatch(sMatRefNoRaw);
-				var sMatItemNoNorm = this._normalizeDocNumberForMatch(sMatItemNoRaw);
-				var bRefNoMatch =
-					(sMatRefNoRaw && sTargetRefNoRaw && sMatRefNoRaw === sTargetRefNoRaw) ||
-					(sMatRefNoNorm && sTargetRefNoNorm && sMatRefNoNorm === sTargetRefNoNorm);
-				var bItemNoMatch =
-					(sMatItemNoRaw && sTargetItemNoRaw && sMatItemNoRaw === sTargetItemNoRaw) ||
-					(sMatItemNoNorm && sTargetItemNoNorm && sMatItemNoNorm === sTargetItemNoNorm);
-				return !(sMatTrip === sTargetTrip &&
-						 sMatDocType === sTargetDocType &&
-						 bRefNoMatch &&
-						 bItemNoMatch);
+				return this._getMaterialDetailMergeKey(oMat) !== sDeleteKey;
 			}.bind(this));
 			
 			oModel.setProperty("/materialDetails", aFiltered, true);
@@ -5174,6 +5366,7 @@ sap.ui.define([
 			var sTargetDocType = String(oOriginalMaterial?.docType || oOriginalMaterial?.DocType || "").trim().toUpperCase();
 			var sTargetRefNo = String(oOriginalMaterial?.refDocNo || oOriginalMaterial?.RefDocNo || "").trim();
 			var sTargetItemNo = String(oOriginalMaterial?.refDocItemNo || oOriginalMaterial?.RefDocItemNo || "").trim();
+			var sTargetSched = this._materialScheduleLineStr(oOriginalMaterial);
 
 			// Find and update the material in the array
 			var iIndex = aMaterials.findIndex(function (oMat) {
@@ -5181,22 +5374,15 @@ sap.ui.define([
 				var sMatDocType = String(oMat?.docType || oMat?.DocType || "").trim().toUpperCase();
 				var sMatRefNo = String(oMat?.refDocNo || oMat?.RefDocNo || "").trim();
 				var sMatItemNo = String(oMat?.refDocItemNo || oMat?.RefDocItemNo || "").trim();
+				var sMatSched = this._materialScheduleLineStr(oMat);
 				return sMatTrip === sTargetTrip &&
 					sMatDocType === sTargetDocType &&
 					sMatRefNo === sTargetRefNo &&
-					sMatItemNo === sTargetItemNo;
-			});
+					sMatItemNo === sTargetItemNo &&
+					sMatSched === sTargetSched;
+			}.bind(this));
 
 			if (iIndex >= 0) {
-				console.log("[MaterialDebug] _updateLocalMaterialDetail matched existing row", {
-					index: iIndex,
-					target: {
-						trip: sTargetTrip,
-						docType: sTargetDocType,
-						refDocNo: sTargetRefNo,
-						refDocItemNo: sTargetItemNo
-					}
-				});
 				var vQty = oPayload.Quantity;
 				var sQtyDisplay = (vQty === null || vQty === undefined || vQty === "") ? "" : String(vQty);
 
@@ -5221,18 +5407,26 @@ sap.ui.define([
 				var sRemainQtyDisplay = (isFinite(fBaseDisplay) && !isNaN(fShippingDisplay) && isFinite(fShippingDisplay)) ?
 					String(fBaseDisplay - fShippingDisplay) :
 					((oPayload.RemainQty === null || oPayload.RemainQty === undefined || oPayload.RemainQty === "") ? "" : String(oPayload.RemainQty));
+				var sSchedPl = (
+					this._materialScheduleLineStr(oPayload) ||
+					this._materialScheduleLineStr(aMaterials[iIndex]) ||
+					String(oPayload.SheduleItem || oPayload.ScheduleItem || "").trim()
+				);
 				aMaterials[iIndex] = Object.assign({}, aMaterials[iIndex], {
 					// Keep uppercase versions for backend compatibility
 					TripNumber: oPayload.TripNumber || aMaterials[iIndex].TripNumber || aMaterials[iIndex].tripNumber,
 					DocType: oPayload.DocType || aMaterials[iIndex].DocType || aMaterials[iIndex].docType,
 					RefDocNo: oPayload.RefDocNo || aMaterials[iIndex].RefDocNo || aMaterials[iIndex].refDocNo,
 					RefDocItemNo: oPayload.RefDocItemNo || aMaterials[iIndex].RefDocItemNo || aMaterials[iIndex].refDocItemNo,
+					ScheduleItem: sSchedPl,
+					SheduleItem: sSchedPl,
 					BalanceQty: sBalanceQtyDisplay || oPayload.BalanceQty || aMaterials[iIndex].BalanceQty,
 					// Lowercase versions for UI binding
 					tripNumber: oPayload.TripNumber || aMaterials[iIndex].tripNumber,
 					docType: oPayload.DocType || aMaterials[iIndex].docType,
 					refDocNo: oPayload.RefDocNo || aMaterials[iIndex].refDocNo,
 					refDocItemNo: oPayload.RefDocItemNo || aMaterials[iIndex].refDocItemNo,
+					scheduleItem: sSchedPl,
 					materialCode: oPayload.MaterialCode || aMaterials[iIndex].materialCode,
 					materialDescription: oPayload.MaterialDescription || aMaterials[iIndex].materialDescription,
 					qty: sQtyDisplay,
@@ -5291,33 +5485,31 @@ sap.ui.define([
 			var sRemainQtyDisplay = (isFinite(fBaseDisplay) && !isNaN(fShippingDisplay) && isFinite(fShippingDisplay)) ?
 				String(fBaseDisplay - fShippingDisplay) :
 				((oPayload.RemainQty === null || oPayload.RemainQty === undefined || oPayload.RemainQty === "") ? "" : String(oPayload.RemainQty));
-			var sTripKey = String(oPayload.TripNumber || "").trim().toUpperCase();
-			var sDocTypeKey = String(oPayload.DocType || sDialogDocType || "").trim().toUpperCase();
-			var sRefDocKey = String(oPayload.RefDocNo || sDialogRefDocNo || "").trim().toUpperCase();
-			var sItemKey = String(oPayload.RefDocItemNo || sDialogRefDocItem || "").trim().toUpperCase();
+			var sSchedDlg = (oPayload.SheduleItem || oPayload.ScheduleItem ||
+				(this.byId("idMaterialSheduleItem")?.getValue() || "")).trim();
+			var oRowKeyProbe = {
+				tripNumber: oPayload.TripNumber || "",
+				docType: oPayload.DocType || sDialogDocType,
+				refDocNo: oPayload.RefDocNo || sDialogRefDocNo,
+				refDocItemNo: oPayload.RefDocItemNo || sDialogRefDocItem,
+				scheduleItem: sSchedDlg,
+				SheduleItem: sSchedDlg
+			};
 			var bExists = aMaterials.some(function (oMat) {
-				return String(oMat?.tripNumber || oMat?.TripNumber || "").trim().toUpperCase() === sTripKey &&
-					String(oMat?.docType || oMat?.DocType || "").trim().toUpperCase() === sDocTypeKey &&
-					String(oMat?.refDocNo || oMat?.RefDocNo || "").trim().toUpperCase() === sRefDocKey &&
-					String(oMat?.refDocItemNo || oMat?.RefDocItemNo || "").trim().toUpperCase() === sItemKey;
-			});
+				return this._getMaterialDetailMergeKey(oMat) === this._getMaterialDetailMergeKey(oRowKeyProbe);
+			}.bind(this));
 			if (bExists) {
-				console.warn("[MaterialDebug] _appendLocalMaterialDetail duplicate blocked", {
-					key: [sTripKey, sDocTypeKey, sRefDocKey, sItemKey].join("|"),
-					existingCount: aMaterials.length
-				});
 				return;
 			}
-			console.log("[MaterialDebug] _appendLocalMaterialDetail adding row", {
-				key: [sTripKey, sDocTypeKey, sRefDocKey, sItemKey].join("|"),
-				beforeCount: aMaterials.length
-			});
 
 			aMaterials.push({
 				tripNumber: oPayload.TripNumber || "",
 				docType: oPayload.DocType || sDialogDocType,
 				refDocNo: oPayload.RefDocNo || sDialogRefDocNo,
 				refDocItemNo: oPayload.RefDocItemNo || sDialogRefDocItem,
+				scheduleItem: sSchedDlg,
+				ScheduleItem: sSchedDlg,
+				SheduleItem: sSchedDlg,
 				materialCode: oPayload.MaterialCode || sDialogMaterial,
 				materialDescription: oPayload.MaterialDescription || sDialogDesc,
 				qty: sQtyDisplay,
@@ -5338,9 +5530,6 @@ sap.ui.define([
 
 			// Force model refresh by setting the entire array
 			oModel.setProperty("/materialDetails", aMaterials, true); // true = force refresh
-			console.log("[MaterialDebug] _appendLocalMaterialDetail added row", {
-				afterCount: aMaterials.length
-			});
 			// If ref docs are missing (for example material-first flow), derive minimal rows.
 			this._backfillReferenceDocsFromMaterialsIfMissing();
 			// Update filtered list after adding new material
@@ -5359,9 +5548,11 @@ sap.ui.define([
 				sap.ui.getCore().setModel(oGlobalModel, "globalData");
 			}
 
-			// Set TripData model on view if not already set (for binding)
-			if (oTripData && !this.getView().getModel("TripData")) {
+			// Keep named TripData on this view in sync with core so bindings (e.g. schedule line for I + "02" → I02) refresh.
+			if (oTripData) {
 				this.getView().setModel(oTripData, "TripData");
+			} else {
+				this.getView().setModel(null, "TripData");
 			}
 
 			if (!oTripData) {
@@ -5462,7 +5653,17 @@ sap.ui.define([
 					sTripCtx
 				);
 				if (!bSkipEmptyItems) {
-					this._setMaterialDetailsFromService(aItemDetails);
+					var bDeferExpand = this._shouldDeferTripExpandedMaterialMerge(
+						aItemDetails,
+						aExistingMaterials,
+						aExistingRefDocs,
+						sTripCtx
+					);
+					if (bDeferExpand) {
+						this._loadItemDetailsSeparately(sTripCtx);
+					} else {
+						this._setMaterialDetailsFromService(aItemDetails);
+					}
 				}
 			} else {
 				// No usable ItemDetails shape on TripData — refresh ref docs, load items from service
@@ -5581,9 +5782,8 @@ sap.ui.define([
 					}
 				}
 				
-				// Only call if ItemDetails is NOT in TripData
+				// Only call if ItemDetails is NOT in TripData (each ref doc: map rows only when backend returns lines)
 				if (!bItemDetailsInTripData) {
-					// Automatically load all materials for all reference documents
 					this._loadAllMaterialsForAllRefDocs(aRefDocs);
 				}
 			}
@@ -5591,6 +5791,9 @@ sap.ui.define([
 
 		_loadAllMaterialsForAllRefDocs: function (aRefDocs) {
 			if (!aRefDocs || aRefDocs.length === 0) {
+				return;
+			}
+			if (this._isInwardMovement()) {
 				return;
 			}
 
@@ -5625,122 +5828,120 @@ sap.ui.define([
 				return;
 			}
 
-			// Get existing materials from local model
 			var oModel = that._ensureRefDocModel();
-			var aExistingMaterials = oModel.getProperty("/materialDetails") || [];
-			
-			// Create a set of existing material keys for quick lookup
+			var fnItemMergeKey = function (oItem) {
+				return that._getMaterialDetailMergeKey({
+					tripNumber: oItem.TripNumber,
+					TripNumber: oItem.TripNumber,
+					docType: oItem.DocType,
+					DocType: oItem.DocType,
+					refDocNo: oItem.RefDocNo,
+					RefDocNo: oItem.RefDocNo,
+					refDocItemNo: oItem.RefDocItemNo,
+					RefDocItemNo: oItem.RefDocItemNo,
+					scheduleItem: oItem.ScheduleItem || oItem.SheduleItem,
+					ScheduleItem: oItem.ScheduleItem || oItem.SheduleItem,
+					SheduleItem: oItem.SheduleItem || oItem.ScheduleItem
+				});
+			};
+
+			var aExistingSnapshot = oModel.getProperty("/materialDetails") || [];
 			var oExistingKeys = {};
-			aExistingMaterials.forEach(function (oMat) {
-				var sKey = (oMat.tripNumber || "") + "|" + 
-						   (oMat.docType || "") + "|" + 
-						   (oMat.refDocNo || "") + "|" + 
-						   (oMat.refDocItemNo || "");
-				oExistingKeys[sKey] = true;
+			aExistingSnapshot.forEach(function (oMat) {
+				var sK = that._getMaterialDetailMergeKey(oMat);
+				if (sK) {
+					oExistingKeys[sK] = true;
+				}
 			});
 
-			// Collect all promises for fetching materials
+			that._setMaterialsSectionBusy(true);
+
 			var aPromises = [];
 			aRefDocs.forEach(function (oRefDoc) {
 				var sDocType = oRefDoc.docType || "";
 				var sRefDocNo = oRefDoc.documentNumber || "";
-				
+
 				if (sDocType && sRefDocNo) {
 					var oPromise = that._fetchItemDetailsByRefDocNo(sDocType, sRefDocNo)
 						.then(function (aItems) {
 							if (aItems && aItems.length > 0) {
-								// Filter out materials that already exist
 								var aNewMaterials = aItems.filter(function (oItem) {
-									var sKey = (oItem.TripNumber || "") + "|" + 
-											   (oItem.DocType || "") + "|" + 
-											   (oItem.RefDocNo || "") + "|" + 
-											   (oItem.RefDocItemNo || "");
-									return !oExistingKeys[sKey];
+									var sKey = fnItemMergeKey(oItem);
+									return sKey && !oExistingKeys[sKey];
 								});
-
-								// Add new materials to existing keys set
 								aNewMaterials.forEach(function (oItem) {
-									var sKey = (oItem.TripNumber || "") + "|" + 
-											   (oItem.DocType || "") + "|" + 
-											   (oItem.RefDocNo || "") + "|" + 
-											   (oItem.RefDocItemNo || "");
-									oExistingKeys[sKey] = true;
+									var sKey = fnItemMergeKey(oItem);
+									if (sKey) {
+										oExistingKeys[sKey] = true;
+									}
 								});
-
 								return aNewMaterials;
 							}
 							return [];
 						})
-						.catch(function (oError) {
-							// Silently fail for individual ref docs, continue with others
+						.catch(function () {
 							return [];
 						});
-					
+
 					aPromises.push(oPromise);
 				}
 			});
 
-			// Wait for all promises to complete
-			Promise.all(aPromises).then(function (aResults) {
-				// Flatten all new materials
-				var aAllNewMaterials = [];
-				aResults.forEach(function (aMaterials) {
-					if (aMaterials && aMaterials.length > 0) {
-						aAllNewMaterials = aAllNewMaterials.concat(aMaterials);
-					}
-				});
-
-				if (aAllNewMaterials.length > 0) {
-					// Convert to local model format
-					var aMaterialsToAdd = aAllNewMaterials.map(function (oItem) {
-						var vQty = oItem.Quantity;
-						var sQtyDisplay = (vQty === null || vQty === undefined || vQty === "") ? "" : String(vQty);
-						var vCases = oItem.Cases;
-						var sCasesDisplay = (vCases === null || vCases === undefined || vCases === "") ? "" : String(vCases);
-						
-						return {
-							tripNumber: oItem.TripNumber || "",
-							docType: oItem.DocType || "",
-							refDocNo: oItem.RefDocNo || "",
-							refDocItemNo: oItem.RefDocItemNo || "",
-							movementType: oItem.MovementType || "",
-							materialCode: oItem.MaterialCode || "",
-							materialDescription: oItem.MaterialDescription || "",
-							qty: sQtyDisplay,
-							// Backend ItemDetails "Cases" shown as "Bins (Trolleys)" in UI
-							binsTrolleys: sCasesDisplay,
-							uom: oItem.UoM || "",
-							createdBy: oItem.CreatedBy || "",
-							createdOnDate: that._formatODataDate(oItem.CreatedOn),
-							createdOnTime: that._formatODataTime(oItem.CreatedTime),
-							changedBy: oItem.ChangedBy || "",
-							changedOnDate: that._formatODataDate(oItem.ChangedDate),
-							changedOnTime: that._formatODataTime(oItem.ChangedTime)
-						};
+			Promise.all(aPromises)
+				.then(function (aResults) {
+					var aAllNewMaterials = [];
+					aResults.forEach(function (aMaterials) {
+						if (aMaterials && aMaterials.length > 0) {
+							aAllNewMaterials = aAllNewMaterials.concat(aMaterials);
+						}
 					});
 
-					// Add all new materials to the local model
-					var aAllMaterials = aExistingMaterials.concat(aMaterialsToAdd);
-					oModel.setProperty("/materialDetails", aAllMaterials);
-					that._filterMaterialDetails();
-				}
-			});
+					if (aAllNewMaterials.length > 0) {
+						var aMaterialsToAdd = aAllNewMaterials.map(function (oItem) {
+							var vQty = oItem.Quantity;
+							var sQtyDisplay = (vQty === null || vQty === undefined || vQty === "") ? "" : String(vQty);
+							var vCases = oItem.Cases;
+							var sCasesDisplay = (vCases === null || vCases === undefined || vCases === "") ? "" : String(vCases);
+
+							return {
+								tripNumber: oItem.TripNumber || "",
+								docType: oItem.DocType || "",
+								refDocNo: oItem.RefDocNo || "",
+								refDocItemNo: oItem.RefDocItemNo || "",
+								movementType: oItem.MovementType || "",
+								materialCode: oItem.MaterialCode || "",
+								materialDescription: oItem.MaterialDescription || "",
+								qty: sQtyDisplay,
+								binsTrolleys: sCasesDisplay,
+								uom: oItem.UoM || "",
+								createdBy: oItem.CreatedBy || "",
+								createdOnDate: that._formatODataDate(oItem.CreatedOn),
+								createdOnTime: that._formatODataTime(oItem.CreatedTime),
+								changedBy: oItem.ChangedBy || "",
+								changedOnDate: that._formatODataDate(oItem.ChangedDate),
+								changedOnTime: that._formatODataTime(oItem.ChangedTime)
+							};
+						});
+
+						var aLatestExisting = oModel.getProperty("/materialDetails") || [];
+						var aAllMaterials = aLatestExisting.concat(aMaterialsToAdd);
+						oModel.setProperty("/materialDetails", aAllMaterials);
+						that._filterMaterialDetails();
+					}
+				})
+				.catch(function () {
+					// ignore per-doc failures
+				})
+				.then(function () {
+					that._setMaterialsSectionBusy(false);
+				});
 		},
 
+		// Rebuilds material rows from OData ItemDetails (persisted item table) plus any _isLocal optimistic rows.
 		_setMaterialDetailsFromService: function (aItems) {
 			var oModel = this._ensureRefDocModel();
 			var aExisting = oModel.getProperty("/materialDetails") || [];
 			var that = this;
-			console.log("[MaterialDebug] _setMaterialDetailsFromService start", {
-				existingCount: aExisting.length,
-				incomingCount: (aItems || []).length
-			});
-			var fnNormalize = function (vValue) {
-				if (vValue === undefined || vValue === null) {
-					return "";
-				}
-				return String(vValue).trim().toUpperCase();
-			};
 			var aLocalMaterials = aExisting.filter(function (oMat) {
 				return oMat && oMat._isLocal === true;
 			});
@@ -5779,6 +5980,7 @@ sap.ui.define([
 						DocType: oItem.DocType === undefined || oItem.DocType === null ? "" : String(oItem.DocType),
 						RefDocNo: oItem.RefDocNo === undefined || oItem.RefDocNo === null ? "" : String(oItem.RefDocNo),
 						RefDocItemNo: oItem.RefDocItemNo === undefined || oItem.RefDocItemNo === null ? "" : String(oItem.RefDocItemNo),
+						SheduleItem: oItem.SheduleItem || oItem.ScheduleItem || "",
 						ScheduleItem: oItem.SheduleItem || oItem.ScheduleItem || "",
 						MovementType: oItem.MovementType || "",
 						Cases: sCasesDisplay,
@@ -5814,12 +6016,7 @@ sap.ui.define([
 				}.bind(this));
 			var mExistingMaterialByKey = {};
 			var fnMaterialMergeKey = function (oMat) {
-				return [
-					fnNormalize(that._materialRowFieldStr(oMat, "tripNumber", "TripNumber")),
-					fnNormalize(that._materialRowFieldStr(oMat, "docType", "DocType")),
-					fnNormalize(that._materialRowFieldStr(oMat, "refDocNo", "RefDocNo")),
-					fnNormalize(that._materialRowFieldStr(oMat, "refDocItemNo", "RefDocItemNo"))
-				].join("|");
+				return that._getMaterialDetailMergeKey(oMat);
 			};
 			aExisting.forEach(function (oMat) {
 				var sExistingKey = fnMaterialMergeKey(oMat);
@@ -5854,9 +6051,6 @@ sap.ui.define([
 			});
 			aMaterials = Object.values(oMaterialsByKey);
 			oModel.setProperty("/materialDetails", aMaterials);
-			console.log("[MaterialDebug] _setMaterialDetailsFromService end", {
-				finalCount: aMaterials.length
-			});
 			// If backend returned materials but no OrderDetails payload, keep Reference Docs table usable.
 			this._backfillReferenceDocsFromMaterialsIfMissing();
 			// Update filtered list after setting all materials
@@ -5894,9 +6088,9 @@ sap.ui.define([
 				}
 			}
 
-			// Only make separate call if data is truly not available
 			var oService = this._getItemDetailsService();
 			var that = this;
+			this._setMaterialsSectionBusy(true);
 
 			oService.read("/ItemDetails", {
 				filters: [
@@ -5906,11 +6100,65 @@ sap.ui.define([
 				success: function (oData) {
 					var aItemDetails = oData.results || [];
 					that._setMaterialDetailsFromService(aItemDetails);
+					that._setMaterialsSectionBusy(false);
 				},
-				error: function (oError) {
+				error: function () {
 					that._setMaterialDetailsFromService([]);
+					that._setMaterialsSectionBusy(false);
 				}
 			});
+		},
+
+		/**
+		 * Shallow snapshot of TripData OrderDetails / ItemDetails for rollback after a failed ref-doc delete.
+		 * Avoids JSON cloning so OData date shapes stay intact.
+		 */
+		_snapshotTripDataOrderItemNav: function () {
+			var oTripData = sap.ui.getCore().getModel("TripData");
+			if (!oTripData) {
+				return null;
+			}
+			return {
+				od: this._snapshotNavForRollback(oTripData.getProperty("/OrderDetails")),
+				id: this._snapshotNavForRollback(oTripData.getProperty("/ItemDetails"))
+			};
+		},
+
+		_snapshotNavForRollback: function (v) {
+			if (Array.isArray(v)) {
+				return { k: "a", a: v.slice() };
+			}
+			if (v && typeof v === "object" && Array.isArray(v.results)) {
+				return { k: "r", a: v.results.slice() };
+			}
+			return { k: "x", v: v };
+		},
+
+		_restoreTripDataOrderItemNav: function (mSnap) {
+			if (!mSnap) {
+				return;
+			}
+			var oTripData = sap.ui.getCore().getModel("TripData");
+			if (!oTripData) {
+				return;
+			}
+			this._restoreNavForRollback(oTripData, "/OrderDetails", mSnap.od);
+			this._restoreNavForRollback(oTripData, "/ItemDetails", mSnap.id);
+		},
+
+		_restoreNavForRollback: function (oTripData, sBasePath, oSnap) {
+			if (!oSnap) {
+				return;
+			}
+			if (oSnap.k === "a") {
+				oTripData.setProperty(sBasePath, oSnap.a);
+				return;
+			}
+			if (oSnap.k === "r") {
+				oTripData.setProperty(sBasePath + "/results", oSnap.a);
+				return;
+			}
+			oTripData.setProperty(sBasePath, oSnap.v);
 		},
 
 		/**
@@ -5999,8 +6247,13 @@ sap.ui.define([
 
 					// Use data from TripData (already loaded from expand)
 					this._setReferenceDocsFromService(aOrderDetails, true);
+					var aExRefCache = oModelCache.getProperty("/referenceDocs") || [];
 					if (!this._shouldSkipEmptyMaterialSnapshot(aItemDetails, aOrderDetails, aExMatCache, sTripCache)) {
-						this._setMaterialDetailsFromService(aItemDetails);
+						if (this._shouldDeferTripExpandedMaterialMerge(aItemDetails, aExMatCache, aExRefCache, sTripCache)) {
+							this._loadItemDetailsSeparately(sTripCache);
+						} else {
+							this._setMaterialDetailsFromService(aItemDetails);
+						}
 					}
 					return; // Exit early - no separate calls needed
 				}
@@ -6074,11 +6327,8 @@ sap.ui.define([
 				if (!bSkipEmptyItems) {
 					that._setMaterialDetailsFromService(aItemDetails);
 				}
-			}).catch(function (oError) {
+			}).catch(function () {
 				// Do not clear UI on refresh failure (error is not "empty trip").
-				if (typeof console !== "undefined" && console.error) {
-					console.error("ReferenceDocuments: atomic refresh failed", oError);
-				}
 			});
 		},
 
@@ -6447,6 +6697,25 @@ sap.ui.define([
 				return false;
 			}
 			return String(sMovementType).trim().toUpperCase() === "I";
+		},
+
+		/**
+		 * Schedule line is only relevant for movement scenario I02 (incoming scanner / schedule line).
+		 * @param {string} sMovementScenarioItemKey TripData MovementScenarioItemKey
+		 * @param {string} sMovementType TripData MovementType
+		 * @param {string} sMovementScenario TripData MovementScenario (segment, e.g. "02")
+		 * @returns {boolean}
+		 */
+		formatMaterialScheduleLineVisible: function (sMovementScenarioItemKey, sMovementType, sMovementScenario) {
+			var sKey = String(sMovementScenarioItemKey || "").trim().toUpperCase();
+			if (sKey === "I02") {
+				return true;
+			}
+			var sComputed = MovementScenarioIcons.getMovementScenarioItemKey(
+				sMovementType,
+				sMovementScenario
+			);
+			return String(sComputed || "").trim().toUpperCase() === "I02";
 		},
 
 		_formatODataTime: function (vTime) {

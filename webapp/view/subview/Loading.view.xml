@@ -66,6 +66,14 @@
                                     <Text text="Ref Doc Item Number" />
                                 </Column>
                                 <Column
+                                    id="colLoadingScheduleLine"
+                                    demandPopin="true"
+                                    minScreenWidth="Desktop"
+                                    popinDisplay="Inline"
+                                    width="6rem">
+                                    <Text text="Schedule line" />
+                                </Column>
+                                <Column
                                     id="colLoadingMaterialCode"
                                     demandPopin="true"
                                     minScreenWidth="Desktop"
@@ -173,6 +181,7 @@
                                     <cells>
                                         <Text text="{tableModel>RefDocNumber}"/>
                                         <Text text="{tableModel>RefDocItemNumber}"/>
+                                        <Text text="{= ${tableModel>ScheduleItem} || ${tableModel>SheduleItem} || ${tableModel>scheduleItem} || '' }"/>
                                         <Text text="{tableModel>MaterialCode}"/>
                                         <Text text="{tableModel>MaterialDescription}"/>
                                         <Text 
@@ -186,11 +195,12 @@
                                                 selected="{= ${tableModel>ConfirmQty} === 'X' }"
                                                 select=".onConfirmQtySelect"
                                                 tooltip="Confirm Quantity (backend field ConfirmQty)"
+                                                enabled="{= !${globalData>/TripLocked} }"
                                             />
                                         </HBox>
                                         <Input
                                             value="{tableModel>LoadedWeight}"
-                                            enabled="true"
+                                            enabled="{= !${globalData>/TripLocked} }"
                                             placeholder="Enter Weight"
                                             width="8rem"
                                             type="Number"
@@ -201,7 +211,7 @@
                                         />
                                         <Input
                                             value="{tableModel>GrossWt}"
-                                            enabled="{loadingModel>/weighmentEnabled}"
+                                            enabled="{= ${loadingModel>/weighmentEnabled} &amp;&amp; !${globalData>/TripLocked} }"
                                             placeholder="Gross Wt"
                                             width="7rem"
                                             type="Number"
@@ -211,7 +221,7 @@
                                         />
                                         <Input
                                             value="{tableModel>TareWt}"
-                                            enabled="{loadingModel>/weighmentEnabled}"
+                                            enabled="{= ${loadingModel>/weighmentEnabled} &amp;&amp; !${globalData>/TripLocked} }"
                                             placeholder="Tare Wt"
                                             width="7rem"
                                             type="Number"
@@ -225,6 +235,7 @@
                                             class="sapUiTinyMarginEnd"/>
                                         <Input
                                             value="{tableModel>Remark}"
+                                            enabled="{= !${globalData>/TripLocked} }"
                                             placeholder="Remark"
                                             width="10rem"
                                             maxLength="255"
@@ -242,7 +253,7 @@
         </Panel>
 
         <!-- ===================== BUTTONS AT BOTTOM ===================== -->
-        <HBox justifyContent="End" class="sapUiSmallMarginTop" width="100%">
+        <HBox justifyContent="End" class="sapUiSmallMarginTop" width="100%" visible="{= !${globalData>/TripLocked} }">
             <!-- Save Loading (weights/quantities/remark) -->
             <Button 
                 id="btnSaveLoading" 

@@ -8,8 +8,9 @@ sap.ui.define([
 	"sap/ui/model/Filter",
 	"sap/ui/model/FilterOperator",
 	"com/incresolZ_INC_PLMS/util/MovementScenarioIcons",
-	"com/incresolZ_INC_PLMS/util/O02GateException"
-], function(Controller, JSONModel, ODataModel, MessageBox, MessageToast, ButtonType, Filter, FilterOperator, MovementScenarioIcons, O02GateException) {
+	"com/incresolZ_INC_PLMS/util/O02GateException",
+	"com/incresolZ_INC_PLMS/util/TripDataDocumentsVerified"
+], function(Controller, JSONModel, ODataModel, MessageBox, MessageToast, ButtonType, Filter, FilterOperator, MovementScenarioIcons, O02GateException, TripDataDocumentsVerified) {
 	"use strict";
 	return Controller.extend("com.incresolZ_INC_PLMS.controller.Stage", {
 		onInit: function() {
@@ -36,6 +37,8 @@ sap.ui.define([
 			this._oEventBus.subscribe("Notes", "UnreadCountChanged", this._updateNotesTabIndicator, this);
 			this._oEventBus.subscribe("Stage", "ClearAllTabs", this._onClearAllTabs, this);
 			this._bPendingVehicleTypeTabAutoSelect = false;
+			// When true, Stage shows only Gate In / Gate Out (create-style tab bar) until user opens a trip via StagewithParam.
+			this._bStageTabBarLimited = false;
 			this._sLastSelectedStageTabKey = "gateIn";
 			this.getView().setModel(this._ensureStageUiModel(), "stageUi");
 			this._updateTripLockState();
@@ -67,6 +70,7 @@ sap.ui.define([
 		this.resetPageTitleModel();
 		// Set create mode to ensure header stays clear
 		this._bCreateMode = true;
+		this._bStageTabBarLimited = true;
 		this._sCurrentTripNumber = "";
 		this._updateTabVisibilityForCreateMode();
 		this._updateHeaderVisibilityForCreateMode();
@@ -101,6 +105,7 @@ sap.ui.define([
 		// ============================
 		if (sRouteName === "Stage") {
 			this._bCreateMode = true;
+			this._bStageTabBarLimited = true;
 			this._sCurrentTripNumber = "";
 			this._updateReportingPlacementByVehicleType();
 	
@@ -199,6 +204,7 @@ sap.ui.define([
 		//   CASE 2 — UPDATE MODE
 		// ============================
 		if (sRouteName === "StagewithParam") {
+			this._bStageTabBarLimited = false;
 			var sTripKey = /^\d+$/.test(String(sTripNumber || "").trim())
 				? String(sTripNumber).trim().padStart(10, "0")
 				: String(sTripNumber || "").trim();
@@ -246,7 +252,12 @@ sap.ui.define([
 			}
 			this._sLastSelectedStageTabKey = sEffectiveKey;
 			if (oIconTabBar) {
-				oIconTabBar.setSelectedKey(sEffectiveKey);
+				// Avoid setSelectedKey when unchanged — repeated calls refresh tab content
+				// and reset scroll (Gate In merges Reporting at the top).
+				var sCurrentKey = String(oIconTabBar.getSelectedKey() || "").trim();
+				if (sCurrentKey !== sEffectiveKey) {
+					oIconTabBar.setSelectedKey(sEffectiveKey);
+				}
 			}
 		}
 		,
@@ -350,7 +361,10 @@ sap.ui.define([
 				oButton.getIcon ? oButton.getIcon() : ""
 			].join(" ").toLowerCase();
 
-			return /(save|edit|delete|add|create|update)/.test(sCombined);
+			// Also match workflow actions (loading/unload), uploads, and scanner/PO submit.
+			return /(save|edit|delete|add|create|update|upload|start|end|restart|submit|scan)/.test(
+				sCombined
+			);
 		},
 
 		_updateReportingPlacementByVehicleType: function () {
@@ -365,7 +379,11 @@ sap.ui.define([
 		},
 
 		_applyVehicleTypeTabRule: function () {
-			if (!this._bCreateMode && !this._bPendingVehicleTypeTabAutoSelect) {
+			if (
+				!this._bCreateMode &&
+				!this._bPendingVehicleTypeTabAutoSelect &&
+				!this._bStageTabBarLimited
+			) {
 				return;
 			}
 			var oTripData = sap.ui.getCore().getModel("TripData");
@@ -381,7 +399,7 @@ sap.ui.define([
 			var bGateOutFirst = this._isGateOutFirstScenario();
 			this._updateReportingPlacementByVehicleType();
 			this._setIconTabSelection(bGateOutFirst ? "gateout" : "gateIn");
-			if (this._bCreateMode) {
+			if (this._bCreateMode || this._bStageTabBarLimited) {
 				this._updateTabVisibilityForCreateMode();
 			}
 			this._bPendingVehicleTypeTabAutoSelect = false;
@@ -399,6 +417,7 @@ sap.ui.define([
 			if (bReset) {
 				this._sCurrentTripNumber = "";
 				this._bCreateMode = true;
+				this._bStageTabBarLimited = true;
 				oGlobalModel.setProperty("/TripNumber", "");
 				sap.ui.getCore().setModel(null, "TripData");
 			} else if (sTripNumber) {
@@ -514,6 +533,7 @@ sap.ui.define([
 			}
 			this._oPageTitleModel = oModel;
 			this._bCreateMode = true;
+			this._bStageTabBarLimited = true;
 			oModel.setProperty("/tripNumber", "");
 			oModel.setProperty("/vehicleNumber", "");
 			oModel.setProperty("/tripStatus", "");
@@ -545,9 +565,54 @@ sap.ui.define([
 			}
 		},
 
+		/**
+		 * OData V2 JSON error body → user-facing string (same shape as HomePage._getODataErrorMessage).
+		 * @param {object} oError request error object (often has responseText)
+		 * @param {string} [sDefaultMessage] fallback when body cannot be parsed
+		 * @returns {string}
+		 */
+		_getODataErrorMessage: function (oError, sDefaultMessage) {
+			var sErrorMessage = sDefaultMessage || "Error";
+			if (!oError) {
+				return sErrorMessage;
+			}
+			try {
+				if (oError.responseText) {
+					var oResp = JSON.parse(oError.responseText);
+					if (oResp.error && oResp.error.message && oResp.error.message.value) {
+						sErrorMessage = oResp.error.message.value;
+					} else if (oResp.error && oResp.error.message) {
+						sErrorMessage =
+							typeof oResp.error.message === "string"
+								? oResp.error.message
+								: oResp.error.message;
+					}
+					if (
+						oResp.error &&
+						oResp.error.innererror &&
+						oResp.error.innererror.errordetails &&
+						oResp.error.innererror.errordetails.length > 0
+					) {
+						var sDetail = oResp.error.innererror.errordetails[0].message;
+						if (sDetail && String(sDetail).trim()) {
+							sErrorMessage = sDetail;
+						}
+					}
+				}
+			} catch (e) {
+				if (oError.message && oError.message.value) {
+					sErrorMessage = oError.message.value;
+				} else if (oError.message) {
+					sErrorMessage = sDefaultMessage ? sDefaultMessage + ": " + oError.message : String(oError.message);
+				}
+			}
+			return sErrorMessage;
+		},
+
 		_deleteTrip: function (sTripNumber) {
 			var oService = this._getTripService();
 			var sPath = "/TripDetails('" + sTripNumber + "')";
+			var sDefaultErr = "Failed to cancel trip. Please try again.";
 
 			oService.remove(sPath, {
 				headers: {
@@ -557,9 +622,10 @@ sap.ui.define([
 					MessageToast.show("Trip cancelled successfully");
 					this._handleTripCancelled();
 				}.bind(this),
-				error: function () {
-					MessageBox.error("Failed to cancel trip. Please try again.");
-				}
+				error: function (oError) {
+					var sMsg = this._getODataErrorMessage(oError, sDefaultErr);
+					MessageBox.error(sMsg);
+				}.bind(this)
 			});
 		},
 
@@ -568,6 +634,7 @@ sap.ui.define([
 			sap.ui.getCore().getModel("globalData")?.setProperty("/TripNumber", "");
 			sap.ui.getCore().setModel(null, "TripData");
 			this._bCreateMode = true;
+			this._bStageTabBarLimited = true;
 			this._sCurrentTripNumber = "";
 			this.resetPageTitleModel();
 			this._setIconTabSelection("gateIn");
@@ -677,6 +744,7 @@ sap.ui.define([
 								? "Y"
 								: "N";
 					}
+					TripDataDocumentsVerified.applyDocumentsVerifiedToVerifiedDocs(oData || {});
 					sap.ui.getCore().setModel(new JSONModel(oData || {}), "TripData");
 					this._oEventBus.publish("TripData", "Updated");
 					this._oEventBus.publish("Stage", "TripCreated", {
@@ -746,6 +814,7 @@ sap.ui.define([
 		/**
 		 * Update Tab Visibility for Create Mode
 		 * Normal: only Gate In (Reporting, Ref. Docs, Gate In). O02+Internal exception: only Gate Out (reporting embedded there).
+		 * After saving a new trip on the Stage route, _bStageTabBarLimited keeps the same gate-only tab bar until the user opens a trip via StagewithParam (e.g. from Home).
 		 */
 		_updateTabVisibilityForCreateMode: function () {
 			var oIconTabBar = this.byId("iconTabBar");
@@ -753,6 +822,7 @@ sap.ui.define([
 				return;
 			}
 			var bGateOutFirst = this._isGateOutFirstScenario();
+			var bLimitedTabBar = !!this._bCreateMode || !!this._bStageTabBarLimited;
 
 			var aTabs = oIconTabBar.getItems();
 			aTabs.forEach(function(oTab) {
@@ -760,12 +830,12 @@ sap.ui.define([
 				var sId = oTab.getId();
 
 				if (sKey === "gateIn") {
-					oTab.setVisible(!this._bCreateMode || !bGateOutFirst);
+					oTab.setVisible(!bLimitedTabBar || !bGateOutFirst);
 					return;
 				}
 
 				if (sKey === "gateout") {
-					oTab.setVisible(!this._bCreateMode || bGateOutFirst);
+					oTab.setVisible(!bLimitedTabBar || bGateOutFirst);
 					return;
 				}
 				
@@ -774,12 +844,12 @@ sap.ui.define([
 					return; // Don't change visibility - let _updateLoadingUnloadingTabs() handle it
 				}
 				
-				// For existing trips, show all tabs except Loading/Unloading.
-				// In create mode, keep non-gate tabs hidden.
-				oTab.setVisible(!this._bCreateMode);
+				// Full Stage (e.g. StagewithParam from Home): show all tabs except Loading/Unloading.
+				// Limited tab bar (create flow or post-create on Stage route): hide non-gate tabs.
+				oTab.setVisible(!bLimitedTabBar);
 			}.bind(this));
 
-			if (this._bCreateMode) {
+			if (bLimitedTabBar) {
 				this._setIconTabSelection(bGateOutFirst ? "gateout" : "gateIn");
 			}
 		},

@@ -4,18 +4,26 @@ sap.ui.define(
     "sap/ui/model/odata/v2/ODataModel",
     "sap/m/MessageToast",
     "sap/m/MessageBox",
+    "sap/m/SelectDialog",
+    "sap/m/StandardListItem",
     "sap/ui/model/json/JSONModel",
+    "sap/ui/model/Filter",
     "com/incresolZ_INC_PLMS/util/PanelAccordion",
     "com/incresolZ_INC_PLMS/util/O02GateException",
+    "com/incresolZ_INC_PLMS/util/TripDataDocumentsVerified",
   ],
   function (
     Controller,
     ODataModel,
     MessageToast,
     MessageBox,
+    SelectDialog,
+    StandardListItem,
     JSONModel,
+    Filter,
     PanelAccordion,
-    O02GateException
+    O02GateException,
+    TripDataDocumentsVerified
   ) {
     "use strict";
 
@@ -76,17 +84,18 @@ sap.ui.define(
           });
           this.getView().setModel(this._oDelayReasonSelectModel, "delayReasonSelect");
 
+          this.getView().setModel(new JSONModel({ items: [] }), "partCodeSuggest");
+          this._sPartCodeSuggestRowPath = "";
+          this._sPartCodeSuggestLatestTerm = "";
+          this._iPartCodeSuggestTimer = null;
+
           this._initBinTrolleyTrackingModel();
           this._initBinTrolleyVisibilityModel();
           this._updateBinTrolleyVisibility();
           
           // Initialize selected files array
           this._aSelectedFiles = [];
-          PanelAccordion.attachByIds(this.getView(), [
-            "gateInBinTrolleyTrackingPanel",
-            "gateInInfoPanel",
-            "gateInChangeHistoryPanel",
-          ]);
+          PanelAccordion.attach(this.getView());
           this._updatePanelVisibility();
 
         },
@@ -116,6 +125,25 @@ sap.ui.define(
           var sTripNumber = (oCoreTrip && oCoreTrip.getProperty("/TripNumber")) ||
             (oViewTrip && oViewTrip.getProperty("/TripNumber")) || "";
           oUi.setProperty("/showPanels", !!String(sTripNumber).trim());
+        },
+        /**
+         * Single expanded panel on the tab: Reporting when it is shown here; otherwise Gate-In.
+         */
+        _applyGateInTabDefaultPanelExpansion: function () {
+          try {
+            var oStageUi = sap.ui.getCore().getModel("stageUi");
+            var bReportingOnGateOut = !!(oStageUi && oStageUi.getProperty("/showReportingInGateOut"));
+            var oEmb = this.getView().byId("idVehicleReportingEmbeddedGateIn");
+            var oRep = oEmb && oEmb.byId("reportingDetailsPanel");
+            if (!bReportingOnGateOut && oRep) {
+              PanelAccordion.collapseAllExcept(this.getView(), oRep);
+            } else {
+              var oGateIn = this.getView().byId("gateInInfoPanel");
+              PanelAccordion.collapseAllExcept(this.getView(), oGateIn);
+            }
+          } catch (e) {
+            // ignore
+          }
         },
         _ensureReportingPanelExpanded: function () {
           // Intentionally no-op.
@@ -216,8 +244,9 @@ sap.ui.define(
             Customer: "",
             CusromerName: "",
             Material: "",
+            MaterialDescription: "",
             BinType: "",
-            BinTypeDesc: "Muffler Trolley",
+            BinTypeDesc: "",
             QtyIn: 0,
             QtyOut: 0,
             Difference: 0,
@@ -260,6 +289,114 @@ sap.ui.define(
           if (oTrackingModel) {
             oTrackingModel.setProperty("/isPosted", false);
           }
+        },
+
+        /** Non-negative whole number for bin/trolley QtyIn/QtyOut (OData / model). */
+        _coerceWholeBinQty: function (v) {
+          var n = Number(v);
+          if (isNaN(n) || n < 0) {
+            return 0;
+          }
+          return Math.trunc(n);
+        },
+
+        _scheduleBinTrackingExcessWarning: function () {
+          if (this._iBinExcessWarnTimer) {
+            clearTimeout(this._iBinExcessWarnTimer);
+          }
+          this._iBinExcessWarnTimer = setTimeout(
+            function () {
+              this._iBinExcessWarnTimer = null;
+              this._warnBinTrackingQtyInExcessIfAny();
+            }.bind(this),
+            600
+          );
+        },
+
+        _warnBinTrackingQtyInExcessIfAny: function () {
+          var oUi = this.getView().getModel("ui");
+          if (!oUi || !oUi.getProperty("/showBinTrolleyTracking")) {
+            return;
+          }
+          var oTrackingModel = this.getView().getModel("binTrolleyTracking");
+          if (!oTrackingModel) {
+            return;
+          }
+          var aRows = this._getTrackingItems(oTrackingModel);
+          var bExcess = (aRows || []).some(
+            function (oRow) {
+              if (!oRow) {
+                return false;
+              }
+              var iIn = this._coerceWholeBinQty(oRow.QtyIn);
+              var iOut = this._coerceWholeBinQty(oRow.QtyOut);
+              return iIn > iOut;
+            }.bind(this)
+          );
+          if (!bExcess) {
+            return;
+          }
+          MessageToast.show(
+            "Warning: Qty In is greater than Qty Out for one or more bin/trolley rows."
+          );
+        },
+
+        _onBinTrackingQtyInUiChanged: function () {
+          this._recalculateTrackingTotals();
+          var oTrackingModel = this.getView().getModel("binTrolleyTracking");
+          if (oTrackingModel) {
+            oTrackingModel.setProperty("/isPosted", false);
+          }
+        },
+
+        onBinTrackingQtyInLiveChange: function (oEvent) {
+          var sNew = oEvent.getParameter("value");
+          var sPrev = oEvent.getParameter("previousValue");
+          if (sNew === "" || /^\d+$/.test(sNew)) {
+            this._onBinTrackingQtyInUiChanged();
+            return;
+          }
+          oEvent.getSource().setValue(sPrev == null ? "" : String(sPrev));
+          this._onBinTrackingQtyInUiChanged();
+        },
+
+        onBinTrackingQtyInPaste: function (oEvent) {
+          var oBE = oEvent.getParameter("browserEvent");
+          var sPaste = "";
+          if (oBE && oBE.clipboardData) {
+            sPaste = String(oBE.clipboardData.getData("text") || "").trim();
+          }
+          oEvent.preventDefault();
+          if (sPaste === "") {
+            return;
+          }
+          if (!/^\d+$/.test(sPaste)) {
+            MessageToast.show("Only whole numbers are allowed.");
+            return;
+          }
+          var oInput = oEvent.getSource();
+          var sCur = String(oInput.getValue() || "");
+          var oFR = oInput.getFocusDomRef();
+          var iStart = 0;
+          var iEnd = sCur.length;
+          if (oFR && typeof oFR.selectionStart === "number") {
+            iStart = oFR.selectionStart;
+            iEnd = oFR.selectionEnd;
+          }
+          var sNew = sCur.slice(0, iStart) + sPaste + sCur.slice(iEnd);
+          if (!/^\d*$/.test(sNew)) {
+            MessageToast.show("Only whole numbers are allowed.");
+            return;
+          }
+          oInput.setValue(sNew);
+          this.onTrackingFieldLiveChange();
+          setTimeout(function () {
+            var el = oInput.getFocusDomRef();
+            if (el && typeof el.setSelectionRange === "function") {
+              var iCaret = iStart + sPaste.length;
+              el.setSelectionRange(iCaret, iCaret);
+            }
+          }, 0);
         },
 
         onRemoveTrackingRow: function (oEvent) {
@@ -346,19 +483,16 @@ sap.ui.define(
               );
             })
             .map(function (oRow) {
-              var iQtyIn = Number(oRow.QtyIn);
-              var iQtyOut = Number(oRow.QtyOut);
-              var iActualQty = Number(oRow.ActualQty);
-              if (isNaN(iQtyIn) || iQtyIn < 0) iQtyIn = 0;
-              if (isNaN(iQtyOut) || iQtyOut < 0) iQtyOut = 0;
-              if (isNaN(iActualQty) || iActualQty < 0) iActualQty = 0;
+              var iQtyIn = this._coerceWholeBinQty(oRow.QtyIn);
+              var iQtyOut = this._coerceWholeBinQty(oRow.QtyOut);
+              var iActualQty = this._coerceWholeBinQty(oRow.ActualQty);
               return {
                 TripNumber: String(oRow.TripNumber || sTripNumber || "").trim(),
                 DocumentNumber: String(oRow.DocumentNumber || "").trim(),
                 ItemNo: String(oRow.ItemNo || "").trim(),
                 Customer: String(oRow.Customer || ""),
                 Material: String(oRow.Material || ""),
-                BinType: "",
+                BinType: String(oRow.BinType || "").trim(),
                 BintypeDesc: String(oRow.BinTypeDesc || oRow.BintypeDesc || oRow.BinTypeDescription || oRow.BinType || oRow.BinTypes || "").trim(),
                 ActualQty: String(iActualQty),
                 QtyIn: String(iQtyIn),
@@ -471,14 +605,8 @@ sap.ui.define(
             }
             var aDeduped = this._dedupeEmptyBinsODataRows(aEmptyBins || []);
             var aMappedRows = aDeduped.map(function (r) {
-              var iQtyOut = Number(r.QtyOut);
-              if (isNaN(iQtyOut) || iQtyOut < 0) {
-                iQtyOut = 0;
-              }
-              var iQtyIn = Number(r.QtyIn);
-              if (isNaN(iQtyIn) || iQtyIn < 0) {
-                iQtyIn = 0;
-              }
+              var iQtyOut = this._coerceWholeBinQty(r.QtyOut);
+              var iQtyIn = this._coerceWholeBinQty(r.QtyIn);
               var iDiff = iQtyOut - iQtyIn;
               return {
                 TripNumber: String(r.TripNumber || sTripNumber).trim(),
@@ -487,6 +615,9 @@ sap.ui.define(
                 Customer: String(r.Customer || "").trim(),
                 CusromerName: String(r.CusromerName || r.CustomerName || "").trim(),
                 Material: String(r.Material || "").trim(),
+                MaterialDescription: String(
+                  r.MaterialDescription || r.PartcodeDesc || r.PartCodeDesc || r.MaterialDesc || ""
+                ).trim(),
                 BinType: String(r.BinType || r.BinTypes || r.BinTypeDesc || r.BintypeDesc || r.BinTypeDescription || "").trim(),
                 BinTypeDesc: String(r.BinTypeDesc || r.BintypeDesc || r.BinTypeDescription || r.BinType || r.BinTypes || "").trim(),
                 BintypeDesc: String(r.BinTypeDesc || r.BintypeDesc || r.BinTypeDescription || r.BinType || r.BinTypes || "").trim(),
@@ -561,14 +692,8 @@ sap.ui.define(
           var mStatusCounts = {};
 
           aRows.forEach(function (oRow) {
-            var iQtyIn = Number(oRow.QtyIn);
-            var iQtyOut = Number(oRow.QtyOut);
-            if (isNaN(iQtyIn) || iQtyIn < 0) {
-              iQtyIn = 0;
-            }
-            if (isNaN(iQtyOut) || iQtyOut < 0) {
-              iQtyOut = 0;
-            }
+            var iQtyIn = this._coerceWholeBinQty(oRow.QtyIn);
+            var iQtyOut = this._coerceWholeBinQty(oRow.QtyOut);
             oRow.QtyIn = iQtyIn;
             oRow.QtyOut = iQtyOut;
             var iDiff = oRow.IsManual === true ? iQtyIn : (iQtyOut - iQtyIn);
@@ -588,6 +713,7 @@ sap.ui.define(
             }
             var bMeaningfulRow =
               String(oRow.Material || "").trim() !== "" ||
+              String(oRow.MaterialDescription || "").trim() !== "" ||
               String(oRow.DocumentNumber || "").trim() !== "" ||
               String(oRow.ItemNo || "").trim() !== "" ||
               iQtyIn > 0 ||
@@ -616,6 +742,7 @@ sap.ui.define(
           oTrackingModel.setProperty("/totalQtyIn", iTotalQty);
           oTrackingModel.setProperty("/totalDifference", iTotalDiff);
           oTrackingModel.setProperty("/totalReturnStatusSummary", aStatusSummary.join(", "));
+          this._scheduleBinTrackingExcessWarning();
         },
 
         _deriveTrackingStatus: function (iQtyIn, iQtyOut, iDiff, sFallbackStatus, bIsManual) {
@@ -642,6 +769,511 @@ sap.ui.define(
         _escapeODataKey: function (s) {
           return String(s == null ? "" : s).trim().replace(/'/g, "''");
         },
+
+        _getPartCodeShDescription: function (oRow) {
+          oRow = oRow || {};
+          return String(oRow.PartcodeDesc || oRow.PartCodeDesc || "").trim();
+        },
+
+        /**
+         * Normalizes a PartCodeSH OData row or cached VH row for apply / compare.
+         */
+        _normalizePartCodeShRow: function (oRow) {
+          oRow = oRow || {};
+          return {
+            PartCode: String(oRow.PartCode || "").trim(),
+            PartcodeDesc: String(
+              oRow.PartcodeDesc || oRow.PartCodeDesc || this._getPartCodeShDescription(oRow) || ""
+            ).trim(),
+            BinType: String(oRow.BinType || "").trim(),
+            BinTypeDesc: String(oRow.BinTypeDesc || "").trim(),
+          };
+        },
+
+        _applyPartCodeShToTrackingRow: function (sPath, oMatch) {
+          var oTM = this.getView().getModel("binTrolleyTracking");
+          if (!oTM || !sPath || !oMatch) {
+            return;
+          }
+          var o = this._normalizePartCodeShRow(oMatch);
+          oTM.setProperty(sPath + "/Material", o.PartCode);
+          oTM.setProperty(sPath + "/MaterialDescription", o.PartcodeDesc);
+          oTM.setProperty(sPath + "/BinType", o.BinType);
+          oTM.setProperty(sPath + "/BinTypeDesc", o.BinTypeDesc);
+          oTM.setProperty(sPath + "/BintypeDesc", o.BinTypeDesc);
+        },
+
+        _findLocalPartCodeShMatches: function (sPartCode) {
+          var sKey = String(sPartCode || "").trim();
+          if (!sKey || !this._oPartCodeVhJsonModel) {
+            return [];
+          }
+          var aItems = this._oPartCodeVhJsonModel.getProperty("/items") || [];
+          var sUp = sKey.toUpperCase();
+          return aItems.filter(function (o) {
+            return String((o && o.PartCode) || "")
+              .trim()
+              .toUpperCase() === sUp;
+          });
+        },
+
+        /**
+         * If several PartCodeSH rows share the same part code, only auto-apply when bin data agrees.
+         * @returns {object|null|string} normalized row, null if none, "AMBIGUOUS" if conflicting bins
+         */
+        _pickConsensusPartCodeSh: function (aRawRows) {
+          if (!aRawRows || !aRawRows.length) {
+            return null;
+          }
+          var aNorm = aRawRows.map(this._normalizePartCodeShRow.bind(this));
+          if (aNorm.length === 1) {
+            return aNorm[0];
+          }
+          var o0 = aNorm[0];
+          var bSameBin = aNorm.every(function (o) {
+            return (
+              String(o.BinType || "").trim() === String(o0.BinType || "").trim() &&
+              String(o.BinTypeDesc || "").trim() === String(o0.BinTypeDesc || "").trim()
+            );
+          });
+          return bSameBin ? o0 : "AMBIGUOUS";
+        },
+
+        /**
+         * Resolves PartCode against cached VH data or OData PartCodeSH (EQ filter).
+         */
+        _resolvePartCodeShByPartCode: function (sPartCode, fnCallback) {
+          var that = this;
+          var sPart = String(sPartCode || "").trim();
+          if (!sPart) {
+            fnCallback(null);
+            return;
+          }
+          var aLocal = this._findLocalPartCodeShMatches(sPart);
+          if (aLocal.length) {
+            fnCallback(this._pickConsensusPartCodeSh(aLocal));
+            return;
+          }
+          var oModel = this.oModel;
+          if (!oModel) {
+            fnCallback(null);
+            return;
+          }
+          oModel.read("/PartCodeSH", {
+            filters: [
+              new Filter("PartCode", sap.ui.model.FilterOperator.EQ, sPart),
+            ],
+            urlParameters: { $top: "20" },
+            success: function (oData) {
+              var aRows = (oData && oData.results) || [];
+              var oPick = that._pickConsensusPartCodeSh(aRows);
+              if (oPick || oPick === "AMBIGUOUS") {
+                fnCallback(oPick);
+                return;
+              }
+              // EQ returned no rows (e.g. case mismatch): try broad read + client match
+              that._readPartCodeShBulkForTypedResolve(sPart, fnCallback);
+            },
+            error: function () {
+              that._readPartCodeShBulkForTypedResolve(sPart, fnCallback);
+            },
+          });
+        },
+
+        /**
+         * Loads PartCodeSH without $filter (for GW entities where PartCode is not filterable).
+         */
+        _readPartCodeShBulkForTypedResolve: function (sPartCode, fnCallback) {
+          var that = this;
+          var sPart = String(sPartCode || "").trim();
+          var oModel = this.oModel;
+          if (!oModel || !sPart) {
+            fnCallback(null);
+            return;
+          }
+          var sUp = sPart.toUpperCase();
+          oModel.read("/PartCodeSH", {
+            urlParameters: { $top: "2000" },
+            success: function (oData) {
+              var aRows = (oData && oData.results) || [];
+              var aExact = aRows.filter(function (r) {
+                return (
+                  String((r && r.PartCode) || "")
+                    .trim()
+                    .toUpperCase() === sUp
+                );
+              });
+              fnCallback(that._pickConsensusPartCodeSh(aExact));
+            },
+            error: function () {
+              fnCallback(null);
+            },
+          });
+        },
+
+        /**
+         * After blur/enter on Bin/Trolley Part Code: fill BinType/BinTypeDesc from PartCodeSH when unique.
+         */
+        onBinTrolleyPartCodeChange: function (oEvent) {
+          var oInput = oEvent.getSource();
+          var oCtx = oInput.getBindingContext("binTrolleyTracking");
+          if (!oCtx) {
+            return;
+          }
+          var oRow = oCtx.getObject();
+          if (!oRow || !oRow.IsManual) {
+            return;
+          }
+          var sPath = oCtx.getPath();
+          var sPart = String(oEvent.getParameter("value") || "").trim();
+          var oTM = this.getView().getModel("binTrolleyTracking");
+          if (!oTM) {
+            return;
+          }
+          if (!sPart) {
+            oTM.setProperty(sPath + "/BinType", "");
+            oTM.setProperty(sPath + "/BinTypeDesc", "");
+            oTM.setProperty(sPath + "/BintypeDesc", "");
+            oTM.setProperty(sPath + "/MaterialDescription", "");
+            oTM.setProperty("/isPosted", false);
+            this._recalculateTrackingTotals();
+            this._persistTrackingRows();
+            return;
+          }
+          var sRequested = sPart;
+          var that = this;
+          this._resolvePartCodeShByPartCode(sPart, function (oResolved) {
+            var sCurrent = String(oTM.getProperty(sPath + "/Material") || "").trim();
+            if (sCurrent !== sRequested) {
+              return;
+            }
+            if (oResolved === "AMBIGUOUS") {
+              MessageToast.show(
+                "Multiple bin types for this part code. Use value help to pick a row."
+              );
+              return;
+            }
+            if (!oResolved) {
+              MessageToast.show("Part code not found. Use value help or check the code.");
+              return;
+            }
+            that._applyPartCodeShToTrackingRow(sPath, oResolved);
+            oTM.setProperty("/isPosted", false);
+            that._recalculateTrackingTotals();
+            that._persistTrackingRows();
+          });
+        },
+
+        onPartCodeValueHelpRequest: function (oEvent) {
+          var oInput = oEvent.getSource();
+          var oCtx = oInput.getBindingContext("binTrolleyTracking");
+          if (!oCtx) {
+            return;
+          }
+          this._sPartCodeVhRowPath = oCtx.getPath();
+          this._openPartCodeSelectDialog();
+        },
+
+        /**
+         * Loads / refreshes PartCodeSH into _oPartCodeVhJsonModel (shared by VH + type-ahead).
+         */
+        _readPartCodeShCatalogIntoJsonModel: function (fnSuccess, fnError) {
+          var that = this;
+          if (!this._oPartCodeVhJsonModel) {
+            this._oPartCodeVhJsonModel = new JSONModel({ items: [] });
+          }
+          var oModel = this.oModel;
+          if (!oModel) {
+            if (fnError) {
+              fnError();
+            }
+            return;
+          }
+          oModel.read("/PartCodeSH", {
+            urlParameters: { $top: "2000" },
+            success: function (oData) {
+              var aRows = (oData && oData.results) || [];
+              var aItems = aRows.map(function (r) {
+                return that._normalizePartCodeShRow(r);
+              });
+              that._oPartCodeVhJsonModel.setProperty("/items", aItems);
+              if (fnSuccess) {
+                fnSuccess(aItems);
+              }
+            },
+            error: function () {
+              if (fnError) {
+                fnError();
+              }
+            },
+          });
+        },
+
+        _applyBinTrolleyPartCodeSuggestItems: function (sTerm) {
+          var oSugg = this.getView().getModel("partCodeSuggest");
+          if (!oSugg || !this._oPartCodeVhJsonModel) {
+            return;
+          }
+          var aAll = this._oPartCodeVhJsonModel.getProperty("/items") || [];
+          var sLower = String(sTerm || "").trim().toLowerCase();
+          var aOut;
+          if (!sLower) {
+            aOut = aAll.slice(0, 30);
+          } else {
+            aOut = aAll
+              .filter(function (o) {
+                if (!o) {
+                  return false;
+                }
+                return (
+                  String(o.PartCode || "")
+                    .toLowerCase()
+                    .indexOf(sLower) >= 0 ||
+                  String(o.PartcodeDesc || "")
+                    .toLowerCase()
+                    .indexOf(sLower) >= 0 ||
+                  String(o.BinType || "")
+                    .toLowerCase()
+                    .indexOf(sLower) >= 0 ||
+                  String(o.BinTypeDesc || "")
+                    .toLowerCase()
+                    .indexOf(sLower) >= 0
+                );
+              })
+              .slice(0, 40);
+          }
+          oSugg.setProperty("/items", aOut);
+        },
+
+        onBinTrolleyPartCodeSuggest: function (oEvent) {
+          var oInput = oEvent.getSource();
+          var oCtx = oInput.getBindingContext("binTrolleyTracking");
+          if (!oCtx || !oCtx.getObject() || !oCtx.getObject().IsManual) {
+            return;
+          }
+          this._sPartCodeSuggestRowPath = oCtx.getPath();
+          var sVal = (oEvent.getParameter("suggestValue") || "").trim();
+          this._sPartCodeSuggestLatestTerm = sVal;
+          if (this._iPartCodeSuggestTimer) {
+            clearTimeout(this._iPartCodeSuggestTimer);
+          }
+          var that = this;
+          this._iPartCodeSuggestTimer = setTimeout(function () {
+            that._iPartCodeSuggestTimer = null;
+            var sUse = that._sPartCodeSuggestLatestTerm;
+            var oSugg = that.getView().getModel("partCodeSuggest");
+            if (!oSugg) {
+              return;
+            }
+            if (!sUse) {
+              oSugg.setProperty("/items", []);
+              return;
+            }
+            if (!that._oPartCodeVhJsonModel) {
+              that._oPartCodeVhJsonModel = new JSONModel({ items: [] });
+            }
+            var aCatalog = that._oPartCodeVhJsonModel.getProperty("/items") || [];
+            if (aCatalog.length) {
+              that._applyBinTrolleyPartCodeSuggestItems(sUse);
+              return;
+            }
+            that._readPartCodeShCatalogIntoJsonModel(
+              function () {
+                that._applyBinTrolleyPartCodeSuggestItems(
+                  that._sPartCodeSuggestLatestTerm
+                );
+              },
+              function () {
+                oSugg.setProperty("/items", []);
+              }
+            );
+          }, 250);
+        },
+
+        onBinTrolleyPartCodeSuggestionSelected: function (oEvent) {
+          var oItem = oEvent.getParameter("selectedItem");
+          var oInput = oEvent.getSource();
+          var oBinCtx = oInput.getBindingContext("binTrolleyTracking");
+          if (!oItem || !oBinCtx) {
+            return;
+          }
+          var oRow = null;
+          var oSuggCtx = oItem.getBindingContext("partCodeSuggest");
+          if (oSuggCtx) {
+            oRow = oSuggCtx.getObject();
+          }
+          if (!oRow) {
+            var sKey = String(oItem.getKey() || "");
+            var aItems =
+              (this.getView().getModel("partCodeSuggest") &&
+                this.getView().getModel("partCodeSuggest").getProperty("/items")) ||
+              [];
+            var iPipe = sKey.indexOf("|");
+            var sCode = iPipe >= 0 ? sKey.slice(0, iPipe) : String(oItem.getText() || "").trim();
+            var sBin = iPipe >= 0 ? sKey.slice(iPipe + 1) : "";
+            oRow =
+              aItems.find(function (o) {
+                return (
+                  String((o && o.PartCode) || "").trim() === sCode &&
+                  (!sBin || String((o && o.BinType) || "").trim() === sBin)
+                );
+              }) || null;
+          }
+          if (!oRow) {
+            return;
+          }
+          var sPath = oBinCtx.getPath();
+          this._applyPartCodeShToTrackingRow(sPath, oRow);
+          var oTM = this.getView().getModel("binTrolleyTracking");
+          if (oTM) {
+            oTM.setProperty("/isPosted", false);
+          }
+          this._recalculateTrackingTotals();
+          this._persistTrackingRows();
+        },
+
+        _getPartCodeSelectDialog: function () {
+          var that = this;
+          if (!this._oPartCodeVhJsonModel) {
+            this._oPartCodeVhJsonModel = new JSONModel({ items: [] });
+          }
+          if (!this._oPartCodeSelectDialog) {
+            this._oPartCodeSelectDialog = new SelectDialog({
+              title: "Select Part Code",
+              search: this._onPartCodeVHSearch.bind(this),
+              confirm: this._onPartCodeVHConfirm.bind(this),
+              cancel: function () {
+                that._sPartCodeVhRowPath = "";
+              },
+              multiSelect: false,
+              growing: true,
+              growingThreshold: 50
+            });
+            this._oPartCodeSelectDialog.setModel(this._oPartCodeVhJsonModel, "partCodeVH");
+            this._oPartCodeSelectDialog.bindAggregation("items", {
+              path: "partCodeVH>/items",
+              template: new StandardListItem({
+                title: "{partCodeVH>PartCode}",
+                description: "{partCodeVH>PartcodeDesc}",
+                type: "Active"
+              })
+            });
+            this.getView().addDependent(this._oPartCodeSelectDialog);
+          }
+          return this._oPartCodeSelectDialog;
+        },
+
+        _openPartCodeSelectDialog: function () {
+          var that = this;
+          if (!this.oModel) {
+            MessageToast.show("Service not available.");
+            return;
+          }
+          var oDialog = this._getPartCodeSelectDialog();
+          oDialog.setBusy(true);
+          this._readPartCodeShCatalogIntoJsonModel(
+            function () {
+              var oBind = oDialog.getBinding("items");
+              if (oBind) {
+                oBind.filter([]);
+              }
+              oDialog.setBusy(false);
+              oDialog.open();
+            },
+            function () {
+              oDialog.setBusy(false);
+              MessageToast.show("Could not load part codes.");
+            }
+          );
+        },
+
+        _onPartCodeVHSearch: function (oEvent) {
+          var oSrc = oEvent.getSource();
+          var oDialog = oSrc;
+          while (oDialog && (!oDialog.isA || !oDialog.isA("sap.m.SelectDialog"))) {
+            oDialog =
+              typeof oDialog.getParent === "function" ? oDialog.getParent() : null;
+          }
+          if (!oDialog) {
+            oDialog = this._oPartCodeSelectDialog;
+          }
+          if (!oDialog) {
+            return;
+          }
+          var sVal = (
+            oEvent.getParameter("value") ||
+            oEvent.getParameter("newValue") ||
+            ""
+          )
+            .trim()
+            .toLowerCase();
+          var oBind = oDialog.getBinding("items");
+          if (!oBind) {
+            return;
+          }
+          if (!sVal) {
+            oBind.filter([]);
+            return;
+          }
+          oBind.filter(
+            new Filter({
+              filters: [
+                new Filter({
+                  path: "PartCode",
+                  test: function (v) {
+                    return String(v || "")
+                      .toLowerCase()
+                      .indexOf(sVal) >= 0;
+                  }
+                }),
+                new Filter({
+                  path: "PartcodeDesc",
+                  test: function (v) {
+                    return String(v || "")
+                      .toLowerCase()
+                      .indexOf(sVal) >= 0;
+                  }
+                }),
+                new Filter({
+                  path: "BinType",
+                  test: function (v) {
+                    return String(v || "")
+                      .toLowerCase()
+                      .indexOf(sVal) >= 0;
+                  }
+                }),
+                new Filter({
+                  path: "BinTypeDesc",
+                  test: function (v) {
+                    return String(v || "")
+                      .toLowerCase()
+                      .indexOf(sVal) >= 0;
+                  }
+                })
+              ],
+              and: false
+            })
+          );
+        },
+
+        _onPartCodeVHConfirm: function (oEvent) {
+          var aCtx = oEvent.getParameter("selectedContexts");
+          var oSel = aCtx && aCtx[0] && aCtx[0].getObject();
+          var sPath = this._sPartCodeVhRowPath;
+          this._sPartCodeVhRowPath = "";
+          if (!oSel || !sPath) {
+            return;
+          }
+          var oTM = this.getView().getModel("binTrolleyTracking");
+          if (!oTM) {
+            return;
+          }
+          this._applyPartCodeShToTrackingRow(sPath, oSel);
+          oTM.setProperty("/isPosted", false);
+          this._recalculateTrackingTotals();
+          this._persistTrackingRows();
+        },
+
         _buildEmptyBinsPath: function (sTripNumber, sDocumentNumber, sItemNo) {
           return (
             "/EmptyBins(TripNumber='" +
@@ -661,14 +1293,11 @@ sap.ui.define(
           }
           return (aMaterials || [])
             .map(function (oRow) {
-              var iQtyOut = Number(
+              var iQtyOut = this._coerceWholeBinQty(
                 oRow.Quantity !== undefined && oRow.Quantity !== null
                   ? oRow.Quantity
                   : oRow.qty
               );
-              if (isNaN(iQtyOut) || iQtyOut < 0) {
-                iQtyOut = 0;
-              }
               return {
                 DocumentNumber: String(oRow.refDocNo || oRow.RefDocNo || "").trim(),
                 ItemNo: String(oRow.refDocItemNo || oRow.RefDocItemNo || "").trim(),
@@ -679,6 +1308,14 @@ sap.ui.define(
                   oRow.material ||
                   oRow.MaterialNo ||
                   oRow.PartCode ||
+                  ""
+                ).trim(),
+                MaterialDescription: String(
+                  oRow.MaterialDescription ||
+                  oRow.materialDescription ||
+                  oRow.Description ||
+                  oRow.MaterialDesc ||
+                  oRow.PartcodeDesc ||
                   ""
                 ).trim(),
                 Customer: String(
@@ -698,7 +1335,7 @@ sap.ui.define(
                 ).trim(),
                 QtyOut: iQtyOut
               };
-            })
+            }.bind(this))
             .filter(function (oKey) {
               return !!oKey.DocumentNumber && !!oKey.ItemNo;
             })
@@ -721,10 +1358,7 @@ sap.ui.define(
           }
           return (aKeys || []).map(function (oKey) {
             var iQtyIn = 0;
-            var iQtyOut = Number(oKey.QtyOut);
-            if (isNaN(iQtyOut) || iQtyOut < 0) {
-              iQtyOut = 0;
-            }
+            var iQtyOut = this._coerceWholeBinQty(oKey.QtyOut);
             var iDiff = iQtyOut - iQtyIn;
             return {
               TripNumber: String(sTripNumber || "").trim(),
@@ -733,6 +1367,7 @@ sap.ui.define(
               Customer: String(oKey.Customer || "").trim(),
               CusromerName: String(oKey.CustomerName || "").trim(),
               Material: String(oKey.Material || "").trim(),
+              MaterialDescription: String(oKey.MaterialDescription || "").trim(),
               BinType: "",
               BinTypeDesc: "",
               QtyIn: iQtyIn,
@@ -797,14 +1432,8 @@ sap.ui.define(
                   });
                 }
                 var aMappedRows = (aDocRows || []).map(function (r) {
-                  var iQtyOut = Number(r.QtyOut);
-                  if (isNaN(iQtyOut) || iQtyOut < 0) {
-                    iQtyOut = 0;
-                  }
-                  var iQtyIn = Number(r.QtyIn);
-                  if (isNaN(iQtyIn) || iQtyIn < 0) {
-                    iQtyIn = 0;
-                  }
+                  var iQtyOut = this._coerceWholeBinQty(r.QtyOut);
+                  var iQtyIn = this._coerceWholeBinQty(r.QtyIn);
                   var iDiff = iQtyOut - iQtyIn;
                   return {
                     TripNumber: r.TripNumber || sTripNumber,
@@ -813,6 +1442,9 @@ sap.ui.define(
                     Customer: r.Customer || "",
                     CusromerName: r.CusromerName || r.CustomerName || "",
                     Material: r.Material || "",
+                    MaterialDescription: String(
+                      r.MaterialDescription || r.PartcodeDesc || r.PartCodeDesc || r.MaterialDesc || ""
+                    ).trim(),
                     BinType: r.BinType || r.BinTypes || r.BinTypeDesc || r.BintypeDesc || r.BinTypeDescription || "",
                     BinTypeDesc: r.BinTypeDesc || r.BintypeDesc || r.BinTypeDescription || r.BinType || r.BinTypes || "",
                     BintypeDesc: r.BinTypeDesc || r.BintypeDesc || r.BinTypeDescription || r.BinType || r.BinTypes || "",
@@ -1057,14 +1689,8 @@ sap.ui.define(
             if (!oStored) {
               return oRow;
             }
-            var iQtyIn = Number(oStored.QtyIn);
-            if (isNaN(iQtyIn) || iQtyIn < 0) {
-              iQtyIn = 0;
-            }
-            var iQtyOut = Number(oRow.QtyOut);
-            if (isNaN(iQtyOut) || iQtyOut < 0) {
-              iQtyOut = 0;
-            }
+            var iQtyIn = this._coerceWholeBinQty(oStored.QtyIn);
+            var iQtyOut = this._coerceWholeBinQty(oRow.QtyOut);
             var iDiff = iQtyOut - iQtyIn;
             return {
               TripNumber: oRow.TripNumber,
@@ -1073,6 +1699,9 @@ sap.ui.define(
               Customer: oRow.Customer,
               CusromerName: oRow.CusromerName,
               Material: oRow.Material,
+              MaterialDescription: String(
+                oRow.MaterialDescription || oStored.MaterialDescription || ""
+              ).trim(),
               BinType: oRow.BinType || oRow.BinTypes || oRow.BinTypeDesc || oRow.BintypeDesc || oRow.BinTypeDescription || "",
               BinTypeDesc: oRow.BinTypeDesc || oRow.BintypeDesc || oRow.BinTypeDescription || oRow.BinType || oRow.BinTypes || "",
               BintypeDesc: oRow.BinTypeDesc || oRow.BintypeDesc || oRow.BinTypeDescription || oRow.BinType || oRow.BinTypes || "",
@@ -1117,10 +1746,8 @@ sap.ui.define(
           }.bind(this));
           var aMerged = aMergedBackend.concat(
             aUniqueManualNotOnBackend.map(function (oRow) {
-              var iQtyIn = Number(oRow.QtyIn);
-              var iQtyOut = Number(oRow.QtyOut);
-              if (isNaN(iQtyIn) || iQtyIn < 0) iQtyIn = 0;
-              if (isNaN(iQtyOut) || iQtyOut < 0) iQtyOut = 0;
+              var iQtyIn = this._coerceWholeBinQty(oRow.QtyIn);
+              var iQtyOut = this._coerceWholeBinQty(oRow.QtyOut);
               var iDiff = iQtyIn;
               return {
                 LocalId: String(oRow.LocalId || this._createManualRowId()),
@@ -1130,6 +1757,7 @@ sap.ui.define(
                 Customer: String(oRow.Customer || ""),
                 CusromerName: String(oRow.CusromerName || oRow.CustomerName || ""),
                 Material: String(oRow.Material || ""),
+                MaterialDescription: String(oRow.MaterialDescription || "").trim(),
                 BinType: String(oRow.BinType || oRow.BinTypes || oRow.BinTypeDesc || oRow.BintypeDesc || oRow.BinTypeDescription || ""),
                 BinTypeDesc: String(oRow.BinTypeDesc || oRow.BintypeDesc || oRow.BinTypeDescription || oRow.BinType || oRow.BinTypes || ""),
                 BintypeDesc: String(oRow.BinTypeDesc || oRow.BintypeDesc || oRow.BinTypeDescription || oRow.BinType || oRow.BinTypes || ""),
@@ -1219,6 +1847,7 @@ sap.ui.define(
           // Keep data refresh on every render, but run heavy one-time init only once.
           if (!this._bGateInAfterRenderInitialized) {
             this.loadDelayReason();
+            this._applyGateInTabDefaultPanelExpansion();
             this._bGateInAfterRenderInitialized = true;
           }
           this._requestBinTrolleyReload(0);
@@ -1249,6 +1878,11 @@ sap.ui.define(
           this._eventBus?.unsubscribe("TripData", "Updated", this._onTripDataUpdate, this);
           this._eventBus?.unsubscribe("RefDoc", "MaterialsUpdated", this._onRefDocMaterialsUpdated, this);
           this._eventBus?.unsubscribe("Stage", "ClearAllTabs", this._clearAllData, this);
+          if (this._oPartCodeSelectDialog) {
+            this._oPartCodeSelectDialog.destroy();
+            this._oPartCodeSelectDialog = null;
+          }
+          this._oPartCodeVhJsonModel = null;
         },
         _requestBinTrolleyReload: function (iDelay) {
           var iWait = typeof iDelay === "number" ? iDelay : 0;
@@ -1914,17 +2548,31 @@ sap.ui.define(
                 if (this._aSelectedFiles && this._aSelectedFiles.length > 0) {
                   this._uploadGateInAttachments(function (bSuccess) {
                     if (bSuccess) {
-                      MessageBox.success(sMessage + " Attachments uploaded successfully!");
+                      MessageBox.success(sMessage + " Attachments uploaded successfully!", {
+                        onClose: function () {
+                          this._navigateToHomeAfterGateSave();
+                        }.bind(this),
+                      });
                     } else {
-                      MessageBox.success(sMessage);
-                      MessageBox.warning("Some attachments failed to upload.");
+                      MessageBox.success(sMessage, {
+                        onClose: function () {
+                          MessageBox.warning("Some attachments failed to upload.", {
+                            onClose: function () {
+                              this._navigateToHomeAfterGateSave();
+                            }.bind(this),
+                          });
+                        }.bind(this),
+                      });
                     }
                     this._setInputsEnabled(false);
-                    // Reload attachments list
                     this._loadGateInAttachments(true);
-                  });
+                  }.bind(this));
                 } else {
-                  MessageBox.success(sMessage);
+                  MessageBox.success(sMessage, {
+                    onClose: function () {
+                      this._navigateToHomeAfterGateSave();
+                    }.bind(this),
+                  });
                 }
               }.bind(this),
               error: function (oError) {
@@ -2669,6 +3317,14 @@ sap.ui.define(
           document.body.removeChild(oLink);
         },
 
+        _navigateToHomeAfterGateSave: function () {
+          this._eventBus.publish("HomePage", "RefreshTripTable");
+          var oRouter = this.getOwnerComponent() && this.getOwnerComponent().getRouter();
+          if (oRouter) {
+            oRouter.navTo("HomePage");
+          }
+        },
+
         _reloadTripDataAfterSave: function (sTripNumber, sEntryGateNumber, sDelayReasons) {
           
           var oModel = this.oModel;
@@ -2695,7 +3351,8 @@ sap.ui.define(
             if (oData.RefDocSkip === undefined || oData.RefDocSkip === null || oData.RefDocSkip === "") {
               oData.RefDocSkip = " ";
             }
-            
+            TripDataDocumentsVerified.applyDocumentsVerifiedToVerifiedDocs(oData);
+
             // Update global TripData model
             var oTripDataModel = new sap.ui.model.json.JSONModel(oData);
             sap.ui.getCore().setModel(oTripDataModel, "TripData");

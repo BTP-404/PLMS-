@@ -214,6 +214,22 @@
                                 <Column id="colMaterialRefDocItemNo" demandPopin="true" minScreenWidth="Phone" popinDisplay="Inline">
                                     <Text text="Ref Doc Item No" wrapping="false"/>
                                 </Column>
+                                <Column
+                                    id="colMaterialScheduleLine"
+                                    demandPopin="true"
+                                    minScreenWidth="Phone"
+                                    popinDisplay="Inline"
+                                    width="6rem"
+                                    visible="{
+                                        parts: [
+                                            { path: 'TripData>/MovementScenarioItemKey' },
+                                            { path: 'TripData>/MovementType' },
+                                            { path: 'TripData>/MovementScenario' }
+                                        ],
+                                        formatter: '.formatMaterialScheduleLineVisible'
+                                    }">
+                                    <Text text="Schedule line" wrapping="false"/>
+                                </Column>
                                 <Column id="colMaterialDescription" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
                                     <Text text="Material Description" wrapping="false"/>
                                 </Column>
@@ -242,6 +258,16 @@
                                     <cells>
                                         <Text text="{= ${refDocModel>documentNumber} || ${refDocModel>refDocNo} }"/>
                                         <Text text="{refDocModel>refDocItemNo}"/>
+                                        <Text
+                                            text="{= ${refDocModel>scheduleItem} || ${refDocModel>ScheduleItem} || ${refDocModel>SheduleItem} || '' }"
+                                            visible="{
+                                                parts: [
+                                                    { path: 'TripData>/MovementScenarioItemKey' },
+                                                    { path: 'TripData>/MovementType' },
+                                                    { path: 'TripData>/MovementScenario' }
+                                                ],
+                                                formatter: '.formatMaterialScheduleLineVisible'
+                                            }"/>
                                         <Text text="{refDocModel>materialDescription}"/>
                                         <Text text="{refDocModel>qty}"/>
                                         <Text text="{refDocModel>balanceQty}"/>

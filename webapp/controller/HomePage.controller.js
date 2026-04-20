@@ -13,6 +13,7 @@ sap.ui.define(
     "sap/ui/model/json/JSONModel",
     "sap/ndc/BarcodeScanner",
     "com/incresolZ_INC_PLMS/util/MovementScenarioIcons",
+    "com/incresolZ_INC_PLMS/util/TripDataDocumentsVerified",
   ],
   function (
     Controller,
@@ -27,7 +28,8 @@ sap.ui.define(
     Fragment,
     JSONModel,
     BarcodeScanner,
-    MovementScenarioIcons
+    MovementScenarioIcons,
+    TripDataDocumentsVerified
   ) {
     "use strict";
 
@@ -41,9 +43,7 @@ sap.ui.define(
         this.getView().setModel(oModel);
         this._sVehicleNumberNeedleLower = "";
         this._bHomeInitialLoadDone = false;
-
-        // Do not hook client-side visibility filtering to updateFinished when growing is enabled.
-        // It can cause repeated top-up reads (e.g. $skip=24&$top=1 loops).
+        this._bHomeFilterInitialApplyDone = false;
         this.getView().setModel(
           new JSONModel({
             reportDateFrom: null,
@@ -52,6 +52,17 @@ sap.ui.define(
           "homeFilter"
         );
         this._initializeColumnVisibility();
+        this.getView().addEventDelegate(
+          {
+            onAfterShow: function () {
+              if (!this._bHomeFilterInitialApplyDone) {
+                this._bHomeFilterInitialApplyDone = true;
+                this._applyTableFilter();
+              }
+            },
+          },
+          this
+        );
         this._loadMovementScenarioDescriptions();
         // this is for refresh the table data when user cancels the trip
         this._oEventBus = sap.ui.getCore().getEventBus();
@@ -108,9 +119,15 @@ sap.ui.define(
         this._sPendingOrderDetailPo = null;
         this._bIncomingFromCameraScan = false;
         this._bIncomingScanBackendError = false;
+        this._sIncomingOptimisticTempId = null;
+        this._bIncomingExpectItemPoll = false;
       },
 
       onExit: function () {
+        if (this._iTripTableTintDeferred) {
+          clearTimeout(this._iTripTableTintDeferred);
+          this._iTripTableTintDeferred = null;
+        }
         if (this._iFilterInputDebounce) {
           clearTimeout(this._iFilterInputDebounce);
           this._iFilterInputDebounce = null;
@@ -439,9 +456,12 @@ sap.ui.define(
 
       _resetIncomingEntryMethodDialogFields: function () {
         var sViewId = this.getView().getId();
-        var oSelect = Fragment.byId(sViewId, "idIncomingEntrySearchSelect");
-        if (oSelect && oSelect.setSelectedKey) {
-          oSelect.setSelectedKey("PO");
+        var oIncomingMode = Fragment.byId(
+          sViewId,
+          "idIncomingEntrySearchModeGroup"
+        );
+        if (oIncomingMode && oIncomingMode.setSelectedIndex) {
+          oIncomingMode.setSelectedIndex(0);
         }
         var oPoIn = Fragment.byId(sViewId, "idIncomingDialogPoInput");
         if (oPoIn) {
@@ -863,10 +883,23 @@ sap.ui.define(
         });
       },
 
-      onIncomingEntryMethodSelectChange: function () {
+      onIncomingEntryMethodSelectChange: function (oEvent) {
         var sViewId = this.getView().getId();
-        var oSelect = Fragment.byId(sViewId, "idIncomingEntrySearchSelect");
-        var sKey = oSelect ? oSelect.getSelectedKey() : "";
+        var oIncomingMode = Fragment.byId(
+          sViewId,
+          "idIncomingEntrySearchModeGroup"
+        );
+        var iIdx =
+          oEvent && oEvent.getParameter
+            ? oEvent.getParameter("selectedIndex")
+            : -1;
+        if (iIdx === undefined || iIdx === null || iIdx < 0) {
+          iIdx =
+            oIncomingMode && oIncomingMode.getSelectedIndex
+              ? oIncomingMode.getSelectedIndex()
+              : 0;
+        }
+        var sKey = iIdx === 1 ? "SCAN" : "PO";
         if (this._oIncomingEntryMethodModel) {
           this._oIncomingEntryMethodModel.setProperty("/selectedKey", sKey || "");
           this._oIncomingEntryMethodModel.setProperty("/entryComplete", false);
@@ -939,7 +972,7 @@ sap.ui.define(
         var oTrip = sap.ui.getCore().getModel("TripData");
         var sTripNo = oTrip ? oTrip.getProperty("/TripNumber") : "";
         if (!sTripNo) {
-          MessageToast.show("Trip number is missing.");
+          MessageToast.show("Gate pass number is missing.");
           this._focusIncomingEntryMethodPrimaryInput(150);
           return;
         }
@@ -1062,7 +1095,7 @@ sap.ui.define(
       _navigateToTripFromIncomingDialog: function (sTripNo, sTabKey, bSkipTripTableRefresh) {
         var sTrip = String(sTripNo || "").trim();
         if (!sTrip) {
-          MessageToast.show("Trip number is missing.");
+          MessageToast.show("Gate pass number is missing.");
           this._focusIncomingEntryMethodPrimaryInput(150);
           return;
         }
@@ -1280,46 +1313,171 @@ sap.ui.define(
         oTripDataModel.setProperty("/MovementScenarioItemKey", sKey || "");
       },
 
-      _loadTripDetailsAfterIncomingDialog: function (sTripNumber, fnDone) {
+      _ensureHomeRefDocModel: function () {
+        var oModel = sap.ui.getCore().getModel("refDocModel");
+        if (!oModel) {
+          oModel = new JSONModel({
+            referenceDocs: [],
+            materialDetails: [],
+            filteredMaterialDetails: [],
+            materialDocTypes: [],
+            materialRefDocNumbers: [],
+          });
+          sap.ui.getCore().setModel(oModel, "refDocModel");
+        }
+        return oModel;
+      },
+
+      _clearIncomingOptimisticRefDocs: function () {
+        var oModel = sap.ui.getCore().getModel("refDocModel");
+        this._sIncomingOptimisticTempId = null;
+        if (!oModel) {
+          return;
+        }
+        var aRef = (oModel.getProperty("/referenceDocs") || []).filter(function (r) {
+          return !(r && r._incomingPending);
+        });
+        oModel.setProperty("/referenceDocs", aRef);
+      },
+
+      _pushIncomingOptimisticIdentification: function (mInfo) {
+        this._clearIncomingOptimisticRefDocs();
+        var oModel = this._ensureHomeRefDocModel();
+        var sTempId = "incoming_pending_" + Date.now();
+        this._sIncomingOptimisticTempId = sTempId;
+        var sKind = String((mInfo && mInfo.kind) || "PO").toUpperCase();
+        var sDocType = String((mInfo && mInfo.docType) || (sKind === "ASN" ? "ASN" : "PO")).trim() || "PO";
+        var sDocNo = String((mInfo && mInfo.documentNumber) || "").trim();
+        var sParty =
+          (mInfo && mInfo.partyName) ||
+          (sKind === "ASN" ? "Submitting ASN…" : "Submitting purchase order…");
+        var oRow = {
+          tempId: sTempId,
+          _incomingPending: true,
+          _isLocal: true,
+          status: "pending",
+          TripNumber: "",
+          tripNumber: "",
+          DocType: sDocType,
+          docType: sDocType,
+          DocumentNumber: sDocNo,
+          documentNumber: sDocNo,
+          partyName: sParty,
+          invRefNo: "",
+          invRefDate: "",
+          movementType: "",
+        };
+        var aRef = (oModel.getProperty("/referenceDocs") || []).slice();
+        aRef.push(oRow);
+        oModel.setProperty("/referenceDocs", aRef);
+        oModel.updateBindings(true);
+        sap.ui.getCore().getEventBus().publish("RefDoc", "MaterialsUpdated");
+      },
+
+      _patchIncomingOptimisticWithTrip: function (sTripNumber) {
+        var sTempId = this._sIncomingOptimisticTempId;
+        if (!sTempId) {
+          return;
+        }
+        var oModel = sap.ui.getCore().getModel("refDocModel");
+        if (!oModel) {
+          return;
+        }
+        var sRaw = String(sTripNumber || "").trim();
+        var sPadded = sRaw;
+        if (/^\d+$/.test(sPadded)) {
+          sPadded = sPadded.padStart(10, "0");
+        }
+        var aRef = (oModel.getProperty("/referenceDocs") || []).map(function (r) {
+          if (r && r.tempId === sTempId && r._incomingPending) {
+            return Object.assign({}, r, {
+              TripNumber: sPadded,
+              tripNumber: sPadded,
+            });
+          }
+          return r;
+        });
+        oModel.setProperty("/referenceDocs", aRef);
+        oModel.updateBindings(true);
+      },
+
+      _expandedCollectionLength: function (vNav) {
+        if (!vNav) {
+          return 0;
+        }
+        if (Array.isArray(vNav)) {
+          return vNav.length;
+        }
+        if (vNav.results && Array.isArray(vNav.results)) {
+          return vNav.results.length;
+        }
+        return 0;
+      },
+
+      /**
+       * Loads TripDetails after incoming identification. Optionally polls until ItemDetails
+       * are populated (PO / async backend item creation).
+       */
+      _loadTripDetailsAfterIncomingDialog: function (sTripNumber, fnDone, mOpts) {
         var oModel = this.getView().getModel();
         var that = this;
+        mOpts = mOpts || {};
+        var bPoll = !!mOpts.pollItemDetails;
+        var iMax = Math.max(1, Number(mOpts.maxAttempts || 12));
+        var iInterval = Math.max(200, Number(mOpts.intervalMs || 400));
         if (!oModel || !sTripNumber) {
           if (typeof fnDone === "function") {
             fnDone();
           }
           return;
         }
-        oModel.read("/TripDetails('" + sTripNumber + "')", {
-          urlParameters: {
-            $expand: "OrderDetails,ItemDetails,Feeds,ActivityHistory",
-          },
-          success: function (oData) {
-            if (oData.Weighment_Req !== undefined) {
-              oData.WeighmentRequired =
-                oData.Weighment_Req === true || oData.Weighment_Req === "X"
-                  ? "Y"
-                  : "N";
-            }
-            var oTripDataModel = new JSONModel(oData);
-            that._syncMovementScenarioItemKeyOnTripDataHome(oTripDataModel);
-            sap.ui.getCore().setModel(oTripDataModel, "TripData");
-            sap.ui.getCore().getEventBus().publish("TripData", "Updated");
-            sap.ui.getCore().getEventBus().publish("Stage", "TripCreated", {
-              tripNumber: sTripNumber,
-            });
-            if (typeof fnDone === "function") {
-              fnDone();
-            }
-          },
-          error: function () {
-            sap.ui.getCore().getEventBus().publish("Stage", "TripCreated", {
-              tripNumber: sTripNumber,
-            });
-            if (typeof fnDone === "function") {
-              fnDone();
-            }
-          },
-        });
+        var iAttempt = 0;
+        var fnPublishTrip = function (oData) {
+          if (oData.Weighment_Req !== undefined) {
+            oData.WeighmentRequired =
+              oData.Weighment_Req === true || oData.Weighment_Req === "X"
+                ? "Y"
+                : "N";
+          }
+          TripDataDocumentsVerified.applyDocumentsVerifiedToVerifiedDocs(oData);
+          var oTripDataModel = new JSONModel(oData);
+          that._syncMovementScenarioItemKeyOnTripDataHome(oTripDataModel);
+          sap.ui.getCore().setModel(oTripDataModel, "TripData");
+          sap.ui.getCore().getEventBus().publish("TripData", "Updated");
+          sap.ui.getCore().getEventBus().publish("Stage", "TripCreated", {
+            tripNumber: sTripNumber,
+          });
+        };
+        var fnAttempt = function () {
+          iAttempt += 1;
+          oModel.read("/TripDetails('" + sTripNumber + "')", {
+            urlParameters: {
+              $expand: "OrderDetails,ItemDetails,Feeds,ActivityHistory",
+            },
+            success: function (oData) {
+              fnPublishTrip(oData);
+              var iItems = that._expandedCollectionLength(oData && oData.ItemDetails);
+              var bContinue =
+                bPoll && iItems === 0 && iAttempt < iMax;
+              if (bContinue) {
+                setTimeout(fnAttempt, iInterval);
+                return;
+              }
+              if (typeof fnDone === "function") {
+                fnDone();
+              }
+            },
+            error: function () {
+              sap.ui.getCore().getEventBus().publish("Stage", "TripCreated", {
+                tripNumber: sTripNumber,
+              });
+              if (typeof fnDone === "function") {
+                fnDone();
+              }
+            },
+          });
+        };
+        fnAttempt();
       },
 
       /**
@@ -1336,6 +1494,7 @@ sap.ui.define(
         if (sAsnId && sOrgId) {
           oPayload = { AsnId: sAsnId, OrgId: sOrgId };
           this._sPendingOrderDetailPo = null;
+          this._bIncomingExpectItemPoll = false;
         } else if (sPoNumber && String(sPoNumber).trim()) {
           var sPoTrimmed = String(sPoNumber).trim();
           if (sIncomingMode === "PO") {
@@ -1348,8 +1507,14 @@ sap.ui.define(
             }
           }
           oPayload = { PoNumber: sPoTrimmed };
-          // Create OrderDetails only when PO came from camera scan, not typed scan input.
-          this._sPendingOrderDetailPo = this._bIncomingFromCameraScan ? sPoTrimmed : null;
+          this._sPendingOrderDetailPo = sPoTrimmed;
+          this._bIncomingExpectItemPoll = true;
+          this._pushIncomingOptimisticIdentification({
+            kind: "PO",
+            documentNumber: sPoTrimmed,
+            docType: "PO",
+            partyName: "Submitting purchase order…",
+          });
         } else {
           this._bIncomingScanSkipTripTableRefresh = false;
           this._bIncomingFromCameraScan = false;
@@ -1391,6 +1556,13 @@ sap.ui.define(
         var oModel = this.getView().getModel();
         var that = this;
         this._sPendingOrderDetailPo = sPoNumber;
+        this._bIncomingExpectItemPoll = true;
+        this._pushIncomingOptimisticIdentification({
+          kind: "PO",
+          documentNumber: sPoNumber,
+          docType: "PO",
+          partyName: "Submitting purchase order…",
+        });
         if (this._oIncomingEntryMethodDialog) {
           this._oIncomingEntryMethodDialog.setBusy(true);
         }
@@ -1496,20 +1668,25 @@ sap.ui.define(
           var that = this;
           var sPoForOrder = this._sPendingOrderDetailPo;
           this._sPendingOrderDetailPo = null;
+          var bPollItems = !!sPoForOrder || !!this._bIncomingExpectItemPoll;
+          this._bIncomingExpectItemPoll = false;
+          this._patchIncomingOptimisticWithTrip(sTripNumber);
           var fnNavigateToGateIn = function () {
             var bSkip = !!that._bIncomingScanSkipTripTableRefresh;
             that._bIncomingScanSkipTripTableRefresh = false;
             that._navigateToTripFromIncomingDialog(sTripNumber, "gateIn", bSkip);
           };
           var fnLoadTrip = function () {
-            that._loadTripDetailsAfterIncomingDialog(sTripNumber, fnNavigateToGateIn);
+            that._loadTripDetailsAfterIncomingDialog(sTripNumber, fnNavigateToGateIn, {
+              pollItemDetails: bPollItems,
+            });
           };
           if (sPoForOrder) {
             this._createOrderDetailForIncomingPoTrip(sTripNumber, sPoForOrder, fnLoadTrip);
           } else {
             fnLoadTrip();
           }
-          MessageToast.show("Trip created: " + sFormatted);
+          MessageToast.show("Gate pass created: " + sFormatted);
           if (this._oIncomingEntryMethodModel) {
             this._oIncomingEntryMethodModel.setProperty(
               "/entryComplete",
@@ -1527,7 +1704,7 @@ sap.ui.define(
           this._bIncomingScanSkipTripTableRefresh = false;
           this._bIncomingFromCameraScan = false;
           MessageToast.show(
-            "Request completed but no trip number was returned."
+            "Request completed but no gate pass number was returned."
           );
           if (
             this._oIncomingEntryMethodModel &&
@@ -1577,6 +1754,8 @@ sap.ui.define(
         sDefaultMessage,
         sPoForDedupReset
       ) {
+        this._clearIncomingOptimisticRefDocs();
+        this._bIncomingExpectItemPoll = false;
         this._bIncomingScanSkipTripTableRefresh = false;
         this._bIncomingFromCameraScan = false;
         if (this._oIncomingEntryMethodDialog) {
@@ -2504,14 +2683,63 @@ sap.ui.define(
       onRefresh: function () {
         var oTable = this.getView().byId("tripTable");
         var oModel = this.getView().getModel();
-        if (oModel) {
-          oTable.setBusy(true);
-          oModel.refresh(true);
-          oModel.attachRequestCompleted(function () {
-            oTable.setBusy(false);
-            // MessageToast.show("Trip details refreshed");
-          });
+        if (!oModel || !oTable) {
+          return;
         }
+
+        oTable.setBusy(true);
+        oTable.setBusyIndicatorDelay(0);
+
+        var oBinding = oTable.getBinding("items");
+        var that = this;
+        var bDone = false;
+
+        var fnCleanupAndFinish = function (fnDetach) {
+          if (bDone) {
+            return;
+          }
+          bDone = true;
+          if (typeof fnDetach === "function") {
+            fnDetach();
+          }
+          oTable.setBusy(false);
+          that._applyTableFilter();
+        };
+
+        // Prefer list-binding refresh: dataReceived fires after backend response (success or error).
+        if (oBinding && typeof oBinding.refresh === "function" && oBinding.attachDataReceived) {
+          var fnOnDataReceived = function () {
+            fnCleanupAndFinish(function () {
+              oBinding.detachDataReceived(fnOnDataReceived);
+            });
+          };
+          oBinding.attachDataReceived(fnOnDataReceived);
+          oBinding.refresh(true);
+          return;
+        }
+
+        // Fallback when items binding is not ready: clear busy on first completed or failed request.
+        var fnDetachModelListeners = function () {
+          if (oModel.detachRequestCompleted) {
+            oModel.detachRequestCompleted(fnOnRequestCompleted);
+          }
+          if (oModel.detachRequestFailed) {
+            oModel.detachRequestFailed(fnOnRequestFailed);
+          }
+        };
+        var fnOnRequestCompleted = function () {
+          fnCleanupAndFinish(fnDetachModelListeners);
+        };
+        var fnOnRequestFailed = function () {
+          fnCleanupAndFinish(fnDetachModelListeners);
+        };
+        if (oModel.attachRequestCompleted) {
+          oModel.attachRequestCompleted(fnOnRequestCompleted);
+        }
+        if (oModel.attachRequestFailed) {
+          oModel.attachRequestFailed(fnOnRequestFailed);
+        }
+        oModel.refresh(true);
       },
 
       _onExternalRefresh: function () {
@@ -2605,10 +2833,7 @@ sap.ui.define(
             var oSelectedItem = oEvt.getParameter("selectedItem");
             if (oSelectedItem) {
               oInput.setValue(oSelectedItem.getTitle());
-              var oRange = this._getReportDateRange();
-              if (this._isReportDateRangeOrderValid(oRange.from, oRange.to)) {
-                this._applyTableFilter();
-              }
+              this._applyTableFilter();
             }
           }.bind(this),
         });
@@ -2701,14 +2926,12 @@ sap.ui.define(
       onSuggestionItemSelected: function (oEvent) {
         var oInput = oEvent.getSource();
         oInput.setValue(oEvent.getParameter("selectedItem").getText());
-        var oRange = this._getReportDateRange();
-        if (this._isReportDateRangeOrderValid(oRange.from, oRange.to)) {
-          this._applyTableFilter();
-        }
+        this._applyTableFilter();
       },
 
       /**
        * True if end date is on or after start date (same calendar day). Single date ok.
+       * @private
        */
       _isReportDateRangeOrderValid: function (oFrom, oTo) {
         if (!oFrom || !oTo) {
@@ -2722,7 +2945,7 @@ sap.ui.define(
       },
 
       /**
-       * Validates range: end cannot be before start. Clears invalid end and syncs homeFilter model.
+       * Date range: validate and apply table filter when range changes.
        */
       onReportDateRangeChange: function (oEvent) {
         if (oEvent.getParameter("valid") === false) {
@@ -2746,7 +2969,7 @@ sap.ui.define(
       },
 
       /**
-       * When filter text is committed (Enter or focus leaves), re-apply filters (e.g. after clearing).
+       * Trip / vehicle filter inputs: apply on commit (Enter / blur).
        */
       onFilterInputChange: function () {
         var oRange = this._getReportDateRange();
@@ -2757,7 +2980,7 @@ sap.ui.define(
       },
 
       /**
-       * While typing in Trip / Vehicle filters, re-apply after a short pause (e.g. user clears text).
+       * Trip / vehicle filter inputs: debounced apply while typing.
        */
       onFilterInputLiveChange: function () {
         if (this._iFilterInputDebounce) {
@@ -2788,12 +3011,17 @@ sap.ui.define(
       },
 
       // --------------------------------------------
-      // TABLE FILTERING LOGIC
+      // TRIP TABLE: OData filters (trip, date) + client vehicle + status row colors
       // --------------------------------------------
       _applyTableFilter: function () {
         var oTable = this.getView().byId("tripTable");
+        if (!oTable) {
+          return;
+        }
         var oBinding = oTable.getBinding("items");
-        if (!oBinding) return;
+        if (!oBinding) {
+          return;
+        }
 
         var aInputs = this.getView().findAggregatedObjects(
           true,
@@ -2808,7 +3036,6 @@ sap.ui.define(
         var aFilters = [];
         var sVehicleNeedleLower = "";
 
-        // Handle date range first
         var oRange = this._getReportDateRange();
         var oDateFrom = oRange.from;
         var oDateTo = oRange.to;
@@ -2834,11 +3061,9 @@ sap.ui.define(
           }
         }
 
-        // Handle text inputs
         aInputs.forEach(
           function (oInput) {
             if (oInput.isA("sap.m.DatePicker")) {
-              // already handled
               return;
             }
             var sField = oInput.data("field");
@@ -2847,9 +3072,6 @@ sap.ui.define(
               var oFieldConfig = this._getFieldConfiguration(sField);
               if (oFieldConfig) {
                 if (sField === "vehicleNumber") {
-                  // VehicleNumber is marked as non-filterable in metadata in some systems.
-                  // Also, OData "contains" is often case-sensitive depending on backend.
-                  // So we do a client-side, case-insensitive filter on the already-bound items.
                   sVehicleNeedleLower = sValue.toLowerCase();
                 } else {
                   aFilters.push(
@@ -2866,39 +3088,96 @@ sap.ui.define(
         );
 
         this._sVehicleNumberNeedleLower = sVehicleNeedleLower;
-        // Prevent growing top-up loops (e.g. $skip=24&$top=1) when rows are hidden
-        // by client-side vehicle filtering.
         if (oTable && typeof oTable.setGrowing === "function") {
           oTable.setGrowing(!sVehicleNeedleLower);
         }
 
         oBinding.filter(aFilters.length ? new Filter(aFilters, true) : []);
-        // Apply immediately for current items (updateFinished will also re-apply after refresh/growing).
-        this._applyClientSideVehicleNumberFilter();
+        this._applyClientSideTripTableFilters();
       },
 
       /**
-       * Client-side, case-insensitive filter for VehicleNumber (hides/shows table rows).
-       * This avoids backend case-sensitivity and works even if VehicleNumber is not filterable.
+       * Client-side vehicle match (case-insensitive) + trip status row tint on tr.
+       * @private
        */
-      _applyClientSideVehicleNumberFilter: function () {
+      _applyClientSideTripTableFilters: function () {
         var oTable = this.getView().byId("tripTable");
-        if (!oTable) return;
-
-        var sNeedleLower = (this._sVehicleNumberNeedleLower || "").trim().toLowerCase();
-        var aItems = oTable.getItems ? oTable.getItems() : [];
-
+        if (!oTable || typeof oTable.getItems !== "function") {
+          return;
+        }
+        var sNeedleLower = (this._sVehicleNumberNeedleLower || "")
+          .trim()
+          .toLowerCase();
+        if (typeof oTable.setGrowing === "function") {
+          oTable.setGrowing(!sNeedleLower);
+        }
+        var aItems = oTable.getItems() || [];
+        var that = this;
         aItems.forEach(function (oItem) {
-          if (!oItem || !oItem.getBindingContext) return;
+          if (!oItem || !oItem.getBindingContext) {
+            return;
+          }
           var oCtx = oItem.getBindingContext();
           var oObj = oCtx && oCtx.getObject ? oCtx.getObject() : null;
-          var sVeh = (oObj && oObj.VehicleNumber != null) ? String(oObj.VehicleNumber) : "";
-
-          var bMatch = !sNeedleLower || sVeh.toLowerCase().indexOf(sNeedleLower) > -1;
+          if (!oObj) {
+            if (oItem.setVisible) {
+              oItem.setVisible(false);
+            }
+            that._clearTripStatusCategoryDomClasses(oItem);
+            return;
+          }
+          var sVeh =
+            oObj.VehicleNumber != null ? String(oObj.VehicleNumber) : "";
+          var bMatch =
+            !sNeedleLower || sVeh.toLowerCase().indexOf(sNeedleLower) > -1;
           if (oItem.setVisible) {
             oItem.setVisible(bMatch);
           }
+          if (bMatch) {
+            that._syncTripStatusCategoryDomClasses(oItem, oObj.TripStatus);
+          } else {
+            that._clearTripStatusCategoryDomClasses(oItem);
+          }
         });
+      },
+
+      /**
+       * @private
+       */
+      _clearTripStatusCategoryDomClasses: function (oItem) {
+        var oDom = oItem.getDomRef && oItem.getDomRef();
+        if (!oDom || !oDom.classList) {
+          return;
+        }
+        var aAll = this._TRIP_STATUS_ROW_CLASS_NAMES || [];
+        aAll.forEach(function (c) {
+          oDom.classList.remove(c);
+        });
+      },
+
+      /**
+       * @private
+       */
+      _syncTripStatusCategoryDomClasses: function (oItem, vTripStatus) {
+        var oDom = oItem.getDomRef && oItem.getDomRef();
+        if (!oDom || !oDom.classList) {
+          return;
+        }
+        var aAll = this._TRIP_STATUS_ROW_CLASS_NAMES || [];
+        var sNext = this.getTripStatusClass(vTripStatus);
+        aAll.forEach(function (c) {
+          oDom.classList.remove(c);
+        });
+        if (sNext) {
+          oDom.classList.add(sNext);
+        }
+      },
+
+      /**
+       * @deprecated use _applyClientSideTripTableFilters
+       */
+      _applyClientSideVehicleNumberFilter: function () {
+        this._applyClientSideTripTableFilters();
       },
 
       // --------------------------------------------
@@ -2910,13 +3189,13 @@ sap.ui.define(
             return {
               sKeyField: "TripNumber",
               sDescField: "VehicleNumber",
-              sTitle: "Select Trip Number",
+              sTitle: "Select Gate Pass No",
             };
           case "vehicleNumber":
             return {
               sKeyField: "VehicleNumber",
               sDescField: "VehicleType",
-              sTitle: "Select Vehicle Number",
+              sTitle: "Select Vehicle No",
             };
           case "vehicleType":
             return {
@@ -3050,10 +3329,14 @@ sap.ui.define(
       _getDefaultColumnVisibility: function (sKey) {
         var aDefaultVisible = [
           "colTripNumber",
-          "colVehicleNumber",
           "colTripStatus",
+          "colVehicleNumber",
+          "colReportingDateTime",
           "colMovementType",
           "colMovementScenario",
+          "colPartyName",
+          "colGRN",
+          "colBillofLading",
         ];
         return aDefaultVisible.indexOf(sKey) !== -1;
       },
@@ -3138,6 +3421,51 @@ sap.ui.define(
         return sStr.replace(/^0+/, "") || "0";
       },
 
+      /**
+       * Trip reporting timestamp from TripDetails CreatedOn + CreatedTime (OData v2).
+       */
+      formatReportingDateTime: function (vOn, vTime) {
+        if ((vOn === undefined || vOn === null || vOn === "") &&
+            (vTime === undefined || vTime === null || vTime === "")) {
+          return "";
+        }
+        var DateFormat = sap.ui.core.format.DateFormat;
+        var oDateFmt = DateFormat.getDateInstance({ style: "medium" });
+        var oTimeFmt = DateFormat.getTimeInstance({ style: "short" });
+        var sDate = "";
+        var sTime = "";
+        if (vOn !== undefined && vOn !== null && vOn !== "") {
+          var oD = null;
+          if (vOn instanceof Date) {
+            oD = vOn;
+          } else if (typeof vOn === "string") {
+            var m = /\/Date\((-?\d+)\)\//.exec(vOn);
+            if (m) {
+              oD = new Date(parseInt(m[1], 10));
+            }
+          }
+          if (oD && !isNaN(oD.getTime())) {
+            sDate = oDateFmt.format(oD);
+          }
+        }
+        if (vTime !== undefined && vTime !== null && vTime !== "") {
+          if (typeof vTime === "object" && vTime.ms !== undefined) {
+            var oT = new Date(vTime.ms);
+            if (!isNaN(oT.getTime())) {
+              sTime = oTimeFmt.format(oT);
+            }
+          } else if (vTime instanceof Date && !isNaN(vTime.getTime())) {
+            sTime = oTimeFmt.format(vTime);
+          } else if (typeof vTime === "string") {
+            sTime = vTime;
+          }
+        }
+        if (sDate && sTime) {
+          return sDate + " " + sTime;
+        }
+        return sDate || sTime || "";
+      },
+
       formatMovementType: function (sMovementType) {
         if (!sMovementType) {
           return "";
@@ -3152,44 +3480,91 @@ sap.ui.define(
         return sType;
       },
 
+      /** @type {string[]} All CSS classes applied to trip rows — keep in sync with getTripStatusClass + style.css */
+      _TRIP_STATUS_ROW_CLASS_NAMES: [
+        "tripStatusCategoryInProgress",
+        "tripStatusCategoryCompleted",
+      ],
+
       /**
-       * Formatter to get CSS class based on Trip Status
+       * Normalize TripStatus for stable comparisons (UI5 1.38 + OData quirks).
+       * @private
+       */
+      _normalizeTripStatusForRowClass: function (sTripStatus) {
+        if (sTripStatus === undefined || sTripStatus === null) {
+          return "";
+        }
+        return String(sTripStatus)
+          .replace(/\u00a0/g, " ")
+          .replace(/_/g, " ")
+          .toLowerCase()
+          .trim()
+          .replace(/\s+/g, " ")
+          .replace(/[\.,;]+$/g, "");
+      },
+
+      /**
+       * True when trip is finished (Trip Completed) — used for Trip Completed filter and green row tint.
+       * Not used for Cancelled / Error / Failed (those stay "In Progress" styling).
+       * @param {string} sNorm - normalized status from _normalizeTripStatusForRowClass
+       * @private
+       */
+      _isTripStatusTripCompletedNorm: function (sNorm) {
+        if (!sNorm) {
+          return false;
+        }
+        if (
+          sNorm === "completed" ||
+          sNorm === "done" ||
+          sNorm === "trip completed" ||
+          sNorm === "tripcompleted"
+        ) {
+          return true;
+        }
+        if (sNorm.indexOf("trip completed") === 0) {
+          return true;
+        }
+        return false;
+      },
+
+      /**
+       * Returns CSS class for home trip row tint: trip completed = green; everything else = yellow.
        * @param {string} sTripStatus - Trip status value
        * @returns {string} CSS class name
        */
       getTripStatusClass: function (sTripStatus) {
-        if (!sTripStatus) {
-          return "";
+        var sNorm = this._normalizeTripStatusForRowClass(sTripStatus);
+        if (!sNorm) {
+          return "tripStatusCategoryInProgress";
         }
-        
-        // Normalize status to lowercase for comparison
-        var sStatus = sTripStatus.toLowerCase().trim();
-        
-        // Map status values to CSS classes
-        if (sStatus === "new" || sStatus === "created") {
-          return "tripStatusNew";
-        } else if (sStatus === "pending" || sStatus === "pending approval") {
-          return "tripStatusPending";
-        } else if (sStatus === "in progress" || sStatus === "active" || sStatus === "in-progress") {
-          return "tripStatusInProgress";
-        } else if (sStatus === "gate in" || sStatus === "gate-in") {
-          return "tripStatusGateIn";
-        } else if (sStatus === "loading" || sStatus === "loading start" || sStatus === "loading end") {
-          return "tripStatusLoading";
-        } else if (sStatus === "gate out" || sStatus === "gate-out") {
-          return "tripStatusGateOut";
-        } else if (sStatus === "completed" || sStatus === "done") {
-          return "tripStatusCompleted";
-        } else if (sStatus === "cancelled" || sStatus === "canceled") {
-          return "tripStatusCancelled";
-        } else if (sStatus === "error" || sStatus === "failed") {
-          return "tripStatusError";
-        } else if (sStatus === "test" || sStatus === "testing") {
-          return "tripStatusTest";
+        if (this._isTripStatusTripCompletedNorm(sNorm)) {
+          return "tripStatusCategoryCompleted";
         }
-        
-        // Default: no special color
-        return "";
+        return "tripStatusCategoryInProgress";
+      },
+
+      /**
+       * UI5 1.x: bound class on ColumnListItem often does not reach the table row DOM.
+       * Re-apply status style classes whenever the table finishes updating rows.
+       */
+      onTripTableUpdateFinished: function (oEvent) {
+        var oTable =
+          (oEvent && oEvent.getSource && oEvent.getSource()) ||
+          this.byId("tripTable");
+        if (!oTable || typeof oTable.getItems !== "function") {
+          return;
+        }
+        this._applyClientSideTripTableFilters();
+        if (this._iTripTableTintDeferred) {
+          clearTimeout(this._iTripTableTintDeferred);
+        }
+        this._iTripTableTintDeferred = setTimeout(
+          function () {
+            this._iTripTableTintDeferred = null;
+            this._applyClientSideTripTableFilters();
+          }.bind(this),
+          0
+        );
       },
 
       // User-role-based visibility for Report Vehicle has been removed;

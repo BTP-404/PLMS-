@@ -8,14 +8,14 @@
     displayBlock="true"
 >
     <VBox class="sapUiSizeCompact" width="100%">
-        <!-- Search by + document value help (always visible at top) -->
+        <!-- Search by + document value help (hidden for O02 + vehicle type 02, or outbound O + type 02 + External; use Reference Documents "Add Document") -->
         <layout:Grid
             defaultSpan="L12 M12 S12"
             hSpacing="2"
             vSpacing="2"
             width="100%"
             class="sapUiTinyMarginBottom sapUiMediumPadding gateOutSearchCard"
-            visible="{= String(${TripData>/MovementType} || '').toUpperCase() !== 'I' }"
+            visible="{gateOutUi>/showGateOutRefSearchStrip}"
         >
             <layout:content>
                 <VBox width="100%">
@@ -81,6 +81,7 @@
         <!-- =================== Reporting (internal) ================= -->
         <!-- ========================================================= -->
         <mvc:XMLView
+            id="idVehicleReportingEmbeddedGateOut"
             viewName="com.incresolZ_INC_PLMS.view.subview.VehicleReportingTab"
             class="sapUiTinyMarginBottom"
             visible="{= ${stageUi>/showReportingInGateOut} === true &amp;&amp; String(${TripData>/MovementType} || '').toUpperCase() !== 'I' }"
@@ -166,7 +167,7 @@
         <Panel
             id="gateOutPanel"
             expandable="true"
-            expanded="true"
+            expanded="false"
             class="sapUiNoContentPadding sapUiTinyMarginBottom"
             width="100%"
             visible="{gateOutUi>/showPanels}"

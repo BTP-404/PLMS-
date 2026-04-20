@@ -36,6 +36,7 @@
             expanded="true"
             class="sapUiNoContentPadding sapUiTinyMarginBottom"
             width="100%"
+            visible="{= !${globalData>/TripLocked} }"
         >
             <headerToolbar>
                 <OverflowToolbar>

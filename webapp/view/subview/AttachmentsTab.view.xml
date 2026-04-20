@@ -18,6 +18,7 @@
             expanded="true"
             class="sapUiNoContentPadding sapUiTinyMarginBottom"
             width="100%"
+            visible="{= !${globalData>/TripLocked} }"
         >
             <headerToolbar>
                 <OverflowToolbar>
@@ -120,7 +121,7 @@
             <VBox class="sapUiSizeCompact sapUiMediumPadding" width="100%">
                 <List
                     id="idUploadedFilesList"
-                    mode="Delete"
+                    mode="{= ${globalData>/TripLocked} ? 'None' : 'Delete' }"
                     noDataText="No files uploaded yet."
                     delete=".onDeleteFile"
                     items="{attachmentsModel>/attachments}"
