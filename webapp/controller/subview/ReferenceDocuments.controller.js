@@ -674,6 +674,7 @@ sap.ui.define([
 			}
 
 			sDocNumber = (sDocNumber || "").toString();
+			sDocNumber = sDocNumber.replace(/\D/g, "").slice(0, 10);
 			if (!sDocNumber) {
 				return;
 			}
@@ -688,6 +689,17 @@ sap.ui.define([
 			// Prevent change event from issuing a duplicate backend call for the same selection.
 			this._bUserSelected = true;
 			this._handleDocSelection(sDocType, sDocNumber);
+		},
+
+		onRefDocNumberLiveChange: function (oEvent) {
+			var oInput = oEvent?.getSource?.();
+			if (!oInput) return;
+
+			var sValue = String(oEvent?.getParameter?.("value") ?? oInput.getValue?.() ?? "");
+			var sDigits = sValue.replace(/\D/g, "").slice(0, 10);
+			if (sDigits !== sValue && typeof oInput.setValue === "function") {
+				oInput.setValue(sDigits);
+			}
 		},
 
 		onRefDocNumberChange: function () {
@@ -713,7 +725,11 @@ sap.ui.define([
 						oDocTypeSelect?.getSelectedKey?.() ||
 						""
 				).trim();
-				var sDocNo = String(oDocNumberCtrl?.getValue?.() || "").trim();
+				var sDocNoRaw = String(oDocNumberCtrl?.getValue?.() || "").trim();
+				var sDocNo = sDocNoRaw.replace(/\D/g, "").slice(0, 10);
+				if (sDocNo !== sDocNoRaw && typeof oDocNumberCtrl?.setValue === "function") {
+					oDocNumberCtrl.setValue(sDocNo);
+				}
 				if (!sDocType || !sDocNo) {
 					return;
 				}
@@ -5773,8 +5789,23 @@ sap.ui.define([
 				.toLowerCase()
 				.replace(/[\s_-]+/g, "");
 			var bTripCompleted = sTripStatus === "completed" || sTripStatus === "tripcompleted" || sTripStatus === "done";
-			oGlobalModel.setProperty("/DisableRefDocMaterialsActions", !!bScannerScenario || bTripCompleted);
-			oGlobalModel.setProperty("/TripLocked", bTripCompleted);
+			// Keep lock behavior consistent with Stage:
+			// completed trips are locked by default; authorized users can unlock via explicit "Reopen Trip".
+			var bTripUnlocked = !!oGlobalModel.getProperty("/TripUnlocked");
+			var bTripLocked = bTripCompleted && !bTripUnlocked;
+			// IMPORTANT: On Reopen (TripUnlocked=true), bring back everything that was hidden due to "Trip Completed".
+			// Scanner scenarios may still disable actions during scanning flows, but a reopened completed trip
+			// should not keep ref-doc actions hidden just because it is a scanner scenario.
+			var bDisableActions = false;
+			if (bTripLocked) {
+				bDisableActions = true;
+			} else if (bTripCompleted && bTripUnlocked) {
+				bDisableActions = false;
+			} else {
+				bDisableActions = !!bScannerScenario;
+			}
+			oGlobalModel.setProperty("/DisableRefDocMaterialsActions", bDisableActions);
+			oGlobalModel.setProperty("/TripLocked", bTripLocked);
 			
 			var vOrderDetails = oTripData.getProperty("/OrderDetails");
 			var vItemDetails = oTripData.getProperty("/ItemDetails");

@@ -78,8 +78,20 @@
 								icon="sap-icon://cancel"
 								press=".onCancelTrip"
 								class="darkCancelButton"
+								visible="{= !${globalData>/TripCompleted} }"
+								enabled="{= !${globalData>/TripLocked} }"
 							/>
 						</contentLeft>
+						<contentRight>
+							<Button
+								id="btnReopenTrip"
+								text="Reopen Trip"
+								type="Accept"
+								icon="sap-icon://undo"
+								press=".onReopenTrip"
+								visible="{= ${globalData>/TripCompleted} === true &amp;&amp; ${globalData>/ReopenAuthLoaded} === true &amp;&amp; ${globalData>/CanReopenTrip} === true &amp;&amp; ${globalData>/TripUnlocked} !== true }"
+							/>
+						</contentRight>
 					</Bar>
 				</footer>
 			</Page>

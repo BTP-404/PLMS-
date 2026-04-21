@@ -511,6 +511,7 @@
                         type="Emphasized"
                         press="onEditReporting"
                         icon="sap-icon://edit"
+                        visible="{= !${globalData>/TripLocked} }"
                     />
                     <Button
                         id="btnSaveReporting"

@@ -57,6 +57,24 @@ sap.ui.define(
           this._initGateOutRefSuggestModel();
           this._updatePanelVisibility();
           this._updateBinTrolleyVisibility();
+
+          // Ensure Skip Document defaults to "No" even before TripData is loaded.
+          // RadioButtonGroup binding uses formatRefDocSkipIndex: blank/missing => index 1 => "No".
+          var oTripData = sap.ui.getCore().getModel("TripData");
+          if (!oTripData) {
+            oTripData = new JSONModel({ RefDocSkip: " " });
+            sap.ui.getCore().setModel(oTripData, "TripData");
+          }
+          if (oTripData) {
+            var vRefDocSkip = oTripData.getProperty("/RefDocSkip");
+            if (
+              vRefDocSkip === undefined ||
+              vRefDocSkip === null ||
+              String(vRefDocSkip).trim() === ""
+            ) {
+              oTripData.setProperty("/RefDocSkip", " ");
+            }
+          }
           
           // Initialize selected files array
           this._aSelectedFiles = [];

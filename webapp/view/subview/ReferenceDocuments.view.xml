@@ -266,7 +266,7 @@
                                     <Text text="ShippingQty" wrapping="false"/>
                                 </Column>
                                 <Column id="colMaterialUoM" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
-                                    <Text text="UoM" wrapping="false"/>
+                                    <Text text="UOM" wrapping="false"/>
                                 </Column>
                                 <Column id="colRemainQty" hAlign="End" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
                                     <Text text="RemainQty" wrapping="false"/>

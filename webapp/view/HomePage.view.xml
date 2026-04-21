@@ -50,7 +50,7 @@
             >
                 <layout:Grid
                     width="100%"
-                    defaultSpan="XL4 L4 M4 S12"
+                    defaultSpan="XL3 L3 M3 S12"
                     hSpacing="2"
                     vSpacing="2"
                     class="sapUiTinyMarginTop homeFilterCard homeFilterGrid"
@@ -59,7 +59,7 @@
                     <layout:content>
                         <VBox class="homeFilterField">
                             <layoutData>
-                                <layout:GridData span="XL4 L4 M4 S12" />
+                                <layout:GridData span="XL3 L3 M3 S12" />
                             </layoutData>
                             <Label
                                 design="Bold"
@@ -89,7 +89,7 @@
                     <layout:content>
                         <VBox class="homeFilterField">
                             <layoutData>
-                                <layout:GridData span="XL4 L4 M4 S12" />
+                                <layout:GridData span="XL3 L3 M3 S12" />
                             </layoutData>
                             <Label
                                 design="Bold"
@@ -115,11 +115,35 @@
                             </Input>
                         </VBox>
                     </layout:content>
+                    <!-- Status Category -->
+                    <layout:content>
+                        <VBox class="homeFilterField">
+                            <layoutData>
+                                <layout:GridData span="XL3 L3 M3 S12" />
+                            </layoutData>
+                            <Label
+                                design="Bold"
+                                text="Status:"
+                                class="homeFilterLabel"
+                            />
+                            <Select
+                                width="100%"
+                                selectedKey="{homeFilter>/statusCategory}"
+                                change=".onStatusCategoryChange"
+                            >
+                                <items>
+                                    <core:Item key="ALL" text="All" />
+                                    <core:Item key="COMPLETED" text="Completed" />
+                                    <core:Item key="INCOMPLETE" text="Incompleted" />
+                                </items>
+                            </Select>
+                        </VBox>
+                    </layout:content>
                     <!-- Vehicle reported date range; filters apply when dates or Trip/Vehicle inputs change -->
                     <layout:content>
                         <VBox class="homeFilterField">
                             <layoutData>
-                                <layout:GridData span="XL4 L4 M4 S12" />
+                                <layout:GridData span="XL3 L3 M3 S12" />
                             </layoutData>
                             <Label
                                 design="Bold"

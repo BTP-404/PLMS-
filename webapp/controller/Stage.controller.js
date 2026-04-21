@@ -19,10 +19,45 @@ sap.ui.define([
 			oRouter.getRoute("StagewithParam").attachPatternMatched(this._onRouteMatched, this); // existing vehicle
 
 			// Ensure global trip model exists upfront
-			if (!sap.ui.getCore().getModel("globalData")) {
-				sap.ui.getCore().setModel(new JSONModel({
-					TripNumber: ""
-				}), "globalData");
+			var oGlobalModel = sap.ui.getCore().getModel("globalData");
+			if (!oGlobalModel) {
+				oGlobalModel = new JSONModel({
+					TripNumber: "",
+					CanReopenTrip: false,
+					TripCompleted: false,
+					TripUnlocked: false,
+					ReopenAuthLoadedForPlant: "",
+					ReopenAuthLoaded: false,
+					ReopenAuthLoading: false
+				});
+				sap.ui.getCore().setModel(oGlobalModel, "globalData");
+			} else {
+				// Backward compatible: ensure properties exist even if model was created earlier.
+				if (oGlobalModel.getProperty("/CanReopenTrip") === undefined) {
+					oGlobalModel.setProperty("/CanReopenTrip", false);
+				}
+				if (oGlobalModel.getProperty("/TripCompleted") === undefined) {
+					oGlobalModel.setProperty("/TripCompleted", false);
+				}
+				if (oGlobalModel.getProperty("/TripUnlocked") === undefined) {
+					oGlobalModel.setProperty("/TripUnlocked", false);
+				}
+				if (oGlobalModel.getProperty("/ReopenAuthLoadedForPlant") === undefined) {
+					oGlobalModel.setProperty("/ReopenAuthLoadedForPlant", "");
+				}
+				if (oGlobalModel.getProperty("/ReopenAuthLoaded") === undefined) {
+					oGlobalModel.setProperty("/ReopenAuthLoaded", false);
+				}
+				if (oGlobalModel.getProperty("/ReopenAuthLoading") === undefined) {
+					oGlobalModel.setProperty("/ReopenAuthLoading", false);
+				}
+			}
+			// Bind Stage view to the current globalData model instance so UI + handlers stay in sync
+			// even if some other controller replaces sap.ui.getCore().setModel("globalData") at runtime.
+			try {
+				this.getView().setModel(oGlobalModel, "globalData");
+			} catch (e) {
+				// best effort
 			}
 			this._initPageTitleModel();
 
@@ -41,6 +76,12 @@ sap.ui.define([
 			this._bStageTabBarLimited = false;
 			this._sLastSelectedStageTabKey = "gateIn";
 			this.getView().setModel(this._ensureStageUiModel(), "stageUi");
+			// Ensure Stage view inherits the core global model by name
+			try {
+				this.getView().setModel(sap.ui.getCore().getModel("globalData"), "globalData");
+			} catch (e) {
+				// best effort
+			}
 			this._updateTripLockState();
 			this._updateReportingPlacementByVehicleType();
 			
@@ -299,18 +340,170 @@ sap.ui.define([
 			if (!sTripStatus && this._oPageTitleModel) {
 				sTripStatus = this._oPageTitleModel.getProperty("/tripStatus") || "";
 			}
-			var bTripLocked = this._isTripCompletedStatus(sTripStatus);
-			oStageUi.setProperty("/tripLocked", bTripLocked);
+			var bTripCompleted = this._isTripCompletedStatus(sTripStatus);
 			var oGlobalModel = sap.ui.getCore().getModel("globalData");
 			if (!oGlobalModel) {
 				oGlobalModel = new JSONModel({
 					TripNumber: "",
-					TripLocked: false
+					TripLocked: false,
+					TripCompleted: false,
+					CanReopenTrip: false,
+					TripUnlocked: false,
+					ReopenAuthLoadedForPlant: ""
 				});
 				sap.ui.getCore().setModel(oGlobalModel, "globalData");
 			}
+
+			// Reopen authorization is plant-specific. Ensure it is loaded for the current trip plant.
+			this._ensureReopenAuthLoaded();
+
+			// Completed trips are always locked by default.
+			// If user is authorized, they must explicitly press "Reopen Trip" to unlock the UI.
+			var bTripUnlocked = !!oGlobalModel.getProperty("/TripUnlocked");
+			if (!bTripCompleted && bTripUnlocked) {
+				// Reset unlock flag when trip isn't completed anymore / different trip loaded.
+				oGlobalModel.setProperty("/TripUnlocked", false);
+				bTripUnlocked = false;
+			}
+			var bTripLocked = bTripCompleted && !bTripUnlocked;
+
+			oStageUi.setProperty("/tripLocked", bTripLocked);
+			oGlobalModel.setProperty("/TripCompleted", bTripCompleted);
 			oGlobalModel.setProperty("/TripLocked", bTripLocked);
 			this._applyTripLockActionButtons();
+		},
+
+		_escapeODataKeyValue: function (sValue) {
+			// OData V2 key predicate escaping: single quotes are doubled.
+			return String(sValue || "").replace(/'/g, "''");
+		},
+
+		_getCurrentUserId: function () {
+			try {
+				// Fiori Launchpad
+				var oUser = sap.ushell && sap.ushell.Container && sap.ushell.Container.getUser && sap.ushell.Container.getUser();
+				if (oUser && typeof oUser.getId === "function") {
+					return String(oUser.getId() || "").trim();
+				}
+			} catch (e) {
+				// ignore
+			}
+			return "";
+		},
+
+		_getServiceModel: function () {
+			if (!this._oServiceModel) {
+				this._oServiceModel = new ODataModel("/sap/opu/odata/sap/YIGP_PLMS_SRV/", {
+					useBatch: false,
+					defaultBindingMode: "TwoWay"
+				});
+			}
+			return this._oServiceModel;
+		},
+
+		_ensureReopenAuthLoaded: function () {
+			var oTripData = sap.ui.getCore().getModel("TripData");
+			var oGlobalModel = sap.ui.getCore().getModel("globalData");
+			if (!oGlobalModel) {
+				return;
+			}
+
+			var sPlant = String((oTripData && oTripData.getProperty("/Plant")) || "").trim();
+			if (!sPlant) {
+				oGlobalModel.setProperty("/CanReopenTrip", false);
+				oGlobalModel.setProperty("/ReopenAuthLoadedForPlant", "");
+				oGlobalModel.setProperty("/ReopenAuthLoaded", false);
+				oGlobalModel.setProperty("/ReopenAuthLoading", false);
+				return;
+			}
+
+			var sLoadedFor = String(oGlobalModel.getProperty("/ReopenAuthLoadedForPlant") || "");
+			if (sLoadedFor === sPlant) {
+				return; // already loaded for this plant
+			}
+
+			// Reset until we know permissions for this plant.
+			oGlobalModel.setProperty("/CanReopenTrip", false);
+			oGlobalModel.setProperty("/ReopenAuthLoadedForPlant", sPlant);
+			oGlobalModel.setProperty("/ReopenAuthLoaded", false);
+			oGlobalModel.setProperty("/ReopenAuthLoading", true);
+
+			var sUser = this._getCurrentUserId();
+			if (!sUser) {
+				// If user cannot be determined on frontend, keep locked (safe default).
+				oGlobalModel.setProperty("/ReopenAuthLoaded", true);
+				oGlobalModel.setProperty("/ReopenAuthLoading", false);
+				return;
+			}
+
+			var oModel = this._getServiceModel();
+			var sPath = "/UserRoles(User='" + this._escapeODataKeyValue(sUser) + "',Plant='" + this._escapeODataKeyValue(sPlant) + "')";
+
+			oModel.read(sPath, {
+				success: function (oData) {
+					var sReopen = String((oData && (oData.Reopen || oData.ReopenLoading)) || "").toUpperCase();
+					var sReopenUnload = String((oData && oData.ReopenUnload) || "").toUpperCase();
+					var bCanReopen = sReopen === "X" || sReopenUnload === "X";
+					oGlobalModel.setProperty("/CanReopenTrip", bCanReopen);
+					oGlobalModel.setProperty("/ReopenAuthLoaded", true);
+					oGlobalModel.setProperty("/ReopenAuthLoading", false);
+					this._updateTripLockState(); // recompute TripLocked using auth
+					this._updateCancelButtonVisibility();
+				}.bind(this),
+				error: function () {
+					// Keep defaults (no reopen) on error.
+					oGlobalModel.setProperty("/CanReopenTrip", false);
+					oGlobalModel.setProperty("/ReopenAuthLoaded", true);
+					oGlobalModel.setProperty("/ReopenAuthLoading", false);
+					this._updateTripLockState();
+					this._updateCancelButtonVisibility();
+				}.bind(this)
+			});
+		},
+
+		onReopenTrip: function () {
+			var oGlobalModel = this.getView() && this.getView().getModel && this.getView().getModel("globalData");
+			if (!oGlobalModel) {
+				oGlobalModel = sap.ui.getCore().getModel("globalData");
+			}
+			var bCanReopen = !!(oGlobalModel && oGlobalModel.getProperty("/CanReopenTrip"));
+			if (!bCanReopen) {
+				MessageToast.show("You are not authorized to reopen this trip.");
+				return;
+			}
+
+			// Explicit unlock for authorized users.
+			MessageToast.show("Trip reopened for editing.");
+			try {
+				oGlobalModel.setProperty("/TripUnlocked", true);
+				oGlobalModel.setProperty("/TripLocked", false);
+				// Reopen means bring back any UI actions hidden during completed/scanning mode.
+				// (Some views hide actions when IsScanningReporting/DisableRefDocMaterialsActions are true.)
+				if (oGlobalModel.getProperty("/IsScanningReporting") === true) {
+					oGlobalModel.setProperty("/IsScanningReporting", false);
+				}
+				if (oGlobalModel.getProperty("/DisableRefDocMaterialsActions") === true) {
+					oGlobalModel.setProperty("/DisableRefDocMaterialsActions", false);
+				}
+			} catch (e) {
+				// best effort
+			}
+			// Ensure Stage UI model matches the global lock state so _applyTripLockActionButtons restores buttons.
+			try {
+				var oStageUi = this._ensureStageUiModel();
+				oStageUi.setProperty("/tripLocked", false);
+			} catch (e) {
+				// best effort
+			}
+			this._applyTripLockActionButtons();
+			this._updateCancelButtonVisibility();
+
+			// Notify subviews/controllers to re-evaluate TripLocked bindings and programmatic enablement.
+			try {
+				sap.ui.getCore().getEventBus().publish("TripData", "Updated");
+			} catch (e) {
+				// best effort
+			}
 		},
 
 		_applyTripLockActionButtons: function () {
@@ -332,6 +525,17 @@ sap.ui.define([
 			aButtons.forEach(function (oButton) {
 				if (!this._isTripLockTargetButton(oButton)) {
 					return;
+				}
+
+				// Don't override buttons whose visibility is already controlled by data binding
+				// (e.g. `visible="{= !${globalData>/TripLocked} }"`). Otherwise, the value we
+				// capture while locked may be `false` and we would restore `false` on unlock.
+				try {
+					if (oButton.getBinding && oButton.getBinding("visible")) {
+						return;
+					}
+				} catch (e) {
+					// best effort
 				}
 
 				var sButtonId = oButton.getId();
@@ -786,6 +990,19 @@ sap.ui.define([
 				return;
 			}
 
+			// If trip is completed/locked (global flag), always hide Cancel.
+			// Note: Stage controller programmatically sets visibility, which overrides XML bindings.
+			var oGlobalModel = this.getView() && this.getView().getModel && this.getView().getModel("globalData");
+			if (!oGlobalModel) {
+				oGlobalModel = sap.ui.getCore().getModel("globalData");
+			}
+			var bTripCompletedGlobal = !!(oGlobalModel && oGlobalModel.getProperty("/TripCompleted"));
+			var bTripLockedGlobal = !!(oGlobalModel && oGlobalModel.getProperty("/TripLocked"));
+			if (bTripCompletedGlobal || bTripLockedGlobal) {
+				oCancelButton.setVisible(false);
+				return;
+			}
+
 			// Hide button in CREATE mode (new vehicle reporting)
 			if (this._bCreateMode) {
 				oCancelButton.setVisible(false);
@@ -802,6 +1019,10 @@ sap.ui.define([
 
 			// Check TripStatus (case-insensitive)
 			var sTripStatus = (oTripDataModel.getProperty("/TripStatus") || "").trim();
+			// Fallback to page title model (some flows populate header first)
+			if (!sTripStatus && this._oPageTitleModel) {
+				sTripStatus = String(this._oPageTitleModel.getProperty("/tripStatus") || "").trim();
+			}
 			var sLowerStatus = sTripStatus.toLowerCase();
 			// Gate Out: "gate out" or "gate-out"
 			var bIsGateOut = sLowerStatus === "gate out" || sLowerStatus === "gate-out";

@@ -48,6 +48,7 @@ sap.ui.define(
           new JSONModel({
             reportDateFrom: null,
             reportDateTo: null,
+            statusCategory: "ALL",
           }),
           "homeFilter"
         );
@@ -3064,6 +3065,17 @@ sap.ui.define(
         );
       },
 
+      /**
+       * Status category filter (All / Completed / Incompleted).
+       */
+      onStatusCategoryChange: function () {
+        var oRange = this._getReportDateRange();
+        if (!this._isReportDateRangeOrderValid(oRange.from, oRange.to)) {
+          return;
+        }
+        this._applyTableFilter();
+      },
+
       _getReportDateRange: function () {
         var oDRS = this.byId("ReportDateRange");
         if (!oDRS) {
@@ -3173,11 +3185,29 @@ sap.ui.define(
         var sNeedleLower = (this._sVehicleNumberNeedleLower || "")
           .trim()
           .toLowerCase();
+        var oHomeFilter = this.getView().getModel("homeFilter");
+        var sStatusCategory = String(oHomeFilter?.getProperty("/statusCategory") || "ALL")
+          .trim()
+          .toUpperCase();
+        var that = this;
+        var fnIsIncompleteNorm = function (sNorm) {
+          if (!sNorm) {
+            return false;
+          }
+          // Handle "Ref. Documents Added" vs "Ref Documents Added"
+          var sNoDot = sNorm.replace(/\./g, "");
+          return (
+            sNorm === "vehicle reported" ||
+            sNorm === "gate in reported" ||
+            sNorm === "gate out" ||
+            sNorm === "ref. documents added" ||
+            sNoDot === "ref documents added"
+          );
+        };
         if (typeof oTable.setGrowing === "function") {
           oTable.setGrowing(!sNeedleLower);
         }
         var aItems = oTable.getItems() || [];
-        var that = this;
         aItems.forEach(function (oItem) {
           if (!oItem || !oItem.getBindingContext) {
             return;
@@ -3195,6 +3225,14 @@ sap.ui.define(
             oObj.VehicleNumber != null ? String(oObj.VehicleNumber) : "";
           var bMatch =
             !sNeedleLower || sVeh.toLowerCase().indexOf(sNeedleLower) > -1;
+          var sStatusNorm = that._normalizeTripStatusForRowClass(oObj.TripStatus);
+          var bStatusMatch = true;
+          if (sStatusCategory === "COMPLETED") {
+            bStatusMatch = that._isTripStatusTripCompletedNorm(sStatusNorm);
+          } else if (sStatusCategory === "INCOMPLETE") {
+            bStatusMatch = fnIsIncompleteNorm(sStatusNorm);
+          }
+          bMatch = bMatch && bStatusMatch;
           if (oItem.setVisible) {
             oItem.setVisible(bMatch);
           }

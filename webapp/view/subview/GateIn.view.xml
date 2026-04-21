@@ -117,8 +117,6 @@
                                 <Input
                                     value="{binTrolleyTracking>Material}"
                                     editable="{= ${binTrolleyTracking>IsManual} &amp;&amp; !${globalData>/TripLocked} }"
-                                    showValueHelp="{= ${binTrolleyTracking>IsManual} &amp;&amp; !${globalData>/TripLocked} }"
-                                    valueHelpRequest=".onPartCodeValueHelpRequest"
                                     change="onBinTrolleyPartCodeChange"
                                     showSuggestion="true"
                                     suggestionItems="{partCodeSuggest>/items}"

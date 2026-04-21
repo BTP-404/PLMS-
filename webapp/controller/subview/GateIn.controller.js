@@ -55,12 +55,16 @@ sap.ui.define(
           
           // Initialize weighment required if not set (default to "No")
           var oTripData = sap.ui.getCore().getModel("TripData");
+          if (!oTripData) {
+            oTripData = new JSONModel({ RefDocSkip: " " });
+            sap.ui.getCore().setModel(oTripData, "TripData");
+          }
           if (oTripData && !oTripData.getProperty("/WeighmentRequired")) {
             oTripData.setProperty("/WeighmentRequired", "N");
           }
           if (oTripData) {
             var vSkip = oTripData.getProperty("/RefDocSkip");
-            if (vSkip === undefined || vSkip === null || vSkip === "") {
+            if (vSkip === undefined || vSkip === null || String(vSkip).trim() === "") {
               oTripData.setProperty("/RefDocSkip", " ");
             }
           }
@@ -525,21 +529,38 @@ sap.ui.define(
         _buildTrackingRowsForBackend: function (sTripNumber) {
           var oTrackingModel = this.getView().getModel("binTrolleyTracking");
           var aRows = this._getTrackingItems(oTrackingModel);
+          var fnHasMeaningfulData = function (oRow) {
+            if (!oRow) {
+              return false;
+            }
+            var sMaterial = String(oRow.Material || "").trim();
+            var sBin = String(
+              oRow.BinType ||
+                oRow.BinTypes ||
+                oRow.BinTypeDesc ||
+                oRow.BintypeDesc ||
+                oRow.BinTypeDescription ||
+                ""
+            ).trim();
+            var iQtyIn = this._coerceWholeBinQty(oRow.QtyIn);
+            var iQtyOut = this._coerceWholeBinQty(oRow.QtyOut);
+            var iActualQty = this._coerceWholeBinQty(oRow.ActualQty);
+            return !!(sMaterial || sBin || iQtyIn > 0 || iQtyOut > 0 || iActualQty > 0);
+          }.bind(this);
           return aRows
             .filter(function (oRow) {
-              return (
-                String(oRow.DocumentNumber || "").trim() !== "" &&
-                String(oRow.ItemNo || "").trim() !== ""
-              );
+              // Backend can accept bin rows without DocumentNumber/ItemNo (manual rows).
+              // Only skip completely blank rows.
+              return fnHasMeaningfulData(oRow);
             })
             .map(function (oRow) {
               var iQtyIn = this._coerceWholeBinQty(oRow.QtyIn);
               var iQtyOut = this._coerceWholeBinQty(oRow.QtyOut);
               var iActualQty = this._coerceWholeBinQty(oRow.ActualQty);
-              return {
+              // Keep payload aligned with backend expectation for EmptyBins lines.
+              // Do not force DocumentNumber/ItemNo into payload when not provided.
+              var oPayloadRow = {
                 TripNumber: String(oRow.TripNumber || sTripNumber || "").trim(),
-                DocumentNumber: String(oRow.DocumentNumber || "").trim(),
-                ItemNo: String(oRow.ItemNo || "").trim(),
                 Customer: String(oRow.Customer || ""),
                 Material: String(oRow.Material || ""),
                 BinType: String(oRow.BinType || "").trim(),
@@ -548,6 +569,16 @@ sap.ui.define(
                 QtyIn: String(iQtyIn),
                 QtyOut: String(iQtyOut)
               };
+              // Preserve doc/item when present (helps backend keying if supported).
+              var sDoc = String(oRow.DocumentNumber || "").trim();
+              var sItem = String(oRow.ItemNo || "").trim();
+              if (sDoc) {
+                oPayloadRow.DocumentNumber = sDoc;
+              }
+              if (sItem) {
+                oPayloadRow.ItemNo = sItem;
+              }
+              return oPayloadRow;
             }.bind(this));
         },
 
@@ -569,8 +600,9 @@ sap.ui.define(
             var sBin = String(
               r.BinType || r.BinTypes || r.BinTypeDesc || r.BintypeDesc || r.BinTypeDescription || ""
             ).trim();
+            var sMat = String(r.Material || r.MaterialCode || "").trim();
             var sKey =
-              fnNorm(r.DocumentNumber) + "|" + fnNorm(r.ItemNo) + "|" + sBin;
+              fnNorm(r.DocumentNumber) + "|" + fnNorm(r.ItemNo) + "|" + sBin + "|" + sMat;
             if (mSeen[sKey]) {
               return;
             }
@@ -593,7 +625,8 @@ sap.ui.define(
           var sBin = String(
             oRow.BinType || oRow.BinTypes || oRow.BinTypeDesc || oRow.BintypeDesc || oRow.BinTypeDescription || ""
           ).trim();
-          return fnNorm(oRow.DocumentNumber) + "|" + fnNorm(oRow.ItemNo) + "|" + sBin;
+          var sMat = String(oRow.Material || oRow.MaterialCode || "").trim();
+          return fnNorm(oRow.DocumentNumber) + "|" + fnNorm(oRow.ItemNo) + "|" + sBin + "|" + sMat;
         },
 
         _markGateInBinJustSaved: function () {

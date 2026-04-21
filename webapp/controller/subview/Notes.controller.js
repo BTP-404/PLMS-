@@ -213,7 +213,7 @@ sap.ui.define(
             },
 
             /** --------------------------------------------
-             * FORMAT DATETIME → dd-mm-yyyy hh:mm
+             * FORMAT DATETIME (match Analysis/Activity style)
              * --------------------------------------------*/
             _formatDateTime: function (sDateTime) {
                 if (!sDateTime) {
@@ -232,14 +232,17 @@ sap.ui.define(
                 if (isNaN(oDate?.getTime())) {
                     return "";
                 }
-                let dd = String(oDate.getDate()).padStart(2, "0");
-                let mm = String(oDate.getMonth() + 1).padStart(2, "0");
-                let yyyy = oDate.getFullYear();
-
-                let hh = String(oDate.getHours()).padStart(2, "0");
-                let min = String(oDate.getMinutes()).padStart(2, "0");
-
-                return `${dd}-${mm}-${yyyy} ${hh}:${min}`;
+                
+                // Keep formatting consistent with Activity/Analysis timeline:
+                // "Apr 21, 2026, 05:30" (locale-specific month/day order, 24h time)
+                var sDate = oDate.toLocaleDateString(undefined, {
+                    year: "numeric",
+                    month: "short",
+                    day: "2-digit"
+                });
+                var sHours = String(oDate.getHours()).padStart(2, "0");
+                var sMinutes = String(oDate.getMinutes()).padStart(2, "0");
+                return sDate + ", " + sHours + ":" + sMinutes;
             },
 
             _syncTripContext: function () {
