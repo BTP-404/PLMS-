@@ -15,7 +15,7 @@
             vSpacing="2"
             width="100%"
             class="sapUiTinyMarginBottom sapUiMediumPadding gateOutSearchCard"
-            visible="false"
+           
         >
             <layout:content>
                 <VBox width="100%">

@@ -1464,7 +1464,7 @@ sap.ui.define(
         _loadGateInBinsByKeys: function (sTripNumber, sDocumentNumber, aItemNos) {
           var oModel = this.oModel;
           var oTrackingModel = this.getView().getModel("binTrolleyTracking");
-          if (!oModel || !oTrackingModel || !sDocumentNumber) {
+          if (!oModel || !oTrackingModel) {
             return Promise.resolve();
           }
           var aUniqueItemNos = (aItemNos || [])
@@ -1493,10 +1493,11 @@ sap.ui.define(
             .filter(function (s, i, a) {
               return a.indexOf(s) === i;
             });
+          // Fetch by TripNumber only (backend can return multiple docs/items; UI can filter locally).
           var aFilters = [
-            new sap.ui.model.Filter("TripNumber", sap.ui.model.FilterOperator.EQ, sTripNumber),
-            new sap.ui.model.Filter("DocumentNumber", sap.ui.model.FilterOperator.EQ, sDocumentNumber)
+            new sap.ui.model.Filter("TripNumber", sap.ui.model.FilterOperator.EQ, sTripNumber)
           ];
+          var sTargetDoc = String(sDocumentNumber || "").trim();
           return new Promise(function (resolve) {
             oModel.read("/EmptyBins", {
               filters: aFilters,
@@ -1504,6 +1505,11 @@ sap.ui.define(
               success: function (oData) {
                 var aRows = (oData && oData.results) || [];
                 var aDocRows = aRows;
+                if (sTargetDoc) {
+                  aDocRows = (aDocRows || []).filter(function (r) {
+                    return String(r.DocumentNumber || "").trim() === sTargetDoc;
+                  });
+                }
                 if (aUniqueItemNos.length) {
                   aDocRows = (aRows || []).filter(function (r) {
                     var sRaw = String(r.ItemNo || "").trim();

@@ -1470,9 +1470,10 @@ sap.ui.define(
         _loadGateOutBinsByKeys: function (sTripNumber, sDocumentNumber, aItemNos) {
           var oModel = this.oModel;
           var oVm = this.getView().getModel("binTrolleyTracking");
-          if (!oModel || !oVm || !sDocumentNumber) {
+          if (!oModel || !oVm) {
             return Promise.resolve();
           }
+          var sTargetDoc = String(sDocumentNumber || "").trim();
           var aUniqueItemNos = (aItemNos || [])
             .map(function (s) {
               return String(s || "").trim();
@@ -1499,10 +1500,8 @@ sap.ui.define(
             .filter(function (s, i, a) {
               return a.indexOf(s) === i;
             });
-          var aFilters = [
-            new Filter("TripNumber", FilterOperator.EQ, sTripNumber),
-            new Filter("DocumentNumber", FilterOperator.EQ, sDocumentNumber),
-          ];
+          // Fetch by TripNumber only (backend can return multiple docs/items; UI can filter locally).
+          var aFilters = [new Filter("TripNumber", FilterOperator.EQ, sTripNumber)];
           return new Promise(
             function (resolve) {
               oModel.read("/EmptyBins", {
@@ -1513,6 +1512,11 @@ sap.ui.define(
                 success: function (oData) {
                   var aRows = (oData && oData.results) || [];
                   var aDocRows = aRows;
+                  if (sTargetDoc) {
+                    aDocRows = (aDocRows || []).filter(function (r) {
+                      return String(r.DocumentNumber || "").trim() === sTargetDoc;
+                    });
+                  }
                   if (aUniqueItemNos.length) {
                     aDocRows = (aRows || []).filter(function (r) {
                       var sRaw = String(r.ItemNo || "").trim();
