@@ -35,6 +35,7 @@
                     type="Emphasized"
                     icon="sap-icon://bar-code"
                     press="onScanSuccess"
+                    enabled="{= !${globalData>/TripLocked} }"
                     class="sapUiTinyMarginBegin"
                 />
                 <Button
@@ -42,6 +43,7 @@
                     text="Cancel"
                     type="Transparent"
                     press="onCancelReportingScanner"
+                    enabled="{= !${globalData>/TripLocked} }"
                     class="sapUiTinyMarginBegin"
                 />
             </HBox>
@@ -85,6 +87,7 @@
                     text="Submit"
                     type="Emphasized"
                     press="onPoNumberSubmitPress"
+                    enabled="{= !${globalData>/TripLocked} }"
                     class="sapUiTinyMarginBegin"
                 />
             </HBox>
@@ -123,6 +126,7 @@
                                 width="100%"
                                 forceSelection="true"
                                 tooltip="Select movement scenario"
+                                enabled="{= !${globalData>/TripLocked} }"
                                 items="{
                                     path: 'movementScenarioItems>/',
                                     sorter: {
@@ -176,6 +180,7 @@
                                 value="{TripData>/VehicleNumber}"
                                 startSuggestion="1"
                                 suggestionItemSelected="onSuggestionItemSelected"
+                                enabled="{= !${globalData>/TripLocked} }"
                             >
                                 <suggestionItems>
                                     <core:Item
@@ -210,6 +215,7 @@
                                 showSecondaryValues="false"
                                 selectionChange="onVehicleTypeSelectionChange"
                                 change="onVehicleTypeChange"
+                                enabled="{= !${globalData>/TripLocked} }"
                             >
                                 <core:ListItem
                                     key="{vehicleTypeSuggestions>ConfigID}"
@@ -227,6 +233,7 @@
                             <Select
                                 id="idVehicleSize"
                                 width="100%"
+                                enabled="{= !${globalData>/TripLocked} }"
                                 
                             >
                                 <core:Item key="Light" text="Light" />
@@ -249,6 +256,7 @@
                                 width="100%"
                                 value="{TripData>/TransporterName}"
                                 valueLiveUpdate="true"
+                                enabled="{= !${globalData>/TripLocked} }"
                             />
                         </VBox>
                     </layout:content>
@@ -263,6 +271,7 @@
                                 id="idLRNumber"
                                 width="100%"
                                 value="{TripData>/LR_Number}"
+                                enabled="{= !${globalData>/TripLocked} }"
                             />
                         </VBox>
                     </layout:content>
@@ -282,6 +291,7 @@
                                 displayFormat="medium"
                                 placeholder="{i18n>datePlaceholderExample}"
                                 valueFormat="yyyy-MM-dd"
+                                enabled="{= !${globalData>/TripLocked} }"
                             />
                         </VBox>
                     </layout:content>
@@ -297,6 +307,7 @@
                                 width="100%"
                                 value="{TripData>/DriverName}"
                                 valueLiveUpdate="true"
+                                enabled="{= !${globalData>/TripLocked} }"
                             />
                         </VBox>
                     </layout:content>
@@ -315,6 +326,7 @@
                                 maxLength="10"
                                 liveChange=".onDriverContactLiveChange"
                                 valueLiveUpdate="true"
+                                enabled="{= !${globalData>/TripLocked} }"
                             />
                         </VBox>
                     </layout:content>
@@ -331,6 +343,7 @@
                                 value="{TripData>/DriverLicence}"
                                 liveChange="onDriverLicenseLiveChange"
                                 valueLiveUpdate="true"
+                                enabled="{= !${globalData>/TripLocked} }"
                             />
                         </VBox>
                     </layout:content>
@@ -349,6 +362,7 @@
                                     icon="sap-icon://camera"
                                     width="70%"
                                     change=".onDriverPhotoChange"
+                                    enabled="{= !${globalData>/TripLocked} }"
                                     class="sapUiTinyMarginEnd"
                                 />
                                 <Button
@@ -380,11 +394,19 @@
                                 text="Reference Document Type"
                                 design="Bold"
                             />
-                            <Input
+                            <Select
                                 id="idRefDocTypeReporting"
                                 width="100%"
-                                value="{TripData>/RefDocType}"
-                            />
+                                items="{docTypeItems>/items}"
+                                selectedKey="{reportingUi>/referenceByKey}"
+                                change="onReportingReferenceByChange"
+                                enabled="{= !${globalData>/TripLocked} }"
+                            >
+                                <core:ListItem
+                                    key="{docTypeItems>ConfigID}"
+                                    text="{docTypeItems>Description}"
+                                />
+                            </Select>
                         </VBox>
                     </layout:content>
                     <layout:content>
@@ -396,8 +418,25 @@
                             <Input
                                 id="idRefDocNoReporting"
                                 width="100%"
-                                value="{TripData>/RefDocNo}"
-                            />
+                                value="{reportingUi>/refDocSearchValue}"
+                                showSuggestion="true"
+                                startSuggestion="1"
+                                filterSuggests="true"
+                                maxSuggestionWidth="32rem"
+                                placeholder="{= ${reportingUi>/referenceByMode} === 'INVOICE' ? 'Type or select invoice' : (${reportingUi>/referenceByMode} === 'CHALLAN' ? 'Type or select challan' : 'Type or select PO number') }"
+                                suggestionItems="{reportingRefSuggest>/items}"
+                                suggest="onReportingRefDocSuggest"
+                                suggestionItemSelected="onReportingRefDocSuggestionSelected"
+                                change="onReportingRefDocSearchChange"
+                                enabled="{= !${globalData>/TripLocked} }"
+                            >
+                                <suggestionItems>
+                                    <SuggestionItem
+                                        text="{reportingRefSuggest>docText}"
+                                        description="{reportingRefSuggest>docDescription}"
+                                    />
+                                </suggestionItems>
+                            </Input>
                         </VBox>
                     </layout:content>
                     <layout:content>
@@ -410,6 +449,7 @@
                                 id="idEwbBillNo"
                                 width="100%"
                                 value="{TripData>/EwbNo}"
+                                enabled="{= !${globalData>/TripLocked} }"
                             />
                         </VBox>
                     </layout:content>
@@ -426,6 +466,7 @@
                                 displayFormat="medium"
                                 placeholder="{i18n>datePlaceholderExample}"
                                 value="{path: 'TripData>/EwbActStartDate', formatter: '.formatLRDate'}"
+                                enabled="{= !${globalData>/TripLocked} }"
                             />
                         </VBox>
                     </layout:content>
@@ -439,6 +480,7 @@
                                 id="idInvDcNo"
                                 width="100%"
                                 value="{TripData>/InvRefNo}"
+                                enabled="{= !${globalData>/TripLocked} }"
                             />
                         </VBox>
                     </layout:content>
@@ -455,6 +497,7 @@
                                 displayFormat="medium"
                                 placeholder="{i18n>datePlaceholderExample}"
                                 value="{path: 'TripData>/InvRefDate', formatter: '.formatLRDate'}"
+                                enabled="{= !${globalData>/TripLocked} }"
                             />
                         </VBox>
                     </layout:content>
@@ -500,6 +543,7 @@
                                 width="100%"
                                 growing="true"
                                 value="{TripData>/AdditionalInfo}"
+                                enabled="{= !${globalData>/TripLocked} }"
                             />
                         </VBox>
                     </layout:content>

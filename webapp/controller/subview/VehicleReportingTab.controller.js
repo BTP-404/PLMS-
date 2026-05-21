@@ -58,6 +58,19 @@ sap.ui.define(
           this._loadVehicleTypeSuggestions();
           this.getView().setModel(new JSONModel([]), "movementScenarioItems");
           this.getView().setModel(new JSONModel({ items: [] }), "poNumberSuggestions");
+          // Reporting "Reference Document" search-by style UI state + suggestions
+          this.getView().setModel(
+            new JSONModel({
+              // ConfigID selected from /ConfigValues (ConfigGroup = "DocType")
+              referenceByKey: "",
+              // Internal suggestion mode (INVOICE/CHALLAN/PO) derived from selected doc type
+              referenceByMode: "INVOICE",
+              refDocSearchValue: "",
+            }),
+            "reportingUi"
+          );
+          this.getView().setModel(new JSONModel({ items: [] }), "reportingRefSuggest");
+          this.getView().setModel(new JSONModel({ items: [] }), "docTypeItems");
           this._loadMovementScenarioItems();
           this._syncOutgoingDirectSaleScenarioFromConfig();
 
@@ -79,6 +92,10 @@ sap.ui.define(
           if (this._iPoSuggestTimeout) {
             clearTimeout(this._iPoSuggestTimeout);
             this._iPoSuggestTimeout = null;
+          }
+          if (this._iReportingRefSuggestTimeout) {
+            clearTimeout(this._iReportingRefSuggestTimeout);
+            this._iReportingRefSuggestTimeout = null;
           }
           // Unsubscribe from event bus to prevent memory leaks
           if (this._oEventBus) {
@@ -747,6 +764,10 @@ sap.ui.define(
           delete oUpdateData.DocumentsVerified;
           delete oUpdateData.VerifiedDocs;
 
+          // Delay reason: do not send DelayReason/DelayReasons (invalid TripDetails props).
+          delete oUpdateData.DelayReason;
+          delete oUpdateData.DelayReasons;
+
           // Remove navigation properties / deferred / collections
           delete oUpdateData.ActivityHistory;
           delete oUpdateData.Attachments;
@@ -830,6 +851,19 @@ sap.ui.define(
           // Clear form data
           this._clearForm();
           
+          // Clear reporting "Reference Document" UI state (this is not bound to TripData)
+          const oReportingUi = this.getView().getModel("reportingUi");
+          if (oReportingUi) {
+            oReportingUi.setProperty("/refDocSearchValue", "");
+            // Keep selection consistent with a fresh trip; user can choose again.
+            oReportingUi.setProperty("/referenceByKey", "");
+            oReportingUi.setProperty("/referenceByMode", "INVOICE");
+          }
+          const oReportingRefSuggest = this.getView().getModel("reportingRefSuggest");
+          if (oReportingRefSuggest) {
+            oReportingRefSuggest.setProperty("/items", []);
+          }
+
           // Clear all suggestion models
           const oVHModel = new JSONModel([]);
           this.getView().setModel(oVHModel, "VHModel");
@@ -1421,6 +1455,22 @@ sap.ui.define(
           delete oPayload.RefDocNo;
           delete oPayload.EwbNo;
           delete oPayload.EwbActStartDate;
+
+          // TripDetails / OData expects DelayReasons; TripData from Gate-In uses DelayReason and aliases.
+          var sDelayForTrip =
+            String(oPayload.DelayReasons || "").trim() ||
+            String(oPayload.DelayReason || "").trim() ||
+            String(oPayload.DelayReasonCode || "").trim();
+          if (sDelayForTrip) {
+            oPayload.DelayReasons = sDelayForTrip;
+          } else {
+            delete oPayload.DelayReasons;
+          }
+          delete oPayload.DelayReason;
+          delete oPayload.DelayReasonCode;
+          delete oPayload.DelayReasonDesc;
+          delete oPayload.DelayReasonsDesc;
+          delete oPayload.DelayReasonText;
         },
 
         _parseDateLikeValue: function (vDate) {
@@ -3160,6 +3210,9 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
 
             // Propagate core TripData to this view so bindings resolve correctly
             this.getView().setModel(oTripData, "TripData");
+            this._loadReportingDocTypes();
+            this._syncReportingDocTypeFromTrip(oTripData);
+            this._syncReportingRefDocNoFromTrip(oTripData);
 
             var oMovementScenarioCtrl = this.byId("idMovementScenario");
             if (oMovementScenarioCtrl && oMovementScenarioCtrl.setSelectedKey) {
@@ -3172,6 +3225,290 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
           }
           this._setInputsEnabled(this._mode === "EDIT" || this._mode === "CREATE");
           this._setButtonStates(true, true);
+        },
+
+        _syncReportingRefDocNoFromTrip: function (oTripDataModel) {
+          var oUi = this.getView().getModel("reportingUi");
+          if (!oUi) {
+            return;
+          }
+          var sNo = String(oTripDataModel?.getProperty("/RefDocNo") || "").trim();
+          if (sNo) {
+            oUi.setProperty("/refDocSearchValue", sNo);
+          }
+        },
+
+        _normalizeTripNumber10: function (sTripNumber) {
+          var sTrip = sTripNumber != null ? String(sTripNumber).trim() : "";
+          if (/^\d+$/.test(sTrip)) {
+            sTrip = sTrip.padStart(10, "0");
+          }
+          return sTrip;
+        },
+
+        _loadReportingDocTypes: function () {
+          var oModel = this.getView().getModel();
+          var oDocTypeModel = this.getView().getModel("docTypeItems");
+          if (!oModel || !oDocTypeModel) {
+            return;
+          }
+
+          var oGlobal = sap.ui.getCore().getModel("globalData");
+          var sTrip = this._normalizeTripNumber10(oGlobal ? oGlobal.getProperty("/TripNumber") : "");
+
+          var aFilters = [new Filter("ConfigGroup", FilterOperator.EQ, "DocType")];
+          if (sTrip) {
+            aFilters.push(new Filter("TripNumber", FilterOperator.EQ, sTrip));
+          }
+
+          oModel.read("/ConfigValues", {
+            filters: aFilters,
+            success: function (oData) {
+              oDocTypeModel.setProperty("/items", (oData && oData.results) || []);
+              this._syncReportingDocTypeFromTrip(this.getView().getModel("TripData"));
+            }.bind(this),
+            error: function () {
+              oDocTypeModel.setProperty("/items", []);
+            },
+          });
+        },
+
+        _mapDocTypeToSuggestMode: function (sConfigId, sDescription) {
+          var sId = String(sConfigId || "").toUpperCase().trim();
+          var sDesc = String(sDescription || "").toUpperCase().trim();
+          var s = (sId + " " + sDesc).trim();
+          if (s.indexOf("PO") !== -1) return "PO";
+          if (s.indexOf("CHALLAN") !== -1) return "CHALLAN";
+          if (s.indexOf("INVOICE") !== -1 || s.indexOf("BILL") !== -1) return "INVOICE";
+          // fallback keeps existing behaviour
+          return "INVOICE";
+        },
+
+        _syncReportingDocTypeFromTrip: function (oTripDataModel) {
+          var oUi = this.getView().getModel("reportingUi");
+          var oDocTypeModel = this.getView().getModel("docTypeItems");
+          if (!oUi || !oDocTypeModel) {
+            return;
+          }
+
+          // TripData may come from the "Report Vehicle" popup with a DocType code (e.g. "PO")
+          // while the Reporting dropdown expects a ConfigID from /ConfigValues (ConfigGroup="DocType").
+          // So we try: exact ConfigID match first, then match by Description/ID containing the trip code.
+          var sTripConfigId = String(oTripDataModel?.getProperty("/RefDocType") || "").trim();
+          var sTripNeedle = String(sTripConfigId || "").toUpperCase().trim();
+          var aItems = oDocTypeModel.getProperty("/items") || [];
+
+          // Pick trip value if present; else first available config id
+          var oMatch = null;
+          if (sTripConfigId) {
+            oMatch = (aItems || []).find(function (o) {
+              return String(o?.ConfigID || "").trim() === sTripConfigId;
+            });
+          }
+          if (!oMatch && sTripNeedle) {
+            oMatch = (aItems || []).find(function (o) {
+              var sId = String(o?.ConfigID || "").toUpperCase().trim();
+              var sDesc = String(o?.Description || "").toUpperCase().trim();
+              return sId === sTripNeedle || sDesc === sTripNeedle;
+            });
+          }
+          if (!oMatch && sTripNeedle) {
+            oMatch = (aItems || []).find(function (o) {
+              var sId = String(o?.ConfigID || "").toUpperCase().trim();
+              var sDesc = String(o?.Description || "").toUpperCase().trim();
+              return sId.indexOf(sTripNeedle) !== -1 || sDesc.indexOf(sTripNeedle) !== -1;
+            });
+          }
+          if (!oMatch && aItems && aItems.length) {
+            oMatch = aItems[0];
+            sTripConfigId = String(oMatch?.ConfigID || "").trim();
+          }
+
+          if (sTripConfigId) {
+            if (oMatch && String(oMatch?.ConfigID || "").trim()) {
+              sTripConfigId = String(oMatch.ConfigID).trim();
+              // Normalize TripData to ConfigID so save payload sends ConfigID to backend.
+              try {
+                oTripDataModel?.setProperty?.("/RefDocType", sTripConfigId);
+              } catch (e) {
+                // ignore
+              }
+            }
+            oUi.setProperty("/referenceByKey", sTripConfigId);
+            oUi.setProperty(
+              "/referenceByMode",
+              this._mapDocTypeToSuggestMode(sTripConfigId, oMatch?.Description)
+            );
+          }
+        },
+
+        //---------------------------------------------
+        // REPORTING — REFERENCE DOCUMENT (Search-by style suggestions)
+        //---------------------------------------------
+        onReportingReferenceByChange: function (oEvent) {
+          var oSel = oEvent.getSource();
+          var sKey = oSel && oSel.getSelectedKey ? oSel.getSelectedKey() : "";
+          sKey = String(sKey || "").trim();
+          var oItem = oEvent.getParameter("selectedItem");
+          var sDesc = oItem && oItem.getText ? oItem.getText() : "";
+
+          var oUi = this.getView().getModel("reportingUi");
+          if (oUi) {
+            oUi.setProperty("/referenceByKey", sKey);
+            oUi.setProperty("/referenceByMode", this._mapDocTypeToSuggestMode(sKey, sDesc));
+            oUi.setProperty("/refDocSearchValue", "");
+          }
+          this._clearReportingRefSuggestItems();
+
+          // Keep TripData in sync (what user selected as type)
+          var oTripData = sap.ui.getCore().getModel("TripData");
+          if (oTripData) {
+            oTripData.setProperty("/RefDocType", sKey);
+            oTripData.setProperty("/RefDocNo", "");
+          }
+        },
+
+        onReportingRefDocSuggest: function (oEvent) {
+          var sValue = (oEvent.getParameter("suggestValue") || "").trim();
+          if (this._iReportingRefSuggestTimeout) {
+            clearTimeout(this._iReportingRefSuggestTimeout);
+          }
+          var that = this;
+          this._iReportingRefSuggestTimeout = setTimeout(function () {
+            that._loadReportingRefSuggestions(sValue);
+          }, 300);
+        },
+
+        _loadReportingRefSuggestions: function (sTerm) {
+          var oM = this.getView().getModel("reportingRefSuggest");
+          var oUi = this.getView().getModel("reportingUi");
+          if (!oM || !oUi) {
+            return;
+          }
+          var sMode = String(oUi.getProperty("/referenceByMode") || "INVOICE").toUpperCase();
+          this._fetchReportingReferenceSuggestions(sTerm, sMode, oM);
+        },
+
+        _fetchReportingReferenceSuggestions: function (sTerm, sKey, oLocalModel) {
+          var sValue = String(sTerm || "").trim();
+          if (!oLocalModel) {
+            return;
+          }
+          if (!sValue || sValue.length < 2) {
+            oLocalModel.setProperty("/items", []);
+            return;
+          }
+
+          var oModel = this.getView().getModel();
+          if (!oModel) {
+            oLocalModel.setProperty("/items", []);
+            return;
+          }
+
+          sKey = String(sKey || "").toUpperCase();
+          var bNumeric = /^\d+$/.test(sValue);
+          var sPath = "";
+          var oFilter = null;
+          if (sKey === "INVOICE") {
+            sPath = "/BillingDocSH";
+            oFilter = bNumeric
+              ? new Filter("BillingDoc", FilterOperator.Contains, sValue)
+              : new Filter("PayerName", FilterOperator.Contains, sValue);
+          } else if (sKey === "CHALLAN") {
+            sPath = "/ChallanSh";
+            oFilter = bNumeric
+              ? new Filter("MaterialDoc", FilterOperator.Contains, sValue)
+              : new Filter("SupplierName", FilterOperator.Contains, sValue);
+          } else if (sKey === "PO") {
+            sPath = "/PoNumberSH";
+            oFilter = bNumeric
+              ? new Filter("PoNumber", FilterOperator.Contains, sValue)
+              : new Filter("VendorName", FilterOperator.Contains, sValue);
+          } else {
+            oLocalModel.setProperty("/items", []);
+            return;
+          }
+
+          oModel.read(sPath, {
+            filters: [oFilter],
+            urlParameters: {
+              $top: "20",
+              $skip: "0",
+            },
+            success: function (oData) {
+              var aResults = (oData && oData.results) || [];
+              var mSeen = {};
+              var aItems = [];
+              aResults.forEach(function (o) {
+                var sDoc = "";
+                if (sKey === "INVOICE") {
+                  sDoc = String((o && o.BillingDoc) || "").trim();
+                } else if (sKey === "CHALLAN") {
+                  sDoc = String((o && o.MaterialDoc) || "").trim();
+                } else {
+                  sDoc = String((o && o.PoNumber) || "").trim();
+                }
+                if (!sDoc || mSeen[sDoc]) {
+                  return;
+                }
+                mSeen[sDoc] = true;
+                aItems.push({
+                  docText: sDoc,
+                  docDescription: String(
+                    (o && (o.PayerName || o.SupplierName || o.VendorName)) || ""
+                  ).trim(),
+                  raw: o || {},
+                });
+              });
+              var sNeedle = sValue.toLowerCase();
+              aItems = aItems.filter(function (oIt) {
+                var sT = String((oIt && oIt.docText) || "").toLowerCase();
+                var sD = String((oIt && oIt.docDescription) || "").toLowerCase();
+                return sT.indexOf(sNeedle) !== -1 || sD.indexOf(sNeedle) !== -1;
+              });
+              oLocalModel.setProperty("/items", aItems);
+            },
+            error: function () {
+              oLocalModel.setProperty("/items", []);
+            },
+          });
+        },
+
+        onReportingRefDocSuggestionSelected: function (oEvent) {
+          var oItem = oEvent.getParameter("selectedItem");
+          var sText = oItem ? String(oItem.getText() || "").trim() : "";
+
+          var oUi = this.getView().getModel("reportingUi");
+          if (oUi) {
+            oUi.setProperty("/refDocSearchValue", sText);
+          }
+          this._clearReportingRefSuggestItems();
+
+          var oTripData = sap.ui.getCore().getModel("TripData");
+          if (oTripData) {
+            oTripData.setProperty("/RefDocNo", sText);
+          }
+        },
+
+        onReportingRefDocSearchChange: function (oEvent) {
+          var sVal = String(oEvent.getParameter("value") || "").trim();
+          var oUi = this.getView().getModel("reportingUi");
+          if (oUi) {
+            oUi.setProperty("/refDocSearchValue", sVal);
+          }
+          this._clearReportingRefSuggestItems();
+
+          var oTripData = sap.ui.getCore().getModel("TripData");
+          if (oTripData) {
+            oTripData.setProperty("/RefDocNo", sVal);
+          }
+        },
+
+        _clearReportingRefSuggestItems: function () {
+          var oM = this.getView().getModel("reportingRefSuggest");
+          if (oM) {
+            oM.setProperty("/items", []);
+          }
         },
 
         //---------------------------------------------

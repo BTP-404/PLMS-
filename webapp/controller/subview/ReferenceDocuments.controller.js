@@ -529,7 +529,7 @@ sap.ui.define([
 			// Fallback to token key if selection wasn't accessible
 			var aTokens = oEvent.getParameter("tokens") || [];
 			var sDocNo = aTokens[0]?.getKey?.() || "";
-			sDocNo = (sDocNo || "").toString();
+			sDocNo = this._sanitizeRefDocNumber(sDocNo);
 			if (sDocNo) {
 				this.byId("idRefDocNumber")?.setValue?.(sDocNo);
 			}
@@ -645,6 +645,33 @@ sap.ui.define([
 			return String(vValue || "").trim().toUpperCase();
 		},
 
+		_REF_DOC_NUMBER_MAX_LEN: 10,
+
+		_sanitizeRefDocNumber: function (sValue, iMaxLen) {
+			var iLen = iMaxLen || this._REF_DOC_NUMBER_MAX_LEN;
+			return String(sValue || "")
+				.toUpperCase()
+				.replace(/[^A-Z0-9]/g, "")
+				.slice(0, iLen);
+		},
+
+		_validateRefDocNumber: function (sValue, bShowMessage) {
+			var s = this._sanitizeRefDocNumber(sValue);
+			if (!s) {
+				if (bShowMessage) {
+					MessageBox.error("Document Number is mandatory");
+				}
+				return "";
+			}
+			if (s.length > this._REF_DOC_NUMBER_MAX_LEN) {
+				if (bShowMessage) {
+					MessageBox.error("Document Number must not exceed " + this._REF_DOC_NUMBER_MAX_LEN + " characters");
+				}
+				return "";
+			}
+			return s;
+		},
+
 		// ============================================================
 		// Reference Documents Dialog Handlers
 		// ============================================================
@@ -718,8 +745,7 @@ sap.ui.define([
 				}
 			}
 
-			sDocNumber = (sDocNumber || "").toString();
-			sDocNumber = sDocNumber.replace(/\D/g, "").slice(0, 10);
+			sDocNumber = this._sanitizeRefDocNumber(sDocNumber);
 			if (!sDocNumber) {
 				return;
 			}
@@ -741,9 +767,9 @@ sap.ui.define([
 			if (!oInput) return;
 
 			var sValue = String(oEvent?.getParameter?.("value") ?? oInput.getValue?.() ?? "");
-			var sDigits = sValue.replace(/\D/g, "").slice(0, 10);
-			if (sDigits !== sValue && typeof oInput.setValue === "function") {
-				oInput.setValue(sDigits);
+			var sSanitized = this._sanitizeRefDocNumber(sValue);
+			if (sSanitized !== sValue && typeof oInput.setValue === "function") {
+				oInput.setValue(sSanitized);
 			}
 		},
 
@@ -771,7 +797,7 @@ sap.ui.define([
 						""
 				).trim();
 				var sDocNoRaw = String(oDocNumberCtrl?.getValue?.() || "").trim();
-				var sDocNo = sDocNoRaw.replace(/\D/g, "").slice(0, 10);
+				var sDocNo = that._sanitizeRefDocNumber(sDocNoRaw);
 				if (sDocNo !== sDocNoRaw && typeof oDocNumberCtrl?.setValue === "function") {
 					oDocNumberCtrl.setValue(sDocNo);
 				}
@@ -787,7 +813,7 @@ sap.ui.define([
 
 		_handleDocSelection: function (sDocType, sDocNumber) {
 			var sType = String(sDocType || "").trim();
-			var sDocNo = String(sDocNumber || "").trim();
+			var sDocNo = this._sanitizeRefDocNumber(sDocNumber);
 			if (!sType || !sDocNo) {
 				return Promise.resolve(null);
 			}
@@ -1465,13 +1491,15 @@ sap.ui.define([
 			}
 
 			var oDocNumberCtrl = this.byId("idRefDocNumber");
-			var sDocNoUi = String(
-				(oDocNumberCtrl && oDocNumberCtrl.isA && oDocNumberCtrl.isA("sap.m.ComboBox"))
-					? (oDocNumberCtrl.getSelectedKey() || oDocNumberCtrl.getValue() || "")
-					: (oDocNumberCtrl?.getValue?.() || "")
-			).trim();
+			var sDocNoRaw = (oDocNumberCtrl && oDocNumberCtrl.isA && oDocNumberCtrl.isA("sap.m.ComboBox"))
+				? (oDocNumberCtrl.getSelectedKey() || oDocNumberCtrl.getValue() || "")
+				: (oDocNumberCtrl?.getValue?.() || "");
+			var sDocNoUi = this._validateRefDocNumber(sDocNoRaw, true);
 			if (!sDocNoUi) {
-				return MessageToast.show("Document Number is mandatory");
+				return;
+			}
+			if (oDocNumberCtrl && typeof oDocNumberCtrl.setValue === "function") {
+				oDocNumberCtrl.setValue(sDocNoUi);
 			}
 
 			if (!this._bIsRefDocEditMode && this._hasLocalReferenceDoc(sTripNumber, sDocTypeUi, sDocNoUi)) {
@@ -2341,7 +2369,7 @@ sap.ui.define([
 		},
 
 		_normalizeDocNumberForMatch: function (vDocNo) {
-			var s = String(vDocNo || "").trim();
+			var s = String(vDocNo || "").trim().toUpperCase();
 			if (!s) {
 				return "";
 			}
@@ -2756,7 +2784,7 @@ sap.ui.define([
 
 			// Prefill Document Number from PO; keep editable so user can enter a different doc or add more reference docs.
 			if (oDocNumberCtrl) {
-				oDocNumberCtrl.setValue(oPoPrefill.poNumber);
+				oDocNumberCtrl.setValue(this._sanitizeRefDocNumber(oPoPrefill.poNumber));
 				oDocNumberCtrl.setEnabled(true);
 				if (typeof oDocNumberCtrl.setEditable === "function") {
 					oDocNumberCtrl.setEditable(true);
@@ -3496,10 +3524,11 @@ sap.ui.define([
 			}
 			this._sSelectedDocType = oRefDoc.docType || "";
 			var oDocNumberCtrl = this.byId("idRefDocNumber");
+			var sDocNo = this._sanitizeRefDocNumber(oRefDoc.documentNumber || "");
 			if (oDocNumberCtrl && oDocNumberCtrl.isA && oDocNumberCtrl.isA("sap.m.ComboBox")) {
-				oDocNumberCtrl.setSelectedKey(oRefDoc.documentNumber || "");
+				oDocNumberCtrl.setSelectedKey(sDocNo);
 			} else {
-				oDocNumberCtrl?.setValue?.(oRefDoc.documentNumber || "");
+				oDocNumberCtrl?.setValue?.(sDocNo);
 			}
 			this.byId("idRefDocDate")?.setValue(oRefDoc.documentDate || "");
 			this.byId("idRefDocPartyCode")?.setValue(oRefDoc.partyCode || "");
@@ -3558,14 +3587,24 @@ sap.ui.define([
 			this.byId("idMaterialRefDocItem")?.setEnabled(bIdentityEditable);
 			this.byId("idMaterialCode")?.setEnabled(bIdentityEditable);
 			this.byId("idMaterialDesc")?.setEnabled(bIdentityEditable);
-			// Keep remaining material fields read-only when trip is completed/locked.
-			this.byId("idMaterialUoM")?.setEditable(!bTripLocked);
-			this.byId("idMaterialQty")?.setEditable(!bTripLocked);
-			this.byId("idMaterialBalanceQty")?.setEditable(!bTripLocked);
-			this.byId("idMaterialDispatchQty")?.setEditable(!bTripLocked);
-			this.byId("idMaterialRemainQty")?.setEditable(false);
-			this.byId("idMaterialDispatchDate")?.setEditable(!bTripLocked);
-			this.byId("idMaterialSheduleItem")?.setEditable(!bTripLocked);
+			if (bIsEdit) {
+				// Edit row: only shipping qty may change (unless trip is locked).
+				this.byId("idMaterialUoM")?.setEditable(false);
+				this.byId("idMaterialQty")?.setEditable(false);
+				this.byId("idMaterialBalanceQty")?.setEditable(false);
+				this.byId("idMaterialDispatchQty")?.setEditable(!bTripLocked);
+				this.byId("idMaterialRemainQty")?.setEditable(false);
+				this.byId("idMaterialDispatchDate")?.setEditable(false);
+				this.byId("idMaterialSheduleItem")?.setEditable(false);
+			} else {
+				this.byId("idMaterialUoM")?.setEditable(!bTripLocked);
+				this.byId("idMaterialQty")?.setEditable(!bTripLocked);
+				this.byId("idMaterialBalanceQty")?.setEditable(!bTripLocked);
+				this.byId("idMaterialDispatchQty")?.setEditable(!bTripLocked);
+				this.byId("idMaterialRemainQty")?.setEditable(false);
+				this.byId("idMaterialDispatchDate")?.setEditable(!bTripLocked);
+				this.byId("idMaterialSheduleItem")?.setEditable(!bTripLocked);
+			}
 		},
 
 		_populateMaterialDialog: function (oMaterial) {
@@ -4258,10 +4297,11 @@ sap.ui.define([
 			}
 			this._sSelectedDocType = sResolvedDocType || this._sSelectedDocType;
 			var oDocNumberCtrl = this.byId("idRefDocNumber");
+			var sDocNo = this._sanitizeRefDocNumber(oDoc.DocumentNumber || oDoc.documentNumber || "");
 			if (oDocNumberCtrl && oDocNumberCtrl.isA && oDocNumberCtrl.isA("sap.m.ComboBox")) {
-				oDocNumberCtrl.setSelectedKey(oDoc.DocumentNumber || oDoc.documentNumber || "");
+				oDocNumberCtrl.setSelectedKey(sDocNo);
 			} else {
-				oDocNumberCtrl?.setValue?.(oDoc.DocumentNumber || oDoc.documentNumber || "");
+				oDocNumberCtrl?.setValue?.(sDocNo);
 			}
 			this.byId("idRefDocDate")?.setValue(this._formatODataDate(oDoc.DocumentDate));
 			this.byId("idRefDocPartyCode")?.setValue(oDoc.Vendor || oDoc.Customer || "");
@@ -4977,11 +5017,10 @@ sap.ui.define([
 				oDocTypeSelect?.getValue?.() ||
 				""
 			).trim();
-			var sDocNoUi = String(
-				(oDocNumberCtrl && oDocNumberCtrl.isA && oDocNumberCtrl.isA("sap.m.ComboBox"))
-					? (oDocNumberCtrl.getSelectedKey() || oDocNumberCtrl.getValue() || "")
-					: (oDocNumberCtrl?.getValue?.() || "")
-			).trim();
+			var sDocNoRaw = (oDocNumberCtrl && oDocNumberCtrl.isA && oDocNumberCtrl.isA("sap.m.ComboBox"))
+				? (oDocNumberCtrl.getSelectedKey() || oDocNumberCtrl.getValue() || "")
+				: (oDocNumberCtrl?.getValue?.() || "");
+			var sDocNoUi = this._sanitizeRefDocNumber(sDocNoRaw);
 			if (!sDocTypeUi || !sDocNoUi) {
 				return null;
 			}

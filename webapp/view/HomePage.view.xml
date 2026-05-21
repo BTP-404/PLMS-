@@ -265,6 +265,14 @@
                             <Text text="Party name" />
                         </Column>
                         <Column
+                            id="colPartyCode"
+                            demandPopin="true"
+                            minScreenWidth="Desktop"
+                            popinDisplay="Inline"
+                        >
+                            <Text text="Party Code" />
+                        </Column>
+                        <Column
                             id="colGRN"
                             demandPopin="true"
                             minScreenWidth="Desktop"
@@ -387,6 +395,10 @@
                                 />
                                 <Text
                                     text="{PartyName}"
+                                    wrapping="true"
+                                />
+                                <Text
+                                    text="{PartyCode}"
                                     wrapping="true"
                                 />
                                 <Text

@@ -267,12 +267,29 @@ sap.ui.define(
             !sTripFromGlobal ||
             !sTripFromTripData ||
             sTripFromGlobal === sTripFromTripData;
+
+          var sMovementType = String(
+            (oTripData && oTripData.getProperty("/MovementType")) || ""
+          )
+            .trim()
+            .toUpperCase();
+          var sVtNorm =
+            String((oTripData && oTripData.getProperty("/VehicleType")) || "")
+              .trim()
+              .replace(/^0+/, "") || "0";
+          var bHideForO02Vt02Outbound =
+            !!oTripData &&
+            sMovementType === "O" &&
+            O02GateException.isO02FromTripData(oTripData) &&
+            sVtNorm === "2";
+
           // Show Bin/Trolley only for O02, only when TripData is loaded,
           // and only when TripData/global trip context is consistent.
           var bShow =
             !!sTripFromTripData &&
             bTripConsistent &&
-            O02GateException.isO02FromTripData(oTripData);
+            O02GateException.isO02FromTripData(oTripData) &&
+            !bHideForO02Vt02Outbound;
           this.getView().getModel("ui").setProperty("/showBinTrolleyTracking", bShow);
         },
 
@@ -482,9 +499,8 @@ sap.ui.define(
 
           if (oRow.IsManual !== true) {
             var sTripNumber = String(oRow.TripNumber || this._getTripNumber() || "").trim();
-            var sDocumentNumber = String(oRow.DocumentNumber || "").trim();
-            var sItemNo = String(oRow.ItemNo || "").trim();
-            if (!sTripNumber || !sDocumentNumber || !sItemNo) {
+            var sMaterial = String(oRow.Material || "").trim();
+            if (!sTripNumber || !sMaterial) {
               MessageBox.error("Unable to delete row. Missing key fields.");
               return;
             }
@@ -501,8 +517,11 @@ sap.ui.define(
             this._recalculateTrackingTotals();
             this._persistTrackingRows();
             oTrackingModel.setProperty("/isPosted", false);
-            var sEntityPath = this._buildEmptyBinsPath(sTripNumber, sDocumentNumber, sItemNo);
+            var sEntityPath = this._buildEmptyBinsPath(sTripNumber, sMaterial);
             this.oModel.remove(sEntityPath, {
+              headers: {
+                "X-Requested-With": "X"
+              },
               success: function () {
                 MessageToast.show("Row deleted.");
               }.bind(this),
@@ -1357,14 +1376,12 @@ sap.ui.define(
           this._persistTrackingRows();
         },
 
-        _buildEmptyBinsPath: function (sTripNumber, sDocumentNumber, sItemNo) {
+        _buildEmptyBinsPath: function (sTripNumber, sMaterial) {
           return (
             "/EmptyBins(TripNumber='" +
             this._escapeODataKey(sTripNumber) +
-            "',DocumentNumber='" +
-            this._escapeODataKey(sDocumentNumber) +
-            "',ItemNo='" +
-            this._escapeODataKey(sItemNo) +
+            "',Material='" +
+            this._escapeODataKey(sMaterial) +
             "')"
           );
         },
@@ -1609,44 +1626,94 @@ sap.ui.define(
             this._requestBinTrolleyReload(0);
             return;
           }
+
           var sTargetDoc = String(sDocNumber || "").trim();
-          var aKeys = this._getGateInEmptyBinsReadKeys();
-          var fnDocFilter = null;
-          if (sTargetDoc) {
-            fnDocFilter = function (oKey) {
-              return String(oKey.DocumentNumber || "").trim() === sTargetDoc;
-            };
-          }
-          var aUiRows = this._buildGateInBinRowsFromMaterialKeys(sTripNumber, fnDocFilter);
-          this._setTrackingItems(
-            oTrackingModel,
-            this._mergeWithPersistedRows(sTripNumber, aUiRows)
-          );
-          oTrackingModel.setProperty("/isPosted", true);
-          this._recalculateTrackingTotals();
-          if (!sTargetDoc) {
-            var aDocs = (aKeys || [])
-              .map(function (oKey) {
-                return String(oKey.DocumentNumber || "").trim();
-              })
-              .filter(function (sDoc, i, aAll) {
-                return !!sDoc && aAll.indexOf(sDoc) === i;
-              });
-            if (aDocs.length === 1) {
-              sTargetDoc = aDocs[0];
-            }
-          }
-          if (!sTargetDoc) {
+          var oModel = this.oModel || this.getView().getModel();
+          if (!oModel) {
             return;
           }
-          var aItemNos = (aUiRows || [])
-            .map(function (oKey) {
-              return String(oKey.ItemNo || "").trim();
-            });
-          if (!aItemNos.length) {
-            return;
-          }
-          this._loadGateInBinsByKeys(sTripNumber, sTargetDoc, aItemNos);
+
+          var sPath = "/TripDetails('" + this._escapeODataKey(sTripNumber) + "')";
+          oModel.read(sPath, {
+            urlParameters: { "$expand": "EmptyBins" },
+            success: function (oData) {
+              var vExpanded = oData && oData.EmptyBins;
+              var aEmptyBins = Array.isArray(vExpanded)
+                ? vExpanded
+                : (vExpanded && vExpanded.results) || [];
+
+              if (sTargetDoc) {
+                aEmptyBins = (aEmptyBins || []).filter(function (r) {
+                  return String(r.DocumentNumber || "").trim() === sTargetDoc;
+                });
+              }
+
+              var aDeduped = this._dedupeEmptyBinsODataRows
+                ? this._dedupeEmptyBinsODataRows(aEmptyBins || [])
+                : (aEmptyBins || []);
+
+              var aMappedRows = (aDeduped || []).map(function (r) {
+                var iQtyOut = this._coerceWholeBinQty(r.QtyOut);
+                var iQtyIn = this._coerceWholeBinQty(r.QtyIn);
+                var iDiff = iQtyOut - iQtyIn;
+                return {
+                  TripNumber: String(r.TripNumber || sTripNumber).trim(),
+                  DocumentNumber: String(r.DocumentNumber || "").trim(),
+                  ItemNo: String(r.ItemNo || "").trim(),
+                  Customer: String(r.Customer || "").trim(),
+                  CusromerName: String(r.CusromerName || r.CustomerName || "").trim(),
+                  Material: String(r.Material || "").trim(),
+                  MaterialDescription: String(
+                    r.MaterialDescription || r.PartcodeDesc || r.PartCodeDesc || r.MaterialDesc || ""
+                  ).trim(),
+                  BinType: String(
+                    r.BinType ||
+                      r.BinTypes ||
+                      r.BinTypeDesc ||
+                      r.BintypeDesc ||
+                      r.BinTypeDescription ||
+                      ""
+                  ).trim(),
+                  BinTypeDesc: String(
+                    r.BinTypeDesc ||
+                      r.BintypeDesc ||
+                      r.BinTypeDescription ||
+                      r.BinType ||
+                      r.BinTypes ||
+                      ""
+                  ).trim(),
+                  BintypeDesc: String(
+                    r.BinTypeDesc ||
+                      r.BintypeDesc ||
+                      r.BinTypeDescription ||
+                      r.BinType ||
+                      r.BinTypes ||
+                      ""
+                  ).trim(),
+                  QtyIn: iQtyIn,
+                  QtyOut: iQtyOut,
+                  Difference: iDiff,
+                  ReturnStatus: this._deriveTrackingStatus(iQtyIn, iQtyOut, iDiff, "Pending", false),
+                  IsManual: false
+                };
+              }.bind(this));
+
+              this._setTrackingItems(
+                oTrackingModel,
+                this._mergeWithPersistedRows(sTripNumber, aMappedRows)
+              );
+              oTrackingModel.setProperty("/isPosted", true);
+              this._recalculateTrackingTotals();
+            }.bind(this),
+            error: function () {
+              this._setTrackingItems(
+                oTrackingModel,
+                this._mergeWithPersistedRows(sTripNumber, [])
+              );
+              oTrackingModel.setProperty("/isPosted", true);
+              this._recalculateTrackingTotals();
+            }.bind(this)
+          });
         },
         _loadBinTrolleyTrackingData: function () {
           var oTrackingModel = this.getView().getModel("binTrolleyTracking");

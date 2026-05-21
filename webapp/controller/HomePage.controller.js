@@ -306,6 +306,7 @@ sap.ui.define(
         }
         var that = this;
         if (iSelected === 1) {
+          this._loadOutgoingVehicleTypeOptions();
           setTimeout(function () {
             that._focusOutgoingEntryMethodPrimaryInput(150);
           }, 0);
@@ -546,7 +547,10 @@ sap.ui.define(
             invoiceMovementDescription: "",
           });
         }
-        if (sDefaultScenario === "O02") {
+        var iMvReset = this._oReportVehicleMatOptsModel
+          ? this._oReportVehicleMatOptsModel.getProperty("/selectedIndex")
+          : -1;
+        if (iMvReset === 1) {
           this._loadOutgoingVehicleTypeOptions();
         }
         if (this._oOutgoingPoSuggestModel) {
@@ -1965,30 +1969,21 @@ sap.ui.define(
         }
         this._clearOutgoingDialogDocumentFields();
         var oG = sap.ui.getCore().getModel("globalData");
-        if (oG) {
-          oG.setProperty("/OutgoingVehicleType", "");
-          oG.setProperty("/OutgoingVehicleTypeDesc", "");
+        if (!oG) {
+          oG = new JSONModel({});
+          sap.ui.getCore().setModel(oG, "globalData");
         }
-        if (String(sKey || "").trim() === "O02") {
-          this._loadOutgoingVehicleTypeOptions();
-        }
+        oG.setProperty("/OutgoingVehicleType", "");
+        oG.setProperty("/OutgoingVehicleTypeDesc", "");
+        this._loadOutgoingVehicleTypeOptions();
         var that = this;
         setTimeout(function () {
-          if (String(sKey || "").trim() === "O02") {
-            var sViewId = that.getView().getId();
-            var oVt = Fragment.byId(sViewId, "idOutgoingVehicleTypeSelect");
-            if (oVt && oVt.focus) {
-              oVt.focus();
-            }
-          } else {
-            that._focusOutgoingEntryMethodPrimaryInput(100);
+          var sViewId = that.getView().getId();
+          var oVt = Fragment.byId(sViewId, "idOutgoingVehicleTypeSelect");
+          if (oVt && oVt.focus) {
+            oVt.focus();
           }
         }, 0);
-        setTimeout(function () {
-          if (String(sKey || "").trim() !== "O02") {
-            that._focusOutgoingEntryMethodPrimaryInput(250);
-          }
-        }, 250);
       },
 
       _setOutgoingGlobalPrefill: function (m) {
@@ -2086,63 +2081,50 @@ sap.ui.define(
           oScenarioRow.ItemKey ||
           MovementScenarioIcons.getMovementScenarioItemKey("O", sMsFromPicker) ||
           "";
-        var bO02 =
-          String(sItemKeyFromPicker || "").toUpperCase() === "O02" ||
-          (String(oScenarioRow.MovementType || "")
-            .trim()
-            .toUpperCase() === "O" &&
-            String(sMsFromPicker || "")
-              .trim()
-              .replace(/^0+/, "") === "2");
-        if (bO02) {
-          var sVt = String(oOut.getProperty("/selectedVehicleType") || "").trim();
-          var sVtDesc = String(oOut.getProperty("/selectedVehicleTypeDesc") || "").trim();
-          if (!sVt) {
-            var sViewIdForVt = this.getView().getId();
-            var oVtSel = Fragment.byId(sViewIdForVt, "idOutgoingVehicleTypeSelect");
-            if (oVtSel && oVtSel.getSelectedKey) {
-              sVt = String(oVtSel.getSelectedKey() || "").trim();
-            }
-            if (!sVt && oVtSel && oVtSel.getSelectedItem) {
-              var oSelItem = oVtSel.getSelectedItem();
-              sVt = oSelItem ? String(oSelItem.getKey() || "").trim() : "";
-              if (!sVtDesc && oSelItem) {
-                sVtDesc = String(oSelItem.getText() || "").trim();
-              }
-            }
-            if (sVt) {
-              oOut.setProperty("/selectedVehicleType", sVt);
-              if (sVtDesc) {
-                oOut.setProperty("/selectedVehicleTypeDesc", sVtDesc);
-              }
+        var sVt = String(oOut.getProperty("/selectedVehicleType") || "").trim();
+        var sVtDesc = String(oOut.getProperty("/selectedVehicleTypeDesc") || "").trim();
+        if (!sVt) {
+          var sViewIdForVt = this.getView().getId();
+          var oVtSel = Fragment.byId(sViewIdForVt, "idOutgoingVehicleTypeSelect");
+          if (oVtSel && oVtSel.getSelectedKey) {
+            sVt = String(oVtSel.getSelectedKey() || "").trim();
+          }
+          if (!sVt && oVtSel && oVtSel.getSelectedItem) {
+            var oSelItem = oVtSel.getSelectedItem();
+            sVt = oSelItem ? String(oSelItem.getKey() || "").trim() : "";
+            if (!sVtDesc && oSelItem) {
+              sVtDesc = String(oSelItem.getText() || "").trim();
             }
           }
-          if (!sVt) {
-            var thatVt = this;
-            MessageBox.error(
-              "Select Vehicle Type. It is required for movement scenario O02 before continuing.",
-              {
-                onClose: function () {
-                  var sViewId = thatVt.getView().getId();
-                  var oVt = Fragment.byId(sViewId, "idOutgoingVehicleTypeSelect");
-                  if (oVt && oVt.focus) {
-                    setTimeout(function () {
-                      oVt.focus();
-                    }, 150);
-                  }
-                },
-              }
-            );
-            return false;
+          if (sVt) {
+            oOut.setProperty("/selectedVehicleType", sVt);
+            if (sVtDesc) {
+              oOut.setProperty("/selectedVehicleTypeDesc", sVtDesc);
+            }
           }
-          var oGv = sap.ui.getCore().getModel("globalData");
-          if (!oGv) {
-            oGv = new JSONModel({});
-            sap.ui.getCore().setModel(oGv, "globalData");
-          }
-          oGv.setProperty("/OutgoingVehicleType", sVt);
-          oGv.setProperty("/OutgoingVehicleTypeDesc", sVtDesc);
         }
+        if (!sVt) {
+          var thatVt = this;
+          MessageBox.error("Select Vehicle Type before continuing.", {
+            onClose: function () {
+              var sViewId = thatVt.getView().getId();
+              var oVt = Fragment.byId(sViewId, "idOutgoingVehicleTypeSelect");
+              if (oVt && oVt.focus) {
+                setTimeout(function () {
+                  oVt.focus();
+                }, 150);
+              }
+            },
+          });
+          return false;
+        }
+        var oGv = sap.ui.getCore().getModel("globalData");
+        if (!oGv) {
+          oGv = new JSONModel({});
+          sap.ui.getCore().setModel(oGv, "globalData");
+        }
+        oGv.setProperty("/OutgoingVehicleType", sVt);
+        oGv.setProperty("/OutgoingVehicleTypeDesc", sVtDesc);
         this._setOutgoingGlobalPrefill({
           movementScenario: sMsFromPicker,
           movementScenarioDesc: sDescFromPicker,
@@ -2372,7 +2354,7 @@ sap.ui.define(
 
       /**
        * After invoice or challan entered: fetch BillingDocSH or ChallanSh, store in JSON model.
-       * Show Vehicle Type dropdown when MovementType='O' AND MovementScenario='02'.
+       * Show Vehicle Type when MovementType is outgoing ('O'); second-default index uses scenario '02' only.
        */
       _loadOutgoingInvoiceResponse: function (sInvoice) {
         var sInv = String(sInvoice || "").trim();
@@ -2462,11 +2444,10 @@ sap.ui.define(
             );
           }
 
-          // Condition to show Vehicle Type dropdown.
+          // Outgoing movement: offer Vehicle Type for any scenario.
           var sMt = oFirst && oFirst.MovementType ? String(oFirst.MovementType).trim() : "";
-          var sMs = oFirst && oFirst.MovementScenario ? String(oFirst.MovementScenario).trim() : "";
-          var bShow = sMt === "O" && sMs === "02";
-          that._oOutgoingInvoiceResponseModel.setProperty("/showVehicleType", !!bShow);
+          var bShowVehicleType = sMt === "O";
+          that._oOutgoingInvoiceResponseModel.setProperty("/showVehicleType", !!bShowVehicleType);
 
           // Store response in globalData for downstream tabs.
           var oG = sap.ui.getCore().getModel("globalData");
@@ -2481,9 +2462,7 @@ sap.ui.define(
               ? (oFirst.DocType || oFirst.DocumentType || oFirst.BillingType || "")
               : ""
           );
-          oG.setProperty("/IsCustomerSaleScenario02", !!bShow);
-          // Load VehicleType ConfigValues only when needed.
-          if (bShow) {
+          if (bShowVehicleType) {
             that._loadOutgoingVehicleTypeOptions();
           } else if (that._oOutgoingEntryMethodModel) {
             that._oOutgoingEntryMethodModel.setProperty("/selectedVehicleType", "");
@@ -2578,16 +2557,14 @@ sap.ui.define(
 
             // Keep model state aligned with Select default visual selection.
             // Without this, UI may display first option while selectedVehicleType remains blank,
-            // which triggers O02 validation error on Continue.
+            // which triggers validation error on Continue.
             if (this._oOutgoingEntryMethodModel) {
               var sCurrentKey = String(
                 this._oOutgoingEntryMethodModel.getProperty("/selectedVehicleType") || ""
               ).trim();
               if (!sCurrentKey && aItems.length) {
                 var oG = sap.ui.getCore().getModel("globalData");
-                var bAllTypeFlow = !!(oG && oG.getProperty("/IsCustomerSaleScenario02"));
-                var iDefaultIndex = bAllTypeFlow && aItems.length > 1 ? 1 : 0;
-                var oDefaultItem = aItems[iDefaultIndex] || aItems[0];
+                var oDefaultItem = aItems[0];
                 var sDefaultKey = String(oDefaultItem.ConfigID || "").trim();
                 var sDefaultText = String(oDefaultItem.Description || "").trim();
                 this._oOutgoingEntryMethodModel.setProperty("/selectedVehicleType", sDefaultKey);
@@ -3440,6 +3417,7 @@ sap.ui.define(
           "colMovementType",
           "colMovementScenario",
           "colPartyName",
+          "colPartyCode",
           "colGRN",
         ];
         return aDefaultVisible.indexOf(sKey) !== -1;
@@ -3637,6 +3615,7 @@ sap.ui.define(
         return String(sTripStatus)
           .replace(/\u00a0/g, " ")
           .replace(/_/g, " ")
+          .replace(/-/g, " ")
           .toLowerCase()
           .trim()
           .replace(/\s+/g, " ")

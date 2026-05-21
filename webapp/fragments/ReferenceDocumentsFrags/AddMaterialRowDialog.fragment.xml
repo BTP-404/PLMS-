@@ -140,7 +140,6 @@
             <Input
                 id="idMaterialDispatchQty"
                 valueLiveUpdate="true"
-                editable="{= !${globalData>/TripLocked} }"
                 change=".onMaterialDialogWholeQtyLiveChange"
                 liveChange=".onMaterialDialogWholeQtyLiveChange"
             />

@@ -40,7 +40,6 @@
                 showValueHelp="false"
                 placeholder="Select Document Number"
                 maxLength="10"
-                type="Tel"
                 valueLiveUpdate="true"
                 liveChange=".onRefDocNumberLiveChange"
                 showSuggestion="true"

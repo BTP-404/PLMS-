@@ -472,7 +472,19 @@ sap.ui.define([
 				return;
 			}
 
-			// Explicit unlock for authorized users.
+			var sTripNumber = "";
+			try {
+				sTripNumber = String((oGlobalModel && oGlobalModel.getProperty("/TripNumber")) || "").trim();
+			} catch (e) {
+				sTripNumber = "";
+			}
+
+			if (!sTripNumber) {
+				MessageToast.show("Trip Number missing. Please open a trip first.");
+				return;
+			}
+
+			// Explicit unlock for authorized users (keep existing behavior).
 			MessageToast.show("Trip reopened for editing.");
 			try {
 				oGlobalModel.setProperty("/TripUnlocked", true);
@@ -503,6 +515,47 @@ sap.ui.define([
 				sap.ui.getCore().getEventBus().publish("TripData", "Updated");
 			} catch (e) {
 				// best effort
+			}
+
+			// Also call backend ReOpen (non-blocking).
+			try {
+				var oModel = this._getServiceModel();
+				if (!oModel || typeof oModel.callFunction !== "function") {
+					MessageBox.error("ReOpen call failed: service model is not available.");
+					return;
+				}
+				oModel.callFunction("/ReOpen", {
+					method: "GET",
+					urlParameters: {
+						TripNumber: sTripNumber
+					},
+					headers: {
+						"X-Requested-With": "X"
+					},
+					success: function () {
+						// no-op (UI is already unlocked)
+					},
+					error: function (oError) {
+						var sMessage = "Failed to reopen trip";
+						try {
+							if (oError && oError.responseText) {
+								var oResponse = JSON.parse(oError.responseText);
+								if (oResponse && oResponse.error && oResponse.error.message && oResponse.error.message.value) {
+									sMessage = oResponse.error.message.value;
+								} else if (oResponse && oResponse.error && oResponse.error.message) {
+									sMessage = oResponse.error.message;
+								}
+							} else if (oError && oError.message) {
+								sMessage = oError.message.value || oError.message;
+							}
+						} catch (e) {
+							// best effort
+						}
+						MessageBox.error(sMessage);
+					}.bind(this)
+				});
+			} catch (e) {
+				MessageBox.error("ReOpen call failed: " + String((e && e.message) || e || "Unknown error"));
 			}
 		},
 

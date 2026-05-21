@@ -305,9 +305,8 @@ sap.ui.define(
 
           if (oRow.IsManual !== true) {
             var sTripNumber = String(oRow.TripNumber || this._getTripNumber() || "").trim();
-            var sDocumentNumber = String(oRow.DocumentNumber || "").trim();
-            var sItemNo = String(oRow.ItemNo || "").trim();
-            if (!sTripNumber || !sDocumentNumber || !sItemNo) {
+            var sMaterial = String(oRow.Material || "").trim();
+            if (!sTripNumber || !sMaterial) {
               MessageBox.error("Unable to delete row. Missing key fields.");
               return;
             }
@@ -324,8 +323,11 @@ sap.ui.define(
             this._recalculateTrackingTotals();
             this._persistTrackingRows();
             oTrackingModel.setProperty("/isPosted", false);
-            var sEntityPath = this._buildEmptyBinsPath(sTripNumber, sDocumentNumber, sItemNo);
+            var sEntityPath = this._buildEmptyBinsPath(sTripNumber, sMaterial);
             this.oModel.remove(sEntityPath, {
+              headers: {
+                "X-Requested-With": "X"
+              },
               success: function () {
                 MessageToast.show("Row deleted.");
               }.bind(this),
@@ -1357,14 +1359,12 @@ sap.ui.define(
           }
           return null;
         },
-        _buildEmptyBinsPath: function (sTripNumber, sDocumentNumber, sItemNo) {
+        _buildEmptyBinsPath: function (sTripNumber, sMaterial) {
           return (
             "/EmptyBins(TripNumber='" +
             this._escapeODataKey(sTripNumber) +
-            "',DocumentNumber='" +
-            this._escapeODataKey(sDocumentNumber) +
-            "',ItemNo='" +
-            this._escapeODataKey(sItemNo) +
+            "',Material='" +
+            this._escapeODataKey(sMaterial) +
             "')"
           );
         },
@@ -1626,43 +1626,95 @@ sap.ui.define(
           }
 
           var sTargetDoc = String(sDocNumber || "").trim();
-          var aKeys = this._getGateOutEmptyBinsReadKeys();
-          var fnDocFilter = null;
-          if (sTargetDoc) {
-            fnDocFilter = function (oKey) {
-              return String(oKey.DocumentNumber || "").trim() === sTargetDoc;
-            };
-          }
-
-          var aUiRows = this._buildGateOutBinRowsFromMaterialKeys(sTripNumber, fnDocFilter);
-          this._setTrackingItems(oVm, this._mergeWithPersistedRows(sTripNumber, aUiRows));
-          oVm.setProperty("/isPosted", true);
-          this._recalculateTrackingTotals();
-
-          if (!sTargetDoc) {
-            var aDocs = (aKeys || [])
-              .map(function (oKey) {
-                return String(oKey.DocumentNumber || "").trim();
-              })
-              .filter(function (sDoc, i, aAll) {
-                return !!sDoc && aAll.indexOf(sDoc) === i;
-              });
-            if (aDocs.length === 1) {
-              sTargetDoc = aDocs[0];
-            }
-          }
-          if (!sTargetDoc) {
+          var oModel = this.oModel || this.getView().getModel();
+          if (!oModel) {
             return;
           }
 
-          var aItemNos = (aUiRows || []).map(function (oKey) {
-            return String(oKey.ItemNo || "").trim();
+          var sPath = "/TripDetails('" + this._escapeODataKey(sTripNumber) + "')";
+          oModel.read(sPath, {
+            urlParameters: { "$expand": "EmptyBins" },
+            success: function (oData) {
+              var vExpanded = oData && oData.EmptyBins;
+              var aEmptyBins = Array.isArray(vExpanded)
+                ? vExpanded
+                : (vExpanded && vExpanded.results) || [];
+
+              if (sTargetDoc) {
+                aEmptyBins = (aEmptyBins || []).filter(function (r) {
+                  return String(r.DocumentNumber || "").trim() === sTargetDoc;
+                });
+              }
+
+              var aDeduped = this._dedupeEmptyBinsODataRows
+                ? this._dedupeEmptyBinsODataRows(aEmptyBins || [])
+                : (aEmptyBins || []);
+
+              var aMappedRows = (aDeduped || []).map(function (r) {
+                var iQtyOut = this._coerceWholeBinQty(r.QtyOut);
+                var iQtyIn = this._coerceWholeBinQty(r.QtyIn);
+                var iDiff = iQtyIn - iQtyOut;
+                return {
+                  TripNumber: String(r.TripNumber || sTripNumber).trim(),
+                  DocumentNumber: String(r.DocumentNumber || "").trim(),
+                  ItemNo: String(r.ItemNo || "").trim(),
+                  Customer: String(r.Customer || "").trim(),
+                  CusromerName: String(r.CusromerName || r.CustomerName || "").trim(),
+                  Material: String(r.Material || "").trim(),
+                  MaterialDescription: String(
+                    r.MaterialDescription || r.PartcodeDesc || r.PartCodeDesc || r.MaterialDesc || ""
+                  ).trim(),
+                  BinType: String(
+                    r.BinType ||
+                      r.BinTypes ||
+                      r.BinTypeDesc ||
+                      r.BintypeDesc ||
+                      r.BinTypeDescription ||
+                      ""
+                  ).trim(),
+                  BinTypeDesc: String(
+                    r.BinTypeDesc ||
+                      r.BintypeDesc ||
+                      r.BinTypeDescription ||
+                      r.BinType ||
+                      r.BinTypes ||
+                      ""
+                  ).trim(),
+                  BintypeDesc: String(
+                    r.BinTypeDesc ||
+                      r.BintypeDesc ||
+                      r.BinTypeDescription ||
+                      r.BinType ||
+                      r.BinTypes ||
+                      ""
+                  ).trim(),
+                  QtyIn: iQtyIn,
+                  QtyOut: iQtyOut,
+                  Difference: iDiff,
+                  ReturnStatus: this._deriveTrackingStatus(iQtyIn, iQtyOut, iDiff, "Pending", false),
+                  IsManual: false
+                };
+              }.bind(this));
+
+              // Gate Out: If backend has no EmptyBins rows, show no table rows.
+              // Do not merge any persisted/local rows when backend is empty.
+              if (!aMappedRows || !aMappedRows.length) {
+                this._setTrackingItems(oVm, []);
+              } else {
+                this._setTrackingItems(
+                  oVm,
+                  this._mergeWithPersistedRows(sTripNumber, aMappedRows)
+                );
+              }
+              oVm.setProperty("/isPosted", true);
+              this._recalculateTrackingTotals();
+            }.bind(this),
+            error: function () {
+              this._setTrackingItems(oVm, []);
+              oVm.setProperty("/isPosted", true);
+              this._recalculateTrackingTotals();
+            }.bind(this)
           });
-          if (!aItemNos.length) {
-            return;
-          }
-
-          this._loadGateOutBinsByKeys(sTripNumber, sTargetDoc, aItemNos);
         },
         _ensureGateOutOrderDetailForReference: function (sMode, sTypedValue, oRow) {
           var oModel = this.oModel || this.getView().getModel();
@@ -2945,7 +2997,7 @@ sap.ui.define(
                       ? sBackendMsg
                       : "Failed Gate Out.";
                   MessageBox.error(sErrorMessage);
-                },
+                }.bind(this),
               });
         },
         _navigateToHomeAfterGateSave: function () {

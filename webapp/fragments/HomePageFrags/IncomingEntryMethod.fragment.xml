@@ -201,7 +201,7 @@
                             width="100%"
                             wrap="Wrap"
                             class="sapUiSmallMarginTop plmsRvOutgoingRow"
-                            visible="{= ${reportVehicleMatOpts>/selectedIndex} === 1 &amp;&amp; ${outgoingEntryMethod>/selectedScenarioItemKey} === 'O02' }"
+                            visible="{= ${reportVehicleMatOpts>/selectedIndex} === 1 }"
                         >
                             <Label
                                 text="Vehicle type"
