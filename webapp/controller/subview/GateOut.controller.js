@@ -1708,6 +1708,7 @@ sap.ui.define(
             TripNumber: sTripNumber,
             DocType: sDocType,
             DocumentNumber: sDocumentNumber,
+            MovmentInd: "GO",
             Vendor: "",
             Customer: "",
             Name: "",
@@ -1720,6 +1721,7 @@ sap.ui.define(
                 new Filter("TripNumber", FilterOperator.EQ, sTripNumber),
                 new Filter("DocType", FilterOperator.EQ, sDocType),
                 new Filter("DocumentNumber", FilterOperator.EQ, sDocumentNumber),
+                new Filter("MovmentInd", FilterOperator.EQ, "GO"),
               ],
               urlParameters: {
                 $top: "1",

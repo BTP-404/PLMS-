@@ -370,9 +370,54 @@ sap.ui.define(
           this._syncPendingReportingInputsBeforeSave();
           if (!this._validateRequiredFields()) {
             this._setReportingSaveInFlight(false);
-            MessageBox.warning(
-              "Please fill all required fields before saving."
-            );
+            // Ensure users can SEE and FIX the invalid fields:
+            // - expand the panel (often collapsed)
+            // - enable inputs (valueState styling is subtle on non-editable controls)
+            try {
+              var oPanel = this.byId("reportingDetailsPanel");
+              if (oPanel && oPanel.setExpanded) {
+                oPanel.setExpanded(true);
+              }
+              this._setInputsEnabled(true);
+
+              // Focus the first control currently in Error state
+              var aCandidateIds = [
+                "idMovementScenario",
+                "idVehicleType",
+                "idTransporterName",
+                "idDriverName",
+                "idDriverContact",
+                "idMovementType"
+              ];
+              // IMPORTANT: Apply changes before opening MessageBox so the red ValueState
+              // border is painted first (MessageBox can block the repaint).
+              if (sap && sap.ui && sap.ui.getCore && sap.ui.getCore().applyChanges) {
+                sap.ui.getCore().applyChanges();
+              }
+
+              setTimeout(
+                function () {
+                  for (var i = 0; i < aCandidateIds.length; i++) {
+                    var oCtrl = this.byId(aCandidateIds[i]);
+                    if (
+                      oCtrl &&
+                      oCtrl.getValueState &&
+                      oCtrl.getValueState() === "Error" &&
+                      oCtrl.focus
+                    ) {
+                      oCtrl.focus();
+                      break;
+                    }
+                  }
+                  MessageBox.warning(
+                    "Please fill all required fields before saving."
+                  );
+                }.bind(this),
+                0
+              );
+            } catch (e) {
+              // ignore; keep warning message behavior unchanged
+            }
             return;
           }
 
@@ -1335,6 +1380,11 @@ sap.ui.define(
             .trim()
             .toUpperCase();
           var bIsInward = sMovementType === "I";
+          if (bIsInward) {
+            oPayload.MovmentInd = "GI";
+          } else if (sMovementType === "O") {
+            oPayload.MovmentInd = "GO";
+          }
 
           var sRefDocType = String(oPayload.RefDocType || "").trim();
           var sRefDocNo = String(oPayload.RefDocNo || "").trim();
@@ -3151,6 +3201,7 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
 
           var aFilters = [
             new Filter("MovementType", FilterOperator.EQ, "I"),
+            new Filter("MovmentInd", FilterOperator.EQ, "GI"),
             new Filter({
               filters: [
                 new Filter("DocumentNumber", FilterOperator.Contains, sTerm),

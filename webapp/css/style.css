@@ -2827,6 +2827,20 @@ body#content {
     box-shadow: 0 0 0 2px rgba(0, 112, 242, 0.2) !important;
 }
 
+/* Preserve UI5 ValueState styling (our generic border overrides above are very strong). */
+#stagePage .sapMITBContent .sapMInputBase.sapMInputBaseStateError .sapMInputBaseContentWrapper,
+#stagePage .sapMITBContent .sapMInputBase.sapMInputBaseError .sapMInputBaseContentWrapper,
+#stagePage .sapMITBContent .sapMInputBaseStateError .sapMInputBaseContentWrapper,
+#stagePage .sapMITBContent .sapMInputBaseContentWrapper.sapMInputBaseContentWrapperError,
+#stagePage .sapMITBContent .sapMComboBoxBase.sapMInputBaseStateError .sapMInputBaseContentWrapper,
+#stagePage .sapMITBContent .sapMDatePicker.sapMInputBaseStateError .sapMInputBaseContentWrapper,
+#stagePage .sapMITBContent .sapMTimePicker.sapMInputBaseStateError .sapMInputBaseContentWrapper,
+#stagePage .sapMITBContent .sapMSlt.sapMSltError,
+#stagePage .sapMITBContent .sapMSlt.sapMSltStateError {
+    border-color: var(--sapField_InvalidColor, #bb0000) !important;
+    box-shadow: 0 0 0 1px rgba(187, 0, 0, 0.25) !important;
+}
+
 /* Ensure inner field corners also stay rounded (SAP theme-safe override) */
 #stagePage .sapMITBContent .sapMInputBaseInner,
 #stagePage .sapMITBContent .sapMTextAreaInner,

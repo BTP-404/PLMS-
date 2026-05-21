@@ -888,6 +888,18 @@ return Controller.extend("com.incresolZ_INC_PLMS.controller.subview.Loading", {
             new Filter("RefDocNo", FilterOperator.EQ, sRefDocNo),
             new Filter("IsDeleted", FilterOperator.NE, "X")
         ];
+        // Segregate ItemDetails between Gate In vs Gate Out using MovmentInd (GI/GO).
+        // Fallback inference: TripData MovementType I->GI, O->GO.
+        try {
+            var oTripData = sap.ui.getCore().getModel("TripData");
+            var sMoveType = String(oTripData?.getProperty("/MovementType") || "").trim().toUpperCase();
+            var sMovmentInd = sMoveType === "I" ? "GI" : (sMoveType === "O" ? "GO" : "");
+            if (sMovmentInd) {
+                aFilters.push(new Filter("MovmentInd", FilterOperator.EQ, sMovmentInd));
+            }
+        } catch (e) {
+            // ignore
+        }
 
         this.oModel.read("/ItemDetails", {
             filters: aFilters,

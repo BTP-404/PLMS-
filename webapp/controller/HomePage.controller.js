@@ -1644,6 +1644,7 @@ sap.ui.define(
           TripNumber: sTripPadded,
           DocType: "PO",
           DocumentNumber: sPo,
+          MovmentInd: "GI",
           Vendor: "",
           Customer: "",
           Name: "",
@@ -1673,6 +1674,7 @@ sap.ui.define(
             new Filter("TripNumber", FilterOperator.EQ, sTripPadded),
             new Filter("DocType", FilterOperator.EQ, "PO"),
             new Filter("DocumentNumber", FilterOperator.EQ, sPo),
+            new Filter("MovmentInd", FilterOperator.EQ, "GI"),
           ],
           urlParameters: {
             $top: "1",

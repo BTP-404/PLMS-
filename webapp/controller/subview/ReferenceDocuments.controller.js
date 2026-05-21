@@ -78,6 +78,8 @@ sap.ui.define([
 		this._mMaterialUiGuard = {};
 		// Gate In embed idRefDocsViewGateIn (see _isGateInEmbeddedRefDocsOnly for any tab-specific rules).
 		this._bGateInEmbeddedRefDocsOnly = this._detectGateInEmbeddedRefDocsView();
+		// Gate Out embed idRefDocsViewGateOut (ReferenceDocuments view reused in GateOut).
+		this._bGateOutEmbeddedRefDocsOnly = this._detectGateOutEmbeddedRefDocsView();
 		// Apply any view-related initialization after render using delegates if needed
 	},
 
@@ -100,6 +102,49 @@ sap.ui.define([
 
 		_isGateInEmbeddedRefDocsOnly: function () {
 			return this._bGateInEmbeddedRefDocsOnly === true;
+		},
+
+		_detectGateOutEmbeddedRefDocsView: function () {
+			var v = this.getView();
+			var i = 0;
+			while (v && i++ < 25) {
+				var sId = (typeof v.getId === "function" && v.getId()) || "";
+				if (sId.indexOf("idRefDocsViewGateOut") >= 0) {
+					return true;
+				}
+				v = typeof v.getParent === "function" ? v.getParent() : null;
+			}
+			return false;
+		},
+
+		_isGateOutEmbeddedRefDocsOnly: function () {
+			return this._bGateOutEmbeddedRefDocsOnly === true;
+		},
+
+		/**
+		 * Movement indicator for segregation between Gate In vs Gate Out.
+		 * Backend field name is `MovmentInd` (max length 2).
+		 */
+		_getMovmentIndContext: function () {
+			if (this._isGateInEmbeddedRefDocsOnly()) {
+				return "GI";
+			}
+			if (this._isGateOutEmbeddedRefDocsOnly()) {
+				return "GO";
+			}
+
+			// Fallback: infer from TripData movement type if available.
+			var oTripData = sap.ui.getCore().getModel("TripData");
+			var sMoveType = String(oTripData?.getProperty("/MovementType") || "").trim().toUpperCase();
+			if (sMoveType === "I") {
+				return "GI";
+			}
+			if (sMoveType === "O") {
+				return "GO";
+			}
+
+			// Safe default: do not return empty (field is Nullable="false" in metadata).
+			return "GO";
 		},
 
 		_setUiGuard: function (mGuard, sKey, sType, iDurationMs) {
@@ -2664,6 +2709,10 @@ sap.ui.define([
 					new Filter("DocType", FilterOperator.EQ, sType),
 					new Filter("DocumentNumber", FilterOperator.EQ, sDoc)
 				];
+				var sMovmentInd = this._getMovmentIndContext();
+				if (sMovmentInd) {
+					aFilters.push(new Filter("MovmentInd", FilterOperator.EQ, sMovmentInd));
+				}
 				if (sTripNumber) {
 					aFilters.push(new Filter("TripNumber", FilterOperator.EQ, sTripNumber));
 				}
@@ -3318,11 +3367,16 @@ sap.ui.define([
 		var oService = this._getItemDetailsService();
 		that._setMaterialsSectionBusy(true);
 		return new Promise(function (resolve) {
+			var sMovmentInd = that._getMovmentIndContext();
+			var aFilters = [
+				new Filter("TripNumber", FilterOperator.EQ, sTripNumber),
+				new Filter("IsDeleted", FilterOperator.NE, "X")
+			];
+			if (sMovmentInd) {
+				aFilters.push(new Filter("MovmentInd", FilterOperator.EQ, sMovmentInd));
+			}
 			oService.read("/ItemDetails", {
-				filters: [
-					new Filter("TripNumber", FilterOperator.EQ, sTripNumber),
-					new Filter("IsDeleted", FilterOperator.NE, "X")
-				],
+				filters: aFilters,
 				success: function (oData) {
 					var aItemDetails = oData.results || [];
 					that._setMaterialDetailsFromService(aItemDetails);
@@ -3829,6 +3883,10 @@ sap.ui.define([
 								if (!oItem || typeof oItem !== "object" || oItem.IsDeleted === "X") {
 									return false;
 								}
+								var sMovmentInd = that._getMovmentIndContext();
+								if (sMovmentInd && String(oItem.MovmentInd || "").trim() !== sMovmentInd) {
+									return false;
+								}
 								var dt = String(oItem.DocType || "").trim().toUpperCase();
 								if (dt !== sTypeNorm) {
 									return false;
@@ -3864,6 +3922,10 @@ sap.ui.define([
 				new Filter("RefDocNo", FilterOperator.EQ, sRefDocNo),
 				new Filter("IsDeleted", FilterOperator.NE, "X")
 			];
+			var sMovmentInd = that._getMovmentIndContext();
+			if (sMovmentInd) {
+				aFilters.push(new Filter("MovmentInd", FilterOperator.EQ, sMovmentInd));
+			}
 
 			oService.read("/ItemDetails", {
 				filters: aFilters,
@@ -4036,6 +4098,10 @@ sap.ui.define([
 				var sTripNumber = oGlobalModel?.getProperty("/TripNumber") || "";
 
 				var aFilters = [];
+				var sMovmentInd = this._getMovmentIndContext();
+				if (sMovmentInd) {
+					aFilters.push(new Filter("MovmentInd", FilterOperator.EQ, sMovmentInd));
+				}
 				if (sTripNumber) {
 					aFilters.push(new Filter("TripNumber", FilterOperator.EQ, sTripNumber));
 				}
@@ -4234,6 +4300,12 @@ sap.ui.define([
 				var aExpandedOrderDetails = this._extractResults(oTripDataModel?.getProperty("/OrderDetails"));
 				if (Array.isArray(aExpandedOrderDetails) && aExpandedOrderDetails.length > 0) {
 					var aCached = aExpandedOrderDetails.slice();
+					var sMovmentInd = this._getMovmentIndContext();
+					if (sMovmentInd) {
+						aCached = aCached.filter(function (o) {
+							return String(o?.MovmentInd || "").trim() === sMovmentInd;
+						});
+					}
 					if (sTripNumber) {
 						aCached = aCached.filter(function (o) {
 							return String(o?.TripNumber || "") === String(sTripNumber);
@@ -4258,6 +4330,10 @@ sap.ui.define([
 
 				var oService = this._getOrderDetailsService();
 				var aFilters = [];
+				var sMovmentInd2 = this._getMovmentIndContext();
+				if (sMovmentInd2) {
+					aFilters.push(new Filter("MovmentInd", FilterOperator.EQ, sMovmentInd2));
+				}
 				if (sTripNumber) {
 					aFilters.push(new Filter("TripNumber", FilterOperator.EQ, sTripNumber));
 				}
@@ -4933,6 +5009,7 @@ sap.ui.define([
 				TripNumber: sTripNumber,
 				DocType: String(oSelected?.DocType || sDocTypeUi || "").trim(),
 				DocumentNumber: String(oSelected?.DocumentNumber || sDocNoUi || "").trim(),
+				MovmentInd: this._getMovmentIndContext(),
 				DocumentDate: this._toEdmDateTime(oSelected?.DocumentDate || oDocDate || null),
 				Vendor: String(oSelected?.Vendor || sPartyCode || "").trim(),
 				Customer: String(oSelected?.Customer || "").trim(),
@@ -5027,6 +5104,7 @@ sap.ui.define([
 				DocType: sDocType,
 				RefDocNo: sRefDocNo,
 				RefDocItemNo: sRefDocItemNo,
+				MovmentInd: this._getMovmentIndContext(),
 				MaterialCode: sMaterialCode,
 				MaterialDescription: sMaterialDesc || sMaterialCode, // Required, fallback to MaterialCode
 				Quantity: sFormattedQty,
@@ -5046,8 +5124,9 @@ sap.ui.define([
 
 		_saveOrderDetail: function (oPayload) {
 			var oService = this._getOrderDetailsService();
+			var oWithInd = Object.assign({}, oPayload, { MovmentInd: this._getMovmentIndContext() });
 			return new Promise(function (resolve, reject) {
-				oService.create("/OrderDetails", oPayload, {
+				oService.create("/OrderDetails", oWithInd, {
 					headers: {
 						"X-Requested-With": "X",
 						"Content-Type": "application/json"
@@ -5080,6 +5159,7 @@ sap.ui.define([
 				TripNumber: oPayload.TripNumber,
 				DocType: oPayload.DocType,
 				DocumentNumber: oPayload.DocumentNumber,
+				MovmentInd: this._getMovmentIndContext(),
 				DocumentDate: oPayload.DocumentDate,
 				Vendor: oPayload.Vendor || "",
 				Customer: oPayload.Customer || "",
@@ -5402,8 +5482,9 @@ sap.ui.define([
 			}
 
 			var oService = this._getItemDetailsService();
+			var oWithInd = Object.assign({}, oPayload, { MovmentInd: this._getMovmentIndContext() });
 			return new Promise(function (resolve, reject) {
-				oService.create("/ItemDetails", oPayload, {
+				oService.create("/ItemDetails", oWithInd, {
 					headers: {
 						"X-Requested-With": "X",
 						"Content-Type": "application/json"
@@ -5441,6 +5522,7 @@ sap.ui.define([
 				DocType: oPayload.DocType,
 				RefDocNo: oPayload.RefDocNo,
 				RefDocItemNo: oPayload.RefDocItemNo,
+				MovmentInd: this._getMovmentIndContext(),
 				MaterialCode: oPayload.MaterialCode,
 				MaterialDescription: oPayload.MaterialDescription,
 				Quantity: oPayload.Quantity,
@@ -5867,6 +5949,15 @@ sap.ui.define([
 				// DO NOT make separate ItemDetails calls - use the expanded data
 				var aOrderDetails = this._extractResults(vOrderDetails);
 				var aItemDetails = this._extractResults(vItemDetails);
+				var sMovmentInd = this._getMovmentIndContext();
+				if (sMovmentInd) {
+					aOrderDetails = (aOrderDetails || []).filter(function (o) {
+						return String(o?.MovmentInd || "").trim() === sMovmentInd;
+					});
+					aItemDetails = (aItemDetails || []).filter(function (o) {
+						return String(o?.MovmentInd || "").trim() === sMovmentInd;
+					});
+				}
 
 				// Pass flag=true to indicate ItemDetails is already loaded from expand
 				// This prevents _loadAllMaterialsForAllRefDocs from making separate calls
@@ -5899,7 +5990,14 @@ sap.ui.define([
 			} else {
 				// No usable ItemDetails shape on TripData — refresh ref docs, load items from service
 				// instead of clearing materials (avoids wiping on partial TripData payloads).
-				this._setReferenceDocsFromService(this._extractResults(vOrderDetails), true);
+				var aOrderDetails2 = this._extractResults(vOrderDetails);
+				var sMovmentInd2 = this._getMovmentIndContext();
+				if (sMovmentInd2) {
+					aOrderDetails2 = (aOrderDetails2 || []).filter(function (o) {
+						return String(o?.MovmentInd || "").trim() === sMovmentInd2;
+					});
+				}
+				this._setReferenceDocsFromService(aOrderDetails2, true);
 				var sTripElse = String(oTripData.getProperty("/TripNumber") || "").trim();
 				if (sTripElse) {
 					this._loadItemDetailsSeparately(sTripElse);
@@ -6362,6 +6460,12 @@ sap.ui.define([
 				if (vItemDetails && (vItemDetails.results || Array.isArray(vItemDetails))) {
 					// ItemDetails is already loaded from $expand, use it directly
 					var aItemDetails = this._extractResults(vItemDetails);
+					var sMovmentInd = this._getMovmentIndContext();
+					if (sMovmentInd) {
+						aItemDetails = (aItemDetails || []).filter(function (o) {
+							return String(o?.MovmentInd || "").trim() === sMovmentInd;
+						});
+					}
 					this._setMaterialDetailsFromService(aItemDetails);
 					return; // Exit early - no need to make separate call
 				}
@@ -6374,7 +6478,8 @@ sap.ui.define([
 			oService.read("/ItemDetails", {
 				filters: [
 					new Filter("TripNumber", FilterOperator.EQ, sTripNumber),
-					new Filter("IsDeleted", FilterOperator.NE, "X")
+					new Filter("IsDeleted", FilterOperator.NE, "X"),
+					new Filter("MovmentInd", FilterOperator.EQ, that._getMovmentIndContext())
 				],
 				success: function (oData) {
 					var aItemDetails = oData.results || [];
@@ -6520,6 +6625,15 @@ sap.ui.define([
 				if (bHasResults) {
 					var aOrderDetails = this._extractResults(vOrderDetails);
 					var aItemDetails = this._extractResults(vItemDetails);
+					var sMovmentInd = this._getMovmentIndContext();
+					if (sMovmentInd) {
+						aOrderDetails = (aOrderDetails || []).filter(function (o) {
+							return String(o?.MovmentInd || "").trim() === sMovmentInd;
+						});
+						aItemDetails = (aItemDetails || []).filter(function (o) {
+							return String(o?.MovmentInd || "").trim() === sMovmentInd;
+						});
+					}
 					var oModelCache = this._ensureRefDocModel();
 					var aExMatCache = oModelCache.getProperty("/materialDetails") || [];
 					var sTripCache = String(oTripData.getProperty("/TripNumber") || "").trim();
@@ -6554,11 +6668,16 @@ sap.ui.define([
 			this._iLastRefDocRefreshToken = iRefreshToken;
 
 			var pOrders = new Promise(function (resolve, reject) {
+				var sMovmentInd = that._getMovmentIndContext();
+				var aFilters = [
+					new Filter("TripNumber", FilterOperator.EQ, sTripAtRefresh),
+					new Filter("Deleted", FilterOperator.NE, true)
+				];
+				if (sMovmentInd) {
+					aFilters.push(new Filter("MovmentInd", FilterOperator.EQ, sMovmentInd));
+				}
 				oOrderService.read("/OrderDetails", {
-					filters: [
-						new Filter("TripNumber", FilterOperator.EQ, sTripAtRefresh),
-						new Filter("Deleted", FilterOperator.NE, true)
-					],
+					filters: aFilters,
 					success: function (oData) {
 						resolve((oData && oData.results) ? oData.results : []);
 					},
@@ -6569,11 +6688,16 @@ sap.ui.define([
 			});
 
 			var pItems = new Promise(function (resolve, reject) {
+				var sMovmentInd = that._getMovmentIndContext();
+				var aFilters = [
+					new Filter("TripNumber", FilterOperator.EQ, sTripAtRefresh),
+					new Filter("IsDeleted", FilterOperator.NE, "X")
+				];
+				if (sMovmentInd) {
+					aFilters.push(new Filter("MovmentInd", FilterOperator.EQ, sMovmentInd));
+				}
 				oItemService.read("/ItemDetails", {
-					filters: [
-						new Filter("TripNumber", FilterOperator.EQ, sTripAtRefresh),
-						new Filter("IsDeleted", FilterOperator.NE, "X")
-					],
+					filters: aFilters,
 					success: function (oData) {
 						resolve((oData && oData.results) ? oData.results : []);
 					},
