@@ -1,0 +1,45 @@
+<core:FragmentDefinition
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+>
+    <Dialog
+        id="loadingColumnVisibilityDialog"
+        title="Loading - Column Settings"
+        contentWidth="350px"
+    >
+        <content>
+            <List
+                items="{
+                    path: 'loadingColumnSettings>/columns'
+                }"
+            >
+                <CustomListItem>
+                    <HBox
+                        alignItems="Center"
+                        justifyContent="SpaceBetween"
+                        class="sapUiTinyMarginBegin sapUiTinyMarginEnd"
+                    >
+                        <Text text="{loadingColumnSettings>label}" />
+                        <Switch
+                            state="{loadingColumnSettings>visible}"
+                            change=".onLoadingColumnSwitchChanged"
+                        />
+                    </HBox>
+                </CustomListItem>
+            </List>
+        </content>
+        <beginButton>
+            <Button
+                text="Reset"
+                press=".onResetLoadingColumnVisibility"
+            />
+        </beginButton>
+        <endButton>
+            <Button
+                text="Close"
+                press=".onCloseLoadingColumnVisibilityDialog"
+            />
+        </endButton>
+    </Dialog>
+</core:FragmentDefinition>
+

@@ -1,0 +1,18 @@
+<core:FragmentDefinition
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core">
+    <SelectDialog
+        id="idMaterialRefDocNoValueHelpDialog"
+        title="Select Reference Document"
+        search="._onMaterialRefDocNoValueHelpSearch"
+        liveChange="._onMaterialRefDocNoValueHelpSearch"
+        confirm="._onMaterialRefDocNoValueHelpConfirm"
+        cancel="._onMaterialRefDocNoValueHelpCancel"
+        items="{orderDetailsVH>/items}">
+        <StandardListItem
+            title="{orderDetailsVH>DocumentNumber}"
+            description="{orderDetailsVH>Name}"
+            info="{orderDetailsVH>DocType}"/>
+    </SelectDialog>
+</core:FragmentDefinition>
+

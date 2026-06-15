@@ -14,27 +14,36 @@
                     <Property Name="TripNumber" Type="Edm.String" Nullable="false" MaxLength="10" sap:unicode="false" sap:label="Trip Number" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
                     <Property Name="MovementType" Type="Edm.String" Nullable="false" MaxLength="1" sap:unicode="false" sap:label="Movement Type(I-Inward/O-Outward)" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
                     <Property Name="MovementScenario" Type="Edm.String" Nullable="false" MaxLength="2" sap:unicode="false" sap:label="Movement Scenario" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="TripStatus" Type="Edm.String" Nullable="true" MaxLength="80" sap:unicode="false" sap:label="Trip Status" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="true"/>
                     <Property Name="VehicleNumber" Type="Edm.String" Nullable="false" MaxLength="20" sap:unicode="false" sap:label="Truck Number" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
                     <Property Name="VehicleType" Type="Edm.String" Nullable="false" MaxLength="4" sap:unicode="false" sap:label="Vehicle Type" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
                     <Property Name="VehtypDesc" Type="Edm.String" Nullable="false" MaxLength="20" sap:unicode="false" sap:label="Vehicle Type Description" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
                     <Property Name="VehicleSize" Type="Edm.String" Nullable="false" MaxLength="15" sap:unicode="false" sap:label="Vehicle Size" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
                     <Property Name="TransporterName" Type="Edm.String" Nullable="false" MaxLength="40" sap:unicode="false" sap:label="Transporter Name" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="PartyName" Type="Edm.String" Nullable="false" MaxLength="80" sap:unicode="false" sap:label="Party Name" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
                     <Property Name="LR_Number" Type="Edm.String" Nullable="false" MaxLength="20" sap:unicode="false" sap:label="LR Number" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="MatDocNumber" Type="Edm.String" Nullable="false" MaxLength="10" sap:unicode="false" sap:label="GRN / Material Document" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="BillofLading" Type="Edm.String" Nullable="true" MaxLength="40" sap:unicode="false" sap:label="Bill of Lading" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
                     <Property Name="LR_Date" Type="Edm.DateTime" Precision="0" sap:unicode="false" sap:label="LR Date" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
                     <Property Name="DriverName" Type="Edm.String" Nullable="false" MaxLength="40" sap:unicode="false" sap:label="Driver Name" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
                     <Property Name="DriverMobile" Type="Edm.String" Nullable="false" MaxLength="10" sap:unicode="false" sap:label="Driver Phone" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
                     <Property Name="DriverLicence" Type="Edm.String" Nullable="false" MaxLength="20" sap:unicode="false" sap:label="Driver Licence Number" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
                     <Property Name="DriverPhoto" Type="Edm.String" Nullable="false" MaxLength="100" sap:unicode="false" sap:label="Driver Photo" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
                     <Property Name="AdditionalInfo" Type="Edm.String" Nullable="false" sap:unicode="false" sap:label="Additional Information" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
-                    <Property Name="CompanyCode" Type="Edm.String" Nullable="false" MaxLength="4" sap:unicode="false" sap:label="Company Code" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
-                    <Property Name="Plant" Type="Edm.String" Nullable="false" MaxLength="4" sap:unicode="false" sap:label="Plant" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="CompanyCode" Type="Edm.String" Nullable="false" MaxLength="4" sap:unicode="false" sap:label="Company Code" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="true"/>
+                    <Property Name="Plant" Type="Edm.String" Nullable="false" MaxLength="4" sap:unicode="false" sap:label="Plant" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="true"/>
                     <Property Name="Deleted" Type="Edm.Boolean" Nullable="false" sap:unicode="false" sap:label="Mark as Delete" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
                     <Property Name="CreatedBy" Type="Edm.String" Nullable="false" MaxLength="12" sap:unicode="false" sap:label="Created By" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
-                    <Property Name="CreatedOn" Type="Edm.DateTime" Precision="0" sap:unicode="false" sap:label="Created On" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="CreatedOn" Type="Edm.DateTime" Precision="0" sap:unicode="false" sap:label="Created On" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="true"/>
                     <Property Name="CreatedTime" Type="Edm.Time" Nullable="false" Precision="0" sap:unicode="false" sap:label="Time" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
                     <Property Name="ChangedBy" Type="Edm.String" Nullable="false" MaxLength="12" sap:unicode="false" sap:label="Changed By" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
                     <Property Name="ChangedOn" Type="Edm.DateTime" Precision="0" sap:unicode="false" sap:label="Changed On" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
                     <Property Name="ChangedTime" Type="Edm.Time" Nullable="false" Precision="0" sap:unicode="false" sap:label="Time of change" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="RefDocSkip" Type="Edm.String" Nullable="false" MaxLength="1" sap:unicode="false" sap:label="Ref Doc Skip" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="ShortQty" Type="Edm.Decimal" Nullable="false" Precision="13" Scale="3" sap:unicode="false" sap:label="Short Quantity" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="BinsReturned" Type="Edm.String" Nullable="false" MaxLength="5" sap:unicode="false" sap:label="Bins Returned" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="ExitGateNum" Type="Edm.String" Nullable="false" MaxLength="10" sap:unicode="false" sap:label="Exit Gate Number" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="DocumentsVerified" Type="Edm.Boolean" Nullable="true" sap:unicode="false" sap:label="Documents Verified" sap:creatable="true" sap:updatable="true" sap:sortable="false" sap:filterable="false"/>
                     <NavigationProperty Name="OrderDetails" Relationship="YIGP_PLMS_SRV.TripDetails_OrderDetails" FromRole="FromRole_TripDetails_OrderDetails" ToRole="ToRole_TripDetails_OrderDetails"/>
                     <NavigationProperty Name="ItemDetails" Relationship="YIGP_PLMS_SRV.TripDetails_ItemDetails" FromRole="FromRole_TripDetails_ItemDetails" ToRole="ToRole_TripDetails_ItemDetails"/>
                     <NavigationProperty Name="Feeds" Relationship="YIGP_PLMS_SRV.TripDetails_Feeds" FromRole="FromRole_TripDetails_Feeds" ToRole="ToRole_TripDetails_Feeds"/>
@@ -49,10 +58,13 @@
                     <Property Name="TripNumber" Type="Edm.String" Nullable="false" MaxLength="10" sap:unicode="false" sap:label="Trip Number" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
                     <Property Name="DocType" Type="Edm.String" Nullable="false" MaxLength="3" sap:unicode="false" sap:label="Doc Type" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
                     <Property Name="DocumentNumber" Type="Edm.String" Nullable="false" MaxLength="30" sap:unicode="false" sap:label="Document Number" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="MovementType" Type="Edm.String" Nullable="true" MaxLength="1" sap:unicode="false" sap:label="Movement Type (I/O)" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
                     <Property Name="DocumentDate" Type="Edm.DateTime" Precision="0" sap:unicode="false" sap:label="Document Date" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
                     <Property Name="Vendor" Type="Edm.String" Nullable="false" MaxLength="10" sap:unicode="false" sap:label="Supplier" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
                     <Property Name="Customer" Type="Edm.String" Nullable="false" MaxLength="10" sap:unicode="false" sap:label="Customer" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
                     <Property Name="Name" Type="Edm.String" Nullable="false" MaxLength="35" sap:unicode="false" sap:label="Sending / Receiving Party Name" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="SalesDoc" Type="Edm.String" Nullable="true" MaxLength="10" sap:unicode="false" sap:label="Sales Document" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="SalesDoctype" Type="Edm.String" Nullable="true" MaxLength="4" sap:unicode="false" sap:label="Sales Document Type" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
                     <Property Name="Deleted" Type="Edm.Boolean" Nullable="false" sap:unicode="false" sap:label="Indicator" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
                     <Property Name="CreatedBy" Type="Edm.String" Nullable="false" MaxLength="12" sap:unicode="false" sap:label="Created By" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
                     <Property Name="CreatedOn" Type="Edm.DateTime" Precision="0" sap:unicode="false" sap:label="Created On" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
@@ -72,9 +84,11 @@
                     <Property Name="TripNumber" Type="Edm.String" Nullable="false" MaxLength="10" sap:unicode="false" sap:label="Trip Number" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
                     <Property Name="RefDocNo" Type="Edm.String" Nullable="false" MaxLength="30" sap:unicode="false" sap:label="Ref Doc No" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
                     <Property Name="RefDocItemNo" Type="Edm.String" Nullable="false" MaxLength="6" sap:unicode="false" sap:label="Ref Doc Item No" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="MovementType" Type="Edm.String" Nullable="true" MaxLength="1" sap:unicode="false" sap:label="Movement Type (I/O)" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
                     <Property Name="MaterialCode" Type="Edm.String" Nullable="false" MaxLength="40" sap:unicode="false" sap:label="Material" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
                     <Property Name="MaterialDescription" Type="Edm.String" Nullable="false" MaxLength="40" sap:unicode="false" sap:label="Description" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
                     <Property Name="Quantity" Type="Edm.Decimal" Nullable="false" Precision="13" Scale="3" sap:unicode="false" sap:label="Delivery Qty" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="BalanceQty" Type="Edm.Decimal" Nullable="true" Precision="13" Scale="3" sap:unicode="false" sap:label="Balance Qty" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
                     <Property Name="UoM" Type="Edm.String" Nullable="false" MaxLength="3" sap:unicode="false" sap:label="Base Unit" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false" sap:semantics="unit-of-measure"/>
                     <Property Name="IsDeleted" Type="Edm.String" Nullable="false" MaxLength="1" sap:unicode="false" sap:label="Mark as Delete" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
                     <Property Name="IsSplitActive" Type="Edm.Boolean" Nullable="false" sap:unicode="false" sap:label="Indicator" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
@@ -110,10 +124,14 @@
                     </Key>
                     <Property Name="TripNumber" Type="Edm.String" Nullable="false" MaxLength="10" sap:unicode="false" sap:label="Trip Number" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
                     <Property Name="MovementType" Type="Edm.String" Nullable="false" MaxLength="1" sap:unicode="false" sap:label="MovementType" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="MovementTypeDesc" Type="Edm.String" Nullable="false" MaxLength="80" sap:unicode="false" sap:label="Type Description" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
                     <Property Name="MovementScenario" Type="Edm.String" Nullable="false" MaxLength="2" sap:unicode="false" sap:label="SubType" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="MovementScenarioDesc" Type="Edm.String" Nullable="false" MaxLength="80" sap:unicode="false" sap:label="Sub Type Description" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
                     <Property Name="EventID" Type="Edm.String" Nullable="false" MaxLength="2" sap:unicode="false" sap:label="Event Id" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="EventDescription" Type="Edm.String" Nullable="false" MaxLength="80" sap:unicode="false" sap:label="Event Description" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
                     <Property Name="Seqno" Type="Edm.String" Nullable="false" MaxLength="3" sap:unicode="false" sap:label="Sequence No." sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
                     <Property Name="Remarks" Type="Edm.String" Nullable="false" MaxLength="200" sap:unicode="false" sap:label="Text (200 char)" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="TurnAroundTime" Type="Edm.String" Nullable="false" MaxLength="30" sap:unicode="false" sap:label="Turn Around Time" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
                     <Property Name="CreatedDate" Type="Edm.DateTime" Precision="0" sap:unicode="false" sap:label="Created On" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
                     <Property Name="CreatedTime" Type="Edm.Time" Nullable="false" Precision="0" sap:unicode="false" sap:label="Time" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
                     <Property Name="CreatedBy" Type="Edm.String" Nullable="false" MaxLength="12" sap:unicode="false" sap:label="Created By" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
@@ -121,19 +139,109 @@
                     <Property Name="ChangedDate" Type="Edm.DateTime" Precision="0" sap:unicode="false" sap:label="Changed On" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
                     <Property Name="ChangedTime" Type="Edm.Time" Nullable="false" Precision="0" sap:unicode="false" sap:label="Time of change" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
                 </EntityType>
+                <EntityType Name="AsnDetails" sap:content-version="1">
+                    <Key>
+                        <PropertyRef Name="AsnId"/>
+                        <PropertyRef Name="Orgid"/>
+                    </Key>
+                    <Property Name="AsnId" Type="Edm.String" Nullable="false" MaxLength="32" sap:unicode="false" sap:label="Unique ASN ID for Each Request" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="Orgid" Type="Edm.String" Nullable="false" MaxLength="50" sap:unicode="false" sap:label="Organization ID" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="TripNumber" Type="Edm.String" Nullable="false" sap:unicode="false" sap:label="Trip Number" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="PoNumber" Type="Edm.String" Nullable="false" MaxLength="32" sap:unicode="false" sap:label="PO Number" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="VendorCode" Type="Edm.String" Nullable="false" MaxLength="32" sap:unicode="false" sap:label="Vendor Code" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="VendorId" Type="Edm.String" Nullable="false" MaxLength="32" sap:unicode="false" sap:label="Vendor Id For ASN data" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="OrgOpuId" Type="Edm.String" Nullable="false" MaxLength="32" sap:unicode="false" sap:label="Organization Id For the Plant Id" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="Status" Type="Edm.String" Nullable="false" MaxLength="32" sap:unicode="false" sap:label="Status" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="CompCode" Type="Edm.String" Nullable="false" MaxLength="20" sap:unicode="false" sap:label="Company Code" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="DocSource" Type="Edm.String" Nullable="false" MaxLength="32" sap:unicode="false" sap:label="Document Source" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="MarkAsdelete" Type="Edm.String" Nullable="false" MaxLength="32" sap:unicode="false" sap:label="Mark as Delete" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="ErpSync" Type="Edm.String" Nullable="false" MaxLength="32" sap:unicode="false" sap:label="Erp Sync Status for the ASN data" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="TransporterName" Type="Edm.String" Nullable="false" MaxLength="32" sap:unicode="false" sap:label="Transport name" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="TransportType" Type="Edm.String" Nullable="false" MaxLength="32" sap:unicode="false" sap:label="Transport Type" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="TransportMode" Type="Edm.String" Nullable="false" MaxLength="32" sap:unicode="false" sap:label="Transport Mode" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="VehicleNumber" Type="Edm.String" Nullable="false" MaxLength="32" sap:unicode="false" sap:label="Vehicle Number" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="DriverName" Type="Edm.String" Nullable="false" MaxLength="40" sap:unicode="false" sap:label="Driver Name For the ASN data" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="DriverMobile" Type="Edm.String" Nullable="false" MaxLength="40" sap:unicode="false" sap:label="Mobile Number" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="ShipFrom" Type="Edm.String" Nullable="false" MaxLength="120" sap:unicode="false" sap:label="Shipping From" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="ShipTo" Type="Edm.String" Nullable="false" MaxLength="120" sap:unicode="false" sap:label="Shipping To" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="InvRefNo" Type="Edm.String" Nullable="false" MaxLength="40" sap:unicode="false" sap:label="Invoice Reference number for the ASN DATA" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="InvRefDate" Type="Edm.String" Nullable="false" MaxLength="40" sap:unicode="false" sap:label="Invoice reference date for the asn data syncing" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="EwbNo" Type="Edm.String" Nullable="false" MaxLength="40" sap:unicode="false" sap:label="E-way Bill number for the ASN data" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="PoIssuedBy" Type="Edm.String" Nullable="false" MaxLength="32" sap:unicode="false" sap:label="PO Issued By" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="PoIssuedTo" Type="Edm.String" Nullable="false" MaxLength="32" sap:unicode="false" sap:label="PO Issued To" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="PoIbdNumber" Type="Edm.String" Nullable="false" MaxLength="32" sap:unicode="false" sap:label="IBD Number" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="InvRefDocType" Type="Edm.String" Nullable="false" MaxLength="32" sap:unicode="false" sap:label="Invoice Reference Id" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="EwbActStartDate" Type="Edm.DateTime" Precision="7" sap:unicode="false" sap:label="Date" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="EwbActStartTime" Type="Edm.Time" Nullable="false" Precision="0" sap:unicode="false" sap:label="Time" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="EwbExpStartDate" Type="Edm.DateTime" Precision="7" sap:unicode="false" sap:label="Date" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="EwbExpStartTime" Type="Edm.Time" Nullable="false" Precision="0" sap:unicode="false" sap:label="Time" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                </EntityType>
+                <EntityType Name="BillingDocSH" sap:content-version="1">
+                    <Key>
+                        <PropertyRef Name="BillingDoc"/>
+                    </Key>
+                    <Property Name="BillingDoc" Type="Edm.String" Nullable="false" MaxLength="10" sap:unicode="false" sap:label="Billing Doc." sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="BillingType" Type="Edm.String" Nullable="false" MaxLength="4" sap:unicode="false" sap:label="Billing Type" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="SoldToParty" Type="Edm.String" Nullable="false" MaxLength="10" sap:unicode="false" sap:label="Sold-to Party" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="Payer" Type="Edm.String" Nullable="false" MaxLength="10" sap:unicode="false" sap:label="Payer" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="BillingDate" Type="Edm.DateTime" Precision="7" sap:unicode="false" sap:label="Billing Date" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="SalesOrg" Type="Edm.String" Nullable="false" MaxLength="4" sap:unicode="false" sap:label="Sales Org." sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="DistributionChannel" Type="Edm.String" Nullable="false" MaxLength="2" sap:unicode="false" sap:label="Distr. Channel" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="MovementType" Type="Edm.String" Nullable="false" sap:unicode="false" sap:label="Movement Type" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="MovementScenario" Type="Edm.String" Nullable="false" sap:unicode="false" sap:label="Movement Scenario" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="MovementDescription" Type="Edm.String" Nullable="false" sap:unicode="false" sap:label="Movement Description" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                </EntityType>
+                <EntityType Name="ChallanSh" sap:content-version="1">
+                    <Key>
+                        <PropertyRef Name="MaterialDoc"/>
+                    </Key>
+                    <Property Name="MaterialDoc" Type="Edm.String" Nullable="false" MaxLength="10" sap:unicode="false" sap:label="Material Doc." sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="CompanyCode" Type="Edm.String" Nullable="false" MaxLength="4" sap:unicode="false" sap:label="Company Code" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="Plant" Type="Edm.String" Nullable="false" MaxLength="4" sap:unicode="false" sap:label="Plant" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="BillingType" Type="Edm.String" Nullable="false" MaxLength="4" sap:unicode="false" sap:label="Billing Type" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="Supplier" Type="Edm.String" Nullable="false" MaxLength="10" sap:unicode="false" sap:label="Supplier" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="SupplierName" Type="Edm.String" Nullable="false" MaxLength="35" sap:unicode="false" sap:label="Name" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="MovementType" Type="Edm.String" Nullable="false" sap:unicode="false" sap:label="Movement Type" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="MovementScenario" Type="Edm.String" Nullable="false" sap:unicode="false" sap:label="Movement Scenario" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="MovementDescription" Type="Edm.String" Nullable="false" sap:unicode="false" sap:label="Movement Description" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="DocType" Type="Edm.String" Nullable="false" sap:unicode="false" sap:label="Doc Type" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                </EntityType>
+                <EntityType Name="PoNumberSH" sap:content-version="1">
+                    <Key>
+                        <PropertyRef Name="PoNumber"/>
+                    </Key>
+                    <Property Name="PoNumber" Type="Edm.String" Nullable="false" MaxLength="10" sap:unicode="false" sap:label="Purchasing Doc." sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="Vendor" Type="Edm.String" Nullable="false" MaxLength="10" sap:unicode="false" sap:label="Supplier" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="VendorName" Type="Edm.String" Nullable="false" MaxLength="35" sap:unicode="false" sap:label="Name" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="DocDate" Type="Edm.DateTime" Nullable="false" Precision="7" sap:unicode="false" sap:label="Document Date" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="DocCategory" Type="Edm.String" Nullable="false" MaxLength="1" sap:unicode="false" sap:label="Doc. Category" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="DocumentType" Type="Edm.String" Nullable="false" MaxLength="4" sap:unicode="false" sap:label="Document Type" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="MovementType" Type="Edm.String" Nullable="false" sap:unicode="false" sap:label="Movement Type" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="MovementScenario" Type="Edm.String" Nullable="false" sap:unicode="false" sap:label="Movement Scenario" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="MovementDescription" Type="Edm.String" Nullable="false" sap:unicode="false" sap:label="Movement Description" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                </EntityType>
+                <EntityType Name="PartCodeSH" sap:content-version="1">
+                    <Key>
+                        <PropertyRef Name="PartCode"/>
+                    </Key>
+                    <Property Name="PartCode" Type="Edm.String" Nullable="false" MaxLength="40" sap:unicode="false" sap:label="Materials" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="true"/>
+                    <Property Name="BinType" Type="Edm.String" Nullable="false" MaxLength="20" sap:unicode="false" sap:label="Bin Types" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="true"/>
+                    <Property Name="BinTypeDesc" Type="Edm.String" Nullable="false" MaxLength="60" sap:unicode="false" sap:label="Bin Type Description" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="true"/>
+                    <Property Name="PartcodeDesc" Type="Edm.String" Nullable="false" MaxLength="120" sap:unicode="false" sap:label="Part Code Description" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="true"/>
+                </EntityType>
                 <ComplexType Name="Events">
-                    <Property Name="Type" Type="Edm.String" Nullable="false" MaxLength="1" sap:label="Type(Inward/Outward)" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
-                    <Property Name="Subtype" Type="Edm.String" Nullable="false" MaxLength="2" sap:label="SubType" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="MovementType" Type="Edm.String" Nullable="false" MaxLength="1" sap:label="Type(Inward/Outward)" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="MovementScenario" Type="Edm.String" Nullable="false" MaxLength="2" sap:label="SubType" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
                     <Property Name="EventID" Type="Edm.String" Nullable="false" MaxLength="2" sap:label="Event Id" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
                     <Property Name="Seqno" Type="Edm.String" Nullable="false" MaxLength="3" sap:label="Event Sequence No." sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
                     <Property Name="ShortText" Type="Edm.String" Nullable="false" MaxLength="20" sap:label="Short Text" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
                     <Property Name="LongText" Type="Edm.String" Nullable="false" MaxLength="80" sap:label="Long Text" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
                 </ComplexType>
                 <ComplexType Name="OrderType">
-                    <Property Name="Type" Type="Edm.String" Nullable="false" MaxLength="1" sap:label="Type(Inward/Outward)" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
-                    <Property Name="Subtype" Type="Edm.String" Nullable="false" MaxLength="2" sap:label="SubType" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="MovementType" Type="Edm.String" Nullable="false" MaxLength="1" sap:label="Type(Inward/Outward)" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="MovementScenario" Type="Edm.String" Nullable="false" MaxLength="2" sap:label="SubType" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
                     <Property Name="ShortText" Type="Edm.String" Nullable="false" MaxLength="20" sap:label="Short Text" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
-                    <Property Name="LongText" Type="Edm.String" Nullable="false" MaxLength="80" sap:label="Long Text" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
+                    <Property Name="LongText" Type="Edm.String" Nullable="false" MaxLength="100" sap:label="Long Text" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
                 </ComplexType>
                 <ComplexType Name="RegisterEvent">
                     <Property Name="Remarks" Type="Edm.String" Nullable="false" sap:label="Remarks" sap:creatable="false" sap:updatable="false" sap:sortable="false" sap:filterable="false"/>
@@ -192,6 +300,11 @@
                     <EntitySet Name="ItemDetails" EntityType="YIGP_PLMS_SRV.ItemDetails" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:pageable="false" sap:addressable="false" sap:content-version="1"/>
                     <EntitySet Name="Feeds" EntityType="YIGP_PLMS_SRV.Feeds" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:pageable="false" sap:addressable="false" sap:content-version="1"/>
                     <EntitySet Name="ActivityHistory" EntityType="YIGP_PLMS_SRV.ActivityHistory" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:pageable="false" sap:addressable="false" sap:content-version="1"/>
+                    <EntitySet Name="AsnDetails" EntityType="YIGP_PLMS_SRV.AsnDetails" sap:creatable="true" sap:updatable="false" sap:deletable="false" sap:pageable="false" sap:addressable="false" sap:content-version="1"/>
+                    <EntitySet Name="BillingDocSH" EntityType="YIGP_PLMS_SRV.BillingDocSH" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:pageable="false" sap:addressable="false" sap:content-version="1"/>
+                    <EntitySet Name="ChallanSh" EntityType="YIGP_PLMS_SRV.ChallanSh" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:pageable="false" sap:addressable="false" sap:content-version="1"/>
+                    <EntitySet Name="PoNumberSH" EntityType="YIGP_PLMS_SRV.PoNumberSH" sap:creatable="true" sap:updatable="false" sap:deletable="false" sap:pageable="false" sap:addressable="false" sap:content-version="1"/>
+                    <EntitySet Name="PartCodeSH" EntityType="YIGP_PLMS_SRV.PartCodeSH" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:pageable="false" sap:addressable="false" sap:content-version="1"/>
                     <AssociationSet Name="TripDetails_ItemDetailsSet" Association="YIGP_PLMS_SRV.TripDetails_ItemDetails" sap:creatable="false" sap:updatable="false" sap:deletable="false" sap:content-version="1">
                         <End EntitySet="TripDetails" Role="FromRole_TripDetails_ItemDetails"/>
                         <End EntitySet="ItemDetails" Role="ToRole_TripDetails_ItemDetails"/>
@@ -211,23 +324,36 @@
                     <FunctionImport Name="EventsSH" ReturnType="Collection(YIGP_PLMS_SRV.Events)" m:HttpMethod="GET" sap:label="Events"/>
                     <FunctionImport Name="OrderTypeSH" ReturnType="Collection(YIGP_PLMS_SRV.OrderType)" m:HttpMethod="GET" sap:label="Order Type"/>
                     <FunctionImport Name="GateIn" ReturnType="YIGP_PLMS_SRV.RegisterEvent" m:HttpMethod="POST" sap:label="Register Event">
-                        <Parameter Name="Modified" Type="Edm.Boolean" Mode="In" sap:label="Modified Flag"/>
-                        <Parameter Name="Remarks" Type="Edm.String" Mode="In" sap:label="Remarks"/>
-                        <Parameter Name="DelayReasons" Type="Edm.String" Mode="In" MaxLength="20" sap:label="Delay Reasons"/>
+                        <Parameter Name="BinsReceived" Type="Edm.String" Mode="In" sap:label="Bins Received"/>
+                        <Parameter Name="RefdocSkip" Type="Edm.String" Mode="In" sap:label="Reference Doc Skip"/>
+                        <Parameter Name="TripNumber" Type="Edm.String" Mode="In" MaxLength="12" sap:label="Trip Number"/>
                         <Parameter Name="EntryGateNumber" Type="Edm.String" Mode="In" MaxLength="20" sap:label="Entry Gate Number"/>
-                        <Parameter Name="TripNumber" Type="Edm.String" Mode="In" MaxLength="10" sap:label="Trip Number"/>
+                        <Parameter Name="DelayReasons" Type="Edm.String" Mode="In" MaxLength="20" Nullable="true" sap:label="Delay Reasons"/>
+                        <Parameter Name="Remarks" Type="Edm.String" Mode="In" sap:label="Remarks"/>
+                        <Parameter Name="Modified" Type="Edm.Boolean" Mode="In" sap:label="Modified Flag"/>
+                        <Parameter Name="Weighment_Req" Type="Edm.Boolean" Mode="In" sap:label="Weighment Required"/>
                     </FunctionImport>
-                    <FunctionImport Name="StartLoading" ReturnType="Collection(YIGP_PLMS_SRV.ItemDetails)" EntitySet="ItemDetails" m:HttpMethod="POST" sap:label="Start Loading">
-                        <Parameter Name="TripNumber" Type="Edm.String" Mode="In" MaxLength="10" sap:label="Trip Number"/>
+                    <FunctionImport Name="StartLoading" ReturnType="Collection(YIGP_PLMS_SRV.ItemDetails)" EntitySet="ItemDetails" m:HttpMethod="GET" sap:label="Start Loading">
+                        <Parameter Name="TripNumber" Type="Edm.String" Mode="In" MaxLength="12" sap:label="Trip Number"/>
                     </FunctionImport>
                     <FunctionImport Name="EndLoading" ReturnType="YIGP_PLMS_SRV.RegisterEvent" m:HttpMethod="POST" sap:label="End Loading">
-                        <Parameter Name="TripNumber" Type="Edm.String" Mode="In" MaxLength="10" sap:label="Trip Number"/>
+                        <Parameter Name="TripNumber" Type="Edm.String" Mode="In" MaxLength="12" sap:label="Trip Number"/>
                     </FunctionImport>
                     <FunctionImport Name="GateOut" ReturnType="YIGP_PLMS_SRV.RegisterEvent" m:HttpMethod="POST" sap:label="Register Event">
-                        <Parameter Name="VerifiedDocuments" Type="Edm.Boolean" Mode="In" sap:label="Modified Flag"/>
-                        <Parameter Name="Remarks" Type="Edm.String" Mode="In" sap:label="Remarks"/>
-                        <Parameter Name="TripNumber" Type="Edm.String" Mode="In" MaxLength="10" sap:label="Trip Number"/>
+                        <Parameter Name="RefdocSkip" Type="Edm.String" Mode="In" sap:label="Ref Document Skip"/>
+                        <Parameter Name="ShortQty" Type="Edm.String" Mode="In" sap:label="Short Quantity"/>
+                        <Parameter Name="BillingDocument" Type="Edm.String" Mode="In" sap:label="Billing Document"/>
                         <Parameter Name="ExitGateNumber" Type="Edm.String" Mode="In" MaxLength="20" sap:label="Entry Gate Number"/>
+                        <Parameter Name="TripNumber" Type="Edm.String" Mode="In" MaxLength="12" sap:label="Trip Number"/>
+                        <Parameter Name="Remarks" Type="Edm.String" Mode="In" sap:label="Remarks"/>
+                        <Parameter Name="VerifiedDocuments" Type="Edm.Boolean" Mode="In" sap:label="Modified Flag"/>
+                        <Parameter Name="BinsReturned" Type="Edm.String" Mode="In" sap:label="Bins Returned"/>
+                    </FunctionImport>
+                    <FunctionImport Name="EndUnloading" ReturnType="YIGP_PLMS_SRV.RegisterEvent" m:HttpMethod="POST" sap:label="End Loading">
+                        <Parameter Name="TripNumber" Type="Edm.String" Mode="In" MaxLength="12" sap:label="Trip Number"/>
+                    </FunctionImport>
+                    <FunctionImport Name="StartUnloading" ReturnType="Collection(YIGP_PLMS_SRV.ItemDetails)" EntitySet="ItemDetails" m:HttpMethod="GET" sap:label="Start Loading">
+                        <Parameter Name="TripNumber" Type="Edm.String" Mode="In" MaxLength="12" sap:label="Trip Number"/>
                     </FunctionImport>
                 </EntityContainer>
                 <atom:link

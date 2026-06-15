@@ -1,62 +1,105 @@
 <mvc:View
-    controllerName="com.incresolZ_INC_PLMS.controller.Stage"
+    controllerName="com.incresolZ_INC_PLMS.controller.subview.Notes"
     xmlns:mvc="sap.ui.core.mvc"
     xmlns="sap.m"
     xmlns:layout="sap.ui.layout"
 >
-    <VBox class="sapUiSmallMargin sapUiSizeCompact">
+    <VBox class="sapUiSizeCompact" width="100%">
+
+        <!-- ========================================================= -->
+        <!-- Notification Banner for New Notes -->
+        <!-- ========================================================= -->
+        <Bar
+            id="idNewNoteNotification"
+            visible="false"
+            class="sapUiTinyMarginBottom newNoteNotificationBar"
+        >
+            <contentLeft>
+                <Text text="{notesModel>/notificationText}" />
+            </contentLeft>
+            <contentRight>
+                <Button
+                    text="Mark as Read"
+                    type="Emphasized"
+                    press=".onMarkAsRead"
+                    class="sapUiTinyMarginEnd"
+                />
+            </contentRight>
+        </Bar>
 
         <!-- ========================================================= -->
         <!-- Add Note Section -->
         <!-- ========================================================= -->
-        <VBox class="sapUiMediumMargin">
+        <Panel
+            id="addNotePanel"
+            expandable="true"
+            expanded="true"
+            class="sapUiNoContentPadding sapUiTinyMarginBottom"
+            width="100%"
+            visible="{= !${globalData>/TripLocked} }"
+        >
+            <headerToolbar>
+                <OverflowToolbar>
+                    <Title text="Add Note" class="sectionPanelTitle" />
+                </OverflowToolbar>
+            </headerToolbar>
 
-            <Title text="Add Note" level="H5" class="sapUiTinyMarginBottom"/>
-
-            <Text text="Write your note below:" class="sapUiTinyMarginBottom"/>
-
-            <TextArea
-                id="idNoteInput"
-                rows="3"
-                width="100%"
-                placeholder="Type your note here..."
-            />
-
-            <HBox justifyContent="End" class="sapUiTinyMarginTop">
-                <Button
-                    text="Save Note"
-                    type="Accept"
-                    icon="sap-icon://save"
-                    press=".onSaveNote"
+            <VBox class="sapUiSizeCompact sapUiMediumPadding" width="100%">
+                <TextArea
+                    id="idNoteInput"
+                    rows="4"
+                    width="100%"
+                    placeholder="Type your note here..."
+                    class="sapUiTinyMarginBottom"
                 />
-            </HBox>
-        </VBox>
+
+                <HBox justifyContent="End" class="sapUiSmallMarginTop" width="100%">
+                    <Button
+                        text="Save Note"
+                        type="Accept"
+                        icon="sap-icon://save"
+                        press=".onSaveNote"
+                    />
+                </HBox>
+            </VBox>
+        </Panel>
 
         <!-- ========================================================= -->
         <!-- Saved Notes Section -->
         <!-- ========================================================= -->
-        <VBox class="sapUiMediumMargin">
+        <Panel
+            id="savedNotesPanel"
+            expandable="true"
+            expanded="true"
+            class="sapUiNoContentPadding sapUiTinyMarginBottom"
+            width="100%"
+        >
+            <headerToolbar>
+                <OverflowToolbar>
+                    <Title text="Saved Notes" class="sectionPanelTitle" />
+                </OverflowToolbar>
+            </headerToolbar>
 
-            <Title text="Saved Notes" level="H5" class="sapUiTinyMarginBottom"/>
-
-            <VBox class="sapUiSmallMargin noteVboxBG sapUiMediumPadding">
-                <FlexBox
-                    id="idNotesContainer"
-                    wrap="Wrap"
-                    alignItems="Start"
-                    justifyContent="Start"
-                    class="notesContainer"
-                >
-                    <Text
-                        id="idNoNotesText"
-                        text="No notes added yet."
-                        visible="true"
-                        class="sapUiTinyMargin"
-                    />
-                </FlexBox>
+            <VBox class="sapUiSizeCompact sapUiMediumPadding" width="100%">
+                <VBox class="noteVboxBG" width="100%">
+                    <FlexBox
+                        id="idNotesContainer"
+                        wrap="Wrap"
+                        alignItems="Start"
+                        justifyContent="Start"
+                        class="notesContainer"
+                    >
+                        <Text
+                            id="idNoNotesText"
+                            text="No notes added yet."
+                            visible="true"
+                            class="sapUiTinyMargin"
+                        />
+                    </FlexBox>
+                </VBox>
             </VBox>
 
-        </VBox>
+        </Panel>
 
     </VBox>
 </mvc:View>

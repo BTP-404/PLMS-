@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=https://sap.github.io/ui5-tooling/schema/ui5.yaml.json
+
+specVersion: "3.1"
+metadata:
+  name: com.incresolz_inc_plms
+type: application
+builder:
+  resources:
+    excludes:
+      - /test/**
+      - /localService/**
+  customTasks:
+    - name: deploy-to-abap
+      afterTask: generateCachebusterInfo
+      configuration:
+        target:
+          url: https://s4hana2022.incresol.com:44300
+          client: '100'
+        app:
+          name: YIGP_PLMS
+          description: Plant Logistics Management System
+          package: YIGP_PLMS
+          transport: S4HK901666
+        exclude:
+          - /test/

@@ -1,0 +1,28 @@
+{
+  "d": {
+    "results": [
+      {
+        "__metadata": {
+          "id": "mock/PartCodeSH('DEMO-001')",
+          "uri": "mock/PartCodeSH('DEMO-001')",
+          "type": "YIGP_PLMS_SRV.PartCodeSH"
+        },
+        "PartCode": "DEMO-001",
+        "BinType": "MT",
+        "BinTypeDesc": "Muffler Trolley",
+        "PartcodeDesc": "Demo muffler assembly"
+      },
+      {
+        "__metadata": {
+          "id": "mock/PartCodeSH('DEMO-002')",
+          "uri": "mock/PartCodeSH('DEMO-002')",
+          "type": "YIGP_PLMS_SRV.PartCodeSH"
+        },
+        "PartCode": "DEMO-002",
+        "BinType": "PB",
+        "BinTypeDesc": "Plastic Bins",
+        "PartcodeDesc": "Demo plastic bin parts"
+      }
+    ]
+  }
+}

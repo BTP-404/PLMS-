@@ -1,14 +1,169 @@
 <mvc:View
-    controllerName="com.incresolZ_INC_PLMS.controller.Stage"
+    controllerName="com.incresolZ_INC_PLMS.controller.subview.GateOut"
     xmlns:mvc="sap.ui.core.mvc"
     xmlns="sap.m"
     xmlns:core="sap.ui.core"
     xmlns:unified="sap.ui.unified"
-    xmlns:form="sap.ui.layout.form"
+    xmlns:layout="sap.ui.layout"
     displayBlock="true"
 >
+    <VBox class="sapUiSizeCompact" width="100%">
+        <!-- Search by + document value help (outward only; inward concept removed) -->
+        <layout:Grid
+            defaultSpan="L12 M12 S12"
+            hSpacing="2"
+            vSpacing="2"
+            width="100%"
+            visible="{= ${gateOutUi>/showGateOutRefSearchStrip} === true &amp;&amp; String(${TripData>/MovementType} || '').toUpperCase() !== 'I' }"
+            class="sapUiTinyMarginBottom sapUiMediumPadding gateOutSearchCard"
+           
+        >
+            <layout:content>
+                <VBox width="100%">
+                    <layoutData>
+                        <layout:GridData span="L6 M6 S12" />
+                    </layoutData>
+                    <Label
+                        text="Search by"
+                        labelFor="idGateOutReferenceBySelect"
+                        design="Bold"
+                        class="sapUiNoMarginBottom"
+                    />
+                    <Select
+                        id="idGateOutReferenceBySelect"
+                        width="100%"
+                        class="gateOutSearchSelect"
+                        enabled="{= !${globalData>/TripLocked} }"
+                        selectedKey="{gateOutUi>/referenceByKey}"
+                        change="onGateOutReferenceByChange"
+                    >
+                        <core:ListItem key="INVOICE" text="Invoice" />
+                        <core:ListItem key="CHALLAN" text="Challan" />
+                        <core:ListItem key="PO" text="PO" />
+                    </Select>
+                </VBox>
+            </layout:content>
+            <layout:content>
+                <VBox width="100%">
+                    <layoutData>
+                        <layout:GridData span="L6 M6 S12" />
+                    </layoutData>
+                    <Label
+                        text="Document Number"
+                        labelFor="idGateOutRefDocSearchInput"
+                        design="Bold"
+                        class="sapUiNoMarginBottom"
+                    />
+                    <Input
+                        id="idGateOutRefDocSearchInput"
+                        width="100%"
+                        class="gateOutSearchInput"
+                        value="{gateOutUi>/refDocSearchValue}"
+                        enabled="{= !${globalData>/TripLocked} }"
+                        showSuggestion="true"
+                        startSuggestion="1"
+                        filterSuggests="true"
+                        maxSuggestionWidth="32rem"
+                        placeholder="{= ${gateOutUi>/referenceByKey} === 'INVOICE' ? 'Type or select invoice' : (${gateOutUi>/referenceByKey} === 'CHALLAN' ? 'Type or select challan' : 'Type or select PO number') }"
+                        suggestionItems="{gateOutRefSuggest>/items}"
+                        suggest="onGateOutRefDocSuggest"
+                        suggestionItemSelected="onGateOutRefDocSuggestionSelected"
+                        change="onGateOutRefDocSearchChange"
+                    >
+                        <suggestionItems>
+                            <SuggestionItem
+                                text="{gateOutRefSuggest>docText}"
+                                description="{gateOutRefSuggest>docDescription}"
+                            />
+                        </suggestionItems>
+                    </Input>
+                </VBox>
+            </layout:content>
+        </layout:Grid>
 
-    <VBox class="sapUiSmallMargin sapUiSizeCompact">
+        <!-- ========================================================= -->
+        <!-- =================== Reporting (internal) ================= -->
+        <!-- ========================================================= -->
+        <mvc:XMLView
+            id="idVehicleReportingEmbeddedGateOut"
+            viewName="com.incresolZ_INC_PLMS.view.subview.VehicleReportingTab"
+            class="sapUiTinyMarginBottom"
+            visible="{= ${stageUi>/showReportingInGateOut} === true &amp;&amp; String(${TripData>/MovementType} || '').toUpperCase() !== 'I' }"
+        />
+
+        <!-- ========================================================= -->
+        <!-- =============== Reference Documents (merged) ============= -->
+        <!-- ========================================================= -->
+        <mvc:XMLView
+            id="idRefDocsViewGateOut"
+            viewName="com.incresolZ_INC_PLMS.view.subview.ReferenceDocuments"
+            class="sapUiTinyMarginBottom"
+            visible="{gateOutUi>/showPanels}"
+        />
+
+        <!-- ========================================================= -->
+        <!-- =========== Gate Out Bin / Trolley Tracking (before Gate-Out) ========= -->
+        <!-- ========================================================= -->
+        <Panel
+            id="gateOutBinTrolleyPanel"
+            expandable="true"
+            expanded="false"
+            class="sapUiNoContentPadding sapUiTinyMarginBottom"
+            width="100%"
+            visible="{= ${gateOutUi>/showPanels} === true &amp;&amp; ${ui>/showBinTrolleyTracking} === true }"
+        >
+            <headerToolbar>
+                <OverflowToolbar>
+                    <Title text="Bin / Trolley Tracking" class="sectionPanelTitle" />
+                </OverflowToolbar>
+            </headerToolbar>
+            <VBox class="sapUiSizeCompact" width="100%">
+                <Table
+                    id="idGateOutBinTrolleyTable"
+                    width="100%"
+                    fixedLayout="true"
+                    autoPopin="true"
+                    popinLayout="GridSmall"
+                    items="{binTrolleyTracking>/items}"
+                    class="sapUiSizeCompact binTrolleyTrackingTable plmsPanelDataTable"
+                >
+                    <columns>
+                        <Column width="8rem" demandPopin="true" minScreenWidth="Phone" popinDisplay="Inline">
+                            <Text text="Doc No" />
+                        </Column>
+                        <Column width="6rem" demandPopin="true" minScreenWidth="Phone" popinDisplay="Inline">
+                            <Text text="Item" />
+                        </Column>
+                        <Column width="9rem" demandPopin="true" minScreenWidth="Phone" popinDisplay="Inline">
+                            <Text text="Part Code" />
+                        </Column>
+                        <Column width="12rem" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
+                            <Text text="Bin Type" />
+                        </Column>
+                        <Column hAlign="End" width="8rem" demandPopin="true" minScreenWidth="Tablet" popinDisplay="Inline">
+                            <Text text="Qty Out" />
+                        </Column>
+                    </columns>
+                    <items>
+                        <ColumnListItem class="binTrolleyTrackingRow">
+                            <cells>
+                                <Text text="{binTrolleyTracking>DocumentNumber}" />
+                                <Text text="{binTrolleyTracking>ItemNo}" />
+                                <Text text="{binTrolleyTracking>Material}" class="binTrolleyPartCode" />
+                                <Text text="{= ${binTrolleyTracking>BinTypeDesc} || ${binTrolleyTracking>BinType} }" />
+                                <ObjectNumber number="{binTrolleyTracking>QtyOut}" emphasized="false" />
+                            </cells>
+                        </ColumnListItem>
+                    </items>
+                </Table>
+                <HBox justifyContent="End" class="sapUiTinyMarginTop binTrolleyTrackingTotalBar">
+                    <Text
+                        text="{path: 'binTrolleyTracking>/totalQtyOut', formatter: '.formatTrackingTotalQtyOutLine'}"
+                        class="sapUiTinyMarginEnd binTrolleyTrackingTotalLabel"
+                    />
+                </HBox>
+            </VBox>
+        </Panel>
 
         <!-- ========================================================= -->
         <!-- ==================== Gate Out Details ==================== -->
@@ -16,22 +171,177 @@
         <Panel
             id="gateOutPanel"
             expandable="true"
-            expanded="true"
-            class="sapUiNoContentPadding"
-            stickyHeader="true"
+            expanded="false"
+            class="sapUiNoContentPadding sapUiTinyMarginBottom"
+            width="100%"
+            visible="{gateOutUi>/showPanels}"
         >
-
-            <!-- Header Toolbar -->
             <headerToolbar>
-                <OverflowToolbar style="Clear">
-                    <Title text="Gate Out Details" />
-                    <ToolbarSpacer />
+                <OverflowToolbar>
+                    <Title text="Gate-Out" class="sectionPanelTitle" />
+                </OverflowToolbar>
+            </headerToolbar>
+
+            <VBox class="sapUiSizeCompact sapUiMediumPadding plmsGateOutForm">
+                <!-- Row 1: Exit Gate | Related Trip (Gate Pass No) | Verified Documents -->
+                <layout:Grid
+                    defaultSpan="L4 M4 S12"
+                    hSpacing="2"
+                    vSpacing="2"
+                    width="100%"
+                    class="sapUiTinyMarginTop"
+                >
+                    <layout:content>
+                        <VBox width="100%">
+                            <Label
+                                text="Exit Gate Number"
+                                required="true"
+                                design="Bold"
+                                class="sapUiNoMarginBottom"
+                            />
+                            <ComboBox
+                                id="idExitGateNumber"
+                                width="100%"
+                                editable="{= !${globalData>/TripLocked} }"
+                                placeholder="Select exit gate"
+                                selectedKey="{path: 'TripData>/ExitGateNum', mode: 'OneWay'}"
+                                items="{exitGateModel>/items}"
+                                change="onExitGateSelectionChange"
+                            >
+                                <core:Item
+                                    key="{exitGateModel>ConfigID}"
+                                    text="{exitGateModel>ConfigID}"
+                                    templateShareable="false"
+                                />
+                            </ComboBox>
+                        </VBox>
+                    </layout:content>
+                    <layout:content>
+                        <VBox width="100%">
+                            <Label
+                                text="Related Trip Number (Gate Pass No)"
+                                design="Bold"
+                                class="sapUiNoMarginBottom"
+                            />
+                            <Input
+                                id="idGateOutRelatedTripNumber"
+                                width="100%"
+                                value="{
+                                    path: 'TripData>/TripNumber',
+                                    formatter: '.formatTripNumber'
+                                }"
+                                enabled="false"
+                            />
+                        </VBox>
+                    </layout:content>
+                    <layout:content>
+                        <VBox width="100%">
+                            <Label
+                                text="Verified the Documents?"
+                                required="true"
+                                design="Bold"
+                                class="sapUiNoMarginBottom"
+                            />
+                            <RadioButtonGroup
+                                id="idVerifiedDocs"
+                                columns="2"
+                                selectedIndex="{path: 'TripData>/VerifiedDocs', formatter: '.formatVerifiedDocsIndex'}"
+                                width="100%"
+                            >
+                                <RadioButton text="Yes" />
+                                <RadioButton text="No" />
+                            </RadioButtonGroup>
+                        </VBox>
+                    </layout:content>
+                </layout:Grid>
+
+                <!-- Row 2: Skip Document -->
+                <layout:Grid
+                    defaultSpan="L12 M12 S12"
+                    hSpacing="2"
+                    vSpacing="2"
+                    width="100%"
+                    class="sapUiTinyMarginTop"
+                >
+                    <layout:content>
+                        <VBox width="100%">
+                            <Label
+                                text="Skip Document"
+                                design="Bold"
+                                class="sapUiNoMarginBottom"
+                            />
+                            <RadioButtonGroup
+                                id="idSkipDocumentGateOut"
+                                columns="2"
+                                selectedIndex="{path: 'TripData>/RefDocSkip', formatter: '.formatRefDocSkipIndex'}"
+                                select="onRefDocSkipChange"
+                                width="100%"
+                            >
+                                <RadioButton text="Yes" />
+                                <RadioButton text="No" />
+                            </RadioButtonGroup>
+                        </VBox>
+                    </layout:content>
+                </layout:Grid>
+
+                <!-- Row 3: Remarks | Additional Info -->
+                <layout:Grid
+                    defaultSpan="L6 M6 S12"
+                    hSpacing="2"
+                    vSpacing="2"
+                    width="100%"
+                    class="sapUiTinyMarginTop"
+                >
+                    <layout:content>
+                        <VBox width="100%">
+                            <Label
+                                text="Remarks"
+                                design="Bold"
+                                class="sapUiNoMarginBottom"
+                            />
+                            <TextArea
+                                id="idGateOutRemarks"
+                                rows="4"
+                                growing="true"
+                                growingMaxLines="8"
+                                placeholder="Enter any remarks"
+                                width="100%"
+                            />
+                        </VBox>
+                    </layout:content>
+                    <layout:content>
+                        <VBox width="100%">
+                            <Label
+                                text="Additional Info"
+                                design="Bold"
+                                class="sapUiNoMarginBottom"
+                            />
+                            <TextArea
+                                id="idGateOutAdditionalInfo"
+                                rows="4"
+                                growing="true"
+                                growingMaxLines="12"
+                                placeholder="Enter additional information"
+                                width="100%"
+                            />
+                        </VBox>
+                    </layout:content>
+                </layout:Grid>
+
+                <!-- ==================== BUTTON ROW ======================= -->
+                <!-- Right aligned bottom buttons -->
+                <HBox
+                    justifyContent="End"
+                    class="sapUiSmallMarginTop"
+                    width="100%"
+                >
                     <Button
                         id="btnEditGateOut"
                         text="Edit"
                         type="Emphasized"
                         icon="sap-icon://edit"
                         press="onEditGateOut"
+                        visible="{= !${globalData>/TripLocked} }"
                     />
                     <Button
                         id="btnSaveGateOut"
@@ -40,132 +350,100 @@
                         icon="sap-icon://save"
                         press="onSaveGateOut"
                         class="sapUiTinyMarginBegin"
+                        visible="{= !${globalData>/TripLocked} }"
                     />
-                </OverflowToolbar>
-            </headerToolbar>
-
-            <!-- Body -->
-            <VBox class="sapUiSizeCompact">
-                <HBox justifyContent="SpaceAround" alignItems="Start" width="100%">
-
-                    <!-- ==================== Column 1 ==================== -->
-                    <VBox class="sapUiNoContentPadding" width="33%">
-                        <form:SimpleForm
-                            layout="ResponsiveGridLayout"
-                            labelSpanL="4"
-                            labelSpanM="4"
-                            columnsL="1"
-                            columnsM="1"
-                            class="sapUiNoContentPadding"
-                            binding="{TripData>/}"
-                        >
-
-                            <Label text="Exit Gate Number" required="true" design="Bold" />
-                            <Select id="idExitGateNumber" selectedKey="{TripData>/ExitGateNumber}" />
-
-                            <Label text="Verified the Documents?" required="true" design="Bold" />
-                            <RadioButtonGroup id="idVerifiedDocs" columns="2" selectedIndex="{TripData>/VerifiedDocs}">
-                                <buttons>
-                                    <RadioButton text="Yes" key="Y" />
-                                    <RadioButton text="No" key="N" />
-                                </buttons>
-                            </RadioButtonGroup>
-
-                        </form:SimpleForm>
-                    </VBox>
-
-                    <!-- ==================== Column 2 ==================== -->
-                    <VBox class="sapUiNoContentPadding" width="33%">
-                        <form:SimpleForm
-                            layout="ResponsiveGridLayout"
-                            labelSpanL="4"
-                            labelSpanM="4"
-                            columnsL="1"
-                            columnsM="1"
-                            class="sapUiNoContentPadding"
-                            binding="{TripData>/}"
-                        >
-
-                            <Label text="Remarks" design="Bold" />
-                            <TextArea
-                                id="idGateOutRemarks"
-                                value="{TripData>/GateOutRemarks}"
-                                rows="3"
-                                width="100%"
-                            />
-
-                            <Label text="Upload Attachments" design="Bold" />
-                            <unified:FileUploader
-                                id="idGateOutAttachments"
-                                multiple="true"
-                                buttonText="Upload"
-                                fileType="jpg,png,pdf,docx"
-                                placeholder="Attach related documents"
-                                uploadUrl="/upload"
-                                change="onGateOutAttachmentChange"
-                            />
-
-                        </form:SimpleForm>
-                    </VBox>
-
-                    <!-- ==================== Column 3 ==================== -->
-                    <VBox width="33%" class="sapUiNoContentPadding">
-                        <form:SimpleForm
-                            layout="ResponsiveGridLayout"
-                            labelSpanL="4"
-                            labelSpanM="4"
-                            columnsL="1"
-                            columnsM="1"
-                            class="sapUiNoContentPadding"
-                            binding="{TripData>/}"
-                        >
-
-                            <Label text="Additional Info" design="Bold" />
-                            <TextArea
-                                id="idGateOutAdditionalInfo"
-                                value="{TripData>/GateOutAdditionalInfo}"
-                                growing="true"
-                            />
-
-                        </form:SimpleForm>
-                    </VBox>
                 </HBox>
             </VBox>
-
         </Panel>
 
         <!-- ========================================================= -->
-        <!-- ==================== Change History ===================== -->
+        <!-- ================= Change History Panel ================== -->
         <!-- ========================================================= -->
-        <Panel id="gateOutHistoryPanel" expandable="true" expanded="false" class="sapUiNoContentPadding">
-            
+        <!-- <Panel
+            id="gateOutHistoryPanel"
+            expandable="true"
+            expanded="false"
+            class="sapUiNoContentPadding sapUiTinyMarginTop"
+        >
             <headerToolbar>
-                <OverflowToolbar style="Clear">
-                    <Title text="Change History" />
+                <OverflowToolbar>
+                    <Title text="Change History" class="sectionPanelTitle" />
                 </OverflowToolbar>
             </headerToolbar>
 
-            <VBox class="sapUiSmallMargin sapUiMediumPadding sapUiSizeCompact" binding="{TripData>/}">
-                <Title text="Change History" level="H5" class="sapUiSmallMarginBottom sapUiTinyMarginTop" />
+            <VBox
+                class="sapUiSmallPadding sapUiSizeCompact"
+                width="100%"
+            >
+                <layout:Grid
+                    defaultSpan="L4 M6 S12"
+                    width="100%"
+                    hSpacing="0.5rem"
+                    vSpacing="0.5rem"
+                >
+                    <layout:content>
+                        <VBox width="100%">
+                            <Label
+                                text="Created By"
+                                design="Bold"
+                                class="sapUiNoMarginBottom"
+                            />
+                            <Input
+                                id="idGateOutCreatedBy"
+                                enabled="false"
+                                width="100%"
+                                value="{
+                                    path: 'TripData>/CreatedBy',
+                                    mode: 'OneWay'
+                                }"
+                            />
+                        </VBox>
+                    </layout:content>
 
-                <HBox fitContainer="true" justifyContent="SpaceBetween" class="sapUiSmallMarginBottom">
-                    <VBox width="48%" class="sapUiTinyMarginEnd">
-                        <Label text="Created By" design="Bold" />
-                        <Input id="idGateOutCreatedBy" value="{TripData>/GateOutCreatedBy}" enabled="false" />
-                    </VBox>
+                    <layout:content>
+                        <VBox width="100%">
+                            <Label
+                                text="Created On Date"
+                                design="Bold"
+                                class="sapUiNoMarginBottom"
+                            />
+                            <DatePicker
+                                id="idGateOutCreatedOnDate"
+                                enabled="false"
+                                width="100%"
+                                valueFormat="yyyy-MM-dd"
+                                displayFormat="medium"
+                                placeholder="{i18n>datePlaceholderExample}"
+                                value="{
+                                    path: 'TripData>/CreatedOn',
+                                    formatter: '.formatTripDate'
+                                }"
+                            />
+                        </VBox>
+                    </layout:content>
 
-                    <VBox width="48%">
-                        <Label text="Created On Date" design="Bold" />
-                        <DatePicker id="idGateOutCreatedOnDate" value="{TripData>/GateOutCreatedOnDate}" enabled="false" />
-                    </VBox>
-                </HBox>
-
-                <VBox width="48%">
-                    <Label text="Created On Time" design="Bold" />
-                    <TimePicker id="idGateOutCreatedOnTime" value="{TripData>/GateOutCreatedOnTime}" enabled="false" />
-                </VBox>
-
+                    <layout:content>
+                        <VBox width="100%">
+                            <Label
+                                text="Created On Time"
+                                design="Bold"
+                                class="sapUiNoMarginBottom"
+                            />
+                            <TimePicker
+                                id="idGateOutCreatedOnTime"
+                                enabled="false"
+                                width="100%"
+                                valueFormat="HH:mm:ss"
+                                displayFormat="HH:mm:ss"
+                                value="{
+                                    path: 'TripData>/CreatedTime',
+                                    formatter: '.formatTripTime'
+                                }"
+                            />
+                        </VBox>
+                    </layout:content>
+                </layout:Grid>
             </VBox>
-        </Panel>
+        </Panel> -->
     </VBox>
 </mvc:View>

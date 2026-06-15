@@ -1,0 +1,152 @@
+<core:FragmentDefinition
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+    xmlns:form="sap.ui.layout.form"
+>
+    <Dialog
+        id="idAddRefDocDialog"
+        title="Add Reference Document"
+        class="sapUiResponsivePadding--content"
+        contentWidth="32rem"
+    >
+        <form:SimpleForm
+            layout="ResponsiveGridLayout"
+            editable="true"
+            labelSpanL="4"
+            labelSpanM="4"
+            adjustLabelSpan="false"
+            emptySpanL="0"
+            emptySpanM="0"
+            columnsL="1"
+            columnsM="1"
+        >
+            <Label text="Doc Type" />
+            <Select
+                id="idRefDocType"
+                change=".onDocTypeChange"
+                items="{docTypeModel>/items}"
+                forceSelection="false"
+            >
+                <core:Item
+                    key="{docTypeModel>ConfigID}"
+                    text="{= ${docTypeModel>ConfigID} + ' - ' + ${docTypeModel>Description}}"
+                    additionalText="{docTypeModel>Description}"
+                />
+            </Select>
+
+            <Label text="Document Number" />
+            <Input
+                id="idRefDocNumber"
+                showValueHelp="false"
+                placeholder="Select Document Number"
+                maxLength="10"
+                valueLiveUpdate="true"
+                liveChange=".onRefDocNumberLiveChange"
+                showSuggestion="true"
+                filterSuggests="true"
+                suggest=".onRefDocNumberSuggest"
+                suggestionItemSelected=".onRefDocSuggestionSelected"
+                change=".onRefDocNumberChange"
+            />
+
+            <Label
+                text="Document Date"
+                visible="false"
+            />
+            <DatePicker
+                id="idRefDocDate"
+                valueFormat="yyyy-MM-dd"
+                displayFormat="medium"
+                placeholder="{i18n>datePlaceholderExample}"
+                editable="false"
+                visible="false"
+            />
+
+            <Label
+                text="Sending / Receiving Party Code"
+                
+            />
+            <Input
+                id="idRefDocPartyCode"
+                valueLiveUpdate="true"
+                editable="false"
+                
+            />
+
+            <Label
+                text="Sending / Receiving Party Name"
+                
+            />
+            <Input
+                id="idRefDocPartyName"
+                valueLiveUpdate="true"
+                editable="false"
+                
+            />
+
+            <Label text="EwayBill Number" />
+            <Input
+                id="idRefDocEwayBillNumber"
+                valueLiveUpdate="true"
+                editable="true"
+            />
+
+            <Label text="EwayBill Date" visible="true"/>
+            <DatePicker
+                id="idRefDocEwayBillDate"
+                valueFormat="yyyy-MM-dd"
+                displayFormat="medium"
+                placeholder="{i18n>datePlaceholderExample}"
+                editable="true"
+                visible="true"
+            />
+
+            <Label text="Inv/Dc" visible="{path: 'TripData>/MovementType', formatter: '.formatInvRefColumnsVisible'}" />
+            <Input
+                id="idRefDocSalesDoc"
+                valueLiveUpdate="true"
+                editable="true"
+                visible="{path: 'TripData>/MovementType', formatter: '.formatInvRefColumnsVisible'}"
+            />
+
+            <Label text="INV/DC Date" visible="{path: 'TripData>/MovementType', formatter: '.formatInvRefColumnsVisible'}" />
+            <DatePicker
+                id="idRefDocInvRefDate"
+                valueFormat="yyyy-MM-dd"
+                displayFormat="medium"
+                placeholder="{i18n>datePlaceholderExample}"
+                editable="true"
+                visible="{path: 'TripData>/MovementType', formatter: '.formatInvRefColumnsVisible'}"
+            />
+
+            <Label
+                text="Order Type"
+                visible="false"
+            />
+            <Input
+                id="idRefDocSalesDoctype"
+                valueLiveUpdate="true"
+                editable="false"
+                visible="false"
+            />
+
+        </form:SimpleForm>
+
+        <beginButton>
+            <Button
+                id="idRefDocDialogSaveBtn"
+                text="Add"
+                type="Emphasized"
+                press=".onSaveRefDocDialog"
+                visible="{= ${globalData>/IsScanningReporting} || ${globalData>/DisableRefDocMaterialsActions} || ${globalData>/TripLocked} ? false : true }"
+            />
+        </beginButton>
+        <endButton>
+            <Button
+                text="Cancel"
+                press=".onCancelRefDocDialog"
+            />
+        </endButton>
+    </Dialog>
+</core:FragmentDefinition>
+

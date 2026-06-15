@@ -2,30 +2,61 @@
 	xmlns:form="sap.ui.layout.form" xmlns:unified="sap.ui.unified" xmlns:html="http://www.w3.org/1999/xhtml" displayBlock="true">
 	<App>
 		<pages>
-			<Page title="{i18n>title}">
+			<Page id="stagePage" enableScrolling="true" class="sapUiNoContentPadding">
+				<customHeader>
+					<OverflowToolbar id="headerBar" class="stageHeaderBar">
+
+						<!-- LEFT -->
+						<Text
+							text="Gate Pass No: {
+								path: 'pageTitleModel>/tripNumber',
+								formatter: '.formatTripNumber'
+							}"
+						/>
+
+						<!-- SPACE PUSH -->
+						<ToolbarSpacer />
+
+						<!-- CENTER -->
+						<Text
+							text="Vehicle No: {pageTitleModel>/vehicleNumber}"
+						/>
+
+						<ToolbarSpacer />
+
+						<!-- RIGHT -->
+						<Text
+							text="Trip status : {pageTitleModel>/tripStatus}"
+							wrapping="false"
+						/>
+
+					</OverflowToolbar>
+				</customHeader>
 				<content>
-					<VBox >
-						<!-- Selected Scenario Info -->
-						<Text id="selectedScenarioText" text="" class="sapUiSmallMarginBegin sapUiSmallMarginEnd sapUiTinyMarginBottom cutstomCssSCenarioText"
+					<VBox class="stageContentVBox" width="100%">
+						<!-- Selected Scenario Info (no layout space when hidden) -->
+						<Text id="selectedScenarioText" text="" class="cutstomCssSCenarioText"
 							visible="false"/>
 						<!-- IconTabBar -->
-						<IconTabBar id="iconTabBar" expandable="true" expanded="true" enableTabReordering="true" select="onIconTabSelect">
+						<IconTabBar id="iconTabBar" class="homeLikeTabs" expandable="false" expanded="true" enableTabReordering="true" select="onIconTabSelect">
 							<items>
-								<IconTabFilter text="Reporting" key="vehicleReporting" icon="sap-icon://order-status">
-									<mvc:XMLView viewName="com.incresolZ_INC_PLMS.view.subview.VehicleReportingTab"/>
-								</IconTabFilter>
 								<IconTabFilter key="gateIn" text="Gate In" icon="sap-icon://visits" enabled="true">
 									<mvc:XMLView viewName="com.incresolZ_INC_PLMS.view.subview.GateIn"/>
 								</IconTabFilter>
-								<IconTabFilter id="idLoadingMaterial" text="Loading" icon="sap-icon://shipping-status">
-									<mvc:XMLView id="idLoadingMaterialView" viewName="com.incresolZ_INC_PLMS.view.subView.Loading"/>
+								<IconTabFilter id="idLoadingMaterial" text="Loading" icon="sap-icon://cart-3" visible="false">
+									<mvc:XMLView id="idLoadingMaterialView" viewName="com.incresolZ_INC_PLMS.view.subview.Loading"/>
+								</IconTabFilter>
+								<IconTabFilter id="idUnloadingMaterial" text="Unloading" icon="sap-icon://cart-2" visible="false">
+									<mvc:XMLView id="idUnloadingMaterialView" viewName="com.incresolZ_INC_PLMS.view.subview.Unloading"/>
 								</IconTabFilter>
 								<IconTabFilter id="tabGateOut" text="Gate Out" key="gateout" icon="sap-icon://outbox" iconColor="Default">
 									<mvc:XMLView viewName="com.incresolZ_INC_PLMS.view.subview.GateOut"/>
 								</IconTabFilter>
-								<IconTabFilter id="refDoc" text="Ref. Docs/Mat. Details" key="refDocs" icon="sap-icon://documents" iconColor="Positive">
-									<mvc:XMLView viewName="com.incresolZ_INC_PLMS.view.subview.ReferenceDocuments"/>
+
+								<IconTabFilter id="idActivityTab" text="Analysis" key="activity" icon="sap-icon://process" iconColor="Positive">
+									<mvc:XMLView viewName="com.incresolZ_INC_PLMS.view.subview.Activity"/>
 								</IconTabFilter>
+								
 								<IconTabFilter id="idNotesTab" text="Notes" icon="sap-icon://notes" key="Notes" iconColor="Positive">
 									<mvc:XMLView viewName="com.incresolZ_INC_PLMS.view.subview.Notes"/>
 								</IconTabFilter>
@@ -40,8 +71,27 @@
 				<footer>
 					<Bar design="Footer">
 						<contentLeft>
-							<Button id="btnCancelTrip" text="Cancel Trip" type="Reject" icon="sap-icon://cancel" press=".onCancelTrip"/>
+							<Button
+								id="btnCancelTrip"
+								text="Cancel Trip"
+								type="Reject"
+								icon="sap-icon://cancel"
+								press=".onCancelTrip"
+								class="darkCancelButton"
+								visible="{= !${globalData>/TripCompleted} }"
+								enabled="{= !${globalData>/TripLocked} }"
+							/>
 						</contentLeft>
+						<contentRight>
+							<Button
+								id="btnReopenTrip"
+								text="Reopen Trip"
+								type="Accept"
+								icon="sap-icon://undo"
+								press=".onReopenTrip"
+								visible="{= ${globalData>/TripCompleted} === true &amp;&amp; ${globalData>/ReopenAuthLoaded} === true &amp;&amp; ${globalData>/CanReopenTrip} === true &amp;&amp; ${globalData>/TripUnlocked} !== true }"
+							/>
+						</contentRight>
 					</Bar>
 				</footer>
 			</Page>

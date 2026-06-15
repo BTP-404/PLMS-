@@ -1,0 +1,18 @@
+<core:FragmentDefinition
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core">
+    <SelectDialog
+        id="idItemDetailsValueHelpDialog"
+        title="Select Material Item"
+        search="._onItemDetailsValueHelpSearch"
+        liveChange="._onItemDetailsValueHelpSearch"
+        confirm="._onItemDetailsValueHelpConfirm"
+        cancel="._onItemDetailsValueHelpCancel"
+        items="{itemDetailsVH>/items}">
+        <StandardListItem
+            title="{itemDetailsVH>MaterialCode}"
+            description="{itemDetailsVH>MaterialDescription}"
+            info="{itemDetailsVH>RefDocItemNo}"/>
+    </SelectDialog>
+</core:FragmentDefinition>
+

@@ -42,25 +42,29 @@
         },
         "supportedThemes": [
             "sap_hcb",
-            "sap_belize"
+            "sap_belize",
+            "sap_fiori_3",
+            "sap_fiori_3_hcb",
+            "sap_fiori_3_hcw"
         ]
     },
     "sap.ui5": {
         "rootView": {
             "viewName": "com.incresolZ_INC_PLMS.view.App",
-            "type": "XML",
-            "id": "app"
+            "type": "XML"
         },
         "dependencies": {
             "minUI5Version": "1.30.0",
             "libs": {
                 "sap.ui.core": {},
                 "sap.m": {},
+                "sap.f": {},
                 "sap.ui.layout": {},
                 "sap.ushell": {},
                 "sap.collaboration": {},
                 "sap.ui.comp": {},
-                "sap.uxap": {}
+                "sap.uxap": {},
+                "sap.ndc": {}
             }
         },
         "contentDensities": {

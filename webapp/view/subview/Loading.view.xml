@@ -1,157 +1,299 @@
 <mvc:View
-    controllerName="com.incresolZ_INC_PLMS.controller.Stage"
+    controllerName="com.incresolZ_INC_PLMS.controller.subview.Loading"
     xmlns:mvc="sap.ui.core.mvc"
     xmlns="sap.m"
-    xmlns:form="sap.ui.layout.form"
     xmlns:layout="sap.ui.layout"
     displayBlock="true"
 >
-    <VBox class="sapUiSmallMargin sapUiSizeCompact">
+    <VBox class="sapUiSizeCompact" width="100%">
 
-        <!-- ========================================================= -->
-        <!-- =============== Material Details Panel ================== -->
-        <!-- ========================================================= -->
+        <!-- ===================== MATERIAL DETAILS PANEL ===================== -->
         <Panel
             id="materialDetailsPanel"
             expandable="true"
             expanded="true"
-            class="sapUiNoContentPadding"
+            class="sapUiNoContentPadding sapUiTinyMarginBottom"
+            width="100%"
             stickyHeader="true"
         >
             <headerToolbar>
                 <OverflowToolbar>
-                    <Title text="Material Details" />
-                    <ToolbarSpacer />
-                    <Button id="btnEditLoading" text="Edit" type="Emphasized" press="onEditLoading" icon="sap-icon://edit"/>
-                    <Button id="btnSaveLoading" text="Save" type="Accept" press="onSaveLoading" icon="sap-icon://save" class="sapUiTinyMarginBegin"/>
+                    <Title text="Loading" class="sectionPanelTitle" />
                 </OverflowToolbar>
             </headerToolbar>
 
-            <!-- ===== Material Flags / Radio Buttons Section ===== -->
-            <VBox class="sapUiSmallMargin sapUiSizeCompact">
-                <layout:Grid defaultSpan="L12 M12 S12" width="100%">
-                    <layout:content>
-                        <HBox alignItems="Center" class="sapUiSmallMarginBottom">
-                            <Label text="Weighment Required?" width="15rem" design="Bold"/>
-                            <RadioButtonGroup id="idWeighmentRequired" columns="2">
-                                <buttons>
-                                    <RadioButton text="Yes" key="Y"/>
-                                    <RadioButton text="No" key="N"/>
-                                </buttons>
-                            </RadioButtonGroup>
-                        </HBox>
-                    </layout:content>
-                </layout:Grid>
+            <VBox class="sapUiSizeCompact sapUiMediumPadding" width="100%">
 
-                <!-- ===== Table Section ===== -->
-                <ScrollContainer horizontal="true" vertical="false" width="100%"
-                    class="sapUiNoContentPadding sapUiSmallMarginTop sapUiSizeCompact">
-                    <HBox wrap="Wrap" width="auto">
-                        <Table
-                            id="idLoadingMaterialTable"
-                            inset="false"
-                            mode="None"
-                            sticky="ColumnHeaders"
-                            width="150rem"
-                            class="sapUiSizeCompact"
-                        >
+                <!-- ===================== TABLE SECTION ===================== -->
+                <Table
+                    id="idLoadingMaterialTable"
+                    inset="false"
+                    width="100%"
+                    class="sapUiSizeCompact"
+                    fixedLayout="true"
+                    autoPopin="true"
+                    popinLayout="GridSmall"
+                    sticky="ColumnHeaders,HeaderToolbar"
+                    growing="true"
+                    growingScrollToLoad="true"
+                    growingThreshold="20"
+                    items="{tableModel>/materials}"
+                    noDataText="No materials loaded yet">
+                            <headerToolbar>
+                                <Toolbar>
+                                    <Title text="Material Details" level="H6" />
+                                    <ToolbarSpacer/>
+                                    <Button
+                                        id="idLoadingColumnsButton"
+                                        icon="sap-icon://action-settings"
+                                        tooltip="Column Settings"
+                                        press="onLoadingColumnSettings"/>
+                                </Toolbar>
+                            </headerToolbar>
                             <columns>
-                                <Column><Text text="Ref Doc Number"/></Column>
-                                <Column><Text text="Ref Doc Item Number"/></Column>
-                                <Column><Text text="Material Code"/></Column>
-                                <Column><Text text="Material Description"/></Column>
-                                <Column><Text text="Qty"/></Column>
-                                <Column><Text text="UoM"/></Column>
-                                <Column><Text text="Loaded Qty / Net Wt"/></Column>
-                                <Column><Text text="Gross Wt"/></Column>
-                                <Column><Text text="Tare Wt"/></Column>
-                                <Column><Text text="Created By"/></Column>
-                                <Column><Text text="Created On Date"/></Column>
-                                <Column><Text text="Created On Time"/></Column>
-                                <Column><Text text="Changed By"/></Column>
-                                <Column><Text text="Changed On Date"/></Column>
-                                <Column><Text text="Changed On Time"/></Column>
-                                <Column hAlign="Center" width="6rem">
-                                    <Text text="Action"/>
+                                <Column
+                                    id="colLoadingRefDocNumber"
+                                    demandPopin="true"
+                                    minScreenWidth="Desktop"
+                                    popinDisplay="Inline">
+                                    <Text text="Ref Doc Number" />
+                                </Column>
+                                <Column
+                                    id="colLoadingRefDocItemNumber"
+                                    demandPopin="true"
+                                    minScreenWidth="Desktop"
+                                    popinDisplay="Inline">
+                                    <Text text="Ref Doc Item Number" />
+                                </Column>
+                                <Column
+                                    id="colLoadingScheduleLine"
+                                    demandPopin="true"
+                                    minScreenWidth="Desktop"
+                                    popinDisplay="Inline"
+                                    width="6rem">
+                                    <Text text="Schedule line" />
+                                </Column>
+                                <Column
+                                    id="colLoadingMaterialCode"
+                                    demandPopin="true"
+                                    minScreenWidth="Desktop"
+                                    popinDisplay="Inline">
+                                    <Text text="Material Code" />
+                                </Column>
+                                <Column
+                                    id="colLoadingMaterialDescription"
+                                    demandPopin="true"
+                                    minScreenWidth="Desktop"
+                                    popinDisplay="Inline">
+                                    <Text text="Material Description" />
+                                </Column>
+                                <Column
+                                    id="colLoadingQty"
+                                    hAlign="End"
+                                    demandPopin="true"
+                                    minScreenWidth="Desktop"
+                                    popinDisplay="Inline">
+                                    <Text text="Qty" />
+                                </Column>
+                                <Column
+                                    id="colLoadingUoM"
+                                    hAlign="Center"
+                                    demandPopin="true"
+                                    minScreenWidth="Desktop"
+                                    popinDisplay="Inline">
+                                    <Text text="UoM" />
+                                </Column>
+                                <Column
+                                    id="colLoadingQtyConfirm"
+                                    hAlign="Center"
+                                    demandPopin="true"
+                                    minScreenWidth="Desktop"
+                                    popinDisplay="Inline">
+                                    <Text text="Qty Confirmed" />
+                                </Column>
+                                <Column
+                                    id="colLoadingLoadedWeight"
+                                    hAlign="End"
+                                    demandPopin="true"
+                                    minScreenWidth="Desktop"
+                                    popinDisplay="Inline">
+                                    <Text text="Loaded Quantity" />
+                                </Column>
+                                <Column
+                                    id="colLoadingGrossWt"
+                                    hAlign="End"
+                                    demandPopin="true"
+                                    minScreenWidth="Desktop"
+                                    popinDisplay="Inline"
+                                    visible="{loadingModel>/weighmentEnabled}">
+                                    <Text text="Gross Wt" />
+                                </Column>
+                                <Column
+                                    id="colLoadingTareWt"
+                                    hAlign="End"
+                                    demandPopin="true"
+                                    minScreenWidth="Desktop"
+                                    popinDisplay="Inline"
+                                    visible="{loadingModel>/weighmentEnabled}">
+                                    <Text text="Tare Wt" />
+                                </Column>
+                                <Column
+                                    id="colLoadingNetWt"
+                                    hAlign="End"
+                                    demandPopin="true"
+                                    minScreenWidth="Desktop"
+                                    popinDisplay="Inline"
+                                    visible="{loadingModel>/weighmentEnabled}">
+                                    <Text text="Net Wt" />
+                                </Column>
+                                <Column
+                                    id="colLoadingRemark"
+                                    demandPopin="true"
+                                    minScreenWidth="Desktop"
+                                    popinDisplay="Inline">
+                                    <Text text="Remark" />
+                                </Column>
+                                <Column
+                                    id="colLoadingCreatedBy"
+                                    demandPopin="true"
+                                    minScreenWidth="Desktop"
+                                    popinDisplay="Inline">
+                                    <Text text="Created By" />
+                                </Column>
+                                <Column
+                                    id="colLoadingCreatedOnDate"
+                                    demandPopin="true"
+                                    minScreenWidth="Desktop"
+                                    popinDisplay="Inline">
+                                    <Text text="Created On Date" />
+                                </Column>
+                                <Column
+                                    id="colLoadingCreatedOnTime"
+                                    demandPopin="true"
+                                    minScreenWidth="Desktop"
+                                    popinDisplay="Inline">
+                                    <Text text="Created On Time" />
                                 </Column>
                             </columns>
 
                             <items>
                                 <ColumnListItem>
                                     <cells>
-                                        <Select width="10rem"/>
-                                        <Select width="10rem"/>
-                                        <Input width="10rem"/>
-                                        <Input width="12rem"/>
-                                        <Input width="8rem" type="Number"/>
-                                        <Select width="6rem"/>
-                                        <Input width="10rem"/>
-                                        <Input width="8rem"/>
-                                        <Input width="8rem"/>
-                                        <Select width="10rem"/>
-                                        <DatePicker width="10rem" displayFormat="short"/>
-                                        <TimePicker width="10rem"/>
-                                        <Select width="10rem"/>
-                                        <DatePicker width="10rem" displayFormat="short"/>
-                                        <TimePicker width="10rem"/>
-                                        <Button icon="sap-icon://delete" type="Reject" press=".onDeleteLoadingRow" tooltip="Delete Row"/>
+                                        <Text text="{tableModel>RefDocNumber}"/>
+                                        <Text text="{tableModel>RefDocItemNumber}"/>
+                                        <Text text="{= ${tableModel>ScheduleItem} || ${tableModel>SheduleItem} || ${tableModel>scheduleItem} || '' }"/>
+                                        <Text text="{tableModel>MaterialCode}"/>
+                                        <Text text="{tableModel>MaterialDescription}"/>
+                                        <Text 
+                                            text="{tableModel>Qty}"
+                                            textAlign="End"/>
+                                        <Text 
+                                            text="{tableModel>UoM}"
+                                            textAlign="Center"/>
+                                        <HBox justifyContent="Center" alignItems="Center">
+                                            <CheckBox
+                                                selected="{= ${tableModel>ConfirmQty} === 'X' }"
+                                                select=".onConfirmQtySelect"
+                                                tooltip="Confirm Quantity (backend field ConfirmQty)"
+                                                enabled="{= !${globalData>/TripLocked} }"
+                                            />
+                                        </HBox>
+                                        <Input
+                                            value="{tableModel>LoadedWeight}"
+                                            enabled="{= !${globalData>/TripLocked} }"
+                                            placeholder="Enter Weight"
+                                            width="8rem"
+                                            type="Number"
+                                            textAlign="Begin"
+                                            class="sapUiSizeCompact"
+                                            liveChange="onWeightFieldChange"
+                                            change="onWeightFieldChange"
+                                        />
+                                        <Input
+                                            value="{tableModel>GrossWt}"
+                                            enabled="{= ${loadingModel>/weighmentEnabled} &amp;&amp; !${globalData>/TripLocked} }"
+                                            placeholder="Gross Wt"
+                                            width="7rem"
+                                            type="Number"
+                                            textAlign="Begin"
+                                            class="sapUiSizeCompact"
+                                            change="onWeightFieldChange"
+                                        />
+                                        <Input
+                                            value="{tableModel>TareWt}"
+                                            enabled="{= ${loadingModel>/weighmentEnabled} &amp;&amp; !${globalData>/TripLocked} }"
+                                            placeholder="Tare Wt"
+                                            width="7rem"
+                                            type="Number"
+                                            textAlign="Begin"
+                                            class="sapUiSizeCompact"
+                                            change="onWeightFieldChange"
+                                        />
+                                        <Text 
+                                            text="{tableModel>NetWt}"
+                                            textAlign="End"
+                                            class="sapUiTinyMarginEnd"/>
+                                        <Input
+                                            value="{tableModel>Remark}"
+                                            enabled="{= !${globalData>/TripLocked} }"
+                                            placeholder="Remark"
+                                            width="10rem"
+                                            maxLength="255"
+                                            class="sapUiSizeCompact"
+                                        />
+                                        <Text text="{tableModel>CreatedBy}"/>
+                                        <Text text="{tableModel>CreatedOnDate}"/>
+                                        <Text text="{tableModel>CreatedOnTime}"/>
                                     </cells>
                                 </ColumnListItem>
                             </items>
-                        </Table>
-                    </HBox>
-                </ScrollContainer>
-
-                <!-- Add Row Button -->
-                <HBox justifyContent="End" class="sapUiTinyMarginTop">
-                    <Button
-                        id="btnAddRowLoading"
-                        text="Add Row"
-                        icon="sap-icon://add"
-                        type="Emphasized"
-                        press="onAddLoadingRow"
-                    />
-                </HBox>
+                </Table>
 
             </VBox>
         </Panel>
 
-        <!-- ========================================================= -->
-        <!-- =============== Change History Panel ==================== -->
-        <!-- ========================================================= -->
-        <Panel
-            id="loadingChangeHistoryPanel"
-            expandable="true"
-            expanded="false"
-            class="sapUiNoContentPadding"
-            stickyHeader="true"
-        >
-            <headerToolbar>
-                <OverflowToolbar>
-                    <Title text="Change History" />
-                </OverflowToolbar>
-            </headerToolbar>
+        <!-- ===================== BUTTONS AT BOTTOM ===================== -->
+        <HBox justifyContent="End" class="sapUiSmallMarginTop" width="100%" visible="{= !${globalData>/TripLocked} }">
+            <!-- Save Loading (weights/quantities/remark) -->
+            <Button 
+                id="btnSaveLoading" 
+                text="Save" 
+                type="Emphasized" 
+                press="onSaveLoading" 
+                icon="sap-icon://save"
+            />
 
-            <VBox class="sapUiSmallMargin sapUiMediumPadding sapUiSizeCompact">
-                <HBox fitContainer="true" justifyContent="SpaceBetween" class="sapUiSmallMarginBottom">
-                    <VBox width="48%" class="sapUiTinyMarginEnd">
-                        <Label text="Created By" design="Bold"/>
-                        <Select id="idloadingCreatedBy" enabled="false" width="100%"/>
-                    </VBox>
+            <!-- Start Loading Button -->
+            <Button 
+                id="btnStartLoading" 
+                text="Start Loading" 
+                type="Accept" 
+                press="onStartLoading" 
+                icon="sap-icon://cart-3"
+                class="sapUiTinyMarginBegin"
+            />
 
-                    <VBox width="48%">
-                        <Label text="Created On Date" design="Bold"/>
-                        <DatePicker id="idloadingCreatedOnDate" enabled="false" width="100%"/>
-                    </VBox>
-                </HBox>
+            <!-- ReStart Loading Button (shown when loading is ended) -->
+            <Button 
+                id="btnReStartLoading" 
+                text="ReStart Loading" 
+                type="Accept" 
+                press="onReStartLoading" 
+                icon="sap-icon://refresh"
+                visible="false"
+                class="sapUiTinyMarginBegin"
+            />
 
-                <VBox width="48%">
-                    <Label text="Created On Time" design="Bold"/>
-                    <TimePicker id="idloadingCreatedOnTime" enabled="false" width="100%"/>
-                </VBox>
-            </VBox>
-
-        </Panel>
+            <!-- End Loading Button -->
+            <Button 
+                id="btnEndLoading" 
+                text="End Loading" 
+                type="Reject" 
+                press="onEndLoading" 
+                icon="sap-icon://cart-5"
+                class="sapUiTinyMarginBegin"
+            />
+        </HBox>
 
     </VBox>
 </mvc:View>

@@ -1,0 +1,3441 @@
+/* ==================== APP SHELL: NO STRAY HORIZONTAL PAGE SCROLL ==================== */
+html,
+body.sapUiBody,
+body#content {
+    overflow-x: hidden;
+    max-width: 100%;
+}
+
+/* ==================== DESIGN TOKENS ==================== */
+:root {
+    --plms-primary: #0070f2;
+    --plms-primary-dark: #0051d5;
+    --plms-primary-darker: #0854a0;
+    --plms-primary-text: #1c4e80;
+    --plms-success: #4caf50;
+    --plms-success-dark: #388e3c;
+    --plms-warning: #ff9800;
+    --plms-warning-dark: #f57c00;
+    --plms-neutral-bg: #f5f8fc;
+    --plms-neutral-bg-soft: #fafbfc;
+    --plms-neutral-border: #dfe7f2;
+    --plms-row-hover: #eef3ff;
+    --plms-row-alt: #fbfdff;
+    --plms-radius: 12px;
+    --plms-radius-sm: 8px;
+    --plms-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    --plms-shadow-hover: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* ==================== HOMEPAGE BEAUTY ==================== */
+.homeSemanticPage .sapFSemanticPageContent {
+    background: var(--plms-neutral-bg-soft) !important;
+}
+
+/* ==================== GLOBAL: REQUIRED MARK ON RIGHT ==================== */
+/* UI5 renders the required asterisk via :before. Move it to :after (right side). */
+.sapMLabelRequired::before,
+.sapMLabelRequired .sapMLabelInner::before {
+    content: none !important;
+}
+
+.sapMLabelRequired .sapMLabelInner::after {
+    content: " *" !important;
+    color: var(--sapField_RequiredColor, #bb0000) !important;
+    font-weight: 700 !important;
+}
+
+/* Tighten space between filter header and Trip Details table (SemanticPage uses DynamicPage) */
+.homeSemanticPage.sapUiNoContentPadding .sapFDynamicPageContent,
+.homeSemanticPage.sapUiNoContentPadding .sapFDynamicPageContentFitContainer {
+    padding-top: 0.125rem !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    padding-bottom: 0 !important;
+}
+
+/* Tight top padding — sits directly under title row */
+.homeSemanticPage .sapFDynamicPageHeader.sapFDynamicPageHeaderWithContent {
+    padding-top: 0.25rem !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    padding-bottom: 0 !important;
+}
+
+.homeSemanticPage .sapFDynamicPage-Std-Tablet .sapFDynamicPageHeader.sapFDynamicPageHeaderWithContent,
+.homeSemanticPage .sapFDynamicPage-Std-Phone .sapFDynamicPageHeader.sapFDynamicPageHeaderWithContent {
+    padding-top: 0.25rem !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    padding-bottom: 0 !important;
+}
+
+/* Match tablet/phone DynamicPage content padding overrides */
+.homeSemanticPage .sapFDynamicPage-Std-Tablet .sapFDynamicPageContent,
+.homeSemanticPage .sapFDynamicPage-Std-Tablet .sapFDynamicPageContentFitContainer,
+.homeSemanticPage .sapFDynamicPage-Std-Phone .sapFDynamicPageContent,
+.homeSemanticPage .sapFDynamicPage-Std-Phone .sapFDynamicPageContentFitContainer {
+    padding-top: 0.125rem !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+}
+
+/* Less vertical space between title row ("Trip Status") and expandable header ("Filters") */
+.homeSemanticPage .sapFDynamicPageTitle {
+    padding-top: 0.25rem !important;
+    padding-bottom: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    min-height: 2rem !important;
+}
+
+.homeSemanticPage .sapFDynamicPageTitleMainContent {
+    padding-bottom: 0 !important;
+}
+
+.homeSemanticPage .sapFDynamicPage-Std-Tablet .sapFDynamicPageTitle,
+.homeSemanticPage .sapFDynamicPage-Std-Phone .sapFDynamicPageTitle {
+    padding-top: 0.25rem !important;
+    padding-bottom: 0 !important;
+}
+
+.homePageTitle.sapMTitle {
+    font-weight: 700 !important;
+    color: var(--plms-primary-text) !important;
+    border-left: 4px solid var(--plms-primary);
+    padding-left: 0.5rem !important;
+    letter-spacing: 0.02em;
+}
+
+/* Filter bar wrapper + toolbar */
+.homeFilterSection {
+    width: 100%;
+    box-sizing: border-box;
+    margin-bottom: 0 !important;
+    /* Inset the card from the DynamicPage / Semantic header edges */
+    padding: 0 1rem 0.375rem 1rem !important;
+}
+
+.homeSemanticPage .sapFDynamicPageHeader .homeFilterSection {
+    max-width: 100%;
+}
+
+.homeFilterField {
+    min-width: 0;
+}
+
+.homeFilterLabel.sapMLabel {
+    padding-bottom: 0.375rem !important;
+    font-size: 0.875rem !important;
+    letter-spacing: 0.02em;
+}
+
+/* Home trip filters: white card, thin blue top bar, rounded border (reference layout) */
+.homeFilterCard {
+    background: #ffffff !important;
+    border-radius: var(--plms-radius) !important;
+    border: 1px solid var(--plms-neutral-border) !important;
+    border-top: 3px solid var(--plms-primary) !important;
+    box-shadow: 0 1px 3px rgba(15, 34, 58, 0.06) !important;
+    padding: 1.125rem 1.5rem 1.25rem 1.5rem !important;
+    margin-bottom: 0 !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    color: var(--sapTextColor, #32363a);
+}
+
+.homeFilterCard .sapMLabel .sapMLabelInner,
+.homeFilterCard .sapMLabel {
+    color: var(--sapTextColor, #32363a) !important;
+}
+
+.homeFilterCard .sapMInputBaseInner,
+.homeFilterCard .sapMInputBaseContentWrapper input {
+    color: var(--sapField_TextColor, var(--sapTextColor, #32363a)) !important;
+    -webkit-text-fill-color: var(--sapField_TextColor, var(--sapTextColor, #32363a)) !important;
+}
+
+.homeFilterCard .sapMInputBaseInner::placeholder,
+.homeFilterCard .sapMInputBaseContentWrapper input::placeholder {
+    color: var(--sapField_PlaceholderTextColor, #6a6d70) !important;
+    -webkit-text-fill-color: var(--sapField_PlaceholderTextColor, #6a6d70) !important;
+    font-style: italic;
+}
+
+/* DatePicker / DateRangeSelection — italic grey placeholder (e.g. Dec 22, 2026) app-wide */
+.sapMDatePicker .sapMInputBaseInner::placeholder,
+.sapMDatePicker .sapMInputBaseContentWrapper input::placeholder,
+.sapMDRS .sapMInputBaseInner::placeholder,
+.sapMDRS .sapMInputBaseContentWrapper input::placeholder {
+    color: var(--sapField_PlaceholderTextColor, #6a6d70) !important;
+    -webkit-text-fill-color: var(--sapField_PlaceholderTextColor, #6a6d70) !important;
+    font-style: italic;
+}
+
+.homeFilterCard .sapMBtnEmphasized .sapMBtnContent {
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
+}
+
+.homeSemanticPage .homePageContent {
+    padding: 0.25rem 1rem 0.5rem 1rem !important;
+    box-sizing: border-box;
+}
+
+/* Trip Status: remove stacked left inset from global ScrollContainer + Table rules */
+.homeSemanticPage .homeTripScrollContainer.sapMScrollContainer {
+    padding-left: 0 !important;
+}
+
+.homeSemanticPage .homeTripTable.sapMTable {
+    padding-left: 0 !important;
+}
+
+.homeSemanticPage .homeTripTable.sapMList {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+}
+
+/* Filter Grid uses sap.ui.layout.Grid — global .sapUiLayoutGrid adds margin-left */
+.homeSemanticPage .homeFilterGrid.sapUiLayoutGrid,
+.homeSemanticPage .homeFilterCard .sapUiLayoutGrid {
+    margin-left: 0 !important;
+}
+
+.homeFilterField .sapMDRS,
+.homeFilterField .sapMInputBase {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+.btnReportVehicle .sapMBtnInner {
+    transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+}
+.btnReportVehicle .sapMBtnInner:hover {
+    transform: translateY(-1px) !important;
+    box-shadow: 0 4px 12px rgba(0, 112, 242, 0.25) !important;
+}
+
+/* ==================== REPORT VEHICLE (COMBINED DIALOG) ==================== */
+.plmsRvDialog .sapMDialogScrollCont {
+    padding-top: 0.5rem !important;
+    background: var(--plms-neutral-bg-soft, #fafbfc) !important;
+}
+
+.plmsRvDialog .plmsRvDialogHdrIcon {
+    color: var(--plms-primary, #0070f2) !important;
+}
+
+/* Card-style sections + movement block */
+.plmsRvDialog .plmsRvSection.sapMPanel,
+.plmsRvDialog .plmsRvMovementBlock {
+    margin-top: 0.75rem !important;
+    border: 1px solid var(--plms-neutral-border, #dfe7f2) !important;
+    border-radius: var(--plms-radius-sm, 8px) !important;
+    background: #fff !important;
+    box-shadow: var(--plms-shadow, 0 4px 12px rgba(0, 0, 0, 0.08)) !important;
+    overflow: hidden;
+}
+
+.plmsRvDialog .plmsRvMovementBlock {
+    padding: 0.75rem 1rem 1rem !important;
+    box-sizing: border-box;
+}
+
+/* Movement Type label: match app-wide bold labels (design="Bold" + weight) */
+.plmsRvMovementTypeLabel.sapMLabel .sapMLabelInner,
+.plmsRvMovementTypeLabel.sapMLabel .sapMLabelTextWrapper {
+    font-weight: 700 !important;
+}
+
+.plmsRvDialog .plmsRvMovementBlock:first-child {
+    margin-top: 0 !important;
+}
+
+.plmsRvDialog .plmsRvSection .sapMPanelContent {
+    padding: 0 0.75rem 0.75rem !important;
+}
+
+.plmsRvDialog .sapMPanelHdr,
+.plmsRvDialog .sapMPanelWrappingDivTb {
+    background: var(--plms-neutral-bg, #f5f8fc) !important;
+    border-bottom: 1px solid var(--plms-neutral-border, #dfe7f2) !important;
+}
+
+/* Let the main field take remaining space */
+.plmsRvDialog .plmsRvFieldGrow {
+    flex: 1 1 18rem;
+    min-width: 16rem;
+}
+
+/* PO row: compact input + Skip Document on same line */
+.plmsRvDialog .plmsRvPoInputRow {
+    gap: 0.25rem;
+}
+
+.plmsRvDialog .plmsRvPoInputRow .plmsRvPoInputCompact {
+    width: 14rem;
+    max-width: 16rem;
+    flex: 0 0 auto;
+}
+
+.plmsRvDialog .plmsRvPoInputRow .plmsRvCheckbox {
+    margin-top: 0 !important;
+    align-self: center !important;
+    flex: 0 0 auto;
+}
+
+.plmsRvDialog .plmsRvScannerBtn {
+    margin-left: 0.25rem !important;
+}
+
+/* Scan row: make Input + Button look like one control */
+.plmsRvDialog .plmsRvScanRow {
+    gap: 0 !important;
+}
+
+/* Only square the input when it sits flush against the scan button */
+.plmsRvDialog .plmsRvScanRow .plmsRvScanInput .sapMInputBaseContentWrapper {
+    border-top-right-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+}
+
+.plmsRvDialog .plmsRvScanBtn .sapMBtnInner {
+    min-width: 3rem !important;
+    border-top-left-radius: 0 !important;
+    border-bottom-left-radius: 0 !important;
+}
+
+/* Prevent the scan button from dropping below */
+.plmsRvDialog .plmsRvScanBtn {
+    margin-top: 0 !important;
+}
+
+/* Incoming: PO / Scan + field row */
+.plmsRvDialog .plmsRvIncomingSearchRow {
+    gap: 0.5rem;
+    align-items: flex-start;
+}
+
+.plmsRvDialog .plmsRvIncomingModeGroup {
+    flex: 0 0 auto;
+    margin-top: 0.125rem;
+}
+
+.plmsRvDialog .plmsRvIncomingFieldGrow {
+    flex: 1 1 12rem;
+    min-width: 0;
+}
+
+/* Outgoing: label + select on one line */
+.plmsRvDialog .plmsRvOutgoingRow {
+    gap: 0.5rem;
+}
+
+.plmsRvDialog .plmsRvOutgoingRowLabel {
+    flex: 0 0 auto;
+    min-width: 5.5rem;
+    font-weight: 600;
+    color: var(--plms-primary-text, #1c4e80);
+}
+
+/* ==================== STAGE HEADER BAR (STICKY) ==================== */
+.stageHeaderBar.sapMBar,
+.stageHeaderBar.sapMOTB,
+#headerBar.stageHeaderBar {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 100 !important;
+    background: linear-gradient(135deg, var(--plms-neutral-bg) 0%, #ffffff 100%) !important;
+    border-bottom: 2px solid var(--plms-neutral-border) !important;
+    padding: 0.5rem 1rem !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+.stageHeaderBar .sapMText {
+    font-weight: 600 !important;
+    color: var(--plms-primary-text) !important;
+}
+
+#stagePage .sapMITB {
+    /* No sticky here: sticky inside scroll container clips tabs from top */
+    background: var(--sapGroup_ContentBackground, #ffffff) !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+    border-bottom: 1px solid var(--plms-neutral-border);
+}
+
+/* ==================== MICRO-INTERACTIONS ==================== */
+.sapMBtn .sapMBtnInner {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.sapMBtn:hover .sapMBtnInner:not(.sapMBtnDisabled) {
+    transform: translateY(-1px);
+}
+.sapMBtn:active .sapMBtnInner:not(.sapMBtnDisabled) {
+    transform: translateY(0);
+}
+
+/* Rounded inputs + date range in filter card */
+.homeFilterCard .sapMInputBaseContentWrapper,
+.homeFilterCard .sapMDRS .sapMInputBaseContentWrapper {
+    border-radius: var(--plms-radius-sm) !important;
+    border: 1px solid #c8d0dd !important;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
+}
+
+.homeFilterCard .sapMInputBase:not(.sapMInputBaseDisabled):hover .sapMInputBaseContentWrapper {
+    border-color: #a8b4c4 !important;
+}
+
+.homeFilterCard .sapMDRS .sapMInputBase:not(.sapMInputBaseDisabled):hover .sapMInputBaseContentWrapper {
+    border-color: #a8b4c4 !important;
+}
+
+.homeFilterCard .sapMInputBase:focus-within .sapMInputBaseContentWrapper,
+.homeFilterCard .sapMInputBase.sapMInputBaseFocus .sapMInputBaseContentWrapper,
+.homeFilterCard .sapMDRS .sapMInputBase:focus-within .sapMInputBaseContentWrapper,
+.homeFilterCard .sapMDRS .sapMInputBase.sapMFocus .sapMInputBaseContentWrapper {
+    border-color: var(--plms-primary) !important;
+    box-shadow: 0 0 0 2px rgba(0, 112, 242, 0.2) !important;
+}
+
+/* ==================== SCROLL CONTAINERS: NO UNWANTED HORIZONTAL SCROLL ==================== */
+/* UI5 adds sapMScrollContV (vertical), sapMScrollContH (horizontal), sapMScrollContVH (both).
+   Global overflow-x:auto on every ScrollContainer caused horizontal scrollbars app-wide. */
+.sapMScrollContainer {
+    overflow-x: hidden !important;
+    overflow-y: hidden !important;
+    scrollbar-width: thin;
+    -ms-overflow-style: auto;
+}
+
+/* Horizontal or bidirectional scrolling (card timeline, previews with horizontal:true, etc.) */
+.sapMScrollContainer.sapMScrollContH,
+.sapMScrollContainer.sapMScrollContVH,
+.plmsCardTimelineScroll.sapMScrollContainer {
+    overflow-x: auto !important;
+}
+
+/* Wide content in dialogs may scroll horizontally; vertical-only stays clipped */
+.sapMDialog .sapMScrollContainer {
+    overflow-x: auto !important;
+}
+
+.sapMDialog .sapMScrollContainer.sapMScrollContV {
+    overflow-x: hidden !important;
+}
+
+/* For tables inside ScrollContainer - ensure proper width */
+.sapMScrollContainer .sapMTable {
+    min-width: 100%;
+}
+
+/* Tables with width="auto" should only expand if content requires it */
+.sapMScrollContainer .sapMTable[width="auto"] {
+    width: auto;
+    min-width: 100%;
+}
+
+/* Stage / Gate panels: Reference Documents, Material Details, Bin/Trolley tables.
+   Global .sapMTable padding-left + min-width:100% inside scroll wrappers often
+   triggers a near-full-width horizontal scrollbar even when columns fit. */
+.sapMScrollContainer .plmsPanelDataTable {
+    min-width: 0 !important;
+}
+
+.plmsPanelDataTable {
+    padding-left: 0 !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+}
+
+.plmsPanelDataTable .sapMListTblCnt,
+.plmsPanelDataTable .sapMSticky .sapMListTblCnt {
+    overflow-x: hidden !important;
+}
+
+/* Input suggestion popup (Trip Number, Vehicle Number, etc.): align overflow
+   with sap.m.Input's sapMSuggestionsPopover (vertical list, no horizontal scroll). */
+.sapMSuggestionsPopover .sapMScrollContainer {
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+}
+
+.sapMSuggestionsPopover .sapMScrollContainer:hover {
+    scrollbar-width: none !important;
+}
+
+.sapMSuggestionsPopover .sapMPopoverScroll {
+    overflow-x: hidden !important;
+}
+
+.sapMSuggestionsPopover .sapMPopoverScroll,
+.sapMSuggestionsPopover .sapMScrollContainer {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.sapMSuggestionsPopover .sapMPopoverScroll::-webkit-scrollbar,
+.sapMSuggestionsPopover .sapMScrollContainer::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+}
+
+/* ==================== GLOBAL LEFT MARGIN REDUCTION ==================== */
+
+/* Reduce left margin for common SAPUI5 margin classes (default is ~1rem) */
+.sapUiSmallMargin {
+    margin-left: 0.5rem !important;
+}
+
+.sapUiMediumMargin {
+    margin-left: 0.75rem !important;
+}
+
+.sapUiLargeMargin {
+    margin-left: 1rem !important;
+}
+
+/* Keep page containers width-safe (no extra horizontal growth) */
+.sapMPage .sapMPageContent,
+.sapMITBContent {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    box-sizing: border-box !important;
+}
+
+/* Reduce left margin for VBox/HBox with margin classes */
+.sapMVBox.sapUiSmallMargin,
+.sapMHBox.sapUiSmallMargin {
+    margin-left: 0.5rem !important;
+}
+
+/* Keep panel content width-safe; use internal control spacing instead */
+.sapMPanelContent {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    box-sizing: border-box !important;
+}
+
+/* Avoid width expansion on tab content wrappers */
+.sapMITBFilter .sapMITBContent {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+}
+
+/* ==================== PANEL SECTION TITLES ==================== */
+/* Distinct color for panel titles (Reporting Details, Gate-In, etc.) */
+.sectionPanelTitle,
+.sapMPanel .sapMTB .sectionPanelTitle {
+    color: #0854a0 !important;
+    font-weight: 600 !important;
+}
+
+/* Grid should not add external left offset globally */
+.sapUiLayoutGrid {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    box-sizing: border-box !important;
+}
+
+/* ScrollContainer should not add width via left padding */
+.sapMScrollContainer {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    box-sizing: border-box !important;
+}
+
+/* Lists/tables must not shift right globally */
+.sapMList {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    box-sizing: border-box !important;
+}
+
+/* Avoid phantom horizontal scroll from table wrapper padding */
+.sapMTable {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    box-sizing: border-box !important;
+}
+
+/* Keep form and tab wrappers aligned to viewport width */
+.sapUiForm,
+.sapUiFormContainer,
+.sapMITB {
+    margin-left: 0 !important;
+    padding-left: 0 !important;
+    box-sizing: border-box !important;
+}
+
+/* Stage view wrappers: force width-safe alignment */
+.sapUiView[data-controller-name*="Stage"] .sapMPageContent .sapMVBox,
+.sapUiView[data-controller-name*="Stage"] .sapMITB {
+    margin-left: 0 !important;
+}
+
+/* Mobile: Even less left margin for better space utilization */
+@media (max-width: 768px) {
+    .sapUiSmallMargin {
+        margin-left: 0.25rem !important;
+    }
+    
+    .sapMPage .sapMPageContent,
+    .sapMITBContent,
+    .sapMPanelContent {
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+    }
+    
+    .sapMVBox.sapUiSmallMargin,
+    .sapMHBox.sapUiSmallMargin {
+        margin-left: 0.25rem !important;
+    }
+    
+    .sapUiLayoutGrid {
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+    }
+    
+    .sapMScrollContainer {
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+    }
+}
+
+/* Main sticky note container */
+.stickyNote {
+    background: #d7ecff;
+    border-radius: var(--plms-radius-sm);
+    padding: 12px 14px;
+    margin: 10px;
+    width: 240px;
+    min-height: 130px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+/* Note main text - NOW BOLD */
+.stickyNoteText {
+    font-size: 14px;
+    color: #1a1a1a;
+    line-height: 1.4;
+    font-weight: bold;   /* <-- BOLD TEXT */
+}
+
+/* Footer text (Created By / Created On) - NOW SMALLER */
+.stickyNoteFooter {
+    font-size: 10px;     /* <-- REDUCED FONT SIZE */
+    color: #444;
+    border-top: 1px solid #b9dfff;
+    padding-top: 4px;
+    margin-top: 10px;
+}
+
+/* New Note Notification Banner */
+.newNoteNotificationBar {
+    background-color: #d1ecf1 !important;
+    border: 1px solid #bee5eb !important;
+    border-radius: 4px !important;
+    padding: 0.5rem 0 !important;
+}
+
+.newNoteNotificationBar .sapMBarChild {
+    color: #0c5460 !important;
+}
+
+/* ==================== HEADER BAR - PREVENT WRAPPING ==================== */
+
+/* Ensure header bar content stays on one line */
+#headerBar.sapMBar,
+.sapMPage .sapMPageHeader .sapMBar {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+}
+
+/* Prevent wrapping in Bar content areas */
+#headerBar.sapMBar .sapMBarChild,
+.sapMPage .sapMPageHeader .sapMBar .sapMBarChild {
+    white-space: nowrap !important;
+    /* Allow items to shrink so right side doesn't get clipped */
+    flex-shrink: 1 !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+/* Ensure contentLeft, contentMiddle, contentRight stay on one line */
+#headerBar.sapMBar .sapMBarLeft,
+#headerBar.sapMBar .sapMBarMiddle,
+#headerBar.sapMBar .sapMBarRight {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    white-space: nowrap !important;
+    align-items: center !important;
+    flex: 0 1 auto !important;
+}
+
+/* Distribute space evenly across the three sections */
+#headerBar.sapMBar .sapMBarLeft {
+    flex: 1 1 33% !important;
+    min-width: 0 !important;
+    justify-content: flex-start !important;
+}
+
+#headerBar.sapMBar .sapMBarMiddle {
+    flex: 1 1 34% !important;
+    min-width: 0 !important;
+    justify-content: center !important;
+}
+
+#headerBar.sapMBar .sapMBarRight {
+    flex: 1 1 33% !important;
+    min-width: 0 !important;
+    justify-content: flex-end !important;
+}
+
+/* Ensure Text components inside don't wrap */
+#headerBar.sapMBar .sapMText {
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    display: block !important;
+    max-width: 100% !important;
+}
+
+/* Notes Tab Bell Indicator - Red Mark */
+.notesTabWithBell {
+    position: relative !important;
+}
+
+/* Red mark/badge - Direct on the tab filter element */
+.notesTabWithBell::after {
+    content: "" !important;
+    position: absolute !important;
+    top: 0.2rem !important;
+    right: 0.2rem !important;
+    width: 1.5rem !important;
+    height: 1.5rem !important;
+    background-color: #ff0000 !important;
+    border-radius: 50% !important;
+    border: 3px solid #ffffff !important;
+    box-shadow: 0 3px 10px rgba(255, 0, 0, 0.7), 0 0 0 3px rgba(255, 0, 0, 0.15) !important;
+    z-index: 1000 !important;
+    display: block !important;
+    /* Add white dot in center for visibility */
+    background-image: radial-gradient(circle at center, #ffffff 35%, transparent 35%) !important;
+    pointer-events: none !important;
+}
+
+/* Target icon container if it exists */
+.notesTabWithBell .sapMITBFilterIconContainer {
+    position: relative !important;
+}
+
+.notesTabWithBell .sapMITBFilterIconContainer::after {
+    content: "" !important;
+    position: absolute !important;
+    top: -0.2rem !important;
+    right: -0.2rem !important;
+    width: 1.5rem !important;
+    height: 1.5rem !important;
+    background-color: #ff0000 !important;
+    border-radius: 50% !important;
+    border: 3px solid #ffffff !important;
+    box-shadow: 0 3px 10px rgba(255, 0, 0, 0.7) !important;
+    z-index: 1001 !important;
+    display: block !important;
+    background-image: radial-gradient(circle at center, #ffffff 35%, transparent 35%) !important;
+    pointer-events: none !important;
+}
+
+/* Dark red cancel button styling */
+.darkCancelButton .sapMBtnInner {
+    background-color: #a10000 !important;
+    border-color: #a10000 !important;
+    color: #fff !important;
+    background-image: none !important;
+    box-shadow: none !important;
+}
+
+.darkCancelButton .sapMBtnInner:hover,
+.darkCancelButton .sapMBtnInner:focus {
+    background-color: #a10000 !important;
+    border-color: #a10000 !important;
+    color: #fff !important;
+    background-image: none !important;
+}
+
+/* Theme sets label/icon color on .sapMBtnContent / bdi — keep white in every state */
+.darkCancelButton:not(.sapMBtnDisabled) .sapMBtnInner .sapMBtnContent,
+.darkCancelButton:not(.sapMBtnDisabled) .sapMBtnInner .sapMBtnContent bdi,
+.darkCancelButton:not(.sapMBtnDisabled) .sapMBtnInner:hover .sapMBtnContent,
+.darkCancelButton:not(.sapMBtnDisabled) .sapMBtnInner:hover .sapMBtnContent bdi,
+.darkCancelButton:not(.sapMBtnDisabled) .sapMBtnInner:focus .sapMBtnContent,
+.darkCancelButton:not(.sapMBtnDisabled) .sapMBtnInner:focus .sapMBtnContent bdi,
+.darkCancelButton:not(.sapMBtnDisabled) .sapMBtnInner:active .sapMBtnContent,
+.darkCancelButton:not(.sapMBtnDisabled) .sapMBtnInner:active .sapMBtnContent bdi,
+.darkCancelButton.sapMBtn:hover:not(.sapMBtnDisabled) .sapMBtnContent,
+.darkCancelButton.sapMBtn:hover:not(.sapMBtnDisabled) .sapMBtnContent bdi {
+    color: #fff !important;
+}
+
+/* Footer bar themes sometimes win on specificity */
+.sapMFooter-CTX .darkCancelButton:not(.sapMBtnDisabled) .sapMBtnInner .sapMBtnContent,
+.sapMFooter-CTX .darkCancelButton:not(.sapMBtnDisabled) .sapMBtnInner .sapMBtnContent bdi,
+.sapMFooter-CTX .darkCancelButton.sapMBtn:hover:not(.sapMBtnDisabled) .sapMBtnContent,
+.sapMFooter-CTX .darkCancelButton.sapMBtn:hover:not(.sapMBtnDisabled) .sapMBtnContent bdi {
+    color: #fff !important;
+}
+
+.darkCancelButton .sapMBtnIcon,
+.darkCancelButton .sapMBtnInner:hover .sapMBtnIcon,
+.darkCancelButton .sapMBtnInner:focus .sapMBtnIcon,
+.darkCancelButton .sapMBtnInner:active .sapMBtnIcon,
+.darkCancelButton .sapMBtnIcon.sapUiIcon::before {
+    color: #fff !important;
+}
+
+.darkCancelButton.sapMBtn:hover .sapMBtnInner:not(.sapMBtnDisabled),
+.darkCancelButton.sapMBtn:active .sapMBtnInner:not(.sapMBtnDisabled) {
+    transform: none !important;
+}
+
+/* Trip table container: no horizontal scroll */
+.homeTripScrollContainer.sapMScrollContainer {
+    overflow-x: hidden !important;
+}
+
+.homeTripTable {
+    width: 100% !important;
+    min-width: 0 !important;
+    table-layout: fixed;
+    border-radius: var(--plms-radius-sm);
+    box-shadow: var(--plms-shadow);
+    overflow: hidden;
+    border: 1px solid var(--plms-neutral-border);
+}
+
+.homeTripTable .sapMColumnHeader {
+    background-color: var(--plms-neutral-bg);
+    border-bottom: 2px solid var(--plms-neutral-border);
+    font-weight: 700 !important;
+}
+
+.homeTripTable .sapMColumnHeaderText {
+    font-weight: 700 !important;
+    color: var(--plms-primary-text);
+}
+
+.homeTripTable .sapMListTblHeaderCell,
+.homeTripTable .sapMListTblHeaderCell .sapMText,
+.homeTripTable .sapMColumnHeader .sapMText {
+    font-weight: 700 !important;
+}
+
+.homeTripTable .sapMListTblRow {
+    transition: background-color 0.15s ease;
+}
+
+/* Zebra striping — skip status-tinted rows so category colors show */
+.homeTripTable .sapMListTblRow:nth-child(even):not(.tripStatusCategoryInProgress):not(.tripStatusCategoryCompleted) {
+    background-color: var(--plms-row-alt);
+}
+
+/* Hover only for rows without trip-status category tint */
+.homeTripTable tr.sapMListTblRow:not(.tripStatusCategoryInProgress):not(.tripStatusCategoryCompleted):hover {
+    background-color: var(--plms-row-hover);
+}
+
+.homeTripTable .sapMListTblCell {
+    padding-top: 0.65rem;
+    padding-bottom: 0.65rem;
+    word-wrap: break-word;
+}
+
+/* ==================== ANALYSIS DASHBOARD STYLES ==================== */
+
+/* Process Flow Container - Eye-catching and Larger - DISABLED */
+/*
+.activityProcessFlow {
+    max-height: 400px;
+    min-height: 350px;
+    overflow-y: auto;
+    overflow-x: auto;
+    border: 2px solid #0070f2;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+    width: 100%;
+    box-shadow: 0 4px 12px rgba(0, 112, 242, 0.15);
+    position: relative;
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+}
+
+/* ProcessFlow internal elements - reduce left padding */
+.activityProcessFlow .sapSuitePFContent,
+.eyeCatchingTimeline .sapSuitePFContent {
+    padding-left: 0.25rem !important;
+    margin-left: 0 !important;
+}
+
+/* ProcessFlow SVG/Canvas - remove left margin */
+.activityProcessFlow svg,
+.eyeCatchingTimeline svg,
+.activityProcessFlow canvas,
+.eyeCatchingTimeline canvas {
+    margin-left: 0 !important;
+    padding-left: 0 !important;
+}
+
+/* ProcessFlow wrapper - reduce left padding */
+.activityProcessFlow .sapSuitePFWrapper,
+.eyeCatchingTimeline .sapSuitePFWrapper {
+    padding-left: 0.25rem !important;
+    margin-left: 0 !important;
+}
+
+/* ProcessFlow lane header container - reduce left padding */
+.activityProcessFlow .sapSuitePFLaneHeaderContainer,
+.eyeCatchingTimeline .sapSuitePFLaneHeaderContainer {
+    padding-left: 0.25rem !important;
+    margin-left: 0 !important;
+}
+
+/* ProcessFlow node container - reduce left padding */
+.activityProcessFlow .sapSuitePFNodeContainer,
+.eyeCatchingTimeline .sapSuitePFNodeContainer {
+    padding-left: 0.25rem !important;
+    margin-left: 0 !important;
+}
+*/
+
+/* Desktop: Better spacing and alignment */
+@media (min-width: 1025px) {
+    .activityProcessFlow {
+        min-height: 450px;
+        max-height: 500px;
+        padding: 1rem !important;
+    }
+    
+    /* Reduce vertical spacing between lane header and nodes */
+    .eyeCatchingTimeline .sapSuitePFLaneHeader {
+        margin-bottom: 0.5rem !important;
+        padding: 0.75rem 1rem !important;
+    }
+    
+    /* ProcessFlow content - reduce top padding and vertical spacing */
+    .eyeCatchingTimeline .sapSuitePFContent {
+        padding-top: 0.5rem !important;
+        padding-bottom: 0.5rem !important;
+    }
+    
+    /* ProcessFlow wrapper - reduce vertical spacing */
+    .eyeCatchingTimeline .sapSuitePFWrapper {
+        padding-top: 0.25rem !important;
+        padding-bottom: 0.25rem !important;
+    }
+    
+    /* Reduce gap between lane header area and node area */
+    .eyeCatchingTimeline .sapSuitePFLaneHeaderContainer {
+        margin-bottom: 0.5rem !important;
+        padding-bottom: 0.25rem !important;
+    }
+    
+    /* Larger nodes on desktop */
+    .eyeCatchingTimeline .sapSuitePFNode {
+        min-width: 220px !important;
+        min-height: 100px !important;
+        padding: 0.75rem !important;
+        margin: 0.5rem 0.25rem !important;
+    }
+    
+    /* Larger text on desktop nodes */
+    .eyeCatchingTimeline .sapSuitePFNodeTitle {
+        font-size: 1.2rem !important;
+        margin-bottom: 0.25rem !important;
+    }
+    
+    .eyeCatchingTimeline .sapSuitePFNodeText1,
+    .eyeCatchingTimeline .sapSuitePFNodeText2 {
+        font-size: 1rem !important;
+        margin-top: 0.25rem !important;
+    }
+    
+    /* Larger icons on desktop */
+    .eyeCatchingTimeline .sapSuitePFNodeIcon {
+        width: 3rem !important;
+        height: 3rem !important;
+        font-size: 1.75rem !important;
+        margin-bottom: 0.5rem !important;
+    }
+    
+    /* Thicker connections on desktop */
+    .eyeCatchingTimeline .sapSuitePFConnection {
+        stroke-width: 5px !important;
+    }
+    
+    /* Better lane header on desktop */
+    .eyeCatchingTimeline .sapSuitePFLaneHeader {
+        font-size: 1.2rem !important;
+        padding: 0.75rem 1.25rem !important;
+        margin-bottom: 0.75rem !important;
+    }
+    
+    /* Reduce gap in ProcessFlow SVG/Canvas */
+    .eyeCatchingTimeline svg,
+    .eyeCatchingTimeline canvas {
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+    }
+    
+    /* ProcessFlow internal divs - reduce vertical spacing */
+    .eyeCatchingTimeline > div {
+        padding-top: 0.25rem !important;
+        padding-bottom: 0.25rem !important;
+    }
+    
+    /* Better vertical alignment of nodes */
+    .eyeCatchingTimeline .sapSuitePFNodeContainer {
+        padding-top: 0.25rem !important;
+        padding-bottom: 0.25rem !important;
+    }
+    
+    /* Reduce VBox padding for Activity Timeline on desktop */
+    .sapUiView[data-controller-name*="Activity"] .activityTimelinePanel .sapMVBox {
+        padding: 0.5rem 0.5rem 0.5rem 0.25rem !important;
+    }
+    
+    /* Ensure ProcessFlow fills available space */
+    .eyeCatchingTimeline {
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: flex-start !important;
+        padding-left: 0.25rem !important;
+    }
+    
+    /* Desktop: Further reduce ProcessFlow left padding */
+    .activityProcessFlow {
+        padding-left: 0.25rem !important;
+    }
+    
+    .activityProcessFlow .sapSuitePFContent,
+    .eyeCatchingTimeline .sapSuitePFContent {
+        padding-left: 0.15rem !important;
+    }
+}
+
+/* Eye-catching Timeline Styling */
+.eyeCatchingTimeline {
+    background: linear-gradient(135deg, #f0f7ff 0%, #ffffff 50%, #f0f7ff 100%);
+    border: 2px solid #0070f2 !important;
+    box-shadow: 0 6px 20px rgba(0, 112, 242, 0.2) !important;
+}
+
+/* Process Flow Nodes - More Prominent and Eye-catching */
+.eyeCatchingTimeline .sapSuitePFNode {
+    min-width: 200px !important;
+    min-height: 90px !important;
+    box-shadow: 0 4px 12px rgba(0, 112, 242, 0.25) !important;
+    border-radius: 8px !important;
+    border: 2px solid #0070f2 !important;
+    background: linear-gradient(135deg, #ffffff 0%, #f0f7ff 100%) !important;
+    transition: all 0.3s ease !important;
+    padding: 0.65rem !important;
+    margin: 0.25rem !important;
+}
+
+.eyeCatchingTimeline .sapSuitePFNode:hover {
+    transform: scale(1.08) !important;
+    box-shadow: 0 6px 20px rgba(0, 112, 242, 0.4) !important;
+    z-index: 100 !important;
+    border-color: #0051d5 !important;
+    background: linear-gradient(135deg, #ffffff 0%, #e0f0ff 100%) !important;
+}
+
+/* Process Flow Lane Header - More Visible */
+.eyeCatchingTimeline .sapSuitePFLaneHeader {
+    background: linear-gradient(135deg, #0070f2 0%, #0051d5 100%) !important;
+    color: #ffffff !important;
+    font-weight: 700 !important;
+    font-size: 1.1rem !important;
+    padding: 0.75rem 1rem !important;
+    border-radius: 6px !important;
+    box-shadow: 0 3px 10px rgba(0, 112, 242, 0.3) !important;
+    border: 2px solid #0051d5 !important;
+    margin-bottom: 0.75rem !important;
+}
+
+/* Process Flow Connections - More Visible */
+.eyeCatchingTimeline .sapSuitePFConnection {
+    stroke-width: 4px !important;
+    stroke: #0070f2 !important;
+    stroke-dasharray: none !important;
+    filter: drop-shadow(0 2px 4px rgba(0, 112, 242, 0.3)) !important;
+}
+
+/* Process Flow Node States - Enhanced Colors with Gradients */
+.eyeCatchingTimeline .sapSuitePFNodeStatePositive {
+    background: linear-gradient(135deg, #107e3e 0%, #0a5d2a 100%) !important;
+    color: #ffffff !important;
+    border: 3px solid #0a5d2a !important;
+    box-shadow: 0 4px 12px rgba(16, 126, 62, 0.4) !important;
+}
+
+.eyeCatchingTimeline .sapSuitePFNodeStateNegative {
+    background: linear-gradient(135deg, #bb0000 0%, #8b0000 100%) !important;
+    color: #ffffff !important;
+    border: 3px solid #8b0000 !important;
+    box-shadow: 0 4px 12px rgba(187, 0, 0, 0.4) !important;
+}
+
+.eyeCatchingTimeline .sapSuitePFNodeStateNeutral {
+    background: linear-gradient(135deg, #6a6d70 0%, #4a4d50 100%) !important;
+    color: #ffffff !important;
+    border: 3px solid #4a4d50 !important;
+    box-shadow: 0 4px 12px rgba(106, 109, 112, 0.4) !important;
+}
+
+/* Process Flow Node Text - Larger, Bolder, and More Readable */
+.eyeCatchingTimeline .sapSuitePFNodeTitle {
+    font-size: 1.15rem !important;
+    font-weight: 700 !important;
+    color: #1c4e80 !important;
+    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8) !important;
+    line-height: 1.3 !important;
+    margin-bottom: 0.2rem !important;
+}
+
+.eyeCatchingTimeline .sapSuitePFNodeText1,
+.eyeCatchingTimeline .sapSuitePFNodeText2 {
+    font-size: 0.95rem !important;
+    font-weight: 600 !important;
+    color: #333 !important;
+    line-height: 1.4 !important;
+    margin-top: 0.2rem !important;
+}
+
+/* Process Flow Node Icons - Larger and More Visible */
+.eyeCatchingTimeline .sapSuitePFNodeIcon {
+    width: 2.75rem !important;
+    height: 2.75rem !important;
+    font-size: 1.6rem !important;
+    margin-bottom: 0.35rem !important;
+}
+
+/* Highlighted/Focused Nodes - Even More Prominent */
+.eyeCatchingTimeline .sapSuitePFNodeHighlighted,
+.eyeCatchingTimeline .sapSuitePFNodeFocused {
+    border: 3px solid #ff8800 !important;
+    box-shadow: 0 6px 20px rgba(255, 136, 0, 0.5) !important;
+    background: linear-gradient(135deg, #fff4e6 0%, #ffffff 100%) !important;
+    transform: scale(1.05) !important;
+}
+
+/* Process Flow Node State Text - More Visible */
+.eyeCatchingTimeline .sapSuitePFNodeStateText {
+    font-weight: 600 !important;
+    font-size: 0.9rem !important;
+    /* Removed text-transform: uppercase to preserve original format like "O-09" */
+    letter-spacing: 0.3px !important;
+    color: #107e3e !important;
+    margin-top: 0.15rem !important;
+}
+*/
+
+/* Metric Card Styling - Beautiful Colors */
+.metricCard {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+    border-radius: 12px;
+    transition: all 0.3s ease;
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+    border: 2px solid transparent;
+    min-height: 180px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+}
+
+.metricCard::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #0070f2, #0051d5);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.metricCard:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0, 112, 242, 0.2);
+    border-color: #0070f2;
+}
+
+.metricCard:hover::before {
+    opacity: 1;
+}
+
+/* Individual Metric Card Colors */
+.metricCard[header-text*="Total TAT"] {
+    background: linear-gradient(135deg, #e3f2fd 0%, #ffffff 100%);
+    border-left: 4px solid #0070f2;
+}
+
+.metricCard[header-text*="Total TAT"]:hover {
+    background: linear-gradient(135deg, #bbdefb 0%, #e3f2fd 100%);
+    box-shadow: 0 8px 24px rgba(0, 112, 242, 0.25);
+}
+
+.metricCard[header-text*="Total Events"] {
+    background: linear-gradient(135deg, #e3f2fd 0%, #ffffff 100%);
+    border-left: 4px solid #0070f2;
+}
+
+.metricCard[header-text*="Total Events"]:hover {
+    background: linear-gradient(135deg, #bbdefb 0%, #e3f2fd 100%);
+    box-shadow: 0 8px 24px rgba(0, 112, 242, 0.25);
+}
+
+.metricCard[header-text*="Last Event"] {
+    background: linear-gradient(135deg, #e3f2fd 0%, #ffffff 100%);
+    border-left: 4px solid #0070f2;
+}
+
+.metricCard[header-text*="Last Event"]:hover {
+    background: linear-gradient(135deg, #bbdefb 0%, #e3f2fd 100%);
+    box-shadow: 0 8px 24px rgba(0, 112, 242, 0.25);
+}
+
+.metricCardContent {
+    min-height: 140px;
+    height: 100%;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.metricValue {
+    font-weight: 800;
+    background: linear-gradient(135deg, #1c4e80 0%, #0070f2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-align: center;
+    font-size: 1.75rem;
+    line-height: 1.4;
+    margin: 0.25rem 0;
+    word-wrap: break-word;
+    max-width: 100%;
+}
+
+.metricCard[header-text*="Total TAT"] .metricValue,
+.tatValue {
+    background: linear-gradient(135deg, #0052cc 0%, #0070f2 50%, #1e88e5 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    font-weight: 900;
+    text-align: center;
+    font-size: 1.75rem;
+    line-height: 1.4;
+    margin: 0.25rem 0;
+    word-wrap: break-word;
+    max-width: 100%;
+    text-shadow: 0 2px 4px rgba(0, 112, 242, 0.1);
+}
+
+.eyeCatchyBlue {
+    background: linear-gradient(135deg, #0052cc 0%, #0070f2 50%, #1e88e5 100%) !important;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    background-clip: text !important;
+    font-weight: 900 !important;
+    text-shadow: 0 2px 4px rgba(0, 112, 242, 0.1) !important;
+}
+
+.metricCard[header-text*="Total Events"] .metricValue,
+.eventsValue {
+    background: linear-gradient(135deg, #0052cc 0%, #0070f2 50%, #1e88e5 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    font-weight: 900;
+    text-align: center;
+    font-size: 1.75rem;
+    line-height: 1.4;
+    margin: 0.25rem 0;
+    word-wrap: break-word;
+    max-width: 100%;
+    text-shadow: 0 2px 4px rgba(0, 112, 242, 0.1);
+}
+
+.metricCard[header-text*="Last Event"] .metricValue,
+.lastEventValue {
+    background: linear-gradient(135deg, #0052cc 0%, #0070f2 50%, #1e88e5 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    font-weight: 900;
+    text-align: center;
+    font-size: 1.75rem;
+    line-height: 1.4;
+    margin: 0.25rem 0;
+    word-wrap: break-word;
+    max-width: 100%;
+    text-shadow: 0 2px 4px rgba(0, 112, 242, 0.1);
+}
+
+.metricValueText {
+    font-size: 1rem;
+    line-height: 1.3;
+}
+
+.metricLabel {
+    text-align: center;
+    color: #666;
+    margin-top: 0.5rem;
+    font-weight: 500;
+}
+
+/* Panel Headers - Beautiful Colors */
+.sapMPanelHdr {
+    font-weight: 700;
+    font-size: 1.1rem;
+    background: linear-gradient(135deg, #1c4e80 0%, #0070f2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    padding: 0.5rem 0;
+}
+
+.sapMPanel[header-text*="Stage Summary"] .sapMPanelHdr {
+    background: linear-gradient(135deg, #4caf50 0%, #388e3c 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* Stage Summary List Items - Beautiful Card Design */
+.stageSummaryItem {
+    border-left: 5px solid #e0e0e0;
+    border-bottom: 1px solid #e8e8e8;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    margin: 0.5rem 0.75rem;
+    border-radius: 12px;
+    background: #ffffff;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+    overflow: hidden;
+    position: relative;
+}
+
+.stageSummaryItem::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 5px;
+    background: linear-gradient(180deg, #4caf50 0%, #388e3c 100%);
+    transition: width 0.3s ease;
+}
+
+.stageSummaryItem:hover {
+    background: linear-gradient(135deg, #f1f8f4 0%, #ffffff 100%);
+    border-left-color: #4caf50;
+    transform: translateX(2px);
+    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.2);
+}
+
+.stageSummaryItem:hover::before {
+    width: 6px;
+}
+
+/* Status-based border colors */
+.stageSummaryItem[data-state="Success"]::before,
+.stageSummaryItem .sapMObjectStatus[state="Success"] ~ * {
+    background: linear-gradient(180deg, #4caf50 0%, #388e3c 100%);
+}
+
+.stageSummaryItem[data-state="Warning"]::before {
+    background: linear-gradient(180deg, #ff9800 0%, #f57c00 100%);
+}
+
+.stageSummaryItem[data-state="None"]::before {
+    background: linear-gradient(180deg, #9e9e9e 0%, #757575 100%);
+}
+
+/* Stage Summary Content */
+.stageSummaryContent {
+    padding: 0.75rem 0.5rem;
+    width: 100%;
+}
+
+/* Icon Container - Beautiful Background */
+.stageIconContainer {
+    width: 3.5rem;
+    height: 3.5rem;
+    min-width: 3.5rem;
+    min-height: 3.5rem;
+    background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 6px rgba(76, 175, 80, 0.15);
+    transition: all 0.3s ease;
+}
+
+.stageSummaryItem:hover .stageIconContainer {
+    background: linear-gradient(135deg, #c8e6c9 0%, #a5d6a7 100%);
+    box-shadow: 0 4px 10px rgba(76, 175, 80, 0.25);
+    transform: scale(1.05);
+}
+
+/* Stage Icon Styling - Enhanced */
+.stageIcon {
+    color: #2e7d32 !important;
+    filter: drop-shadow(0 2px 4px rgba(46, 125, 50, 0.3));
+    font-size: 2.5rem !important;
+}
+
+/* Stage Title - Bold and Prominent */
+.stageTitle {
+    font-weight: 700 !important;
+    color: #1a1a1a !important;
+    font-size: 1rem !important;
+    line-height: 1.4;
+    margin-bottom: 0.5rem !important;
+}
+
+/* Stage Description - Clean Typography */
+.stageDescription {
+    color: #666666 !important;
+    font-size: 0.875rem !important;
+    line-height: 1.5;
+    word-wrap: break-word;
+}
+
+/* TAT Display - Prominent */
+.stageTAT {
+    font-weight: 700 !important;
+    font-size: 1rem !important;
+    min-width: 80px;
+    text-align: right;
+}
+
+.stageTAT .sapMObjectStatusText {
+    font-weight: 700 !important;
+    font-size: 1rem !important;
+}
+
+/* Success State - Green */
+.stageSummaryItem .sapMObjectStatus[state="Success"] .sapMObjectStatusText {
+    color: #2e7d32 !important;
+    font-weight: 700 !important;
+}
+
+/* Warning State - Orange */
+.stageSummaryItem .sapMObjectStatus[state="Warning"] .sapMObjectStatusText {
+    color: #f57c00 !important;
+    font-weight: 700 !important;
+}
+
+/* None State - Grey */
+.stageSummaryItem .sapMObjectStatus[state="None"] .sapMObjectStatusText {
+    color: #757575 !important;
+    font-weight: 600 !important;
+}
+
+/* Legacy support for existing classes */
+.sapMCLI {
+    border-bottom: 1px solid #e8e8e8;
+    transition: all 0.3s ease;
+    border-left: 5px solid #e0e0e0;
+    margin: 0.5rem 0.75rem;
+    border-radius: 12px;
+    background: #ffffff;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+}
+
+.sapMCLI:hover {
+    background: linear-gradient(135deg, #f1f8f4 0%, #ffffff 100%);
+    border-left-color: #4caf50;
+    transform: translateX(2px);
+    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.2);
+}
+
+/* Table Styling for Events */
+#activityDetailsTable .sapMColumnHeader {
+    background-color: var(--plms-neutral-bg);
+    border-bottom: 2px solid var(--plms-neutral-border);
+    font-weight: 600;
+}
+
+#activityDetailsTable .sapMListTblRow {
+    transition: background-color 0.15s ease;
+}
+
+#activityDetailsTable .sapMListTblRow:nth-child(even) {
+    background-color: var(--plms-row-alt);
+}
+
+#activityDetailsTable .sapMListTblRow:hover {
+    background-color: var(--plms-row-hover);
+    cursor: pointer;
+}
+
+#activityDetailsTable .sapMListTblCell {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+}
+
+/* Analysis tab: inherit subview background (see .controller.subview.); metric cards keep their own headers */
+.sapUiView[data-controller-name*="Activity"] .sapMPanelHdr {
+    background: var(--plms-neutral-bg);
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--plms-neutral-border);
+}
+
+/* Beautiful Scrollbar */
+.sapUiView[data-controller-name*="Activity"] .sapMPanelContent::-webkit-scrollbar {
+    width: 8px;
+}
+
+.sapUiView[data-controller-name*="Activity"] .sapMPanelContent::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.sapUiView[data-controller-name*="Activity"] .sapMPanelContent::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, #0070f2 0%, #0051d5 100%);
+    border-radius: 4px;
+}
+
+.sapUiView[data-controller-name*="Activity"] .sapMPanelContent::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(135deg, #0051d5 0%, #003d99 100%);
+}
+
+/* Grid layout optimization */
+.sapUiLayoutGrid {
+    margin: 0;
+}
+
+/* Ensure metric cards in grid have equal height */
+.sapUiLayoutGrid .metricCard {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.sapUiLayoutGrid .metricCard .sapMPanelContent {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Process Flow Node Styling - Enhanced & Beautified with Colors */
+.sapSuitePFNode {
+    min-width: 220px !important;
+    max-width: 300px !important;
+    width: auto !important;
+    font-weight: 600;
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+    background: linear-gradient(135deg, #ffffff 0%, #f0f7ff 100%) !important;
+    border: 3px solid #0070f2 !important;
+    border-radius: 16px !important;
+    box-shadow: 0 6px 20px rgba(0, 112, 242, 0.15) !important;
+    padding: 1.25rem !important;
+    margin: 0.5rem !important;
+    transition: all 0.3s ease !important;
+    min-height: 180px !important;
+    position: relative !important;
+}
+
+.sapSuitePFNode::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 5px;
+    background: linear-gradient(90deg, #0070f2, #4caf50, #ff9800);
+    border-radius: 16px 16px 0 0;
+}
+
+.sapSuitePFNode:hover {
+    transform: translateY(-6px) scale(1.02) !important;
+    box-shadow: 0 12px 32px rgba(0, 112, 242, 0.25) !important;
+    border-color: #0051d5 !important;
+    background: linear-gradient(135deg, #ffffff 0%, #e3f2fd 100%) !important;
+}
+
+/* Process Flow Node - Show Icons and Full Text */
+.sapSuitePFNodeIcon {
+    display: inline-block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    width: 3rem !important;
+    height: 3rem !important;
+    font-size: 1.75rem !important;
+    margin: 0.5rem auto 0.75rem auto !important;
+    color: #ffffff !important;
+    line-height: 3rem !important;
+    background: linear-gradient(135deg, #4caf50 0%, #388e3c 100%) !important;
+    border-radius: 50% !important;
+    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4) !important;
+}
+
+/* Ensure icon container is visible */
+.sapSuitePFNode .sapSuitePFNodeIconContainer,
+.sapSuitePFNodeIconContainer {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    width: 100% !important;
+    text-align: center !important;
+    margin-bottom: 0.5rem !important;
+    padding: 0 !important;
+}
+
+/* Icon shape circle - make it visible */
+.sapSuitePFNodeIconShape {
+    display: inline-block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+/* ProcessFlow Node - Ensure icon is displayed */
+.sapSuitePFNode > div:first-child,
+.sapSuitePFNode .sapSuitePFNodeIconWrapper {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    text-align: center !important;
+}
+
+/* Make sure icon is not hidden by any parent */
+.sapSuitePFNode * .sapSuitePFNodeIcon,
+.sapSuitePFNode .sapUiIcon {
+    display: inline-block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+/* Process Flow Node State Text - Show Full Text (No Truncation, Wrap Below) - Beautiful Colors */
+.sapSuitePFNodeStateText {
+    white-space: normal !important;
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+    text-overflow: clip !important;
+    overflow: visible !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    display: block !important;
+    line-height: 1.6 !important;
+    hyphens: auto !important;
+    text-align: center !important;
+    padding: 0.75rem !important;
+    margin-top: 0.5rem !important;
+    font-size: 0.85rem !important;
+    font-weight: 500 !important;
+    color: #5d4037 !important;
+    background: linear-gradient(135deg, rgba(255, 152, 0, 0.1) 0%, rgba(255, 152, 0, 0.05) 100%) !important;
+    border-radius: 8px !important;
+    border-left: 4px solid #ff9800 !important;
+    box-shadow: 0 2px 8px rgba(255, 152, 0, 0.15) !important;
+    text-overflow: clip !important;
+    -webkit-line-clamp: none !important;
+    -webkit-box-orient: unset !important;
+    display: -webkit-box !important;
+    -webkit-box-orient: vertical !important;
+    -webkit-line-clamp: unset !important;
+    display: block !important;
+}
+
+/* Process Flow Node Text1 and Text2 - Show Full Text (Wrap Below) - Beautiful Colors */
+.sapSuitePFNodeText1 {
+    white-space: normal !important;
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+    text-overflow: clip !important;
+    overflow: visible !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    line-height: 1.6 !important;
+    hyphens: auto !important;
+    font-size: 0.95rem !important;
+    font-weight: 600 !important;
+    color: #1976d2 !important;
+    text-align: center !important;
+    margin: 0.75rem 0 0.5rem 0 !important;
+    padding: 0.75rem !important;
+    background: linear-gradient(135deg, rgba(33, 150, 243, 0.1) 0%, rgba(33, 150, 243, 0.05) 100%) !important;
+    border-radius: 8px !important;
+    border-left: 4px solid #2196f3 !important;
+    box-shadow: 0 2px 8px rgba(33, 150, 243, 0.15) !important;
+    text-overflow: clip !important;
+    -webkit-line-clamp: none !important;
+    display: block !important;
+}
+
+.sapSuitePFNodeText2 {
+    white-space: normal !important;
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+    text-overflow: clip !important;
+    overflow: visible !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    line-height: 1.6 !important;
+    hyphens: auto !important;
+    font-size: 0.9rem !important;
+    font-weight: 600 !important;
+    color: #2e7d32 !important;
+    text-align: center !important;
+    margin: 0.5rem 0 !important;
+    padding: 0.75rem !important;
+    background: linear-gradient(135deg, rgba(76, 175, 80, 0.12) 0%, rgba(76, 175, 80, 0.06) 100%) !important;
+    border-radius: 8px !important;
+    border-left: 4px solid #4caf50 !important;
+    box-shadow: 0 2px 8px rgba(76, 175, 80, 0.15) !important;
+    text-overflow: clip !important;
+    -webkit-line-clamp: none !important;
+    display: block !important;
+}
+
+/* Make TAT text red in ProcessFlow Text2 - will be applied via JavaScript */
+.sapSuitePFNodeText2 .tatText {
+    color: #dc2626 !important;
+    font-weight: 700 !important;
+}
+
+/* Process Flow Node Title - Show Full Text (Wrap Below) - Eye-Catching Red */
+.sapSuitePFNodeTitle {
+    white-space: normal !important;
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+    text-overflow: clip !important;
+    overflow: visible !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    line-height: 1.5 !important;
+    hyphens: auto !important;
+    font-size: 1.3rem !important;
+    font-weight: 800 !important;
+    color: #dc2626 !important;
+    text-align: center !important;
+    margin-bottom: 0.75rem !important;
+    padding: 0.75rem 0.5rem !important;
+    border-bottom: 4px solid #dc2626 !important;
+    text-overflow: clip !important;
+    -webkit-line-clamp: none !important;
+    display: block !important;
+    text-shadow: 0 2px 4px rgba(220, 38, 38, 0.3) !important;
+    background: linear-gradient(135deg, rgba(220, 38, 38, 0.1) 0%, rgba(255, 255, 255, 0) 100%) !important;
+    border-radius: 4px 4px 0 0 !important;
+    letter-spacing: 0.5px !important;
+}
+
+/* Ensure red color is applied everywhere */
+.sapSuitePFNode .sapSuitePFNodeTitle,
+.sapSuitePFNodeTitle {
+    color: #dc2626 !important;
+}
+
+/* Override any other color rules */
+.sapSuitePFNodeTitle * {
+    color: #dc2626 !important;
+}
+
+/* Remove ellipsis from all ProcessFlow text elements */
+.sapSuitePFNode * {
+    text-overflow: clip !important;
+}
+
+.sapSuitePFNodeTitle::after,
+.sapSuitePFNodeText1::after,
+.sapSuitePFNodeText2::after,
+.sapSuitePFNodeStateText::after {
+    content: none !important;
+}
+
+/* Process Flow Node Container - Allow Full Text Wrapping - Beautified */
+.sapSuitePFNodeContainer {
+    min-width: 200px !important;
+    max-width: 280px !important;
+    width: auto !important;
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+    padding: 0.5rem !important;
+}
+
+/* Highlighted/Focused Node - More Prominent with Beautiful Colors */
+.sapSuitePFNodeHighlighted,
+.sapSuitePFNodeFocused {
+    background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%) !important;
+    border: 4px solid #2196f3 !important;
+    box-shadow: 0 12px 32px rgba(33, 150, 243, 0.35) !important;
+    transform: scale(1.08) !important;
+    z-index: 10 !important;
+}
+
+.sapSuitePFNodeHighlighted .sapSuitePFNodeIcon,
+.sapSuitePFNodeFocused .sapSuitePFNodeIcon {
+    background: linear-gradient(135deg, #2196f3 0%, #1976d2 100%) !important;
+    box-shadow: 0 8px 20px rgba(33, 150, 243, 0.5) !important;
+}
+
+/* Process Flow Node Inner Content - Allow Wrapping */
+.sapSuitePFNode > * {
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+    white-space: normal !important;
+}
+
+/* ProcessFlow Connections - Beautiful Colors */
+.sapSuitePFConnection {
+    stroke: url(#gradientConnection) !important;
+    stroke-width: 4px !important;
+    fill: none !important;
+    opacity: 0.8 !important;
+    transition: all 0.3s ease !important;
+    filter: drop-shadow(0 2px 4px rgba(0, 112, 242, 0.3));
+}
+
+/* Fallback solid color if gradient not available */
+.sapSuitePFConnection {
+    stroke: #0070f2 !important;
+}
+
+.sapSuitePFNode:hover ~ .sapSuitePFConnection,
+.sapSuitePFNode:hover + .sapSuitePFConnection {
+    stroke-width: 5px !important;
+    opacity: 1 !important;
+    stroke: #4caf50 !important;
+    filter: drop-shadow(0 4px 8px rgba(76, 175, 80, 0.4));
+}
+
+/* ProcessFlow Lane Header - Beautiful Gradient */
+.sapSuitePFLaneHeader {
+    background: linear-gradient(135deg, #0070f2 0%, #4caf50 50%, #ff9800 100%) !important;
+    color: #ffffff !important;
+    font-weight: 800 !important;
+    font-size: 1.2rem !important;
+    padding: 1rem 1.5rem !important;
+    border-radius: 12px !important;
+    box-shadow: 0 6px 20px rgba(0, 112, 242, 0.3) !important;
+    margin-bottom: 1.5rem !important;
+    text-align: center !important;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+/* ProcessFlow Container - Better Spacing */
+.sapSuitePFContent {
+    padding: 1rem 0.5rem !important;
+}
+
+/* ProcessFlow Node - Force Icon Display */
+.sapSuitePFNode[sap-ui-icon],
+.sapSuitePFNode [sap-ui-icon] {
+    display: inline-block !important;
+    visibility: visible !important;
+}
+
+/* ProcessFlow Icon Display - Ensure it's visible */
+.sapSuitePFNode .sapUiIcon,
+.sapSuitePFNodeIcon .sapUiIcon,
+.sapSuitePFNodeIconContainer .sapUiIcon {
+    display: inline-block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    font-size: 1.5rem !important;
+    color: #107e3e !important;
+    width: 2.5rem !important;
+    height: 2.5rem !important;
+    line-height: 2.5rem !important;
+}
+
+/* ProcessFlow Node Structure - Icon should be at top */
+.sapSuitePFNode {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+}
+
+/* Icon Container - Prominent and Centered */
+.sapSuitePFNode > .sapSuitePFNodeIconContainer,
+.sapSuitePFNode > .sapSuitePFNodeIcon,
+.sapSuitePFNode .sapSuitePFNodeIconContainer {
+    order: -1 !important;
+    margin-bottom: 1rem !important;
+    margin-top: 0 !important;
+    width: 100% !important;
+    text-align: center !important;
+    display: block !important;
+    padding: 0.5rem 0 !important;
+}
+
+/* Make icon larger and more prominent with beautiful gradient background */
+.sapSuitePFNodeIcon,
+.sapSuitePFNode .sapSuitePFNodeIcon {
+    width: 4rem !important;
+    height: 4rem !important;
+    font-size: 2.5rem !important;
+    margin: 0 auto !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    color: #ffffff !important;
+    background: linear-gradient(135deg, #4caf50 0%, #388e3c 50%, #2e7d32 100%) !important;
+    border-radius: 50% !important;
+    box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4) !important;
+    line-height: 4rem !important;
+    border: 3px solid rgba(255, 255, 255, 0.3) !important;
+}
+
+/* Icon shape circle - make it larger with background */
+.sapSuitePFNodeIconShape {
+    width: 4rem !important;
+    height: 4rem !important;
+    font-size: 2.5rem !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: linear-gradient(135deg, #107e3e 0%, #0a5d2a 100%) !important;
+    border-radius: 50% !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 12px rgba(16, 126, 62, 0.3) !important;
+}
+
+/* Ensure all icon elements are visible */
+.sapSuitePFNode .sapUiIcon,
+.sapSuitePFNodeIcon .sapUiIcon {
+    width: 2.5rem !important;
+    height: 2.5rem !important;
+    font-size: 2.5rem !important;
+    color: #ffffff !important;
+    display: inline-block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    line-height: 2.5rem !important;
+}
+
+/* Events Details List - Icon Based - Beautiful Colors */
+/* Event Details List Items - Beautiful Card Design (Like Stage Summary) */
+.eventDetailItem {
+    border-left: 5px solid #e0e0e0;
+    border-bottom: 1px solid #e8e8e8;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    margin: 0.5rem 0.75rem;
+    border-radius: 12px;
+    background: #ffffff;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+    overflow: hidden;
+    position: relative;
+}
+
+.eventDetailItem::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 5px;
+    background: linear-gradient(180deg, #4caf50 0%, #388e3c 100%);
+    transition: width 0.3s ease;
+}
+
+.eventDetailItem:hover {
+    background: linear-gradient(135deg, #e8f5e9 0%, #ffffff 100%);
+    border-left-color: #4caf50;
+    transform: translateX(2px);
+    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.2);
+}
+
+.eventDetailItem:hover::before {
+    width: 6px;
+}
+
+.eventDetailItem:last-child {
+    border-bottom: none !important;
+}
+
+.eventDetailItem:last-child .sapUiSmallMarginBottom {
+    display: none !important;
+}
+
+/* Event Detail Content */
+.eventDetailContent {
+    padding: 0.75rem 0.5rem;
+    width: 100%;
+}
+
+/* Event Icon Container - Beautiful Background (Green Theme) */
+.eventIconContainer {
+    width: 3.5rem;
+    height: 3.5rem;
+    min-width: 3.5rem;
+    min-height: 3.5rem;
+    background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 6px rgba(76, 175, 80, 0.15);
+    transition: all 0.3s ease;
+}
+
+.eventDetailItem:hover .eventIconContainer {
+    background: linear-gradient(135deg, #c8e6c9 0%, #a5d6a7 100%);
+    box-shadow: 0 4px 10px rgba(76, 175, 80, 0.25);
+    transform: scale(1.05);
+}
+
+/* Event Icon Styling - Enhanced (Green) */
+.eventIcon {
+    color: #388e3c !important;
+    filter: drop-shadow(0 2px 4px rgba(56, 142, 60, 0.3));
+    font-size: 2.5rem !important;
+}
+
+/* Event Title - Bold and Prominent */
+.eventTitle {
+    font-weight: 700 !important;
+    color: #1a1a1a !important;
+    font-size: 1rem !important;
+    line-height: 1.4;
+    margin-bottom: 0 !important;
+    margin-right: 0.5rem !important;
+}
+
+/* Event Description - Clean Typography */
+.eventDescription {
+    color: #666666 !important;
+    font-size: 0.875rem !important;
+    line-height: 1.5;
+    word-wrap: break-word;
+}
+
+/* Event Details panel - bold labels (Event, TAT, Moment Scenario, etc.) */
+.eventDetailLabel {
+    font-weight: bold !important;
+    min-width: 7rem;
+}
+
+/* Event Detail Icons - Colorful */
+.eventDetailItem .sapUiCoreIcon {
+    flex-shrink: 0 !important;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+}
+
+.eventDetailItem .sapUiCoreIcon[sap-icon="detail-view"] {
+    color: #2196f3 !important;
+}
+
+.eventDetailItem .sapUiCoreIcon[sap-icon="arrow-right"] {
+    color: #4caf50 !important;
+}
+
+.eventDetailItem .sapUiCoreIcon[sap-icon="time-entry-record"] {
+    color: #4caf50 !important;
+}
+
+.eventDetailItem .sapUiCoreIcon[sap-icon="calendar"] {
+    color: #9c27b0 !important;
+}
+
+.eventDetailItem .sapUiCoreIcon[sap-icon="employee"] {
+    color: #607d8b !important;
+}
+
+/* ScrollContainer for Activity — vertical scroll; horizontal only where UI5 marks ContH/VH */
+.sapUiView[data-controller-name*="Activity"] .sapMScrollContainer {
+    width: 100% !important;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Webkit browsers (Chrome, Safari, Edge) - Custom scrollbar */
+.sapUiView[data-controller-name*="Activity"] .sapMScrollContainer::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.sapUiView[data-controller-name*="Activity"] .sapMScrollContainer::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.sapUiView[data-controller-name*="Activity"] .sapMScrollContainer::-webkit-scrollbar-thumb {
+    background: #0070f2;
+    border-radius: 4px;
+}
+
+.sapUiView[data-controller-name*="Activity"] .sapMScrollContainer::-webkit-scrollbar-thumb:hover {
+    background: #0051d5;
+}
+
+/* Firefox scrollbar */
+.sapUiView[data-controller-name*="Activity"] .sapMScrollContainer:hover {
+    scrollbar-width: thin;
+    scrollbar-color: #0070f2 #f1f1f1;
+}
+
+/* Lists inside ScrollContainer - ensure proper width */
+.sapUiView[data-controller-name*="Activity"] .sapMScrollContainer .sapMList {
+    min-width: 100%;
+    width: 100%;
+}
+
+/* Stage Summary List - Beautiful Container */
+.sapUiView[data-controller-name*="Activity"] .sapMPanel[header-text*="Stage Summary"] .sapMList {
+    max-height: 500px;
+    overflow-y: auto;
+    padding: 0.5rem 0;
+    background: transparent;
+}
+
+/* Custom scrollbar for Stage Summary */
+.sapUiView[data-controller-name*="Activity"] .sapMPanel[header-text*="Stage Summary"] .sapMList::-webkit-scrollbar {
+    width: 6px;
+}
+
+.sapUiView[data-controller-name*="Activity"] .sapMPanel[header-text*="Stage Summary"] .sapMList::-webkit-scrollbar-track {
+    background: #f5f5f5;
+    border-radius: 3px;
+}
+
+.sapUiView[data-controller-name*="Activity"] .sapMPanel[header-text*="Stage Summary"] .sapMList::-webkit-scrollbar-thumb {
+    background: #4caf50;
+    border-radius: 3px;
+}
+
+.sapUiView[data-controller-name*="Activity"] .sapMPanel[header-text*="Stage Summary"] .sapMList::-webkit-scrollbar-thumb:hover {
+    background: #388e3c;
+}
+
+/* Analysis View Container */
+.sapUiView[data-controller-name*="Activity"] {
+    height: 100%;
+    overflow: hidden;
+}
+
+.sapUiView[data-controller-name*="Activity"] .sapMVBox {
+    height: 100%;
+    overflow-y: auto;
+}
+
+/* Process Flow Scrollbar Styling - DISABLED */
+/*
+.eyeCatchingTimeline::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+}
+
+.eyeCatchingTimeline::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 6px;
+}
+
+.eyeCatchingTimeline::-webkit-scrollbar-thumb {
+    background: #0070f2;
+    border-radius: 6px;
+    border: 2px solid #f1f1f1;
+}
+
+.eyeCatchingTimeline::-webkit-scrollbar-thumb:hover {
+    background: #0051d5;
+}
+
+/* Mobile Scrollbar - Thinner but visible */
+@media (max-width: 768px) {
+    .eyeCatchingTimeline::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+    
+    .eyeCatchingTimeline::-webkit-scrollbar-thumb {
+        border: 1px solid #f1f1f1;
+    }
+}
+
+@media (max-width: 480px) {
+    .eyeCatchingTimeline::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+    }
+}
+
+
+/* ==================== RESPONSIVE ADJUSTMENTS ==================== */
+
+/* Tablet and smaller desktop */
+@media (max-width: 1024px) {
+    /* ProcessFlow CSS disabled - DISABLED */
+    /*
+    .activityProcessFlow {
+        max-height: 350px;
+        min-height: 300px;
+    }
+    
+    .eyeCatchingTimeline {
+        max-height: 350px;
+        min-height: 300px;
+    }
+    */
+    
+    #activityDetailsTable {
+        max-height: 300px;
+    }
+    
+    /* Metric cards - adjust spacing */
+    .metricCard {
+        margin-bottom: 0.5rem;
+    }
+    
+    .metricCardContent {
+        padding: 0.875rem;
+    }
+    
+    .metricValue {
+        font-size: 1.35rem;
+    }
+}
+
+/* Mobile devices */
+@media (max-width: 768px) {
+    /* Process Flow - Mobile - DISABLED */
+    /*
+    .activityProcessFlow {
+        max-height: 300px;
+        min-height: 250px;
+        height: 300px !important;
+    }
+    
+    .eyeCatchingTimeline {
+        max-height: 300px;
+        min-height: 250px;
+        height: 300px !important;
+        border-width: 1.5px !important;
+    }
+    
+    /* Process Flow Nodes - Mobile sizing */
+    .eyeCatchingTimeline .sapSuitePFNode {
+        min-width: 140px !important;
+        min-height: 60px !important;
+        padding: 0.4rem !important;
+    }
+    
+    .eyeCatchingTimeline .sapSuitePFNodeTitle {
+        font-size: 0.9rem !important;
+        line-height: 1.2 !important;
+    }
+    
+    .eyeCatchingTimeline .sapSuitePFNodeText1,
+    .eyeCatchingTimeline .sapSuitePFNodeText2 {
+        font-size: 0.75rem !important;
+        line-height: 1.3 !important;
+    }
+    
+    .eyeCatchingTimeline .sapSuitePFNodeIcon {
+        width: 2rem !important;
+        height: 2rem !important;
+        font-size: 1.2rem !important;
+    }
+    
+    .eyeCatchingTimeline .sapSuitePFConnection {
+        stroke-width: 3px !important;
+    }
+    
+    .eyeCatchingTimeline .sapSuitePFLaneHeader {
+        font-size: 0.95rem !important;
+        padding: 0.75rem !important;
+    }
+    */
+    
+    /* Table - Mobile */
+    #activityDetailsTable {
+        max-height: 250px;
+        font-size: 0.8rem;
+    }
+    
+    #activityDetailsTable .sapMListTblCell {
+        padding: 0.4rem 0.5rem;
+        font-size: 0.75rem;
+    }
+    
+    /* Metric Cards - Mobile */
+    .metricCard {
+        margin-bottom: 0.5rem;
+        min-height: 160px;
+    }
+    
+    .metricCardContent {
+        min-height: 130px;
+        padding: 0.75rem;
+    }
+    
+    .metricValue {
+        font-size: 1.25rem;
+    }
+    
+    .metricValueText {
+        font-size: 0.9rem;
+    }
+    
+    .metricLabel {
+        font-size: 0.85rem;
+    }
+    
+    /* Icons - Mobile */
+    .metricCard .sapUiCoreIcon {
+        font-size: 2.5rem !important;
+    }
+    
+    /* Stage Summary - Mobile */
+    .stageSummaryItem {
+        margin: 0.4rem 0.5rem;
+        border-radius: 10px;
+    }
+    
+    .stageSummaryContent {
+        padding: 0.6rem 0.4rem;
+    }
+    
+    .stageIconContainer {
+        width: 3rem;
+        height: 3rem;
+        min-width: 3rem;
+        min-height: 3rem;
+        border-radius: 10px;
+    }
+    
+    .stageIcon {
+        font-size: 2rem !important;
+    }
+    
+    .stageTitle {
+        font-size: 0.95rem !important;
+    }
+    
+    .stageDescription {
+        font-size: 0.8rem !important;
+    }
+    
+    .stageTAT {
+        font-size: 0.9rem !important;
+        min-width: 70px;
+    }
+    
+    .sapUiView[data-controller-name*="Activity"] .sapMCLI {
+        padding: 0.5rem;
+        margin: 0.4rem 0.5rem;
+    }
+    
+    .sapUiView[data-controller-name*="Activity"] .sapMCLI .sapMHBox {
+        padding: 0.5rem;
+    }
+    
+    .sapUiView[data-controller-name*="Activity"] .sapMCLI .sapUiCoreIcon {
+        font-size: 1.75rem !important;
+    }
+    
+    /* ScrollContainer - Mobile */
+    .sapUiView[data-controller-name*="Activity"] .sapMScrollContainer {
+        height: auto !important;
+        max-height: 400px;
+    }
+    
+    /* Event Details List - Responsive */
+    #activityDetailsList {
+        width: 100%;
+    }
+    
+    .eventDetailItem {
+        min-width: 100%;
+        margin: 0.4rem 0.5rem;
+        border-radius: 10px;
+    }
+    
+    .eventDetailContent {
+        padding: 0.6rem 0.4rem;
+    }
+    
+    .eventIconContainer {
+        width: 3rem;
+        height: 3rem;
+        min-width: 3rem;
+        min-height: 3rem;
+        border-radius: 10px;
+    }
+    
+    .eventIcon {
+        font-size: 2rem !important;
+    }
+    
+    .eventTitle {
+        font-size: 0.95rem !important;
+    }
+    
+    .eventDescription {
+        font-size: 0.8rem !important;
+    }
+    
+    /* Panel adjustments - Mobile */
+    .sapUiView[data-controller-name*="Activity"] .sapMPanel {
+        margin-bottom: 0.5rem;
+    }
+    
+    .sapUiView[data-controller-name*="Activity"] .sapMPanelContent {
+        max-height: 350px;
+        overflow-y: auto;
+    }
+    
+    /* Grid layout - Mobile */
+    .sapUiLayoutGrid {
+        margin: 0.25rem;
+    }
+}
+
+/* Small Mobile devices */
+@media (max-width: 480px) {
+    /* ScrollContainer - Small Mobile */
+    .sapUiView[data-controller-name*="Activity"] .sapMScrollContainer {
+        height: auto !important;
+        max-height: 350px;
+    }
+    
+    .sapUiView[data-controller-name*="Activity"] .sapMScrollContainer::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+    }
+    
+    /* Process Flow - Small Mobile */
+    .activityProcessFlow {
+        max-height: 280px;
+        min-height: 250px;
+        height: 280px !important;
+    }
+    
+    .eyeCatchingTimeline {
+        max-height: 280px;
+        min-height: 250px;
+        height: 280px !important;
+        border-width: 1px !important;
+    }
+    
+    /* Process Flow Nodes - Small Mobile */
+    .eyeCatchingTimeline .sapSuitePFNode {
+        min-width: 120px !important;
+        min-height: 55px !important;
+        padding: 0.3rem !important;
+    }
+    
+    .eyeCatchingTimeline .sapSuitePFNodeTitle {
+        font-size: 0.8rem !important;
+        line-height: 1.1 !important;
+    }
+    
+    .eyeCatchingTimeline .sapSuitePFNodeText1,
+    .eyeCatchingTimeline .sapSuitePFNodeText2 {
+        font-size: 0.7rem !important;
+        line-height: 1.2 !important;
+    }
+    
+    .eyeCatchingTimeline .sapSuitePFNodeIcon {
+        width: 1.75rem !important;
+        height: 1.75rem !important;
+        font-size: 1rem !important;
+    }
+    
+    .eyeCatchingTimeline .sapSuitePFConnection {
+        stroke-width: 2.5px !important;
+    }
+    
+    .eyeCatchingTimeline .sapSuitePFLaneHeader {
+        font-size: 0.85rem !important;
+        padding: 0.6rem !important;
+    }
+    
+    /* Table - Small Mobile */
+    #activityDetailsTable {
+        max-height: 220px;
+        font-size: 0.75rem;
+    }
+    
+    #activityDetailsTable .sapMListTblCell {
+        padding: 0.35rem 0.4rem;
+        font-size: 0.7rem;
+    }
+    
+    /* Metric Cards - Small Mobile */
+    .metricCard {
+        min-height: 150px;
+        margin-bottom: 0.5rem;
+    }
+    
+    .metricCardContent {
+        min-height: 120px;
+        padding: 0.65rem;
+    }
+    
+    .metricValue {
+        font-size: 1.15rem;
+    }
+    
+    .metricValueText {
+        font-size: 0.85rem;
+    }
+    
+    .metricLabel {
+        font-size: 0.8rem;
+    }
+    
+    .metricCard .sapUiCoreIcon {
+        font-size: 2.25rem !important;
+    }
+    
+    /* Stage Summary - Small Mobile */
+    .stageSummaryItem {
+        margin: 0.3rem 0.4rem;
+        border-radius: 8px;
+    }
+    
+    .stageSummaryContent {
+        padding: 0.5rem 0.3rem;
+    }
+    
+    .stageIconContainer {
+        width: 2.5rem;
+        height: 2.5rem;
+        min-width: 2.5rem;
+        min-height: 2.5rem;
+        border-radius: 8px;
+    }
+    
+    .stageIcon {
+        font-size: 1.75rem !important;
+    }
+    
+    .stageTitle {
+        font-size: 0.9rem !important;
+    }
+    
+    .stageDescription {
+        font-size: 0.75rem !important;
+    }
+    
+    .stageTAT {
+        font-size: 0.85rem !important;
+        min-width: 60px;
+    }
+    
+    .sapUiView[data-controller-name*="Activity"] .sapMCLI {
+        padding: 0.4rem;
+        margin: 0.3rem 0.4rem;
+    }
+    
+    .sapUiView[data-controller-name*="Activity"] .sapMCLI .sapMHBox {
+        padding: 0.4rem;
+    }
+    
+    .sapUiView[data-controller-name*="Activity"] .sapMCLI .sapUiCoreIcon {
+        font-size: 1.5rem !important;
+    }
+    
+    /* Event Details - Small Mobile */
+    .eventDetailItem {
+        margin: 0.3rem 0.4rem;
+        border-radius: 8px;
+    }
+    
+    .eventDetailContent {
+        padding: 0.5rem 0.3rem;
+    }
+    
+    .eventIconContainer {
+        width: 2.5rem;
+        height: 2.5rem;
+        min-width: 2.5rem;
+        min-height: 2.5rem;
+        border-radius: 8px;
+    }
+    
+    .eventIcon {
+        font-size: 1.75rem !important;
+    }
+    
+    .eventTitle {
+        font-size: 0.9rem !important;
+    }
+    
+    .eventDescription {
+        font-size: 0.75rem !important;
+    }
+    
+    /* Panel adjustments - Small Mobile */
+    .sapUiView[data-controller-name*="Activity"] .sapMPanel {
+        margin-bottom: 0.25rem;
+    }
+    
+    .sapUiView[data-controller-name*="Activity"] .sapMPanelContent {
+        max-height: 300px;
+    }
+    
+    /* VBox padding - Small Mobile */
+    .sapUiView[data-controller-name*="Activity"] .sapMVBox.sapUiSmallMargin {
+        padding: 0.5rem !important;
+    }
+    
+    /* Grid layout - Small Mobile */
+    .sapUiLayoutGrid {
+        margin: 0.15rem;
+    }
+}
+
+/* Landscape Mobile - Better use of horizontal space */
+@media (max-width: 768px) and (orientation: landscape) {
+    /* ProcessFlow CSS disabled - DISABLED */
+    /*
+    .activityProcessFlow,
+    .eyeCatchingTimeline {
+        max-height: 280px !important;
+        min-height: 250px !important;
+        height: 280px !important;
+    }
+    
+    .eyeCatchingTimeline .sapSuitePFNode {
+        min-width: 130px !important;
+        min-height: 58px !important;
+    }
+    */
+    
+    #activityDetailsTable {
+        max-height: 220px;
+    }
+}
+
+/* ==================== TRIP STATUS ROW COLORS (HOME) ==================== */
+/* Yellow = not trip-completed; green = trip finished (Completed / Done / Trip Completed / …). */
+/* Classes are applied on tr.sapMListTblRow (see HomePage onTripTableUpdateFinished). */
+
+.homeTripTable tr.sapMListTblRow.tripStatusCategoryInProgress,
+.homeTripTable tr.sapMListTblRow.tripStatusCategoryInProgress > .sapMListTblCell {
+    background-color: #fff9c4 !important;
+}
+
+.homeTripTable tr.sapMListTblRow.tripStatusCategoryInProgress {
+    border-left: 4px solid #fbc02d !important;
+}
+
+.homeTripTable tr.sapMListTblRow.tripStatusCategoryCompleted,
+.homeTripTable tr.sapMListTblRow.tripStatusCategoryCompleted > .sapMListTblCell {
+    background-color: #e8f5e9 !important;
+}
+
+.homeTripTable tr.sapMListTblRow.tripStatusCategoryCompleted {
+    border-left: 4px solid #66bb6a !important;
+}
+
+/* ==================== LOADING/UNLOADING TABLE INPUT FIELDS STYLING ==================== */
+
+/* Compact and clean input fields in Loading/Unloading tables */
+#idLoadingMaterialTable .sapMInput,
+#idUnloadingMaterialTable .sapMInput {
+    min-width: 0 !important;
+    margin: 0 !important;
+}
+
+/* Input field base styling - clean and compact */
+#idLoadingMaterialTable .sapMInputBase,
+#idUnloadingMaterialTable .sapMInputBase {
+    border-radius: 4px !important;
+    border: 1px solid #d1d5db !important;
+    background-color: #ffffff !important;
+    transition: all 0.2s ease !important;
+    padding: 0.25rem 0.5rem !important;
+    height: 2rem !important;
+    min-height: 2rem !important;
+}
+
+/* Input field focus state */
+#idLoadingMaterialTable .sapMInputBase:focus,
+#idUnloadingMaterialTable .sapMInputBase:focus,
+#idLoadingMaterialTable .sapMInputBase:focus-within,
+#idUnloadingMaterialTable .sapMInputBase:focus-within {
+    border-color: #0070f2 !important;
+    box-shadow: 0 0 0 2px rgba(0, 112, 242, 0.1) !important;
+    outline: none !important;
+}
+
+/* Input field hover state */
+#idLoadingMaterialTable .sapMInputBase:hover,
+#idUnloadingMaterialTable .sapMInputBase:hover {
+    border-color: #9ca3af !important;
+}
+
+/* Checkbox styling - centered and clean */
+#idLoadingMaterialTable .sapMCb,
+#idUnloadingMaterialTable .sapMCb {
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+#idLoadingMaterialTable .sapMCbBg,
+#idUnloadingMaterialTable .sapMCbBg {
+    border-radius: 3px !important;
+    border: 1.5px solid #6b7280 !important;
+    transition: all 0.2s ease !important;
+}
+
+#idLoadingMaterialTable .sapMCb:focus .sapMCbBg,
+#idUnloadingMaterialTable .sapMCb:focus .sapMCbBg {
+    border-color: #0070f2 !important;
+    box-shadow: 0 0 0 2px rgba(0, 112, 242, 0.1) !important;
+}
+
+/* Table cell padding for better spacing */
+#idLoadingMaterialTable .sapMListTblCell,
+#idUnloadingMaterialTable .sapMListTblCell {
+    padding: 0.5rem 0.75rem !important;
+    vertical-align: middle !important;
+}
+
+/* Numeric input fields - right aligned and clean */
+#idLoadingMaterialTable .sapMInput[type="Number"],
+#idUnloadingMaterialTable .sapMInput[type="Number"] {
+    font-family: '72', '72full', Arial, Helvetica, sans-serif !important;
+    font-variant-numeric: tabular-nums !important;
+}
+
+/* Text input in remark field */
+#idLoadingMaterialTable .sapMInput:not([type="Number"]),
+#idUnloadingMaterialTable .sapMInput:not([type="Number"]) {
+    text-align: left !important;
+}
+
+/* HBox for checkbox - ensure proper centering */
+#idLoadingMaterialTable .sapMHBox[justify-content="Center"],
+#idUnloadingMaterialTable .sapMHBox[justify-content="Center"] {
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+}
+
+/* Read-only text fields - clean appearance */
+#idLoadingMaterialTable .sapMText[text-align="End"],
+#idUnloadingMaterialTable .sapMText[text-align="End"] {
+    font-variant-numeric: tabular-nums !important;
+    font-weight: 500 !important;
+    color: #374151 !important;
+}
+
+/* Net Weight display - calculated field styling */
+#idLoadingMaterialTable .sapMText[text-align="End"]:last-of-type,
+#idUnloadingMaterialTable .sapMText[text-align="End"]:last-of-type {
+    font-weight: 600 !important;
+    color: #1f2937 !important;
+}
+
+/* ==================== STAGE CONTENT ==================== */
+#stagePage .sapMPageContent {
+    padding-top: 0 !important;
+}
+
+.stageContentVBox {
+    padding-top: 0.5rem !important; /* breathing room so tabs are not cut from top */
+    margin-top: 0 !important;
+}
+
+/* HomePage-like visual framing for Stage tabs */
+#stagePage .homeLikeTabs.sapMITB {
+    margin-left: 0 !important;
+    border-radius: var(--plms-radius-sm);
+}
+
+#stagePage .homeLikeTabs .sapMITBContent {
+    background: var(--plms-neutral-bg-soft) !important;
+    padding: 0.25rem 0.5rem 0.5rem 0.5rem !important;
+}
+
+#stagePage .homeLikeTabs .sapMITBFilter {
+    border-radius: var(--plms-radius-sm) !important;
+}
+
+#stagePage .homeLikeTabs .sapMITBSelected .sapMITBContentArrow::after {
+    background: var(--plms-primary) !important;
+}
+
+/* Make tab forms (Reporting/RefDoc/GateIn/GateOut/others) match HomePage input visual */
+#stagePage .sapMITBContent .sapMPanel .sapMPanelContent {
+    background: linear-gradient(180deg, #fafcfe 0%, #ffffff 55%, #ffffff 100%) !important;
+}
+
+#stagePage .sapMITBContent .sapMLabel,
+#stagePage .sapMITBContent .sapMLabel .sapMLabelInner {
+    color: var(--sapTextColor, #32363a) !important;
+    font-size: 0.875rem !important;
+    letter-spacing: 0.02em !important;
+    padding-bottom: 0.375rem !important;
+}
+
+#stagePage .sapMITBContent .sapMInputBaseContentWrapper,
+#stagePage .sapMITBContent .sapMTextArea .sapMInputBaseContentWrapper,
+#stagePage .sapMITBContent .sapMSlt,
+#stagePage .sapMITBContent .sapMComboBox .sapMInputBaseContentWrapper,
+#stagePage .sapMITBContent .sapMComboBoxBase .sapMInputBaseContentWrapper,
+#stagePage .sapMITBContent .sapMDatePicker .sapMInputBaseContentWrapper,
+#stagePage .sapMITBContent .sapMTimePicker .sapMInputBaseContentWrapper {
+    border: 1px solid #c8d0dd !important;
+    border-radius: 0.75rem !important;
+    background: #ffffff !important;
+    box-shadow: none !important;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
+    overflow: hidden !important;
+}
+
+#stagePage .sapMITBContent .sapMInputBase:not(.sapMInputBaseDisabled):hover .sapMInputBaseContentWrapper,
+#stagePage .sapMITBContent .sapMTextArea:not(.sapMInputBaseDisabled):hover .sapMInputBaseContentWrapper,
+#stagePage .sapMITBContent .sapMSlt:hover,
+#stagePage .sapMITBContent .sapMComboBoxBase:hover .sapMInputBaseContentWrapper {
+    border-color: #a8b4c4 !important;
+}
+
+#stagePage .sapMITBContent .sapMInputBase:focus-within .sapMInputBaseContentWrapper,
+#stagePage .sapMITBContent .sapMInputBase.sapMInputBaseFocus .sapMInputBaseContentWrapper,
+#stagePage .sapMITBContent .sapMComboBoxBase.sapMFocus .sapMInputBaseContentWrapper,
+#stagePage .sapMITBContent .sapMSlt.sapMSltFocused {
+    border-color: var(--plms-primary) !important;
+    box-shadow: 0 0 0 2px rgba(0, 112, 242, 0.2) !important;
+}
+
+/* Preserve UI5 ValueState styling (our generic border overrides above are very strong). */
+#stagePage .sapMITBContent .sapMInputBase.sapMInputBaseStateError .sapMInputBaseContentWrapper,
+#stagePage .sapMITBContent .sapMInputBase.sapMInputBaseError .sapMInputBaseContentWrapper,
+#stagePage .sapMITBContent .sapMInputBaseStateError .sapMInputBaseContentWrapper,
+#stagePage .sapMITBContent .sapMInputBaseContentWrapper.sapMInputBaseContentWrapperError,
+#stagePage .sapMITBContent .sapMComboBoxBase.sapMInputBaseStateError .sapMInputBaseContentWrapper,
+#stagePage .sapMITBContent .sapMDatePicker.sapMInputBaseStateError .sapMInputBaseContentWrapper,
+#stagePage .sapMITBContent .sapMTimePicker.sapMInputBaseStateError .sapMInputBaseContentWrapper,
+#stagePage .sapMITBContent .sapMSlt.sapMSltError,
+#stagePage .sapMITBContent .sapMSlt.sapMSltStateError {
+    border-color: var(--sapField_InvalidColor, #bb0000) !important;
+    box-shadow: 0 0 0 1px rgba(187, 0, 0, 0.25) !important;
+}
+
+/* Ensure inner field corners also stay rounded (SAP theme-safe override) */
+#stagePage .sapMITBContent .sapMInputBaseInner,
+#stagePage .sapMITBContent .sapMTextAreaInner,
+#stagePage .sapMITBContent .sapMSltLabel {
+    border-radius: 0.75rem !important;
+}
+
+/* Keep disabled/read-only fields visually consistent too */
+#stagePage .sapMITBContent .sapMInputBase.sapMInputBaseDisabled .sapMInputBaseContentWrapper,
+#stagePage .sapMITBContent .sapMInputBase[readonly="readonly"] .sapMInputBaseContentWrapper {
+    background: #f8fbff !important;
+    border-color: #d5deea !important;
+}
+
+/* ==================== SUBVIEW VISUAL CONSISTENCY (LIKE HOMEPAGE) ==================== */
+/* Keep all stage subviews on the same visual language as HomePage cards and tables. */
+.sapUiView[data-controller-name*=".controller.subview."] {
+    background: var(--plms-neutral-bg-soft);
+}
+
+.sapUiView[data-controller-name*=".controller.subview."] .sapMVBox.sapUiSmallMargin,
+.sapUiView[data-controller-name*=".controller.subview."] .sapMVBox.sapUiTinyMargin {
+    margin: 0.5rem !important;
+}
+
+.sapUiView[data-controller-name*=".controller.subview."] .sapMPanel {
+    border-radius: var(--plms-radius-sm) !important;
+    border: 1px solid var(--plms-neutral-border) !important;
+    box-shadow: var(--plms-shadow) !important;
+    overflow: hidden;
+    background: #ffffff !important;
+}
+
+.sapUiView[data-controller-name*=".controller.subview."] .sapMPanel + .sapMPanel {
+    margin-top: 0.5rem !important;
+}
+
+.sapUiView[data-controller-name*=".controller.subview."] .sapMPanel .sapMTB {
+    background: var(--plms-neutral-bg) !important;
+    border-bottom: 1px solid var(--plms-neutral-border) !important;
+}
+
+.sapUiView[data-controller-name*=".controller.subview."] .sapMPanel .sapMPanelHdr,
+.sapUiView[data-controller-name*=".controller.subview."] .sapMPanel .sectionPanelTitle {
+    color: var(--plms-primary-text) !important;
+    font-weight: 700 !important;
+}
+
+.sapUiView[data-controller-name*=".controller.subview."] .sapMTable {
+    border-radius: var(--plms-radius-sm);
+    border: 1px solid var(--plms-neutral-border);
+    background: #ffffff;
+}
+
+.sapUiView[data-controller-name*=".controller.subview."] .sapMColumnHeader {
+    background-color: var(--plms-neutral-bg) !important;
+    border-bottom: 2px solid var(--plms-neutral-border) !important;
+}
+
+.sapUiView[data-controller-name*=".controller.subview."] .sapMListTblRow:nth-child(even) {
+    background-color: var(--plms-row-alt);
+}
+
+.sapUiView[data-controller-name*=".controller.subview."] .sapMListTblRow:hover {
+    background-color: var(--plms-row-hover);
+}
+
+.sapUiView[data-controller-name*=".controller.subview."] .sapMInputBaseContentWrapper,
+.sapUiView[data-controller-name*=".controller.subview."] .sapMSelectListItemBase,
+.sapUiView[data-controller-name*=".controller.subview."] .sapMSlt {
+    border-radius: var(--plms-radius-sm) !important;
+}
+
+/* Homepage-like user input styling across all subviews */
+.sapUiView[data-controller-name*=".controller.subview."] .sapMLabel,
+.sapUiView[data-controller-name*=".controller.subview."] .sapMLabel .sapMLabelInner {
+    font-size: 0.875rem !important;
+    letter-spacing: 0.02em;
+    color: var(--sapTextColor, #32363a) !important;
+    padding-bottom: 0.375rem !important;
+}
+
+.sapUiView[data-controller-name*=".controller.subview."] .sapMInputBaseContentWrapper,
+.sapUiView[data-controller-name*=".controller.subview."] .sapMTextArea .sapMInputBaseContentWrapper,
+.sapUiView[data-controller-name*=".controller.subview."] .sapMSelectListItemBase,
+.sapUiView[data-controller-name*=".controller.subview."] .sapMSlt {
+    border: 1px solid #c8d0dd !important;
+    border-radius: var(--plms-radius-sm) !important;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
+    background: #ffffff !important;
+}
+
+.sapUiView[data-controller-name*=".controller.subview."] .sapMInputBase:not(.sapMInputBaseDisabled):hover .sapMInputBaseContentWrapper,
+.sapUiView[data-controller-name*=".controller.subview."] .sapMTextArea:not(.sapMInputBaseDisabled):hover .sapMInputBaseContentWrapper,
+.sapUiView[data-controller-name*=".controller.subview."] .sapMSlt:hover,
+.sapUiView[data-controller-name*=".controller.subview."] .sapMComboBox:hover {
+    border-color: #a8b4c4 !important;
+}
+
+.sapUiView[data-controller-name*=".controller.subview."] .sapMInputBase:focus-within .sapMInputBaseContentWrapper,
+.sapUiView[data-controller-name*=".controller.subview."] .sapMInputBase.sapMInputBaseFocus .sapMInputBaseContentWrapper,
+.sapUiView[data-controller-name*=".controller.subview."] .sapMSlt.sapMSltFocused,
+.sapUiView[data-controller-name*=".controller.subview."] .sapMComboBoxBase.sapMFocus .sapMInputBaseContentWrapper {
+    border-color: var(--plms-primary) !important;
+    box-shadow: 0 0 0 2px rgba(0, 112, 242, 0.2) !important;
+}
+
+.sapUiView[data-controller-name*=".controller.subview."] .sapMInputBaseInner::placeholder,
+.sapUiView[data-controller-name*=".controller.subview."] .sapMTextAreaInner::placeholder {
+    color: var(--sapField_PlaceholderTextColor, #6a6d70) !important;
+    -webkit-text-fill-color: var(--sapField_PlaceholderTextColor, #6a6d70) !important;
+    font-style: italic;
+}
+
+/* Exact control rhythm: height + spacing aligned across all app subviews */
+.sapUiView[data-controller-name*=".controller.subview."] .sapMInputBase,
+.sapUiView[data-controller-name*=".controller.subview."] .sapMSlt,
+.sapUiView[data-controller-name*=".controller.subview."] .sapMComboBoxBase {
+    height: 2.5rem !important;
+    min-height: 2.5rem !important;
+}
+
+.sapUiView[data-controller-name*=".controller.subview."] .sapMInputBaseContentWrapper,
+.sapUiView[data-controller-name*=".controller.subview."] .sapMSlt {
+    min-height: 2.5rem !important;
+}
+
+.sapUiView[data-controller-name*=".controller.subview."] .sapMInputBaseInner,
+.sapUiView[data-controller-name*=".controller.subview."] .sapMSltLabel,
+.sapUiView[data-controller-name*=".controller.subview."] .sapMComboBoxBase .sapMInputBaseInner {
+    height: 2.375rem !important;
+    line-height: 2.375rem !important;
+}
+
+.sapUiView[data-controller-name*=".controller.subview."] .sapMTextArea .sapMInputBaseContentWrapper {
+    min-height: 6rem !important;
+}
+
+.sapUiView[data-controller-name*=".controller.subview."] .sapMTextAreaInner {
+    padding-top: 0.5rem !important;
+    line-height: 1.4 !important;
+}
+
+/* Consistent vertical rhythm between labels and fields */
+.sapUiView[data-controller-name*=".controller.subview."] .sapMVBox > .sapMLabel {
+    margin-bottom: 0.25rem !important;
+}
+
+.sapUiView[data-controller-name*=".controller.subview."] .sapMVBox > .sapMInputBase,
+.sapUiView[data-controller-name*=".controller.subview."] .sapMVBox > .sapMSlt,
+.sapUiView[data-controller-name*=".controller.subview."] .sapMVBox > .sapMComboBoxBase,
+.sapUiView[data-controller-name*=".controller.subview."] .sapMVBox > .sapMTextArea {
+    margin-bottom: 0.5rem !important;
+}
+
+/* Stronger HomePage-like structure for all Stage tab subviews */
+#stagePage .sapMITBContent {
+    background: var(--plms-neutral-bg-soft) !important;
+}
+
+#stagePage .sapMITBContent .sapUiView[data-controller-name*=".controller.subview."] {
+    background: transparent !important;
+}
+
+#stagePage .sapMITBContent .sapUiView[data-controller-name*=".controller.subview."] > .sapMVBox {
+    margin: 0.5rem !important;
+}
+
+/* Bold Document Number in ReferenceDocuments "Document Number" ComboBox dropdown */
+.plmsRefDocNumberBold {
+    font-weight: 700 !important;
+}
+
+#stagePage .sapMITBContent .sapUiView[data-controller-name*=".controller.subview."] .sapMPanel {
+    margin-bottom: 0.75rem !important;
+    border-radius: var(--plms-radius) !important;
+    border: 1px solid var(--plms-neutral-border) !important;
+    box-shadow: var(--plms-shadow) !important;
+    background: #ffffff !important;
+}
+
+#stagePage .sapMITBContent .sapUiView[data-controller-name*=".controller.subview."] .sapMPanel .sapMPanelWrappingDiv,
+#stagePage .sapMITBContent .sapUiView[data-controller-name*=".controller.subview."] .sapMPanel .sapMPanelContent {
+    background: linear-gradient(180deg, #fafcfe 0%, #ffffff 55%, #ffffff 100%) !important;
+}
+
+#stagePage .sapMITBContent .sapUiView[data-controller-name*=".controller.subview."] .sapMPanel .sapMTB {
+    min-height: 2.25rem !important;
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+    background: var(--plms-neutral-bg) !important;
+    border-bottom: 1px solid var(--plms-neutral-border) !important;
+}
+
+#stagePage .sapMITBContent .sapUiView[data-controller-name*=".controller.subview."] .sapMPanel .sapMPanelContent {
+    padding: 1rem 1rem 0.75rem 1rem !important;
+}
+
+#stagePage .sapMITBContent .sapUiView[data-controller-name*=".controller.subview."] .sapUiLayoutGrid {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+}
+
+#stagePage .sapMITBContent .sapUiView[data-controller-name*=".controller.subview."] .sapMPanel .sapMHBox[justify-content="End"] {
+    margin-top: 0.5rem !important;
+    padding-right: 0 !important;
+}
+
+/* ==================== APP-WIDE INPUT LOOK (HOMEPAGE STYLE) ==================== */
+/* Unified rounded inputs/selects/date pickers across the whole application */
+.sapMInputBaseContentWrapper,
+.sapMTextArea .sapMInputBaseContentWrapper,
+.sapMComboBoxBase .sapMInputBaseContentWrapper,
+.sapMDatePicker .sapMInputBaseContentWrapper,
+.sapMTimePicker .sapMInputBaseContentWrapper,
+.sapMDateTimeInput .sapMInputBaseContentWrapper,
+.sapMSlt {
+    border: 1px solid #c8d0dd !important;
+    border-radius: 0.75rem !important;
+    background: #ffffff !important;
+    box-shadow: none !important;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
+    overflow: hidden !important;
+}
+
+.sapMInputBase:not(.sapMInputBaseDisabled):hover .sapMInputBaseContentWrapper,
+.sapMTextArea:not(.sapMInputBaseDisabled):hover .sapMInputBaseContentWrapper,
+.sapMComboBoxBase:not(.sapMComboBoxBaseDisabled):hover .sapMInputBaseContentWrapper,
+.sapMSlt:hover {
+    border-color: #a8b4c4 !important;
+}
+
+.sapMInputBase:focus-within .sapMInputBaseContentWrapper,
+.sapMInputBase.sapMInputBaseFocus .sapMInputBaseContentWrapper,
+.sapMComboBoxBase.sapMFocus .sapMInputBaseContentWrapper,
+.sapMSlt.sapMSltFocused {
+    border-color: var(--plms-primary) !important;
+    box-shadow: 0 0 0 2px rgba(0, 112, 242, 0.2) !important;
+}
+
+.sapMInputBaseInner,
+.sapMTextAreaInner,
+.sapMSltLabel {
+    border-radius: 0.75rem !important;
+}
+
+/* Let UI5/app language decide input direction/alignment (LTR/RTL). */
+
+.sapMInputBaseInner::placeholder,
+.sapMTextAreaInner::placeholder {
+    color: var(--sapField_PlaceholderTextColor, #6a6d70) !important;
+    -webkit-text-fill-color: var(--sapField_PlaceholderTextColor, #6a6d70) !important;
+    font-style: italic;
+}
+
+/* ==================== CARD TIMELINE (Activity Analysis) ==================== */
+/* Horizontal scroll: overflow rules are set with .sapMScrollContH above */
+.plmsCardTimelineScroll.sapMScrollContainer {
+    overflow-y: hidden !important;
+}
+
+/* FlexBox row: keep stable spacing */
+.plmsCardTimelineRow.sapMFlexBox {
+    gap: 0.75rem;
+    padding: 0.25rem 0.25rem 0.75rem 0.25rem;
+    align-items: stretch;
+}
+
+/* Individual card: enforce size so cards don't overlap */
+.plmsTimelineCard {
+    flex: 0 0 18rem; /* prevents shrink/overlap */
+    min-width: 18rem;
+    max-width: 22rem;
+    box-sizing: border-box;
+    overflow: hidden;
+
+    border: 1px solid #d7e1ef !important;
+    background: #ffffff !important;
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08) !important;
+    border-radius: 12px;
+}
+
+.plmsTimelineCard::after {
+    background: linear-gradient(90deg, #94a3b8, #64748b) !important;
+}
+
+.plmsTimelineCardHeader {
+    padding: 0.75rem 0.75rem 0.5rem 0.75rem;
+    background: linear-gradient(90deg, #f5f8ff 0%, #eef4ff 100%) !important;
+    border-bottom: 1px solid #dbe3ef !important;
+}
+
+.plmsTimelineCardIcon.sapUiIcon {
+    margin-right: 0.5rem;
+    padding: 0.35rem;
+    border-radius: 999px;
+    color: #1d4ed8 !important;
+    background: #ffffff !important;
+    box-shadow: 0 4px 10px rgba(29, 78, 216, 0.12) !important;
+}
+
+.plmsTimelineCardPill {
+    padding: 0.25rem 0.5rem;
+    border-radius: 999px;
+    background: #eff6ff !important;
+    border: 1px solid #bfdbfe !important;
+    color: #1e3a8a !important;
+}
+
+.plmsTimelineCardBody {
+    padding: 0.75rem;
+}
+
+.plmsTimelineCardTitle.sapMText {
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.plmsTimelineCardMeta.sapMText {
+    font-size: 0.8125rem;
+    color: #64748b;
+}
+
+.plmsTimelineCardLine.sapMText {
+    line-height: 1.25;
+}
+
+/* ========== Incoming materials dialog (layout + polish) ========== */
+.incomingMaterialsDialog.sapMDialog {
+    max-width: min(640px, 96vw);
+    box-sizing: border-box;
+}
+
+.incomingMaterialsDialog.sapMDialog .sapMDialogSection,
+.incomingMaterialsDialog.sapMDialog .sapMDialogScroll,
+.incomingMaterialsDialog.sapMDialog .sapMDialogScrollCont {
+    box-sizing: border-box;
+    max-width: 100%;
+    overflow-x: hidden;
+    /* Avoid nested/double vertical scrollbars; UI5 manages dialog scrolling */
+    overflow-y: hidden;
+}
+
+.incomingMaterialsDialog.sapMDialog .sapMDialogScrollCont {
+    overflow-y: auto;
+}
+
+.incomingMaterialsDialogContent {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 0.75rem 1.25rem 1rem;
+}
+
+.plmsIncomingIntro.sapMText {
+    color: #64748b;
+    font-size: 0.875rem;
+    line-height: 1.45;
+}
+
+.incomingMaterialsDialog .plmsIncomingPanel.sapMPanel {
+    border: 1px solid var(--plms-neutral-border, #dfe7f2);
+    border-radius: var(--plms-radius-sm, 8px);
+    background: var(--plms-neutral-bg-soft, #fafbfc);
+    box-shadow: var(--plms-shadow, 0 2px 8px rgba(0, 0, 0, 0.06));
+    margin-bottom: 0;
+}
+
+.incomingMaterialsDialog .plmsIncomingPanelFollow.sapMPanel {
+    margin-top: 0.75rem;
+}
+
+.incomingMaterialsDialog .plmsIncomingPanel .sapMPanelContent {
+    padding: 0 1rem 1rem;
+    box-sizing: border-box;
+}
+
+.incomingMaterialsDialog .plmsIncomingPanelToolbar.sapMTB {
+    border-bottom: 1px solid var(--plms-neutral-border, #dfe7f2);
+    padding: 0.5rem 1rem 0.35rem;
+    height: auto;
+    min-height: 2.5rem;
+}
+
+.incomingMaterialsDialog .plmsIncomingPanelTitle.sapMTitle {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--plms-primary-text, #1c4e80);
+}
+
+.plmsIncomingHint.sapMText {
+    font-size: 0.8125rem;
+    color: #64748b;
+    line-height: 1.35;
+}
+
+.plmsIncomingSuccessText.sapMText {
+    display: block;
+    padding: 0.65rem 0.85rem;
+    border-radius: var(--plms-radius-sm, 8px);
+    background: #ecfdf5;
+    border: 1px solid #a7f3d0;
+    color: #065f46;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.incomingMaterialsDialog .incomingMaterialsSearchWrap {
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+.incomingMaterialsDialog .incomingMaterialsInputRow {
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+    gap: 0.5rem;
+}
+
+.incomingMaterialsDialog .incomingMaterialsInputRow .sapMInput {
+    min-width: 0 !important;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+.incomingMaterialsDialog .plmsIncomingActionBtn.sapMBtn {
+    flex-shrink: 0;
+}
+
+/* Select: full width only — do NOT override display:flex on .sapMSlt (breaks dropdown alignment) */
+.incomingMaterialsDialog .incomingMaterialsSearchSelect.sapMSlt {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+/* Incoming "Scan / Enter code" — keep input rounded */
+.incomingMaterialsDialog .plmsRvScanRow {
+    gap: 0.5rem !important; /* consistent spacing for PO + SCAN rows */
+}
+
+/* Standalone inputs (e.g. PO): full radius; scan row overrides corners above */
+.incomingMaterialsDialog .plmsRvScanInput .sapMInputBaseContentWrapper {
+    border-radius: var(--plms-radius-sm, 8px) !important;
+}
+
+.incomingMaterialsDialog .plmsRvScanBtn .sapMBtnInner {
+    min-width: 3rem !important;
+    border-radius: var(--plms-radius-sm, 8px) !important;
+}
+
+/* ==================== GATE IN: BIN / TROLLEY TRACKING ==================== */
+.binTrolleyTrackingTable {
+    border: 1px solid #a8e4d1 !important;
+    border-radius: 12px !important;
+    overflow: hidden;
+}
+
+.binTrolleyTrackingTable .sapMListTblHeaderCell {
+    background: #d8ebe4 !important;
+}
+
+.binTrolleyTrackingTable .sapMColumnHeader .sapMText {
+    font-weight: 700 !important;
+    color: #4c6282 !important;
+    letter-spacing: 0.06em;
+}
+
+.binTrolleyPartCode {
+    font-weight: 700 !important;
+    color: #0c2240 !important;
+}
+
+.binTrolleyTrackingTable .sapMInputBaseContentWrapper {
+    border-radius: 12px !important;
+}
+
+.binTrolleyDifference .sapMObjStatusText {
+    font-weight: 700 !important;
+    font-size: 1.6rem !important;
+}
+
+.binTrolleyTrackingTable .sapMObjStatusInverted.sapMObjStatusSuccess {
+    background-color: rgba(16, 185, 129, 0.14) !important;
+    border: 1px solid rgba(16, 185, 129, 0.36) !important;
+}
+
+.binTrolleyTrackingTable .sapMObjStatusInverted.sapMObjStatusWarning {
+    background-color: rgba(245, 158, 11, 0.14) !important;
+    border: 1px solid rgba(245, 158, 11, 0.4) !important;
+}
+
+.binTrolleyTrackingTable .sapMObjStatusInverted.sapMObjStatusError {
+    background-color: rgba(239, 68, 68, 0.14) !important;
+    border: 1px solid rgba(239, 68, 68, 0.36) !important;
+}
+
+.binTrolleyTrackingTable .sapMObjStatusInverted.sapMObjStatusInformation {
+    background-color: rgba(59, 130, 246, 0.14) !important;
+    border: 1px solid rgba(59, 130, 246, 0.36) !important;
+}
+
+.binTrolleyTrackingTotalBar {
+    background: #d8ebe4;
+    border-top: 2px solid #9adfc4;
+    padding: 0.8rem 1rem;
+    border-radius: 0 0 12px 12px;
+}
+
+.binTrolleyTrackingTotalLabel {
+    font-weight: 800 !important;
+    color: #7b8da8 !important;
+    letter-spacing: 0.08em;
+}
+
+.binTrolleyTrackingTotalDiff .sapMObjStatusText {
+    font-weight: 800 !important;
+}
+
+/* ==================== GATE OUT: BIN / TROLLEY TRACKING ==================== */
+.gateOutBinTrolleyTable {
+    border: 1px solid #c6d1e4 !important;
+    border-radius: 12px !important;
+    overflow: hidden;
+}
+
+.gateOutBinTrolleyTable .sapMListTblHeaderCell {
+    background: #d8dee9 !important;
+}
+
+.gateOutBinTrolleyTable .sapMColumnHeader .sapMText {
+    font-weight: 700 !important;
+    color: #4c6282 !important;
+    letter-spacing: 0.06em;
+}
+
+.gateOutBinTrolleyTable .sapMObjStatusInverted.sapMObjStatusInformation {
+    background-color: rgba(59, 130, 246, 0.14) !important;
+    border: 1px solid rgba(59, 130, 246, 0.36) !important;
+}
+
+.gateOutBinTrolleyTable .sapMObjStatusInverted.sapMObjStatusWarning {
+    background-color: rgba(245, 158, 11, 0.14) !important;
+    border: 1px solid rgba(245, 158, 11, 0.4) !important;
+}
+
+.gateOutBinTrolleyTable .sapMObjStatusInverted.sapMObjStatusSuccess {
+    background-color: rgba(16, 185, 129, 0.14) !important;
+    border: 1px solid rgba(16, 185, 129, 0.36) !important;
+}
+
+/* ==================== GATE OUT: SEARCH BY CARD ==================== */
+.gateOutSearchCard {
+    background: linear-gradient(180deg, #fafcfe 0%, #ffffff 65%, #ffffff 100%) !important;
+    border: 1px solid var(--plms-neutral-border, #dfe7f2) !important;
+    border-radius: var(--plms-radius, 12px) !important;
+    box-shadow: var(--plms-shadow, 0 4px 12px rgba(0, 0, 0, 0.08)) !important;
+    padding-top: 0.75rem !important;
+    padding-bottom: 0.35rem !important;
+}
+
+.gateOutSearchCard .sapMLabel,
+.gateOutSearchCard .sapMLabel .sapMLabelInner {
+    font-weight: 600 !important;
+    color: var(--plms-primary-text, #1c4e80) !important;
+}
+
+.gateOutSearchSelect.sapMSlt,
+.gateOutSearchInput .sapMInputBaseContentWrapper {
+    border-radius: 0.75rem !important;
+}
+
+/* ==================== TABLE WIDTH SAFETY (STAGE SUBVIEWS) ==================== */
+/* Prevent phantom horizontal overflow from inherited left margins/paddings */
+#stagePage .sapMITBContent .sapUiView[data-controller-name*=".controller.subview."] .sapUiLayoutGrid,
+#stagePage .sapMITBContent .sapUiView[data-controller-name*=".controller.subview."] .sapMScrollContainer,
+#stagePage .sapMITBContent .sapUiView[data-controller-name*=".controller.subview."] .sapMList,
+#stagePage .sapMITBContent .sapUiView[data-controller-name*=".controller.subview."] .sapMTable {
+    margin-left: 0 !important;
+    padding-left: 0 !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+#stagePage .sapMITBContent .sapUiView[data-controller-name*=".controller.subview."] .sapMListTblCnt {
+    overflow-x: hidden !important;
+}
+
+/* Scoped LTR typing fix: prevent inherited RTL caret behavior in app inputs */
+.myAppLTRFix .sapMInputBaseInner,
+.myAppLTRFix .sapMTextAreaInner,
+.myAppLTRFix .sapMComboBoxBase .sapMInputBaseInner {
+    direction: ltr !important;
+    text-align: left !important;
+    unicode-bidi: normal !important;
+}

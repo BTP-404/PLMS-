@@ -1,221 +1,1220 @@
 sap.ui.define([
 	"sap/ui/core/mvc/Controller",
-	"sap/ui/core/Core",
-	"sap/m/StandardListItem"
-], function(Controller, Core, StandardListItem) {
+	"sap/ui/model/json/JSONModel",
+	"sap/ui/model/odata/v2/ODataModel",
+	"sap/m/MessageBox",
+	"sap/m/MessageToast",
+	"sap/m/ButtonType",
+	"sap/ui/model/Filter",
+	"sap/ui/model/FilterOperator",
+	"com/incresolZ_INC_PLMS/util/MovementScenarioIcons",
+	"com/incresolZ_INC_PLMS/util/TripDataDocumentsVerified",
+	"com/incresolZ_INC_PLMS/util/VehicleTypeConfig"
+], function(Controller, JSONModel, ODataModel, MessageBox, MessageToast, ButtonType, Filter, FilterOperator, MovementScenarioIcons, TripDataDocumentsVerified, VehicleTypeConfig) {
 	"use strict";
 	return Controller.extend("com.incresolZ_INC_PLMS.controller.Stage", {
 		onInit: function() {
 			var oRouter = this.getOwnerComponent().getRouter();
-			oRouter.getRoute("Stage").attachPatternMatched(this._onRouteMatched, this);
-			oRouter.getRoute("StagewithParam").attachPatternMatched(this._onRouteMatched, this);
-		},
-		onAfterRendering: function() {},
+			oRouter.getRoute("Stage").attachPatternMatched(this._onRouteMatched, this);//new Vehicle Reporting Case
+			oRouter.getRoute("StagewithParam").attachPatternMatched(this._onRouteMatched, this); // existing vehicle
 
-		_onRouteMatched: function(oEvent) {
-			var sTripNumber = oEvent.getParameter("arguments").tripNo;
-			console.log("Navigated with Trip:", sTripNumber);
+			// Ensure global trip model exists upfront
+			var oGlobalModel = sap.ui.getCore().getModel("globalData");
+			if (!oGlobalModel) {
+				oGlobalModel = new JSONModel({
+					TripNumber: "",
+					CanReopenTrip: false,
+					TripCompleted: false,
+					TripUnlocked: false,
+					ReopenAuthLoadedForPlant: "",
+					ReopenAuthLoaded: false,
+					ReopenAuthLoading: false
+				});
+				sap.ui.getCore().setModel(oGlobalModel, "globalData");
+			} else {
+				// Backward compatible: ensure properties exist even if model was created earlier.
+				if (oGlobalModel.getProperty("/CanReopenTrip") === undefined) {
+					oGlobalModel.setProperty("/CanReopenTrip", false);
+				}
+				if (oGlobalModel.getProperty("/TripCompleted") === undefined) {
+					oGlobalModel.setProperty("/TripCompleted", false);
+				}
+				if (oGlobalModel.getProperty("/TripUnlocked") === undefined) {
+					oGlobalModel.setProperty("/TripUnlocked", false);
+				}
+				if (oGlobalModel.getProperty("/ReopenAuthLoadedForPlant") === undefined) {
+					oGlobalModel.setProperty("/ReopenAuthLoadedForPlant", "");
+				}
+				if (oGlobalModel.getProperty("/ReopenAuthLoaded") === undefined) {
+					oGlobalModel.setProperty("/ReopenAuthLoaded", false);
+				}
+				if (oGlobalModel.getProperty("/ReopenAuthLoading") === undefined) {
+					oGlobalModel.setProperty("/ReopenAuthLoading", false);
+				}
+			}
+			// Bind Stage view to the current globalData model instance so UI + handlers stay in sync
+			// even if some other controller replaces sap.ui.getCore().setModel("globalData") at runtime.
+			try {
+				this.getView().setModel(oGlobalModel, "globalData");
+			} catch (e) {
+				// best effort
+			}
+			this._initPageTitleModel();
 
-			// You can now filter data for this trip or bind it to the view
+			this._oEventBus = sap.ui.getCore().getEventBus();
+			this._oEventBus.subscribe("TripData", "Updated", this._refreshPageTitleModel, this);
+			this._oEventBus.subscribe("TripData", "Updated", this._updateLoadingUnloadingTabs, this);
+			this._oEventBus.subscribe("TripData", "Updated", this._applyVehicleTypeTabRule, this);
+			this._oEventBus.subscribe("TripData", "Updated", this._updateTripLockState, this);
+			this._oEventBus.subscribe("TripData", "MovementTypeChanged", this._updateLoadingUnloadingTabs, this);
+			this._oEventBus.subscribe("TripData", "Updated", this._updateCancelButtonVisibility, this);
+			this._oEventBus.subscribe("Stage", "TripCreated", this._onTripCreated, this);
+			this._oEventBus.subscribe("Notes", "UnreadCountChanged", this._updateNotesTabIndicator, this);
+			this._oEventBus.subscribe("Stage", "ClearAllTabs", this._onClearAllTabs, this);
+			this._bPendingVehicleTypeTabAutoSelect = false;
+			// When true, Stage shows only Gate In / Gate Out (create-style tab bar) until user opens a trip via StagewithParam.
+			this._bStageTabBarLimited = false;
+			this._sLastSelectedStageTabKey = "gateIn";
+			this.getView().setModel(this._ensureStageUiModel(), "stageUi");
+			// Ensure Stage view inherits the core global model by name
+			try {
+				this.getView().setModel(sap.ui.getCore().getModel("globalData"), "globalData");
+			} catch (e) {
+				// best effort
+			}
+			this._updateTripLockState();
+			this._updateReportingPlacementByVehicleType();
+			
 		},
-		onDriverPhotoChange: function(oEvent) {
-			const oUploader = oEvent.getSource();
-			const aFiles = oEvent.getParameter("files");
-			if (aFiles && aFiles.length > 0) {
-				sap.m.MessageToast.show("Selected file: " + aFiles[0].name);
+	onAfterRendering: function() {
+		this._updateTripLockState();
+		this._updateCancelButtonVisibility();
+		this._updateTabVisibilityForCreateMode();
+		this._updateLoadingUnloadingTabs(); // Call after _updateTabVisibilityForCreateMode to ensure movement type logic takes precedence
+		this._updateHeaderVisibilityForCreateMode();
+	},
+
+		onExit: function () {
+			this._oEventBus?.unsubscribe("TripData", "Updated", this._refreshPageTitleModel, this);
+			this._oEventBus?.unsubscribe("TripData", "Updated", this._updateLoadingUnloadingTabs, this);
+			this._oEventBus?.unsubscribe("TripData", "Updated", this._applyVehicleTypeTabRule, this);
+			this._oEventBus?.unsubscribe("TripData", "Updated", this._updateTripLockState, this);
+			this._oEventBus?.unsubscribe("TripData", "MovementTypeChanged", this._updateLoadingUnloadingTabs, this);
+			this._oEventBus?.unsubscribe("TripData", "Updated", this._updateCancelButtonVisibility, this);
+			this._oEventBus?.unsubscribe("Stage", "TripCreated", this._onTripCreated, this);
+			this._oEventBus?.unsubscribe("Notes", "UnreadCountChanged", this._updateNotesTabIndicator, this);
+			this._oEventBus?.unsubscribe("Stage", "ClearAllTabs", this._onClearAllTabs, this);
+		},
+		
+	_onClearAllTabs: function () {
+		// Clear page title header (Gate Pass No, Vehicle No, Trip status)
+		this.resetPageTitleModel();
+		// Set create mode to ensure header stays clear
+		this._bCreateMode = true;
+		this._bStageTabBarLimited = true;
+		this._sCurrentTripNumber = "";
+		this._updateTabVisibilityForCreateMode();
+		this._updateHeaderVisibilityForCreateMode();
+	},
+
+	_onRouteMatched: function (oEvent) {
+
+		var oArgs = oEvent.getParameter("arguments") || {};
+		var sTripNumber = oArgs.tripNo || "";
+		var oQuery = oArgs["?query"] || {};
+		var sRequestedTabKey = (oQuery && oQuery.tab) ? String(oQuery.tab).trim() : "";
+	
+		// Safely get matched route name
+		var sRouteName = "";
+		try {
+			var oRoute = oEvent.getSource();
+			// Check if route object exists and has getName method
+			if (oRoute && typeof oRoute.getName === "function") {
+				sRouteName = oRoute.getName();
+			} else {
+				// Fallback: determine route based on arguments
+				// If tripNo parameter exists, it's StagewithParam route
+				sRouteName = sTripNumber ? "StagewithParam" : "Stage";
+			}
+		} catch (oError) {
+			// Error handling: determine route based on arguments as fallback
+			sRouteName = sTripNumber ? "StagewithParam" : "Stage";
+		}
+	
+		// ============================
+		//   CASE 1 — CREATE MODE
+		// ============================
+		if (sRouteName === "Stage") {
+			this._bCreateMode = true;
+			this._bStageTabBarLimited = true;
+			this._sCurrentTripNumber = "";
+			this._updateReportingPlacementByVehicleType();
+	
+			sap.ui.getCore().getModel("globalData")?.setProperty("/TripNumber", "");
+			// Create mode normally clears TripData; however, for Incoming-materials gate entry
+			// we may want to prefill Reporting/Gate-In fields (e.g. MovementScenarioDesc, Skip Document).
+			var oGlobal = sap.ui.getCore().getModel("globalData");
+			var sIncomingDesc = (oGlobal?.getProperty("/IncomingMovementScenarioDesc") || "").toString();
+			var sIncomingSkip = (oGlobal?.getProperty("/IncomingRefDocSkip") || " ").toString();
+			var sIncomingPo = (oGlobal?.getProperty("/IncomingPoNumber") || "").toString().trim();
+			var sIncomingDocType = (oGlobal?.getProperty("/IncomingRefDocDocType") || "").toString().trim();
+			var sIncomingMt = (oGlobal?.getProperty("/IncomingMovementType") || "").toString().trim();
+			var sIncomingMs = (oGlobal?.getProperty("/IncomingMovementScenario") || "").toString().trim();
+
+			if (sIncomingPo || sIncomingDesc || sIncomingMt || sIncomingMs || (sIncomingSkip && sIncomingSkip.trim() === "X")) {
+				var sMtDesc = "";
+				if (sIncomingMt && sIncomingMt.toUpperCase() === "I") {
+					sMtDesc = "Inward";
+				} else if (sIncomingMt && sIncomingMt.toUpperCase() === "O") {
+					sMtDesc = "Outward";
+				}
+				var sScenarioItemKey =
+					MovementScenarioIcons.getMovementScenarioItemKey(sIncomingMt, sIncomingMs) || "";
+				sap.ui.getCore().setModel(
+					new JSONModel({
+						MovementScenarioDesc: sIncomingDesc || "",
+						RefDocSkip: (sIncomingSkip && sIncomingSkip.trim() === "X") ? "X" : " ",
+						RefDocType: sIncomingDocType || "",
+						RefDocNo: sIncomingPo || "",
+						MovementType: sIncomingMt || "",
+						MovementScenario: sIncomingMs || "",
+						MovementScenarioItemKey: sScenarioItemKey,
+						MovementTypeDesc: sMtDesc || "",
+					}),
+					"TripData"
+				);
+				sap.ui.getCore().getEventBus().publish("TripData", "Updated");
+			} else if (oGlobal && oGlobal.getProperty("/OutgoingReportPrefill")) {
+				var sOgDesc = (oGlobal.getProperty("/OutgoingMovementScenarioDesc") || "").toString();
+				var sOgSkip = (oGlobal.getProperty("/OutgoingRefDocSkip") || " ").toString();
+				var sOgMs = (oGlobal.getProperty("/OutgoingMovementScenario") || "").toString().trim();
+				var sOgItemKey = (oGlobal.getProperty("/OutgoingMovementScenarioItemKey") || "").toString().trim();
+				var sOgBd = (oGlobal.getProperty("/OutgoingBillingDocument") || "").toString().trim();
+				var sOgRefKey = (oGlobal.getProperty("/OutgoingReferenceByKey") || "").toString().trim().toUpperCase();
+				var sOgBillingDocType = (oGlobal.getProperty("/OutgoingBillingDocType") || "").toString().trim();
+				var sOgPo = (oGlobal.getProperty("/OutgoingPoNumber") || "").toString().trim();
+				var sOgPoDocType = (oGlobal.getProperty("/OutgoingRefDocDocType") || "").toString().trim();
+				var sOgVt = (oGlobal.getProperty("/OutgoingVehicleType") || "").toString().trim();
+				var sOgVtDesc = (oGlobal.getProperty("/OutgoingVehicleTypeDesc") || "").toString().trim();
+				var sReportingRefDocNo = "";
+				var sReportingRefDocType = "";
+				if (sOgRefKey === "PO") {
+					sReportingRefDocNo = sOgPo;
+					sReportingRefDocType = sOgPoDocType;
+				} else {
+					// For INVOICE / CHALLAN, GateOut stores selected number in OutgoingBillingDocument.
+					sReportingRefDocNo = sOgBd;
+					sReportingRefDocType = sOgBillingDocType;
+				}
+				oGlobal.setProperty("/OutgoingReportPrefill", false);
+				var sOgKeySync = sOgItemKey || MovementScenarioIcons.getMovementScenarioItemKey("O", sOgMs) || "";
+				sap.ui.getCore().setModel(
+					new JSONModel({
+						MovementScenarioDesc: sOgDesc || "",
+						RefDocSkip: (sOgSkip && sOgSkip.trim() === "X") ? "X" : " ",
+						RefDocType: sReportingRefDocType || "",
+						RefDocNo: sReportingRefDocNo || "",
+						MovementType: "O",
+						MovementScenario: sOgMs || "",
+						MovementScenarioItemKey: sOgKeySync,
+						MovementTypeDesc: "Outward",
+						BillingDocument: sOgBd || "",
+						VehicleType: sOgVt || "",
+						VehicleTypeDesc: sOgVtDesc || ""
+					}),
+					"TripData"
+				);
+				sap.ui.getCore().getEventBus().publish("TripData", "Updated");
+			} else {
+				sap.ui.getCore().setModel(null, "TripData");
+			}
+	
+		this.resetPageTitleModel();   // ← finally clears
+		this._bPendingVehicleTypeTabAutoSelect = true;
+		this._applyVehicleTypeTabRule();
+		this._updateTripLockState();
+		this._updateCancelButtonVisibility();
+		this._updateTabVisibilityForCreateMode();
+		this._updateLoadingUnloadingTabs(); // Call after _updateTabVisibilityForCreateMode to ensure movement type logic takes precedence
+		this._updateHeaderVisibilityForCreateMode();
+	
+		return;
+		}
+	
+		// ============================
+		//   CASE 2 — UPDATE MODE
+		// ============================
+		if (sRouteName === "StagewithParam") {
+			this._bStageTabBarLimited = false;
+			var sTripKey = /^\d+$/.test(String(sTripNumber || "").trim())
+				? String(sTripNumber).trim().padStart(10, "0")
+				: String(sTripNumber || "").trim();
+			var fnApplyUpdateModeUi = function () {
+				this._bCreateMode = false;
+				this._sCurrentTripNumber = sTripKey || sTripNumber;
+				this._updateReportingPlacementByVehicleType();
+
+				sap.ui.getCore().getModel("globalData")?.setProperty("/TripNumber", sTripKey || sTripNumber);
+
+				if (sRequestedTabKey) {
+					// If caller requested a specific tab (e.g. Gate In), honor it.
+					this._setIconTabSelection(sRequestedTabKey);
+					this._bPendingVehicleTypeTabAutoSelect = false;
+				} else {
+					// Preserve the current active tab in update mode when route does not
+					// explicitly request one (e.g. post-save refresh from Gate In/Gate Out).
+					var oIconTabBar = this.byId("iconTabBar");
+					var sCurrentSelectedKey = oIconTabBar ? String(oIconTabBar.getSelectedKey() || "").trim() : "";
+					var sTabToKeep = sCurrentSelectedKey || this._sLastSelectedStageTabKey || "gateIn";
+					this._setIconTabSelection(sTabToKeep);
+					this._bPendingVehicleTypeTabAutoSelect = false;
+				}
+
+				this._refreshPageTitleModel();
+				this._updateTripLockState();
+				this._updateCancelButtonVisibility();
+				this._updateTabVisibilityForCreateMode();
+				this._updateLoadingUnloadingTabs(); // Call after _updateTabVisibilityForCreateMode to ensure movement type logic takes precedence
+				this._updateHeaderVisibilityForCreateMode();
+			}.bind(this);
+
+			// Always refresh TripData from backend for existing trips.
+			// This prevents stale row-snapshot data from controlling panel visibility.
+			this._loadTripDataForStageRoute(sTripKey || sTripNumber, fnApplyUpdateModeUi);
+	}
+	}
+		
+		,
+		_setIconTabSelection: function (sKey) {
+			var oIconTabBar = this.byId("iconTabBar");
+			var sEffectiveKey = sKey || "gateIn";
+			if (String(sEffectiveKey).trim().toLowerCase() === "gateout") {
+				sEffectiveKey = "gateout";
+			}
+			this._sLastSelectedStageTabKey = sEffectiveKey;
+			if (oIconTabBar) {
+				// Avoid setSelectedKey when unchanged — repeated calls refresh tab content
+				// and reset scroll (Gate In merges Reporting at the top).
+				var sCurrentKey = String(oIconTabBar.getSelectedKey() || "").trim();
+				if (sCurrentKey !== sEffectiveKey) {
+					oIconTabBar.setSelectedKey(sEffectiveKey);
+				}
+			}
+		}
+		,
+
+		/**
+		 * Outgoing + Internal (Config 01): open Gate Out first in create mode.
+		 */
+		_isInternalOutgoingGateOutFirst: function () {
+			var oTripData = sap.ui.getCore().getModel("TripData");
+			var oGlobal = sap.ui.getCore().getModel("globalData");
+			var sVehicleType = oTripData
+				? String(oTripData.getProperty("/VehicleType") || "").trim()
+				: "";
+			if (!sVehicleType && oGlobal) {
+				sVehicleType = String(oGlobal.getProperty("/OutgoingVehicleType") || "").trim();
+			}
+			if (!VehicleTypeConfig.isGateOutFirstInCreateMode(sVehicleType)) {
+				return false;
+			}
+			var sMovementType = oTripData
+				? String(oTripData.getProperty("/MovementType") || "").trim().toUpperCase()
+				: "";
+			if (sMovementType === "O") {
+				return true;
+			}
+			return !!(oGlobal && oGlobal.getProperty("/HasOutgoingMaterials"));
+		},
+
+		_isGateOutFirstScenario: function () {
+			return this._isInternalOutgoingGateOutFirst();
+		},
+
+		_ensureStageUiModel: function () {
+			var oStageUi = sap.ui.getCore().getModel("stageUi");
+			if (!oStageUi) {
+				oStageUi = new JSONModel({
+					showReportingInGateOut: false,
+					tripLocked: false
+				});
+				sap.ui.getCore().setModel(oStageUi, "stageUi");
+			}
+			if (oStageUi.getProperty("/tripLocked") === undefined) {
+				oStageUi.setProperty("/tripLocked", false);
+			}
+			return oStageUi;
+		},
+
+		_isTripCompletedStatus: function (sTripStatus) {
+			var sNormalizedStatus = String(sTripStatus || "")
+				.trim()
+				.toLowerCase()
+				.replace(/[\s_-]+/g, "");
+			return sNormalizedStatus === "completed" || sNormalizedStatus === "tripcompleted" || sNormalizedStatus === "done";
+		},
+
+		_updateTripLockState: function () {
+			var oStageUi = this._ensureStageUiModel();
+			var oTripDataModel = sap.ui.getCore().getModel("TripData");
+			var sTripStatus = oTripDataModel ? oTripDataModel.getProperty("/TripStatus") : "";
+			if (!sTripStatus && this._oPageTitleModel) {
+				sTripStatus = this._oPageTitleModel.getProperty("/tripStatus") || "";
+			}
+			var bTripCompleted = this._isTripCompletedStatus(sTripStatus);
+			var oGlobalModel = sap.ui.getCore().getModel("globalData");
+			if (!oGlobalModel) {
+				oGlobalModel = new JSONModel({
+					TripNumber: "",
+					TripLocked: false,
+					TripCompleted: false,
+					CanReopenTrip: false,
+					TripUnlocked: false,
+					ReopenAuthLoadedForPlant: ""
+				});
+				sap.ui.getCore().setModel(oGlobalModel, "globalData");
+			}
+
+			// Reopen authorization is plant-specific. Ensure it is loaded for the current trip plant.
+			this._ensureReopenAuthLoaded();
+
+			// Completed trips are always locked by default.
+			// If user is authorized, they must explicitly press "Reopen Trip" to unlock the UI.
+			var bTripUnlocked = !!oGlobalModel.getProperty("/TripUnlocked");
+			if (!bTripCompleted && bTripUnlocked) {
+				// Reset unlock flag when trip isn't completed anymore / different trip loaded.
+				oGlobalModel.setProperty("/TripUnlocked", false);
+				bTripUnlocked = false;
+			}
+			var bTripLocked = bTripCompleted && !bTripUnlocked;
+
+			oStageUi.setProperty("/tripLocked", bTripLocked);
+			oGlobalModel.setProperty("/TripCompleted", bTripCompleted);
+			oGlobalModel.setProperty("/TripLocked", bTripLocked);
+			this._applyTripLockActionButtons();
+		},
+
+		_escapeODataKeyValue: function (sValue) {
+			// OData V2 key predicate escaping: single quotes are doubled.
+			return String(sValue || "").replace(/'/g, "''");
+		},
+
+		_getCurrentUserId: function () {
+			try {
+				// Fiori Launchpad
+				var oUser = sap.ushell && sap.ushell.Container && sap.ushell.Container.getUser && sap.ushell.Container.getUser();
+				if (oUser && typeof oUser.getId === "function") {
+					return String(oUser.getId() || "").trim();
+				}
+			} catch (e) {
+				// ignore
+			}
+			return "";
+		},
+
+		_getServiceModel: function () {
+			if (!this._oServiceModel) {
+				this._oServiceModel = new ODataModel("/sap/opu/odata/sap/YIGP_PLMS_SRV/", {
+					useBatch: false,
+					defaultBindingMode: "TwoWay"
+				});
+			}
+			return this._oServiceModel;
+		},
+
+		_ensureReopenAuthLoaded: function () {
+			var oTripData = sap.ui.getCore().getModel("TripData");
+			var oGlobalModel = sap.ui.getCore().getModel("globalData");
+			if (!oGlobalModel) {
+				return;
+			}
+
+			var sPlant = String((oTripData && oTripData.getProperty("/Plant")) || "").trim();
+			if (!sPlant) {
+				oGlobalModel.setProperty("/CanReopenTrip", false);
+				oGlobalModel.setProperty("/ReopenAuthLoadedForPlant", "");
+				oGlobalModel.setProperty("/ReopenAuthLoaded", false);
+				oGlobalModel.setProperty("/ReopenAuthLoading", false);
+				return;
+			}
+
+			var sLoadedFor = String(oGlobalModel.getProperty("/ReopenAuthLoadedForPlant") || "");
+			if (sLoadedFor === sPlant) {
+				return; // already loaded for this plant
+			}
+
+			// Reset until we know permissions for this plant.
+			oGlobalModel.setProperty("/CanReopenTrip", false);
+			oGlobalModel.setProperty("/ReopenAuthLoadedForPlant", sPlant);
+			oGlobalModel.setProperty("/ReopenAuthLoaded", false);
+			oGlobalModel.setProperty("/ReopenAuthLoading", true);
+
+			var sUser = this._getCurrentUserId();
+			if (!sUser) {
+				// If user cannot be determined on frontend, keep locked (safe default).
+				oGlobalModel.setProperty("/ReopenAuthLoaded", true);
+				oGlobalModel.setProperty("/ReopenAuthLoading", false);
+				return;
+			}
+
+			var oModel = this._getServiceModel();
+			var sPath = "/UserRoles(User='" + this._escapeODataKeyValue(sUser) + "',Plant='" + this._escapeODataKeyValue(sPlant) + "')";
+
+			oModel.read(sPath, {
+				success: function (oData) {
+					var sReopen = String((oData && (oData.Reopen || oData.ReopenLoading)) || "").toUpperCase();
+					var sReopenUnload = String((oData && oData.ReopenUnload) || "").toUpperCase();
+					var bCanReopen = sReopen === "X" || sReopenUnload === "X";
+					oGlobalModel.setProperty("/CanReopenTrip", bCanReopen);
+					oGlobalModel.setProperty("/ReopenAuthLoaded", true);
+					oGlobalModel.setProperty("/ReopenAuthLoading", false);
+					this._updateTripLockState(); // recompute TripLocked using auth
+					this._updateCancelButtonVisibility();
+				}.bind(this),
+				error: function () {
+					// Keep defaults (no reopen) on error.
+					oGlobalModel.setProperty("/CanReopenTrip", false);
+					oGlobalModel.setProperty("/ReopenAuthLoaded", true);
+					oGlobalModel.setProperty("/ReopenAuthLoading", false);
+					this._updateTripLockState();
+					this._updateCancelButtonVisibility();
+				}.bind(this)
+			});
+		},
+
+		onReopenTrip: function () {
+			var oGlobalModel = this.getView() && this.getView().getModel && this.getView().getModel("globalData");
+			if (!oGlobalModel) {
+				oGlobalModel = sap.ui.getCore().getModel("globalData");
+			}
+			var bCanReopen = !!(oGlobalModel && oGlobalModel.getProperty("/CanReopenTrip"));
+			if (!bCanReopen) {
+				MessageToast.show("You are not authorized to reopen this trip.");
+				return;
+			}
+
+			var sTripNumber = "";
+			try {
+				sTripNumber = String((oGlobalModel && oGlobalModel.getProperty("/TripNumber")) || "").trim();
+			} catch (e) {
+				sTripNumber = "";
+			}
+
+			if (!sTripNumber) {
+				MessageToast.show("Trip Number missing. Please open a trip first.");
+				return;
+			}
+
+			// Explicit unlock for authorized users (keep existing behavior).
+			MessageToast.show("Trip reopened for editing.");
+			try {
+				oGlobalModel.setProperty("/TripUnlocked", true);
+				oGlobalModel.setProperty("/TripLocked", false);
+				// Reopen means bring back any UI actions hidden during completed/scanning mode.
+				// (Some views hide actions when IsScanningReporting/DisableRefDocMaterialsActions are true.)
+				if (oGlobalModel.getProperty("/IsScanningReporting") === true) {
+					oGlobalModel.setProperty("/IsScanningReporting", false);
+				}
+				if (oGlobalModel.getProperty("/DisableRefDocMaterialsActions") === true) {
+					oGlobalModel.setProperty("/DisableRefDocMaterialsActions", false);
+				}
+			} catch (e) {
+				// best effort
+			}
+			// Ensure Stage UI model matches the global lock state so _applyTripLockActionButtons restores buttons.
+			try {
+				var oStageUi = this._ensureStageUiModel();
+				oStageUi.setProperty("/tripLocked", false);
+			} catch (e) {
+				// best effort
+			}
+			this._applyTripLockActionButtons();
+			this._updateCancelButtonVisibility();
+
+			// Notify subviews/controllers to re-evaluate TripLocked bindings and programmatic enablement.
+			try {
+				sap.ui.getCore().getEventBus().publish("TripData", "Updated");
+			} catch (e) {
+				// best effort
+			}
+
+			// Also call backend ReOpen (non-blocking).
+			try {
+				var oModel = this._getServiceModel();
+				if (!oModel || typeof oModel.callFunction !== "function") {
+					MessageBox.error("ReOpen call failed: service model is not available.");
+					return;
+				}
+				oModel.callFunction("/ReOpen", {
+					method: "GET",
+					urlParameters: {
+						TripNumber: sTripNumber
+					},
+					headers: {
+						"X-Requested-With": "X"
+					},
+					success: function () {
+						// no-op (UI is already unlocked)
+					},
+					error: function (oError) {
+						var sMessage = "Failed to reopen trip";
+						try {
+							if (oError && oError.responseText) {
+								var oResponse = JSON.parse(oError.responseText);
+								if (oResponse && oResponse.error && oResponse.error.message && oResponse.error.message.value) {
+									sMessage = oResponse.error.message.value;
+								} else if (oResponse && oResponse.error && oResponse.error.message) {
+									sMessage = oResponse.error.message;
+								}
+							} else if (oError && oError.message) {
+								sMessage = oError.message.value || oError.message;
+							}
+						} catch (e) {
+							// best effort
+						}
+						MessageBox.error(sMessage);
+					}.bind(this)
+				});
+			} catch (e) {
+				MessageBox.error("ReOpen call failed: " + String((e && e.message) || e || "Unknown error"));
 			}
 		},
-		onDriverPhotoUploadComplete: function(oEvent) {
-			const sResponse = oEvent.getParameter("response");
-			sap.m.MessageToast.show("Upload completed: " + sResponse);
-		},
-		onSaveReporting: function(oEvent) {
-			alert("Save clicked");
-		},
-		onAddLoadingRow: function() {
-			var oTable = this.byId("idLoadingMaterialTable");
-			var oTemplate = oTable.getItems()[0].clone();
 
-			// Reset inputs in new row
-			oTemplate.getCells().forEach(function(cell) {
-				if (cell instanceof sap.m.Input) {
-					cell.setValue("");
-				} else if (cell instanceof sap.m.Select) {
-					cell.setSelectedKey("");
-				} else if (cell instanceof sap.m.DatePicker) {
-					cell.setDateValue(null);
-				} else if (cell instanceof sap.m.TimePicker) {
-					cell.setValue("");
+		_applyTripLockActionButtons: function () {
+			var oStageUi = this._ensureStageUiModel();
+			var bTripLocked = !!oStageUi.getProperty("/tripLocked");
+			var oView = this.getView();
+			if (!oView || typeof oView.findAggregatedObjects !== "function") {
+				return;
+			}
+
+			if (!this._mTripLockButtonVisibility) {
+				this._mTripLockButtonVisibility = {};
+			}
+
+			var aButtons = oView.findAggregatedObjects(true, function (oControl) {
+				return !!(oControl && typeof oControl.isA === "function" && oControl.isA("sap.m.Button"));
+			});
+
+			aButtons.forEach(function (oButton) {
+				if (!this._isTripLockTargetButton(oButton)) {
+					return;
+				}
+
+				// Don't override buttons whose visibility is already controlled by data binding
+				// (e.g. `visible="{= !${globalData>/TripLocked} }"`). Otherwise, the value we
+				// capture while locked may be `false` and we would restore `false` on unlock.
+				try {
+					if (oButton.getBinding && oButton.getBinding("visible")) {
+						return;
+					}
+				} catch (e) {
+					// best effort
+				}
+
+				var sButtonId = oButton.getId();
+				if (bTripLocked) {
+					if (this._mTripLockButtonVisibility[sButtonId] === undefined) {
+						this._mTripLockButtonVisibility[sButtonId] = oButton.getVisible();
+					}
+					oButton.setVisible(false);
+					return;
+				}
+
+				if (this._mTripLockButtonVisibility[sButtonId] !== undefined) {
+					oButton.setVisible(this._mTripLockButtonVisibility[sButtonId]);
+					delete this._mTripLockButtonVisibility[sButtonId];
+				}
+			}.bind(this));
+		},
+
+		_isTripLockTargetButton: function (oButton) {
+			if (!oButton) {
+				return false;
+			}
+			var sCombined = [
+				oButton.getId ? oButton.getId() : "",
+				oButton.getText ? oButton.getText() : "",
+				oButton.getTooltip ? oButton.getTooltip() : "",
+				oButton.getIcon ? oButton.getIcon() : ""
+			].join(" ").toLowerCase();
+
+			// Also match workflow actions (loading/unload), uploads, and scanner/PO submit.
+			return /(save|edit|delete|add|create|update|upload|start|end|restart|submit|scan)/.test(
+				sCombined
+			);
+		},
+
+		_updateReportingPlacementByVehicleType: function () {
+			var oStageUi = this._ensureStageUiModel();
+			// Outgoing + Internal vehicle type 01: reporting is shown in Gate Out.
+			oStageUi.setProperty("/showReportingInGateOut", !!this._isInternalOutgoingGateOutFirst());
+		},
+
+		_applyVehicleTypeTabRule: function () {
+			if (
+				!this._bCreateMode &&
+				!this._bPendingVehicleTypeTabAutoSelect &&
+				!this._bStageTabBarLimited
+			) {
+				return;
+			}
+			var oTripData = sap.ui.getCore().getModel("TripData");
+			if (!oTripData && !this._bCreateMode) {
+				return;
+			}
+			if (!oTripData && this._bCreateMode) {
+				var bGateOutFirstCreate = this._isInternalOutgoingGateOutFirst();
+				this._setIconTabSelection(bGateOutFirstCreate ? "gateout" : "gateIn");
+				this._updateReportingPlacementByVehicleType();
+				this._updateTabVisibilityForCreateMode();
+				return;
+			}
+			var bGateOutFirst = this._isGateOutFirstScenario();
+			this._updateReportingPlacementByVehicleType();
+			this._setIconTabSelection(bGateOutFirst ? "gateout" : "gateIn");
+			if (this._bCreateMode || this._bStageTabBarLimited) {
+				this._updateTabVisibilityForCreateMode();
+			}
+			this._bPendingVehicleTypeTabAutoSelect = false;
+		},
+
+		_syncTripNumberFromRoute: function (sTripNumber, bReset) {
+			var oGlobalModel = sap.ui.getCore().getModel("globalData");
+			if (!oGlobalModel) {
+				oGlobalModel = new JSONModel({
+					TripNumber: ""
+				});
+				sap.ui.getCore().setModel(oGlobalModel, "globalData");
+			}
+
+			if (bReset) {
+				this._sCurrentTripNumber = "";
+				this._bCreateMode = true;
+				this._bStageTabBarLimited = true;
+				oGlobalModel.setProperty("/TripNumber", "");
+				sap.ui.getCore().setModel(null, "TripData");
+			} else if (sTripNumber) {
+				this._bCreateMode = false;
+				oGlobalModel.setProperty("/TripNumber", sTripNumber);
+				this._sCurrentTripNumber = sTripNumber;
+			} else {
+				this._bCreateMode = false;
+				this._sCurrentTripNumber = oGlobalModel.getProperty("/TripNumber") || "";
+			}
+
+			this._refreshPageTitleModel();
+		},resetPageTitleModel: function () {
+			var oModel = this.getView().getModel("pageTitleModel");
+		
+			if (!oModel) {
+				oModel = new JSONModel({
+					tripNumber: "",
+					vehicleNumber: "",
+					tripStatus: ""
+				});
+				this.getView().setModel(oModel, "pageTitleModel");
+				return;
+			}
+		
+			oModel.setData({
+				tripNumber: "",
+				vehicleNumber: "",
+				tripStatus: ""
+			}, true);
+		}
+,		
+
+		_initPageTitleModel: function () {
+			var oCoreModel = sap.ui.getCore().getModel("pageTitleModel");
+			if (!oCoreModel) {
+				oCoreModel = new JSONModel({
+					tripNumber: "",
+					vehicleNumber: "",
+					tripStatus: ""
+				});
+				sap.ui.getCore().setModel(oCoreModel, "pageTitleModel");
+			}
+			this._oPageTitleModel = oCoreModel;
+			this.getView().setModel(this._oPageTitleModel, "pageTitleModel");
+			this._refreshPageTitleModel();
+		},
+
+	_onTripCreated: function (sChannel, sEvent, oData) {
+		// Trip was just created, update mode and refresh header
+		if (oData && oData.tripNumber) {
+			this._bCreateMode = false;
+			this._bPendingVehicleTypeTabAutoSelect = false;
+			this._sCurrentTripNumber = oData.tripNumber;
+			this._updateReportingPlacementByVehicleType();
+
+			// Ensure global TripNumber is synced so dependent views (e.g. Activity Analysis tab)
+			// can reliably load data based on the current trip
+			var oGlobalModel = sap.ui.getCore().getModel("globalData");
+			if (!oGlobalModel) {
+				oGlobalModel = new JSONModel({
+					TripNumber: ""
+				});
+				sap.ui.getCore().setModel(oGlobalModel, "globalData");
+			}
+			oGlobalModel.setProperty("/TripNumber", oData.tripNumber);
+
+			this._refreshPageTitleModel();
+			this._updateHeaderVisibilityForCreateMode();
+			this._updateTabVisibilityForCreateMode();
+			if (oData.preferredTabKey) {
+				this._setIconTabSelection(oData.preferredTabKey);
+			}
+		}
+	},
+
+		_refreshPageTitleModel: function () {
+			if (!this._oPageTitleModel) {
+				return;
+			}
+
+			if (this._bCreateMode) {
+				this._oPageTitleModel.setProperty("/tripNumber", "");
+				this._oPageTitleModel.setProperty("/vehicleNumber", "");
+				this._oPageTitleModel.setProperty("/tripStatus", "");
+				return;
+			}
+
+			var oGlobal = sap.ui.getCore().getModel("globalData");
+			var sTripNo = this._sCurrentTripNumber || (oGlobal ? oGlobal.getProperty("/TripNumber") : "") || "";
+			var sFormattedTripNo = this.formatTripNumber(sTripNo);
+			this._oPageTitleModel.setProperty("/tripNumber", sFormattedTripNo);
+
+			var oTripDataModel = sap.ui.getCore().getModel("TripData");
+			if (oTripDataModel) {
+				var sVehicle = oTripDataModel.getProperty("/VehicleNumber") || "";
+				var sStatus = oTripDataModel.getProperty("/TripStatus") || "";
+				this._oPageTitleModel.setProperty("/vehicleNumber", sVehicle);
+				this._oPageTitleModel.setProperty("/tripStatus", sStatus);
+			} else {
+				this._oPageTitleModel.setProperty("/vehicleNumber", "");
+				this._oPageTitleModel.setProperty("/tripStatus", "");
+				if (sTripNo) {
+					this._loadTripHeaderDetails(sTripNo);
+				}
+			}
+		},
+
+		_clearPageTitleModel: function () {
+			var oModel = this._oPageTitleModel || sap.ui.getCore().getModel("pageTitleModel");
+			if (!oModel) {
+				return;
+			}
+			this._oPageTitleModel = oModel;
+			this._bCreateMode = true;
+			this._bStageTabBarLimited = true;
+			oModel.setProperty("/tripNumber", "");
+			oModel.setProperty("/vehicleNumber", "");
+			oModel.setProperty("/tripStatus", "");
+		},
+
+		onCancelTrip: function () {
+			var sTripNumber = this._sCurrentTripNumber || sap.ui.getCore().getModel("globalData")?.getProperty("/TripNumber");
+			if (!sTripNumber) {
+				MessageToast.show("No trip selected to cancel");
+				return;
+			}
+
+			var oWarningDialog = MessageBox.warning("Do you want to cancel the trip?", {
+				actions: [MessageBox.Action.OK, MessageBox.Action.CANCEL],
+				onClose: function (oAction) {
+					if (oAction === MessageBox.Action.OK) {
+						this._deleteTrip(sTripNumber);
+					}
+				}.bind(this)
+			});
+
+			if (oWarningDialog) {
+				oWarningDialog.attachAfterOpen(function () {
+					var oOkButton = oWarningDialog.getButtons().find(function (oButton) {
+						return oButton.getText() === MessageBox.Action.OK;
+					});
+					oOkButton?.setType(ButtonType.Reject);
+				});
+			}
+		},
+
+		/**
+		 * OData V2 JSON error body → user-facing string (same shape as HomePage._getODataErrorMessage).
+		 * @param {object} oError request error object (often has responseText)
+		 * @param {string} [sDefaultMessage] fallback when body cannot be parsed
+		 * @returns {string}
+		 */
+		_getODataErrorMessage: function (oError, sDefaultMessage) {
+			var sErrorMessage = sDefaultMessage || "Error";
+			if (!oError) {
+				return sErrorMessage;
+			}
+			try {
+				if (oError.responseText) {
+					var oResp = JSON.parse(oError.responseText);
+					if (oResp.error && oResp.error.message && oResp.error.message.value) {
+						sErrorMessage = oResp.error.message.value;
+					} else if (oResp.error && oResp.error.message) {
+						sErrorMessage =
+							typeof oResp.error.message === "string"
+								? oResp.error.message
+								: oResp.error.message;
+					}
+					if (
+						oResp.error &&
+						oResp.error.innererror &&
+						oResp.error.innererror.errordetails &&
+						oResp.error.innererror.errordetails.length > 0
+					) {
+						var sDetail = oResp.error.innererror.errordetails[0].message;
+						if (sDetail && String(sDetail).trim()) {
+							sErrorMessage = sDetail;
+						}
+					}
+				}
+			} catch (e) {
+				if (oError.message && oError.message.value) {
+					sErrorMessage = oError.message.value;
+				} else if (oError.message) {
+					sErrorMessage = sDefaultMessage ? sDefaultMessage + ": " + oError.message : String(oError.message);
+				}
+			}
+			return sErrorMessage;
+		},
+
+		_deleteTrip: function (sTripNumber) {
+			var oService = this._getTripService();
+			var sPath = "/TripDetails('" + sTripNumber + "')";
+			var sDefaultErr = "Failed to cancel trip. Please try again.";
+
+			oService.remove(sPath, {
+				headers: {
+					"X-Requested-With": "X"
+				},
+				success: function () {
+					MessageToast.show("Trip cancelled successfully");
+					this._handleTripCancelled();
+				}.bind(this),
+				error: function (oError) {
+					var sMsg = this._getODataErrorMessage(oError, sDefaultErr);
+					MessageBox.error(sMsg);
+				}.bind(this)
+			});
+		},
+
+		_handleTripCancelled: function () {
+			sap.ui.getCore().getEventBus().publish("HomePage", "RefreshTripTable");
+			sap.ui.getCore().getModel("globalData")?.setProperty("/TripNumber", "");
+			sap.ui.getCore().setModel(null, "TripData");
+			this._bCreateMode = true;
+			this._bStageTabBarLimited = true;
+			this._sCurrentTripNumber = "";
+			this.resetPageTitleModel();
+			this._setIconTabSelection("gateIn");
+			this.getOwnerComponent().getRouter().navTo("HomePage");
+		},
+
+		_loadTripHeaderDetails: function (sTripNumber) {
+			if (!sTripNumber) {
+				return;
+			}
+
+			var oTripData = sap.ui.getCore().getModel("TripData");
+			if (oTripData) {
+				var sFormattedTripNo = this.formatTripNumber(oTripData.getProperty("/TripNumber") || sTripNumber);
+				this._oPageTitleModel.setProperty("/tripNumber", sFormattedTripNo);
+				this._oPageTitleModel.setProperty("/vehicleNumber", oTripData.getProperty("/VehicleNumber") || "");
+				this._oPageTitleModel.setProperty("/tripStatus", oTripData.getProperty("/TripStatus") || "");
+			} else {
+				var sFormattedTripNo = this.formatTripNumber(sTripNumber);
+				this._oPageTitleModel.setProperty("/tripNumber", sFormattedTripNo);
+			}
+		},
+
+		formatTripNumber: function (sTripNumber) {
+			if (!sTripNumber) {
+				return "";
+			}
+			// Convert to string and remove leading zeros
+			var sStr = String(sTripNumber);
+			// Remove leading zeros but keep at least one digit (e.g., "0000000014" -> "14", "0" -> "0")
+			return sStr.replace(/^0+/, "") || "0";
+		},
+
+		_getTripService: function () {
+			if (!this._oTripService) {
+				this._oTripService = new ODataModel("/sap/opu/odata/sap/YIGP_PLMS_SRV/", {
+					useBatch: false,
+					defaultBindingMode: "TwoWay"
+				});
+			}
+			return this._oTripService;
+		},
+		_normalizeDelayReasonFields: function (oData) {
+			if (!oData) {
+				return;
+			}
+			var sDelayCode =
+				oData.DelayReason ||
+				oData.DelayReasons ||
+				oData.Delay_Reason ||
+				oData.DelayedReason ||
+				oData.DelayReasonCode ||
+				oData.Delay_Code ||
+				"";
+			var sDelayDesc =
+				oData.DelayReasonDesc ||
+				oData.DelayReasonsDesc ||
+				oData.Delay_Reason_Desc ||
+				oData.DelayedReasonDesc ||
+				oData.DelayReasonText ||
+				"";
+			if (sDelayCode) {
+				oData.DelayReason = sDelayCode;
+				oData.DelayReasons = sDelayCode;
+			}
+			if (sDelayDesc) {
+				oData.DelayReasonDesc = sDelayDesc;
+			}
+		},
+		_loadTripDataForStageRoute: function (sTripNumber, fnDone) {
+			var sTrip = String(sTripNumber || "").trim();
+			var oService = this._getTripService();
+			if (!sTrip || !oService) {
+				if (typeof fnDone === "function") {
+					fnDone();
+				}
+				return;
+			}
+			var fnNormalizeTrip = function (sValue) {
+				var sNorm = String(sValue || "").trim();
+				return /^\d+$/.test(sNorm) ? sNorm.padStart(10, "0") : sNorm;
+			};
+			var oExistingTripData = sap.ui.getCore().getModel("TripData");
+			var sExistingTrip = oExistingTripData && oExistingTripData.getProperty
+				? oExistingTripData.getProperty("/TripNumber")
+				: "";
+			if (oExistingTripData && fnNormalizeTrip(sExistingTrip) === fnNormalizeTrip(sTrip)) {
+				// Trip already loaded (e.g. preloaded from Home page); reuse it to avoid duplicate read.
+				this._oEventBus.publish("TripData", "Updated");
+				this._oEventBus.publish("Stage", "TripCreated", {
+					tripNumber: sTrip
+				});
+				if (typeof fnDone === "function") {
+					fnDone();
+				}
+				return;
+			}
+			oService.read("/TripDetails('" + sTrip + "')", {
+				urlParameters: {
+					$expand: "OrderDetails,ItemDetails,Feeds,ActivityHistory",
+				},
+				success: function (oData) {
+					this._normalizeDelayReasonFields(oData);
+					if (oData && oData.Weighment_Req !== undefined) {
+						oData.WeighmentRequired =
+							oData.Weighment_Req === true || oData.Weighment_Req === "X"
+								? "Y"
+								: "N";
+					}
+					TripDataDocumentsVerified.applyDocumentsVerifiedToVerifiedDocs(oData || {});
+					sap.ui.getCore().setModel(new JSONModel(oData || {}), "TripData");
+					this._oEventBus.publish("TripData", "Updated");
+					this._oEventBus.publish("Stage", "TripCreated", {
+						tripNumber: sTrip
+					});
+					if (typeof fnDone === "function") {
+						fnDone();
+					}
+				}.bind(this),
+				error: function () {
+					if (typeof fnDone === "function") {
+						fnDone();
+					}
 				}
 			});
-
-			oTable.addItem(oTemplate);
-			sap.m.MessageToast.show("New row added");
 		},
 
-		onEditLoading: function() {
-			console.log("Edit button clicked for Loading section");
-			sap.m.MessageToast.show("Edit mode triggered");
-		},
+	_updateLoadingUnloadingTabs: function () {
+		var oLoadingTab = this.byId("idLoadingMaterial");
+		var oUnloadingTab = this.byId("idUnloadingMaterial");
 
-		onSaveLoading: function() {
-			var oTable = this.byId("idLoadingMaterialTable");
-			var aData = [];
-
-			oTable.getItems().forEach(function(oItem) {
-				var aCells = oItem.getCells();
-				var oRowData = {
-					RefDocNumber: aCells[0].getSelectedKey ? aCells[0].getSelectedKey() : "",
-					RefDocItemNumber: aCells[1].getSelectedKey ? aCells[1].getSelectedKey() : "",
-					MaterialCode: aCells[2].getValue ? aCells[2].getValue() : "",
-					MaterialDescription: aCells[3].getValue ? aCells[3].getValue() : "",
-					Qty: aCells[4].getValue ? aCells[4].getValue() : "",
-					UoM: aCells[5].getSelectedKey ? aCells[5].getSelectedKey() : "",
-					LoadedQtyNetWt: aCells[6].getValue ? aCells[6].getValue() : "",
-					GrossWt: aCells[7].getValue ? aCells[7].getValue() : "",
-					TareWt: aCells[8].getValue ? aCells[8].getValue() : "",
-					CreatedBy: aCells[9].getSelectedKey ? aCells[9].getSelectedKey() : "",
-					CreatedOnDate: aCells[10].getDateValue ? aCells[10].getDateValue() : "",
-					CreatedOnTime: aCells[11].getValue ? aCells[11].getValue() : "",
-					ChangedBy: aCells[12].getSelectedKey ? aCells[12].getSelectedKey() : "",
-					ChangedOnDate: aCells[13].getDateValue ? aCells[13].getDateValue() : "",
-					ChangedOnTime: aCells[14].getValue ? aCells[14].getValue() : ""
-				};
-				aData.push(oRowData);
-			});
-
-			console.log("Saved Loading Table Data:", aData);
-			sap.m.MessageToast.show("Data logged to console");
-		},
-		onDeleteLoadingRow: function(oEvent) {
-			var oTable = this.byId("idLoadingMaterialTable");
-			var aItems = oTable.getItems();
-
-			// Prevent deleting if only one row left
-			if (aItems.length <= 1) {
-				sap.m.MessageToast.show("At least one row must remain.");
-				return;
-			}
-
-			// Identify and remove the specific row
-			var oItem = oEvent.getSource().getParent(); // the ColumnListItem
-			oTable.removeItem(oItem);
-
-			sap.m.MessageToast.show("Row deleted successfully.");
-		},
-		onAddRefDocRow: function() {
-			var oTable = this.byId("idReferenceDocsTable");
-			var oNewItem = oTable.getItems()[0].clone();
-			oTable.addItem(oNewItem);
-		},
-
-		onDeleteRefDocRow: function(oEvent) {
-			var oTable = this.byId("idReferenceDocsTable");
-			var aItems = oTable.getItems();
-			if (aItems.length > 1) {
-				oTable.removeItem(oEvent.getSource().getParent());
-			} else {
-				sap.m.MessageToast.show("At least one row must remain.");
-			}
-		},
-
-		onAddMaterialRow: function() {
-			var oTable = this.byId("idMaterialDetailsTable");
-			var oNewItem = oTable.getItems()[0].clone();
-			oTable.addItem(oNewItem);
-		},
-
-		onDeleteMaterialRow: function(oEvent) {
-			var oTable = this.byId("idMaterialDetailsTable");
-			var aItems = oTable.getItems();
-			if (aItems.length > 1) {
-				oTable.removeItem(oEvent.getSource().getParent());
-			} else {
-				sap.m.MessageToast.show("At least one row must remain.");
-			}
-		},
-
-		onEditReferenceDocs: function() {
-			console.log("Edit clicked for Reference Documents & Materials tab");
-		},
-
-		onSaveReferenceDocs: function() {
-			var refRows = this.byId("idReferenceDocsTable").getItems();
-			var matRows = this.byId("idMaterialDetailsTable").getItems();
-			console.log("Reference Documents Rows:", refRows.length);
-			console.log("Material Details Rows:", matRows.length);
-		},
-
-		onSaveNote: function() {
-			const oTextArea = this.byId("idNoteInput");
-			const sText = oTextArea.getValue().trim();
-			const oContainer = this.byId("idNotesContainer");
-			const oNoNotesText = this.byId("idNoNotesText");
-
-			if (!sText) {
-				sap.m.MessageToast.show("Please enter a note before saving.");
-				return;
-			}
-
-			oNoNotesText.setVisible(false);
-
-			// Create light blue sticky note
-			const oNoteBox = new sap.m.VBox({
-				items: [
-					new sap.m.Text({
-						text: sText,
-						wrapping: true
-					})
-				]
-			}).addStyleClass("stickyNoteLightBlue");
-
-			oContainer.addItem(oNoteBox);
-
-			oTextArea.setValue("");
-		},
-		onFileChange: function(oEvent) {
-			const aFiles = oEvent.getParameter("files");
-			if (aFiles && aFiles.length > 0) {
-				console.log("Selected file:", aFiles[0].name);
-			}
-		},
-
-		onUploadDocument: function() {
-			const oStageSelect = this.byId("idStageSelect");
-			const sStage = oStageSelect.getSelectedKey();
-			const oUploader = this.byId("idUnifiedUploader");
-			const aFiles = oUploader.oFileUpload.files;
-
-			if (!sStage) {
-				MessageToast.show("Please select a stage.");
-				return;
-			}
-
-			if (aFiles.length === 0) {
-				MessageToast.show("Please choose a file to upload.");
-				return;
-			}
-
-			const oList = this.byId("idUploadedFilesList");
-			const oFile = aFiles[0];
-
-			const oItem = new StandardListItem({
-				title: oFile.name,
-				description: `Stage: ${sStage}`,
-				icon: "sap-icon://attachment",
-				type: "Inactive"
-			});
-
-			oList.addItem(oItem);
-			MessageToast.show("File uploaded successfully (simulated).");
-			oUploader.clear();
-		},
-
-		onDeleteFile: function(oEvent) {
-			const oItem = oEvent.getParameter("listItem");
-			this.byId("idUploadedFilesList").removeItem(oItem);
-			MessageToast.show("File removed.");
+		if (!oLoadingTab || !oUnloadingTab) {
+			return;
 		}
+
+		// Loading and Unloading tabs are hidden for now (not required to show as of now).
+		oLoadingTab.setVisible(false);
+		oUnloadingTab.setVisible(false);
+	},
+
+		/**
+		 * Update Cancel Button Visibility
+		 * Hide the cancel button in CREATE mode, or if TripStatus is "Gate Out"/"Gate-Out", or "Trip Completed"/"Completed"
+		 */
+		_updateCancelButtonVisibility: function () {
+			var oCancelButton = this.byId("btnCancelTrip");
+			
+			if (!oCancelButton) {
+				return;
+			}
+
+			// If trip is completed/locked (global flag), always hide Cancel.
+			// Note: Stage controller programmatically sets visibility, which overrides XML bindings.
+			var oGlobalModel = this.getView() && this.getView().getModel && this.getView().getModel("globalData");
+			if (!oGlobalModel) {
+				oGlobalModel = sap.ui.getCore().getModel("globalData");
+			}
+			var bTripCompletedGlobal = !!(oGlobalModel && oGlobalModel.getProperty("/TripCompleted"));
+			var bTripLockedGlobal = !!(oGlobalModel && oGlobalModel.getProperty("/TripLocked"));
+			if (bTripCompletedGlobal || bTripLockedGlobal) {
+				oCancelButton.setVisible(false);
+				return;
+			}
+
+			// Hide button in CREATE mode (new vehicle reporting)
+			if (this._bCreateMode) {
+				oCancelButton.setVisible(false);
+				return;
+			}
+
+			var oTripDataModel = sap.ui.getCore().getModel("TripData");
+			
+			// If no trip data, hide button
+			if (!oTripDataModel) {
+				oCancelButton.setVisible(false);
+				return;
+			}
+
+			// Check TripStatus (case-insensitive)
+			var sTripStatus = (oTripDataModel.getProperty("/TripStatus") || "").trim();
+			// Fallback to page title model (some flows populate header first)
+			if (!sTripStatus && this._oPageTitleModel) {
+				sTripStatus = String(this._oPageTitleModel.getProperty("/tripStatus") || "").trim();
+			}
+			var sLowerStatus = sTripStatus.toLowerCase();
+			// Gate Out: "gate out" or "gate-out"
+			var bIsGateOut = sLowerStatus === "gate out" || sLowerStatus === "gate-out";
+			var bIsCompleted = this._isTripCompletedStatus(sTripStatus);
+
+			// Hide button if Gate Out or Trip Completed
+			oCancelButton.setVisible(!bIsGateOut && !bIsCompleted);
+		},
+
+		/**
+		 * Update Tab Visibility for Create Mode
+		 * Normal: only Gate In (Reporting, Ref. Docs, Gate In). Outgoing+Internal: only Gate Out (reporting embedded there).
+		 * After saving a new trip on the Stage route, _bStageTabBarLimited keeps the same gate-only tab bar until the user opens a trip via StagewithParam (e.g. from Home).
+		 */
+		_updateTabVisibilityForCreateMode: function () {
+			var oIconTabBar = this.byId("iconTabBar");
+			if (!oIconTabBar) {
+				return;
+			}
+			var bGateOutFirst = this._isGateOutFirstScenario();
+			var bLimitedTabBar = !!this._bCreateMode || !!this._bStageTabBarLimited;
+
+			var aTabs = oIconTabBar.getItems();
+			aTabs.forEach(function(oTab) {
+				var sKey = oTab.getKey();
+				var sId = oTab.getId();
+
+				if (sKey === "gateIn") {
+					oTab.setVisible(!bLimitedTabBar || !bGateOutFirst);
+					return;
+				}
+
+				if (sKey === "gateout") {
+					oTab.setVisible(!bLimitedTabBar || bGateOutFirst);
+					return;
+				}
+				
+				// Skip Loading and Unloading tabs - they are handled by _updateLoadingUnloadingTabs()
+				if (sId && (sId.indexOf("idLoadingMaterial") !== -1 || sId.indexOf("idUnloadingMaterial") !== -1)) {
+					return; // Don't change visibility - let _updateLoadingUnloadingTabs() handle it
+				}
+				
+				// Full Stage (e.g. StagewithParam from Home): show all tabs except Loading/Unloading.
+				// Limited tab bar (create flow or post-create on Stage route): hide non-gate tabs.
+				oTab.setVisible(!bLimitedTabBar);
+			}.bind(this));
+
+			if (bLimitedTabBar) {
+				this._setIconTabSelection(bGateOutFirst ? "gateout" : "gateIn");
+			}
+		},
+
+		/**
+		 * Update Header Visibility for Create Mode
+		 * Hide the header (Gate Pass No, Vehicle No, Trip status) when creating a new vehicle
+		 */
+		_updateHeaderVisibilityForCreateMode: function () {
+			var oStagePage = this.byId("stagePage");
+			var oHeaderBar = this.byId("headerBar");
+			if (!oHeaderBar) {
+				return;
+			}
+
+			// Hide header in CREATE mode, show in DISPLAY mode
+			if (oStagePage) {
+				oStagePage.setShowHeader(!this._bCreateMode);
+			}
+			oHeaderBar.setVisible(!this._bCreateMode);
+		},
+
+		/** --------------------------------------------
+		 * UPDATE NOTES TAB BELL INDICATOR
+		 * --------------------------------------------*/
+		_updateNotesTabIndicator: function (sChannel, sEvent, oData) {
+			var iUnreadCount = (oData && oData.unreadCount) ? oData.unreadCount : 0;
+			var oNotesTab = this.byId("idNotesTab");
+			
+			if (!oNotesTab) {
+				// Control might not be rendered yet, try again after a short delay
+				setTimeout(function() {
+					this._updateNotesTabIndicator(sChannel, sEvent, oData);
+				}.bind(this), 100);
+				return;
+			}
+			
+			// Use $() to get the DOM element and manipulate classes directly
+			var oDomRef = oNotesTab.$();
+			if (oDomRef && oDomRef.length > 0) {
+				if (iUnreadCount > 0) {
+					oDomRef.addClass("notesTabWithBell");
+				} else {
+					oDomRef.removeClass("notesTabWithBell");
+				}
+			}
+		},
+
+		onIconTabSelect: function (oEvent) {
+			var sSelectedKey = oEvent.getParameter("key");
+			this._sLastSelectedStageTabKey = sSelectedKey || this._sLastSelectedStageTabKey || "gateIn";
+
+			// If ReferenceDocuments tab is selected, focus on scanner input
+			if (sSelectedKey === "referenceDocuments") {
+				// Use setTimeout to ensure the view is rendered
+				setTimeout(function() {
+					// Get the ReferenceDocuments view and focus on scanner input
+					var oIconTabBar = this.byId("iconTabBar");
+					if (oIconTabBar) {
+						var oRefDocTab = oIconTabBar.getItems().find(function(oItem) {
+							return oItem.getKey() === "referenceDocuments";
+						});
+						
+						if (oRefDocTab && oRefDocTab.getContent && oRefDocTab.getContent().length > 0) {
+							var oRefDocView = oRefDocTab.getContent()[0];
+							if (oRefDocView && oRefDocView.byId) {
+							}
+						}
+					}
+				}.bind(this), 100);
+			}
+		},
+
+		// User-role-based authorization logic has been removed from Stage controller.
 
 	});
 });

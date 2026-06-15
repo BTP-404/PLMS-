@@ -6,6 +6,7 @@
         id="VHVehicleNumber"
         title="Select Vehicle"
         search="onSearchVHVehicleNumber"
+        liveChange="onSearchVHVehicleNumber"
         confirm="onConfirmVHVehicleNumber"
         cancel="onCancelVHVehicleNumber"
         noDataText="No Vehicles Found"

@@ -7,19 +7,105 @@
     xmlns:unified="sap.ui.unified"
     displayBlock="true"
 >
-    <VBox class="sapUiSizeCompact sapUiSmallMargin">
+    <VBox class="sapUiSizeCompact" width="100%">
+        <!-- ========================= SCANNER ROW ========================= -->
+        <!-- Scanner Input and Button - Only visible for movement scenario I02 / ASN (see VehicleReportingTab.controller) -->
+        <VBox 
+            id="idReportingScannerVBox"
+            class="sapUiTinyMarginBottom"
+            width="100%"
+            visible="false">
+            <Label
+                text="Scanner Input"
+                design="Bold"
+                class="sapUiNoMarginBottom"
+            />
+            <HBox alignItems="Center" width="100%">
+                <Input
+                    id="idReportingScannerInput"
+                    placeholder="Scan D-Note or enter PO number"
+                    width="100%"
+                    change="onScanLiveupdate"
+                    enabled="{= !${globalData>/TripLocked} }"
+                    class="sapUiTinyMarginEnd"
+                />
+                <Button
+                    id="idReportingScanButton"
+                    text="Scan"
+                    type="Emphasized"
+                    icon="sap-icon://bar-code"
+                    press="onScanSuccess"
+                    enabled="{= !${globalData>/TripLocked} }"
+                    class="sapUiTinyMarginBegin"
+                />
+                <Button
+                    id="idReportingScannerCancelButton"
+                    text="Cancel"
+                    type="Transparent"
+                    press="onCancelReportingScanner"
+                    enabled="{= !${globalData>/TripLocked} }"
+                    class="sapUiTinyMarginBegin"
+                />
+            </HBox>
+        </VBox>
+
+        <!-- PO search (incoming + "Search PO No" from home flow) — suggestions from OrderDetails -->
+        <VBox
+            id="idReportingPoSearchVBox"
+            class="sapUiTinyMarginBottom"
+            width="100%"
+            visible="false"
+        >
+            <Label
+                text="Search PO No"
+                design="Bold"
+                class="sapUiNoMarginBottom"
+            />
+            <HBox alignItems="Center" width="100%">
+                <Input
+                    id="idReportingPoSearchInput"
+                    placeholder="Type PO number (suggestions from open orders)"
+                    width="100%"
+                    enabled="{= !${globalData>/TripLocked} }"
+                    showSuggestion="true"
+                    suggestionItems="{poNumberSuggestions>/items}"
+                    suggest="onPoNumberSuggest"
+                    suggestionItemSelected="onPoNumberSuggestionSelected"
+                    filterSuggests="true"
+                    startSuggestion="1"
+                    class="sapUiTinyMarginEnd"
+                >
+                    <suggestionItems>
+                        <core:Item
+                            text="{poNumberSuggestions>DocumentNumber}"
+                            additionalText="{poNumberSuggestions>Name}"
+                        />
+                    </suggestionItems>
+                </Input>
+                <Button
+                    id="idReportingPoSearchSubmit"
+                    text="Submit"
+                    type="Emphasized"
+                    press="onPoNumberSubmitPress"
+                    enabled="{= !${globalData>/TripLocked} }"
+                    class="sapUiTinyMarginBegin"
+                />
+            </HBox>
+        </VBox>
+
         <Panel
             id="reportingDetailsPanel"
             expandable="true"
-            expanded="true"
-            class="sapUiNoContentPadding"
+            expanded="false"
+            class="sapUiNoContentPadding sapUiTinyMarginBottom"
+            width="100%"
         >
             <headerToolbar>
                 <OverflowToolbar>
-                    <Title text="Reporting Details" />
+                    <Title text="Reporting Details" class="sectionPanelTitle" />
                 </OverflowToolbar>
             </headerToolbar>
-            <VBox class="sapUiSizeCompact sapUiMediumPadding">
+            <VBox class="sapUiSizeCompact sapUiMediumPadding" width="100%">
                 <layout:Grid
                     defaultSpan="L4 M6 S12"
                     hSpacing="2"
@@ -35,13 +121,29 @@
                                 design="Bold"
                                 required="true"
                             />
-                            <Input
+                            <ComboBox
                                 id="idMovementScenario"
                                 width="100%"
-                                showValueHelp="true"
-                                valueHelpRequest="onValueHelpMovementScenario"
-                                value="{TripData>/MovementScenario}"
-                            />
+                                forceSelection="true"
+                                tooltip="Select movement scenario"
+                                enabled="{= !${globalData>/TripLocked} }"
+                                items="{
+                                    path: 'movementScenarioItems>/',
+                                    sorter: {
+                                        path: 'Group',
+                                        descending: false,
+                                        group: true
+                                    }
+                                }"
+                                selectedKey="{path: 'TripData>/MovementScenarioItemKey', mode: 'TwoWay'}"
+                                change="onMovementScenarioComboChange"
+                            >
+                                <core:ListItem
+                                    key="{movementScenarioItems>ItemKey}"
+                                    text="{movementScenarioItems>LongText}"
+                                    icon="{movementScenarioItems>Icon}"
+                                />
+                            </ComboBox>
                         </VBox>
                     </layout:content>
                     <layout:content>
@@ -54,10 +156,8 @@
                             <Input
                                 id="idMovementType"
                                 width="100%"
-                                showValueHelp="true"
-                                valueHelpRequest="onValueHelpMovementType"
                                 enabled="false"
-                                value="{TripData>/MovementType}"
+                                value="{TripData>/MovementTypeDesc}"
                             />
                         </VBox>
                     </layout:content>
@@ -66,31 +166,35 @@
                             <Label
                                 text="Vehicle Number"
                                 design="Bold"
-                                required="true"
+                                required="false"
                             />
-                          <Input
-    width="100%"
-    showValueHelp="true"
-    showSuggestion="true"
-    suggestionItems="{VHModel>/}"
-    suggest=".onSuggest"
-    filterSuggests="false"
-    suggestThreshold="1"
-    valueHelpRequest=".onValueHelpVehicleNumber"
-    suggestionItemSelected=".onSuggestionItemSelected">
-
-    <suggestionItems>
-        <core:Item 
-            text="{VHModel>VehicleNumber}"
-            additionalText="{VHModel>TransporterName}"
-        />
-    </suggestionItems>
-
-    <customData>
-        <core:CustomData key="field" value="vehicleNumber" />
-    </customData>
-</Input>
-
+                            <Input
+                                id="idVehicleNumber"
+                                width="100%"
+                                showSuggestion="true"
+                                suggestionItems="{vehicleNumberSuggestions>/items}"
+                                suggest="onSuggest"
+                                liveChange="onVehicleNumberLiveChange"
+                                valueLiveUpdate="true"
+                                filterSuggests="false"
+                                value="{TripData>/VehicleNumber}"
+                                startSuggestion="1"
+                                suggestionItemSelected="onSuggestionItemSelected"
+                                enabled="{= !${globalData>/TripLocked} }"
+                            >
+                                <suggestionItems>
+                                    <core:Item
+                                        text="{vehicleNumberSuggestions>VehicleNumber}"
+                                        additionalText="{vehicleNumberSuggestions>TransporterName}"
+                                    />
+                                </suggestionItems>
+                                <customData>
+                                    <core:CustomData
+                                        key="field"
+                                        value="vehicleNumber"
+                                    />
+                                </customData>
+                            </Input>
                         </VBox>
                     </layout:content>
                     <layout:content>
@@ -100,13 +204,24 @@
                                 design="Bold"
                                 required="true"
                             />
-                            <Input
+                            <ComboBox
                                 id="idVehicleType"
                                 width="100%"
-                                showValueHelp="true"
-                                valueHelpRequest="onValueHelpVehicleType"
-                                value="{TripData>/VehicleType}"
-                            />
+                                forceSelection="{= ${TripData>/VehicleType} !== '03' }"
+                                items="{vehicleTypeSuggestions>/items}"
+                                selectedKey="{TripData>/VehicleType}"
+                                value="{TripData>/VehicleTypeDesc}"
+                                filterSecondaryValues="false"
+                                showSecondaryValues="false"
+                                selectionChange="onVehicleTypeSelectionChange"
+                                change="onVehicleTypeChange"
+                                enabled="{= !${globalData>/TripLocked} }"
+                            >
+                                <core:ListItem
+                                    key="{vehicleTypeSuggestions>ConfigID}"
+                                    text="{vehicleTypeSuggestions>Description}"
+                                />
+                            </ComboBox>
                         </VBox>
                     </layout:content>
                     <layout:content>
@@ -114,15 +229,19 @@
                             <Label
                                 text="Vehicle Size"
                                 design="Bold"
-                                required="true"
                             />
-                            <Input
+                            <Select
                                 id="idVehicleSize"
                                 width="100%"
-                                showValueHelp="true"
-                                valueHelpRequest="onValueHelpVehicleSize"
-                                value="{TripData>/VehicleSize}"
-                            />
+                                enabled="{= !${globalData>/TripLocked} }"
+                                
+                            >
+                                <core:Item key="Light" text="Light" />
+                                <core:Item key="Medium" text="Medium" />
+                                <core:Item key="Heavy" text="Heavy" />
+                                <core:Item key="Container" text="Container" />
+                                <core:Item key="Other" text="Other" />
+                            </Select>
                         </VBox>
                     </layout:content>
                     <layout:content>
@@ -136,6 +255,8 @@
                                 id="idTransporterName"
                                 width="100%"
                                 value="{TripData>/TransporterName}"
+                                valueLiveUpdate="true"
+                                enabled="{= !${globalData>/TripLocked} }"
                             />
                         </VBox>
                     </layout:content>
@@ -150,6 +271,7 @@
                                 id="idLRNumber"
                                 width="100%"
                                 value="{TripData>/LR_Number}"
+                                enabled="{= !${globalData>/TripLocked} }"
                             />
                         </VBox>
                     </layout:content>
@@ -162,8 +284,14 @@
                             <DatePicker
                                 id="idLRDate"
                                 width="100%"
-                                value="{TripData>/LR_Date}"
-                                displayFormat="long"
+                                value="{
+                                    path: 'TripData>/LR_Date',
+                                    formatter: '.formatLRDate'
+                                }"
+                                displayFormat="medium"
+                                placeholder="{i18n>datePlaceholderExample}"
+                                valueFormat="yyyy-MM-dd"
+                                enabled="{= !${globalData>/TripLocked} }"
                             />
                         </VBox>
                     </layout:content>
@@ -178,6 +306,8 @@
                                 id="idDriverName"
                                 width="100%"
                                 value="{TripData>/DriverName}"
+                                valueLiveUpdate="true"
+                                enabled="{= !${globalData>/TripLocked} }"
                             />
                         </VBox>
                     </layout:content>
@@ -192,6 +322,11 @@
                                 id="idDriverContact"
                                 width="100%"
                                 value="{TripData>/DriverMobile}"
+                                type="Number"
+                                maxLength="10"
+                                liveChange=".onDriverContactLiveChange"
+                                valueLiveUpdate="true"
+                                enabled="{= !${globalData>/TripLocked} }"
                             />
                         </VBox>
                     </layout:content>
@@ -200,12 +335,15 @@
                             <Label
                                 text="Driver License"
                                 design="Bold"
-                                required="true"
+                                required="false"
                             />
                             <Input
                                 id="idDriverLicense"
                                 width="100%"
                                 value="{TripData>/DriverLicence}"
+                                liveChange="onDriverLicenseLiveChange"
+                                valueLiveUpdate="true"
+                                enabled="{= !${globalData>/TripLocked} }"
                             />
                         </VBox>
                     </layout:content>
@@ -215,14 +353,37 @@
                                 text="Driver Photo"
                                 design="Bold"
                             />
-                            <unified:FileUploader
-                                id="idDriverPhoto"
-                                width="100%"
-                                uploadUrl="/upload"
-                                buttonText="Browse"
-                                fileType="jpg,png"
-                                placeholder="Upload Driver Photo"
-                                change="onDriverPhotoChange"
+                            <HBox alignItems="Center" class="sapUiTinyMarginTop">
+                                <unified:FileUploader
+                                    id="idDriverPhotoUploader"
+                                    name="driverPhoto"
+                                    placeholder="Choose photo (JPG, PNG)"
+                                    fileType="jpg,jpeg,png"
+                                    icon="sap-icon://camera"
+                                    width="70%"
+                                    change=".onDriverPhotoChange"
+                                    enabled="{= !${globalData>/TripLocked} }"
+                                    class="sapUiTinyMarginEnd"
+                                />
+                                <Button
+                                    id="idPreviewDriverPhoto"
+                                    icon="sap-icon://show"
+                                    text="Preview"
+                                    type="Transparent"
+                                    press=".onPreviewDriverPhoto"
+                                    visible="{= !!${TripData>/DriverPhoto}}"
+                                    class="sapUiTinyMarginBegin"
+                                />
+                            </HBox>
+                            <Image
+                                id="idDriverPhotoPreview"
+                                src="{TripData>/DriverPhoto}"
+                                width="150px"
+                                height="150px"
+                                densityAware="false"
+                                visible="{= !!${TripData>/DriverPhoto}}"
+                                class="sapUiTinyMarginTop driverPhotoPreview"
+                                press=".onPreviewDriverPhoto"
                             />
                         </VBox>
                     </layout:content>
@@ -230,46 +391,143 @@
                     <layout:content>
                         <VBox>
                             <Label
-                                text="Plant"
+                                text="Reference Document Type"
                                 design="Bold"
-                                required="true"
+                            />
+                            <Select
+                                id="idRefDocTypeReporting"
+                                width="100%"
+                                items="{docTypeItems>/items}"
+                                selectedKey="{reportingUi>/referenceByKey}"
+                                change="onReportingReferenceByChange"
+                                enabled="{= !${globalData>/TripLocked} }"
+                            >
+                                <core:ListItem
+                                    key="{docTypeItems>ConfigID}"
+                                    text="{docTypeItems>Description}"
+                                />
+                            </Select>
+                        </VBox>
+                    </layout:content>
+                    <layout:content>
+                        <VBox>
+                            <Label
+                                text="Reference Document No"
+                                design="Bold"
                             />
                             <Input
-                                id="idPlant"
+                                id="idRefDocNoReporting"
                                 width="100%"
-                                showValueHelp="true"
-                                valueHelpRequest="onValueHelpPlant"
-                                value="{TripData>/Plant}"
+                                value="{reportingUi>/refDocSearchValue}"
+                                showSuggestion="true"
+                                startSuggestion="1"
+                                filterSuggests="true"
+                                maxSuggestionWidth="32rem"
+                                placeholder="{= ${reportingUi>/referenceByMode} === 'INVOICE' ? 'Type or select invoice' : (${reportingUi>/referenceByMode} === 'CHALLAN' ? 'Type or select challan' : 'Type or select PO number') }"
+                                suggestionItems="{reportingRefSuggest>/items}"
+                                suggest="onReportingRefDocSuggest"
+                                suggestionItemSelected="onReportingRefDocSuggestionSelected"
+                                change="onReportingRefDocSearchChange"
+                                enabled="{= !${globalData>/TripLocked} }"
+                            >
+                                <suggestionItems>
+                                    <SuggestionItem
+                                        text="{reportingRefSuggest>docText}"
+                                        description="{reportingRefSuggest>docDescription}"
+                                    />
+                                </suggestionItems>
+                            </Input>
+                        </VBox>
+                    </layout:content>
+                    <layout:content>
+                        <VBox>
+                            <Label
+                                text="EWB Bill No"
+                                design="Bold"
+                            />
+                            <Input
+                                id="idEwbBillNo"
+                                width="100%"
+                                value="{TripData>/EwbNo}"
+                                enabled="{= !${globalData>/TripLocked} }"
                             />
                         </VBox>
                     </layout:content>
                     <layout:content>
                         <VBox>
                             <Label
-                                text="Company Code"
+                                text="EWB Date"
                                 design="Bold"
-                                required="true"
+                            />
+                            <DatePicker
+                                id="idEwbDate"
+                                width="100%"
+                                valueFormat="yyyy-MM-dd"
+                                displayFormat="medium"
+                                placeholder="{i18n>datePlaceholderExample}"
+                                value="{path: 'TripData>/EwbActStartDate', formatter: '.formatLRDate'}"
+                                enabled="{= !${globalData>/TripLocked} }"
+                            />
+                        </VBox>
+                    </layout:content>
+                    <layout:content>
+                        <VBox visible="{path: 'TripData>/MovementType', formatter: '.formatInvRefColumnsVisible'}">
+                            <Label
+                                text="INV/DC No"
+                                design="Bold"
                             />
                             <Input
-                                id="idCompanyCode"
+                                id="idInvDcNo"
                                 width="100%"
-                                showValueHelp="true"
-                                valueHelpRequest="onValueHelpCompanyCode"
-                                value="{TripData>/CompanyCode}"
-                                enabled="false"
+                                value="{TripData>/InvRefNo}"
+                                enabled="{= !${globalData>/TripLocked} }"
+                            />
+                        </VBox>
+                    </layout:content>
+                    <layout:content>
+                        <VBox visible="{path: 'TripData>/MovementType', formatter: '.formatInvRefColumnsVisible'}">
+                            <Label
+                                text="INV/DC Date"
+                                design="Bold"
+                            />
+                            <DatePicker
+                                id="idInvDcDate"
+                                width="100%"
+                                valueFormat="yyyy-MM-dd"
+                                displayFormat="medium"
+                                placeholder="{i18n>datePlaceholderExample}"
+                                value="{path: 'TripData>/InvRefDate', formatter: '.formatLRDate'}"
+                                enabled="{= !${globalData>/TripLocked} }"
                             />
                         </VBox>
                     </layout:content>
                     <layout:content>
                         <VBox>
                             <Label
-                                text="Related Trip Number"
+                                text="Bill Of Lading"
+                                design="Bold"
+                            />
+                            <Input
+                                id="idBillOfLading"
+                                width="100%"
+                                value="{TripData>/BillofLading}"
+                                enabled="{= !${globalData>/TripLocked} }"
+                            />
+                        </VBox>
+                    </layout:content>
+                    <layout:content>
+                        <VBox>
+                            <Label
+                                text="Gate Pass No"
                                 design="Bold"
                             />
                             <Input
                                 id="idRelatedTripNumber"
                                 width="100%"
-                                value="{TripData>/TripNumber}"
+                                value="{
+                                    path: 'TripData>/TripNumber',
+                                    formatter: '.formatTripNumber'
+                                }"
                                 enabled="false"
                             />
                         </VBox>
@@ -285,27 +543,19 @@
                                 width="100%"
                                 growing="true"
                                 value="{TripData>/AdditionalInfo}"
+                                enabled="{= !${globalData>/TripLocked} }"
                             />
                         </VBox>
                     </layout:content>
                 </layout:Grid>
-            </VBox>
-        </Panel>
-        <layout:Grid>
-         <ToolbarSpacer ></ToolbarSpacer>
-            <layout:content>
-             <ToolbarSpacer ></ToolbarSpacer>
-            <ToolbarSpacer ></ToolbarSpacer>
-                <HBox
-                    justifyContent="End"
-                    class="sapUiSmallMarginTop sapUiSmallMarginEnd"
-                >
+                <HBox justifyContent="End" class="sapUiSmallMarginTop" width="100%">
                     <Button
                         id="btnEditReporting"
                         text="Edit"
                         type="Emphasized"
                         press="onEditReporting"
                         icon="sap-icon://edit"
+                        visible="{= !${globalData>/TripLocked} }"
                     />
                     <Button
                         id="btnSaveReporting"
@@ -314,29 +564,30 @@
                         press="onSaveReporting"
                         icon="sap-icon://save"
                         class="sapUiTinyMarginBegin"
+                        visible="{= !${globalData>/TripLocked} }"
                     />
                 </HBox>
-            </layout:content>
-        </layout:Grid>
+            </VBox>
+        </Panel>
         <!-- ===================== CHANGE HISTORY ===================== -->
         <Panel
             id="changeHistoryPanel"
             expandable="true"
             expanded="false"
-            class="sapUiNoContentPadding"
+            class="sapUiNoContentPadding sapUiTinyMarginBottom"
+            width="100%"
             visible="false"
         >
             <headerToolbar>
                 <OverflowToolbar>
-                    <Title text="Change History" />
+                    <Title text="Change History" class="sectionPanelTitle" />
                 </OverflowToolbar>
             </headerToolbar>
             <VBox
-                class="sapUiSmallMargin sapUiMediumPadding sapUiSizeCompact"
+                class="sapUiMediumPadding sapUiSizeCompact"
+                width="100%"
                 binding="{TripData>/}"
-                
             >
-              
                 <HBox justifyContent="SpaceBetween">
                     <VBox width="48%">
                         <Label
@@ -358,7 +609,10 @@
                         <Input
                             id="idCreatedOnDate"
                             width="100%"
-                            value="{TripData>/CreatedOn}"
+                            value="{
+                                path: 'TripData>/CreatedOn',
+                                formatter: '.formatTripDate'
+                            }"
                             enabled="false"
                         />
                     </VBox>
@@ -371,7 +625,10 @@
                     <Input
                         id="idCreatedOnTime"
                         width="100%"
-                        value="{TripData>/CreatedTime}"
+                        value="{
+                            path: 'TripData>/CreatedTime',
+                            formatter: '.formatTripTime'
+                        }"
                         enabled="false"
                     />
                 </VBox>

@@ -1,0 +1,188 @@
+<core:FragmentDefinition
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+    xmlns:form="sap.ui.layout.form"
+>
+    <Dialog
+        id="idAddMaterialDialog"
+        title="Add Material Row"
+        class="sapUiResponsivePadding--content"
+        contentWidth="32rem"
+    >
+        <form:SimpleForm
+            layout="ResponsiveGridLayout"
+            editable="true"
+            labelSpanL="4"
+            labelSpanM="4"
+            adjustLabelSpan="false"
+            emptySpanL="0"
+            emptySpanM="0"
+            columnsL="1"
+            columnsM="1"
+        >
+            <Label text="Doc Type" />
+            <Input
+                id="idMaterialDocType"
+                showValueHelp="true"
+                valueHelpRequest=".onMaterialDocTypeValueHelp"
+                showSuggestion="true"
+                filterSuggests="true"
+                change=".onMaterialDocTypeChange"
+                suggestionItemSelected=".onMaterialDocTypeSuggestionSelected"
+                suggestionItems="{refDocModel>/materialDocTypes}"
+            >
+                <suggestionItems>
+                    <core:Item
+                        key="{refDocModel>docType}"
+                        text="{refDocModel>docType}"
+                        templateShareable="false"
+                    />
+                </suggestionItems>
+            </Input>
+
+            <Label text="Ref Doc Number" />
+            <Input
+                id="idMaterialRefDocNo"
+                valueLiveUpdate="true"
+                showValueHelp="true"
+                valueHelpRequest=".onMaterialRefDocNoValueHelp"
+                showSuggestion="true"
+                filterSuggests="true"
+                suggestionItemSelected=".onMaterialRefDocNoSuggestionSelected"
+                change=".onMaterialRefDocNoChange"
+                suggestionItems="{refDocModel>/materialRefDocNumbers}"
+            >
+                <suggestionItems>
+                    <core:Item
+                        key="{refDocModel>DocumentNumber}"
+                        text="{refDocModel>DocumentNumber}"
+                        additionalText="{refDocModel>Name}"
+                        templateShareable="false"
+                    />
+                </suggestionItems>
+            </Input>
+
+            <Label text="Ref Doc Item Number" />
+            <Input
+                id="idMaterialRefDocItem"
+                valueLiveUpdate="true"
+                showValueHelp="true"
+                valueHelpRequest=".onMaterialItemValueHelp"
+                showSuggestion="true"
+                filterSuggests="true"
+                suggestionItemSelected=".onMaterialItemSuggestionSelected"
+                change=".onMaterialRefDocItemChange"
+                suggestionItems="{materialItems>/items}"
+            >
+                <suggestionItems>
+                    <core:Item
+                        key="{materialItems>RefDocItemNo}"
+                        text="{materialItems>RefDocItemNo}"
+                        additionalText="{materialItems>MaterialCode} - {materialItems>MaterialDescription}"
+                        templateShareable="false"
+                    />
+                </suggestionItems>
+            </Input>
+
+            <Label
+                text="Schedule line"
+                visible="{
+                    parts: [
+                        { path: 'TripData>/MovementScenarioItemKey' },
+                        { path: 'TripData>/MovementType' },
+                        { path: 'TripData>/MovementScenario' }
+                    ],
+                    formatter: '.formatMaterialScheduleLineVisible'
+                }" />
+            <Input
+                id="idMaterialSheduleItem"
+                valueLiveUpdate="true"
+                placeholder="e.g. 000001"
+                visible="{
+                    parts: [
+                        { path: 'TripData>/MovementScenarioItemKey' },
+                        { path: 'TripData>/MovementType' },
+                        { path: 'TripData>/MovementScenario' }
+                    ],
+                    formatter: '.formatMaterialScheduleLineVisible'
+                }"
+            />
+
+            <Label text="Material Code" />
+            <Input
+                id="idMaterialCode"
+                valueLiveUpdate="true"
+            />
+
+            <Label text="Material Description" />
+            <Input
+                id="idMaterialDesc"
+                valueLiveUpdate="true"
+            />
+
+            <Label text="Quantity" />
+            <Input
+                id="idMaterialQty"
+                valueLiveUpdate="true"
+                change=".onMaterialDialogWholeQtyLiveChange"
+                liveChange=".onMaterialDialogWholeQtyLiveChange"
+            />
+
+            <Label text="Balance Qty" />
+            <Input
+                id="idMaterialBalanceQty"
+                valueLiveUpdate="true"
+                change=".onMaterialDialogWholeQtyLiveChange"
+                liveChange=".onMaterialDialogWholeQtyLiveChange"
+            />
+
+            <Label text="Shipping Qty" />
+            <Input
+                id="idMaterialDispatchQty"
+                valueLiveUpdate="true"
+                change=".onMaterialDialogWholeQtyLiveChange"
+                liveChange=".onMaterialDialogWholeQtyLiveChange"
+            />
+
+            <Label text="Remain Qty" />
+            <Input
+                id="idMaterialRemainQty"
+                valueLiveUpdate="true"
+            />
+
+            <Label text="Dispatch Date" visible="false" />
+            <DatePicker
+                id="idMaterialDispatchDate"
+                visible="false"
+                valueFormat="yyyy-MM-dd"
+                displayFormat="medium"
+                placeholder="{i18n>datePlaceholderExample}"
+            />
+
+            <Label text="UoM" />
+            <Input
+                id="idMaterialUoM"
+                valueLiveUpdate="true"
+                
+            />
+
+        </form:SimpleForm>
+
+        <beginButton>
+            <Button
+                id="idMaterialDialogSaveBtn"
+                text="Add"
+                type="Emphasized"
+                press=".onSaveMaterialDialog"
+                visible="{= !${globalData>/TripLocked} }"
+            />
+        </beginButton>
+        <endButton>
+            <Button
+                text="Cancel"
+                press=".onCancelMaterialDialog"
+            />
+        </endButton>
+    </Dialog>
+</core:FragmentDefinition>
+
