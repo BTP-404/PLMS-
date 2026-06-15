@@ -121,6 +121,54 @@ sap.ui.define([
 			return this._bGateOutEmbeddedRefDocsOnly === true;
 		},
 
+		_isGateOutExternalVehicleOutboundContext: function () {
+			if (!this._isGateOutEmbeddedRefDocsOnly()) {
+				return false;
+			}
+			var oTrip = this.getView().getModel("TripData") || sap.ui.getCore().getModel("TripData");
+			if (!oTrip) {
+				return false;
+			}
+			if (String(oTrip.getProperty("/MovementType") || "").trim().toUpperCase() !== "O") {
+				return false;
+			}
+			var sVt = String(oTrip.getProperty("/VehicleType") || "").trim().replace(/^0+/, "") || "0";
+			var sDesc = String(oTrip.getProperty("/VehicleTypeDesc") || "").trim().toLowerCase();
+			return sVt === "2" && sDesc === "external";
+		},
+
+		/**
+		 * Gate Out embedded view: auto-add materials for Invoice / Challan (not PO).
+		 * Empty reference-by on external vehicle outbound trips is treated as Invoice/Challan.
+		 * Other contexts keep the existing auto-add behaviour on reference document save.
+		 */
+		_shouldAutoAddMaterialsOnGateOutRefDocSave: function () {
+			if (!this._isGateOutEmbeddedRefDocsOnly()) {
+				return true;
+			}
+			var sKey = this._getLatestReferenceByKey();
+			if (sKey === "PO") {
+				return false;
+			}
+			if (sKey === "INVOICE" || sKey === "CHALLAN") {
+				return true;
+			}
+			return this._isGateOutExternalVehicleOutboundContext();
+		},
+
+		_scheduleMaterialsFromRefDoc: function (sDocType, sRefDocNo, bSecondPass) {
+			if (!sDocType || !sRefDocNo) {
+				return;
+			}
+			this._addAllMaterialsFromRefDoc(sDocType, sRefDocNo);
+			if (bSecondPass) {
+				var that = this;
+				window.setTimeout(function () {
+					that._addAllMaterialsFromRefDoc(sDocType, sRefDocNo);
+				}, 400);
+			}
+		},
+
 		/**
 		 * Movement indicator for segregation between Gate In vs Gate Out.
 		 * Backend field name is `MovmentInd` (max length 2).
@@ -906,6 +954,19 @@ sap.ui.define([
 			if (sFromViewModel === "PO" || sFromViewModel === "INVOICE" || sFromViewModel === "CHALLAN") {
 				return sFromViewModel;
 			}
+			// Embedded ReferenceDocuments view does not own gateOutUi; read from parent Gate Out view.
+			var v = this.getView();
+			var i = 0;
+			while (v && i++ < 20) {
+				var oGateOutUi = typeof v.getModel === "function" ? v.getModel("gateOutUi") : null;
+				if (oGateOutUi) {
+					var sParentKey = String(oGateOutUi.getProperty("/referenceByKey") || "").trim().toUpperCase();
+					if (sParentKey === "PO" || sParentKey === "INVOICE" || sParentKey === "CHALLAN") {
+						return sParentKey;
+					}
+				}
+				v = typeof v.getParent === "function" ? v.getParent() : null;
+			}
 			var sFromGlobal = String(sap.ui.getCore().getModel("globalData")?.getProperty("/OutgoingReferenceByKey") || "").trim().toUpperCase();
 			if (sFromGlobal === "PO" || sFromGlobal === "INVOICE" || sFromGlobal === "CHALLAN") {
 				return sFromGlobal;
@@ -988,37 +1049,32 @@ sap.ui.define([
 			return new Promise(function (resolve) {
 				var oService = this._getOrderDetailsService();
 				var sMode = String(sSource || "").toUpperCase();
-				var sPath = "";
 				var aFilters = [];
 				var sTerm = String(sSearchTerm || "").trim();
-				var bNumeric = /^\d+$/.test(sTerm);
 				var oUrlParameters = {
 					$top: "20",
 					$skip: "0"
 				};
+				var mModeConfig = {
+					PO: { path: "/PoNumberSH", field: "PoNumber" },
+					INVOICE: { path: "/BillingDocSH", field: "BillingDoc" },
+					CHALLAN: { path: "/ChallanSh", field: "MaterialDoc" }
+				};
+				var oCfg = mModeConfig[sMode];
 
-				if (sMode === "PO") {
-					sPath = "/PoNumberSH";
-					if (sTerm) {
-						aFilters.push(new Filter(bNumeric ? "PoNumber" : "VendorName", FilterOperator.StartsWith, sTerm));
-					}
-				} else if (sMode === "INVOICE") {
-					sPath = "/BillingDocSH";
-					if (sTerm) {
-						// Backend may expose PayerName (preferred) or Payer (fallback id/text).
-						aFilters.push(new Filter(bNumeric ? "BillingDoc" : "PayerName", FilterOperator.StartsWith, sTerm));
-					}
-				} else if (sMode === "CHALLAN") {
-					sPath = "/ChallanSh";
-					if (sTerm) {
-						aFilters.push(new Filter(bNumeric ? "MaterialDoc" : "SupplierName", FilterOperator.StartsWith, sTerm));
-					}
-				} else {
+				if (!oCfg) {
+					MessageBox.error("Invalid document type for search help");
+					resolve([]);
+					return;
+				}
+				if (!sTerm || sTerm.length < 2) {
 					resolve([]);
 					return;
 				}
 
-				oService.read(sPath, {
+				aFilters.push(new Filter(oCfg.field, FilterOperator.Contains, sTerm));
+
+				oService.read(oCfg.path, {
 					filters: aFilters,
 					urlParameters: oUrlParameters,
 					success: function (oData) {
@@ -1048,32 +1104,9 @@ sap.ui.define([
 						resolve(aMapped);
 					}.bind(this),
 					error: function (oError) {
-						// For invoice text search, fallback to Payer if PayerName is unsupported.
-						if (sMode === "INVOICE" && sTerm && !bNumeric && aFilters.length) {
-							oService.read(sPath, {
-								filters: [new Filter("Payer", FilterOperator.StartsWith, sTerm)],
-								urlParameters: oUrlParameters,
-								success: function (oData2) {
-									var aRows2 = oData2?.results || [];
-									var aMapped2 = aRows2.map(function (oRow) {
-										return {
-											DocType: this._sSelectedDocType || "",
-											DocumentNumber: String(oRow?.BillingDoc || "").trim(),
-											Name: String(oRow?.PayerName || oRow?.Payer || "").trim()
-										};
-									}.bind(this)).filter(function (oDoc) {
-										return !!oDoc.DocumentNumber;
-									});
-									resolve(aMapped2);
-								}.bind(this),
-								error: function () {
-									resolve([]);
-								}
-							});
-							return;
-						}
+						MessageBox.error(this._extractErrorMessage(oError) || "Unable to load document suggestions");
 						resolve([]);
-					}
+					}.bind(this)
 				});
 			}.bind(this));
 		},
@@ -1560,11 +1593,21 @@ sap.ui.define([
 					this._updateLocalReferenceDoc(oSavedRefDoc, oOptimisticRefDoc);
 					MessageToast.show("Reference document added");
 
-					// Automatically add all materials for this reference document
 					var sDocType = oSavedRefDoc.DocType || oPayload.DocType || "";
 					var sDocNumber = oSavedRefDoc.DocumentNumber || oPayload.DocumentNumber || "";
-					if (sDocType && sDocNumber) {
-						this._addAllMaterialsFromRefDoc(sDocType, sDocNumber);
+					if (sDocType && sDocNumber && this._shouldAutoAddMaterialsOnGateOutRefDocSave()) {
+						this._scheduleMaterialsFromRefDoc(
+							sDocType,
+							sDocNumber,
+							this._isGateOutEmbeddedRefDocsOnly()
+						);
+						// External vehicle / no search strip: reconcile trip ItemDetails like invoice search flow.
+						if (this._isGateOutEmbeddedRefDocsOnly()) {
+							this._oEventBus?.publish("GateOut", "RefDocSaved", {
+								docType: sDocType,
+								documentNumber: sDocNumber
+							});
+						}
 					}
 
 					this._loadRefDocSuggestions(this._sSelectedDocType || oPayload.DocType);

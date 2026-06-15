@@ -240,6 +240,16 @@ sap.ui.define(
               // Also bind to this view
               that.getView().setModel(oTripDataModel, "TripData");
 
+              var oStageUi = sap.ui.getCore().getModel("stageUi");
+              var bReportingInGateOut = !!(
+                oStageUi && oStageUi.getProperty("/showReportingInGateOut")
+              );
+              if (bReportingInGateOut) {
+                sap.ui.getCore().getEventBus().publish("GateOut", "ReloadFromTripExpand", {
+                  tripNumber: sTripNumber,
+                });
+              }
+
               movementScenario = oData.MovementScenario;
               Mtype = oData.MovementType;
 
@@ -629,6 +639,7 @@ sap.ui.define(
          * - uses _collectFormData which returns TripData model content
          * =========================================================== */
         _createTrip: function (oModel) {
+          this._syncOutgoingRefDocToTripBeforeSave();
           const oData = this._collectFormData();
 
           // Store driver photo separately in Attachments, not in TripDetails
@@ -708,8 +719,10 @@ sap.ui.define(
                 oGlobalModel.setProperty("/MovementType", "");
                 oGlobalModel.setProperty("/MovementTypeDesc", "");
               }
-              
-              that._clearForm();
+
+              if (!that._hasPendingOutgoingRefDocForGateOut()) {
+                that._clearForm();
+              }
               that._setFormEditable(false);
               that._setInputsEnabled(false);
               that._setReportingSaveInFlight(false);
@@ -749,6 +762,7 @@ sap.ui.define(
          * - Strips navigation properties and __metadata before sending
          * =========================================================== */
         _updateTrip: function (oModel) {
+          this._syncOutgoingRefDocToTripBeforeSave();
           const oData = this._collectFormData();
           const sTripNumber = oData.TripNumber;
           const that = this;
@@ -3342,6 +3356,169 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
           }
         },
 
+        /**
+         * Gate Out create/update: merge selected invoice/challan/PO into TripData before POST.
+         */
+        _syncOutgoingRefDocToTripBeforeSave: function () {
+          if (!this._isEmbeddedInGateOutReporting()) {
+            return;
+          }
+          var oTrip = this.getView().getModel("TripData");
+          if (!oTrip) {
+            oTrip = sap.ui.getCore().getModel("TripData");
+          }
+          if (!oTrip) {
+            return;
+          }
+          var sMove = String(oTrip.getProperty("/MovementType") || "")
+            .trim()
+            .toUpperCase();
+          if (sMove === "I") {
+            return;
+          }
+
+          var oG = sap.ui.getCore().getModel("globalData");
+          var oUi = this.getView().getModel("reportingUi");
+          var sRefKey = String(
+            (oG && oG.getProperty("/OutgoingReferenceByKey")) ||
+              (oUi && oUi.getProperty("/referenceByMode")) ||
+              "INVOICE"
+          ).toUpperCase();
+          var sDocNo = "";
+          var sDocType = "";
+
+          if (sRefKey === "PO") {
+            sDocNo = String(
+              (oG && oG.getProperty("/OutgoingPoNumber")) ||
+                (oUi && oUi.getProperty("/refDocSearchValue")) ||
+                oTrip.getProperty("/RefDocNo") ||
+                ""
+            ).trim();
+            sDocType = String(
+              (oG && oG.getProperty("/OutgoingRefDocDocType")) ||
+                oTrip.getProperty("/RefDocType") ||
+                ""
+            ).trim();
+            if (sDocNo) {
+              oTrip.setProperty("/PoNumber", sDocNo);
+              oTrip.setProperty("/RefDocNo", sDocNo);
+              if (sDocType) {
+                oTrip.setProperty("/RefDocType", sDocType);
+              }
+            }
+          } else {
+            sDocNo = String(
+              (oG && oG.getProperty("/OutgoingBillingDocument")) ||
+                (oUi && oUi.getProperty("/refDocSearchValue")) ||
+                oTrip.getProperty("/RefDocNo") ||
+                ""
+            ).trim();
+            sDocType = String(
+              (oG && oG.getProperty("/OutgoingBillingDocType")) ||
+                oTrip.getProperty("/RefDocType") ||
+                ""
+            ).trim();
+            if (sDocNo) {
+              oTrip.setProperty("/BillingDocument", sDocNo);
+              oTrip.setProperty("/RefDocNo", sDocNo);
+              if (sDocType) {
+                oTrip.setProperty("/RefDocType", sDocType);
+              }
+            }
+          }
+        },
+
+        _hasPendingOutgoingRefDocForGateOut: function () {
+          if (!this._isEmbeddedInGateOutReporting()) {
+            return false;
+          }
+          var oG = sap.ui.getCore().getModel("globalData");
+          if (oG) {
+            var sRefKey = String(oG.getProperty("/OutgoingReferenceByKey") || "INVOICE").toUpperCase();
+            if (sRefKey === "PO") {
+              if (String(oG.getProperty("/OutgoingPoNumber") || "").trim()) {
+                return true;
+              }
+            } else if (String(oG.getProperty("/OutgoingBillingDocument") || "").trim()) {
+              return true;
+            }
+          }
+          var oTrip = sap.ui.getCore().getModel("TripData");
+          return !!(oTrip && String(oTrip.getProperty("/RefDocNo") || "").trim());
+        },
+
+        /**
+         * True when this reporting view is embedded under Gate Out (not Gate In / other hosts).
+         */
+        _isEmbeddedInGateOutReporting: function () {
+          var v = this.getView();
+          var i = 0;
+          while (v && i++ < 25) {
+            var sId = (typeof v.getId === "function" && v.getId()) || "";
+            if (sId.indexOf("idVehicleReportingEmbeddedGateOut") >= 0) {
+              return true;
+            }
+            v = typeof v.getParent === "function" ? v.getParent() : null;
+          }
+          return false;
+        },
+
+        /** Gate Out host controller when embedded; null otherwise. */
+        _getGateOutHostController: function () {
+          var v = this.getView();
+          var i = 0;
+          while (v && i++ < 30) {
+            var oCtrl =
+              typeof v.getController === "function" ? v.getController() : null;
+            if (oCtrl && typeof oCtrl.resolveRefDocumentFromReporting === "function") {
+              return oCtrl;
+            }
+            v = typeof v.getParent === "function" ? v.getParent() : null;
+          }
+          return null;
+        },
+
+        /**
+         * Gate Out embedded + outward: full ref-doc/material/reporting fetch via GateOut controller.
+         * All other hosts: keep local TripData RefDocNo update only.
+         */
+        _applyReportingRefDocSelection: function (sText) {
+          var sVal = String(sText || "").trim();
+          if (!sVal) {
+            return;
+          }
+
+          var oUi = this.getView().getModel("reportingUi");
+          if (oUi) {
+            oUi.setProperty("/refDocSearchValue", sVal);
+          }
+          this._clearReportingRefSuggestItems();
+
+          if (this._isEmbeddedInGateOutReporting()) {
+            var oTripData = sap.ui.getCore().getModel("TripData");
+            var sMove = String(
+              (oTripData && oTripData.getProperty("/MovementType")) || ""
+            )
+              .trim()
+              .toUpperCase();
+            if (sMove !== "I") {
+              var oGateOut = this._getGateOutHostController();
+              if (oGateOut) {
+                var sMode = oUi
+                  ? String(oUi.getProperty("/referenceByMode") || "INVOICE").toUpperCase()
+                  : "INVOICE";
+                oGateOut.resolveRefDocumentFromReporting(sMode, sVal);
+                return;
+              }
+            }
+          }
+
+          var oTrip = sap.ui.getCore().getModel("TripData");
+          if (oTrip) {
+            oTrip.setProperty("/RefDocNo", sVal);
+          }
+        },
+
         //---------------------------------------------
         // REPORTING — REFERENCE DOCUMENT (Search-by style suggestions)
         //---------------------------------------------
@@ -3406,30 +3583,20 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
           }
 
           sKey = String(sKey || "").toUpperCase();
-          var bNumeric = /^\d+$/.test(sValue);
-          var sPath = "";
-          var oFilter = null;
-          if (sKey === "INVOICE") {
-            sPath = "/BillingDocSH";
-            oFilter = bNumeric
-              ? new Filter("BillingDoc", FilterOperator.Contains, sValue)
-              : new Filter("PayerName", FilterOperator.Contains, sValue);
-          } else if (sKey === "CHALLAN") {
-            sPath = "/ChallanSh";
-            oFilter = bNumeric
-              ? new Filter("MaterialDoc", FilterOperator.Contains, sValue)
-              : new Filter("SupplierName", FilterOperator.Contains, sValue);
-          } else if (sKey === "PO") {
-            sPath = "/PoNumberSH";
-            oFilter = bNumeric
-              ? new Filter("PoNumber", FilterOperator.Contains, sValue)
-              : new Filter("VendorName", FilterOperator.Contains, sValue);
-          } else {
+          var mModeConfig = {
+            INVOICE: { path: "/BillingDocSH", field: "BillingDoc" },
+            CHALLAN: { path: "/ChallanSh", field: "MaterialDoc" },
+            PO: { path: "/PoNumberSH", field: "PoNumber" },
+          };
+          var oCfg = mModeConfig[sKey];
+          if (!oCfg) {
+            MessageBox.error("Invalid reference document type");
             oLocalModel.setProperty("/items", []);
             return;
           }
 
-          oModel.read(sPath, {
+          var oFilter = new Filter(oCfg.field, FilterOperator.Contains, sValue);
+          oModel.read(oCfg.path, {
             filters: [oFilter],
             urlParameters: {
               $top: "20",
@@ -3469,6 +3636,7 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
               oLocalModel.setProperty("/items", aItems);
             },
             error: function () {
+              MessageBox.error("Unable to load document suggestions");
               oLocalModel.setProperty("/items", []);
             },
           });
@@ -3477,31 +3645,12 @@ _updateDriverPhotoInAttachments: function (sTripNumber, sDriverPhoto, sDriverNam
         onReportingRefDocSuggestionSelected: function (oEvent) {
           var oItem = oEvent.getParameter("selectedItem");
           var sText = oItem ? String(oItem.getText() || "").trim() : "";
-
-          var oUi = this.getView().getModel("reportingUi");
-          if (oUi) {
-            oUi.setProperty("/refDocSearchValue", sText);
-          }
-          this._clearReportingRefSuggestItems();
-
-          var oTripData = sap.ui.getCore().getModel("TripData");
-          if (oTripData) {
-            oTripData.setProperty("/RefDocNo", sText);
-          }
+          this._applyReportingRefDocSelection(sText);
         },
 
         onReportingRefDocSearchChange: function (oEvent) {
           var sVal = String(oEvent.getParameter("value") || "").trim();
-          var oUi = this.getView().getModel("reportingUi");
-          if (oUi) {
-            oUi.setProperty("/refDocSearchValue", sVal);
-          }
-          this._clearReportingRefSuggestItems();
-
-          var oTripData = sap.ui.getCore().getModel("TripData");
-          if (oTripData) {
-            oTripData.setProperty("/RefDocNo", sVal);
-          }
+          this._applyReportingRefDocSelection(sVal);
         },
 
         _clearReportingRefSuggestItems: function () {

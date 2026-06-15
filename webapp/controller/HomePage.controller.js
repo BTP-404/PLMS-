@@ -2157,31 +2157,20 @@ sap.ui.define(
         }
 
         sKey = String(sKey || "").toUpperCase();
-        var bNumeric = /^\d+$/.test(sValue);
-        var sPath = "";
-        var oFilter = null;
-
-        if (sKey === "INVOICE") {
-          sPath = "/BillingDocSH";
-          oFilter = bNumeric
-            ? new Filter("BillingDoc", FilterOperator.Contains, sValue)
-            : new Filter("PayerName", FilterOperator.Contains, sValue);
-        } else if (sKey === "CHALLAN") {
-          sPath = "/ChallanSh";
-          oFilter = bNumeric
-            ? new Filter("MaterialDoc", FilterOperator.Contains, sValue)
-            : new Filter("SupplierName", FilterOperator.Contains, sValue);
-        } else if (sKey === "PO") {
-          sPath = "/PoNumberSH";
-          oFilter = bNumeric
-            ? new Filter("PoNumber", FilterOperator.Contains, sValue)
-            : new Filter("VendorName", FilterOperator.Contains, sValue);
-        } else {
+        var mModeConfig = {
+          INVOICE: { path: "/BillingDocSH", field: "BillingDoc" },
+          CHALLAN: { path: "/ChallanSh", field: "MaterialDoc" },
+          PO: { path: "/PoNumberSH", field: "PoNumber" },
+        };
+        var oCfg = mModeConfig[sKey];
+        if (!oCfg) {
+          MessageBox.error("Invalid reference document type");
           oLocalModel.setProperty("/items", []);
           return;
         }
 
-        oModel.read(sPath, {
+        var oFilter = new Filter(oCfg.field, FilterOperator.Contains, sValue);
+        oModel.read(oCfg.path, {
           filters: [oFilter],
           urlParameters: {
             $top: "20",
@@ -2227,9 +2216,12 @@ sap.ui.define(
             });
             oLocalModel.setProperty("/items", aItems);
           },
-          error: function () {
+          error: function (oError) {
+            MessageBox.error(
+              this._extractErrorMessage(oError) || "Unable to load document suggestions"
+            );
             oLocalModel.setProperty("/items", []);
-          },
+          }.bind(this),
         });
       },
 

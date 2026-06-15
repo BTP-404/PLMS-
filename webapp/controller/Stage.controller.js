@@ -8,9 +8,9 @@ sap.ui.define([
 	"sap/ui/model/Filter",
 	"sap/ui/model/FilterOperator",
 	"com/incresolZ_INC_PLMS/util/MovementScenarioIcons",
-	"com/incresolZ_INC_PLMS/util/O02GateException",
-	"com/incresolZ_INC_PLMS/util/TripDataDocumentsVerified"
-], function(Controller, JSONModel, ODataModel, MessageBox, MessageToast, ButtonType, Filter, FilterOperator, MovementScenarioIcons, O02GateException, TripDataDocumentsVerified) {
+	"com/incresolZ_INC_PLMS/util/TripDataDocumentsVerified",
+	"com/incresolZ_INC_PLMS/util/VehicleTypeConfig"
+], function(Controller, JSONModel, ODataModel, MessageBox, MessageToast, ButtonType, Filter, FilterOperator, MovementScenarioIcons, TripDataDocumentsVerified, VehicleTypeConfig) {
 	"use strict";
 	return Controller.extend("com.incresolZ_INC_PLMS.controller.Stage", {
 		onInit: function() {
@@ -304,10 +304,31 @@ sap.ui.define([
 		,
 
 		/**
-		 * O02 + Internal (01) flow: reporting is placed in Gate Out.
+		 * Outgoing + Internal (Config 01): open Gate Out first in create mode.
 		 */
+		_isInternalOutgoingGateOutFirst: function () {
+			var oTripData = sap.ui.getCore().getModel("TripData");
+			var oGlobal = sap.ui.getCore().getModel("globalData");
+			var sVehicleType = oTripData
+				? String(oTripData.getProperty("/VehicleType") || "").trim()
+				: "";
+			if (!sVehicleType && oGlobal) {
+				sVehicleType = String(oGlobal.getProperty("/OutgoingVehicleType") || "").trim();
+			}
+			if (!VehicleTypeConfig.isGateOutFirstInCreateMode(sVehicleType)) {
+				return false;
+			}
+			var sMovementType = oTripData
+				? String(oTripData.getProperty("/MovementType") || "").trim().toUpperCase()
+				: "";
+			if (sMovementType === "O") {
+				return true;
+			}
+			return !!(oGlobal && oGlobal.getProperty("/HasOutgoingMaterials"));
+		},
+
 		_isGateOutFirstScenario: function () {
-			return O02GateException.isO02InternalException(sap.ui.getCore().getModel("TripData"));
+			return this._isInternalOutgoingGateOutFirst();
 		},
 
 		_ensureStageUiModel: function () {
@@ -626,13 +647,8 @@ sap.ui.define([
 
 		_updateReportingPlacementByVehicleType: function () {
 			var oStageUi = this._ensureStageUiModel();
-			var oTripData = sap.ui.getCore().getModel("TripData");
-			var sVehicleType = oTripData ? (oTripData.getProperty("/VehicleType") || "") : "";
-			var sMovementScenario = oTripData ? (oTripData.getProperty("/MovementScenario") || "") : "";
-			var sMovementScenarioItemKey = oTripData ? (oTripData.getProperty("/MovementScenarioItemKey") || "") : "";
-			var bIsO02InternalException = O02GateException.isO02InternalException(oTripData);
-			// Exception flow (O02 + Internal vehicle type 01): reporting is shown in Gate Out.
-			oStageUi.setProperty("/showReportingInGateOut", !!bIsO02InternalException);
+			// Outgoing + Internal vehicle type 01: reporting is shown in Gate Out.
+			oStageUi.setProperty("/showReportingInGateOut", !!this._isInternalOutgoingGateOutFirst());
 		},
 
 		_applyVehicleTypeTabRule: function () {
@@ -648,7 +664,8 @@ sap.ui.define([
 				return;
 			}
 			if (!oTripData && this._bCreateMode) {
-				this._setIconTabSelection("gateIn");
+				var bGateOutFirstCreate = this._isInternalOutgoingGateOutFirst();
+				this._setIconTabSelection(bGateOutFirstCreate ? "gateout" : "gateIn");
 				this._updateReportingPlacementByVehicleType();
 				this._updateTabVisibilityForCreateMode();
 				return;
@@ -1087,7 +1104,7 @@ sap.ui.define([
 
 		/**
 		 * Update Tab Visibility for Create Mode
-		 * Normal: only Gate In (Reporting, Ref. Docs, Gate In). O02+Internal exception: only Gate Out (reporting embedded there).
+		 * Normal: only Gate In (Reporting, Ref. Docs, Gate In). Outgoing+Internal: only Gate Out (reporting embedded there).
 		 * After saving a new trip on the Stage route, _bStageTabBarLimited keeps the same gate-only tab bar until the user opens a trip via StagewithParam (e.g. from Home).
 		 */
 		_updateTabVisibilityForCreateMode: function () {

@@ -36,6 +36,9 @@ sap.ui.define(
           this._eventBus = sap.ui.getCore().getEventBus();
           this._eventBus.subscribe("TripData", "Updated", this._onTripDataUpdate, this);
           this._eventBus.subscribe("RefDoc", "MaterialsUpdated", this._onRefDocMaterialsUpdated, this);
+          this._eventBus.subscribe("Stage", "TripCreated", this._onStageTripCreated, this);
+          this._eventBus.subscribe("GateOut", "ReloadFromTripExpand", this._onReloadFromTripExpand, this);
+          this._eventBus.subscribe("GateOut", "RefDocSaved", this._onGateOutRefDocSavedManual, this);
 
           this.oModel = new ODataModel("/sap/opu/odata/sap/YIGP_PLMS_SRV/", {
             useBatch: false,
@@ -894,18 +897,11 @@ sap.ui.define(
           var bShowPanels = !!sTripNumber;
           oUi.setProperty("/showPanels", bShowPanels);
 
-          // Debug: track each input used by GateOut reporting visibility binding.
-          var oStageUi = sap.ui.getCore().getModel("stageUi");
           var oTripData = sap.ui.getCore().getModel("TripData");
-          var bShowReportingInGateOut = !!(
-            oStageUi && oStageUi.getProperty("/showReportingInGateOut")
-          );
           var sMovementType = String(
             (oTripData && oTripData.getProperty("/MovementType")) || ""
           ).toUpperCase();
           var bMovementAllowed = sMovementType !== "I";
-          var bReportingVisible =
-            bShowPanels && bShowReportingInGateOut && bMovementAllowed;
 
           var sVtNorm =
             String((oTripData && oTripData.getProperty("/VehicleType")) || "")
@@ -935,7 +931,6 @@ sap.ui.define(
           );
           var bNowVisible = !!oUi.getProperty("/showGateOutRefSearchStrip");
           if (bPrevVisible && !bNowVisible) {
-            // Strip just became hidden due to movement/scenario rules; clear the field in all cases.
             this._clearGateOutRefDocSearchField();
           }
 
@@ -1222,11 +1217,191 @@ sap.ui.define(
           return "/PoNumberSH(PoNumber='" + this._escapeODataKey(sPo) + "')";
         },
         /**
+         * Create mode: ensure shared TripData exists for invoice/challan/PO prefill.
+         */
+        _ensureCoreTripDataForGateOutPrefill: function () {
+          var oTrip = sap.ui.getCore().getModel("TripData");
+          if (oTrip) {
+            return oTrip;
+          }
+          var oEmb = this.getView().byId("idVehicleReportingEmbeddedGateOut");
+          var oRepCtrl = oEmb && typeof oEmb.getController === "function" ? oEmb.getController() : null;
+          var oViewTrip =
+            oRepCtrl && oRepCtrl.getView && oRepCtrl.getView()
+              ? oRepCtrl.getView().getModel("TripData")
+              : null;
+          if (oViewTrip) {
+            sap.ui.getCore().setModel(oViewTrip, "TripData");
+            return oViewTrip;
+          }
+          oTrip = new JSONModel({ RefDocSkip: " " });
+          sap.ui.getCore().setModel(oTrip, "TripData");
+          return oTrip;
+        },
+
+        _syncTripDataToEmbeddedReporting: function (oTrip) {
+          oTrip = oTrip || sap.ui.getCore().getModel("TripData");
+          if (!oTrip) {
+            return;
+          }
+          var oEmb = this.getView().byId("idVehicleReportingEmbeddedGateOut");
+          var oRepCtrl = oEmb && typeof oEmb.getController === "function" ? oEmb.getController() : null;
+          if (!oRepCtrl || !oRepCtrl.getView) {
+            return;
+          }
+          oRepCtrl.getView().setModel(oTrip, "TripData");
+          var oUi = oRepCtrl.getView().getModel("reportingUi");
+          if (oUi) {
+            var sNo = String(oTrip.getProperty("/RefDocNo") || "").trim();
+            if (sNo) {
+              oUi.setProperty("/refDocSearchValue", sNo);
+            }
+          }
+        },
+
+        _hasExpandedOrderOrItemDetails: function (oTripData) {
+          if (!oTripData) {
+            return false;
+          }
+          var aOrder = this._extractResults(oTripData.getProperty("/OrderDetails"));
+          var aItems = this._extractResults(oTripData.getProperty("/ItemDetails"));
+          return (aOrder && aOrder.length > 0) || (aItems && aItems.length > 0);
+        },
+
+        /**
+         * After Reporting Save: map ref docs + materials (+ bins) from TripDetails $expand.
+         * Returns true when OrderDetails or ItemDetails were present on the trip.
+         */
+        _reloadRefDocsMaterialsBinsFromTripExpand: function (mOptions) {
+          var sTrip = String(
+            (mOptions && mOptions.tripNumber) || this._getTripNumber() || ""
+          ).trim();
+          if (!sTrip || !this.oModel) {
+            return Promise.resolve(false);
+          }
+
+          var that = this;
+          var fnApplyFromTripPayload = function (oData) {
+            TripDataDocumentsVerified.applyDocumentsVerifiedToVerifiedDocs(oData);
+            var oTripModel = oData instanceof JSONModel ? oData : new JSONModel(oData);
+            sap.ui.getCore().setModel(oTripModel, "TripData");
+            that.getView().setModel(oTripModel, "TripData");
+            that._syncTripDataToEmbeddedReporting(oTripModel);
+            that._updatePanelVisibility();
+            that._updateBinTrolleyVisibility();
+            that._eventBus.publish("TripData", "Updated");
+
+            var bHasData = that._hasExpandedOrderOrItemDetails(oTripModel);
+            var aOrder = that._extractResults(oTripModel.getProperty("/OrderDetails"));
+            var sDoc = "";
+            if (aOrder && aOrder.length) {
+              sDoc = String(aOrder[0].DocumentNumber || "").trim();
+            }
+            if (!sDoc) {
+              var oG = sap.ui.getCore().getModel("globalData");
+              sDoc = String(
+                (oG && oG.getProperty("/OutgoingBillingDocument")) ||
+                  (oG && oG.getProperty("/OutgoingPoNumber")) ||
+                  oTripModel.getProperty("/RefDocNo") ||
+                  ""
+              ).trim();
+            }
+
+            var oRefCtrl = that._getRefDocsControllerFromGateOut();
+            var pChain = Promise.resolve();
+            if (oRefCtrl) {
+              if (typeof oRefCtrl._onTripDataUpdated === "function") {
+                oRefCtrl._onTripDataUpdated();
+              }
+              if (typeof oRefCtrl._refreshMaterialsTable === "function") {
+                pChain = oRefCtrl._refreshMaterialsTable({ documentNumber: sDoc });
+              }
+            }
+            return pChain.then(function () {
+              that._refreshGateOutBinsForSelectedDocument(sDoc);
+              return bHasData;
+            });
+          };
+
+          var oExisting = sap.ui.getCore().getModel("TripData");
+          var sExistingTrip = String((oExisting && oExisting.getProperty("/TripNumber")) || "").trim();
+          if (
+            oExisting &&
+            sExistingTrip === sTrip &&
+            this._hasExpandedOrderOrItemDetails(oExisting)
+          ) {
+            return fnApplyFromTripPayload(oExisting.getData ? oExisting.getData() : oExisting);
+          }
+
+          return new Promise(function (resolve) {
+            that.oModel.read("/TripDetails('" + that._escapeODataKey(sTrip) + "')", {
+              urlParameters: {
+                $expand: "OrderDetails,ItemDetails,Feeds,ActivityHistory",
+              },
+              success: function (oData) {
+                fnApplyFromTripPayload(oData).then(resolve);
+              },
+              error: function () {
+                resolve(false);
+              },
+            });
+          });
+        },
+
+        _tryResolvePendingOutgoingRefDocAfterTrip: function () {
+          var sTrip = String(this._getTripNumber() || "").trim();
+          if (!sTrip) {
+            return Promise.resolve();
+          }
+          var oG = sap.ui.getCore().getModel("globalData");
+          if (!oG) {
+            return Promise.resolve();
+          }
+          var sRefKey = String(oG.getProperty("/OutgoingReferenceByKey") || "INVOICE").toUpperCase();
+          var sDocNo = "";
+          if (sRefKey === "PO") {
+            sDocNo = String(oG.getProperty("/OutgoingPoNumber") || "").trim();
+          } else {
+            sDocNo = String(oG.getProperty("/OutgoingBillingDocument") || "").trim();
+          }
+          if (!sDocNo) {
+            return Promise.resolve();
+          }
+          return this.resolveRefDocumentFromReporting(sRefKey, sDocNo);
+        },
+
+        _onReloadFromTripExpand: function (sChannel, sEvent, oData) {
+          var that = this;
+          if (this._iReloadFromTripExpandTimer) {
+            clearTimeout(this._iReloadFromTripExpandTimer);
+          }
+          this._iReloadFromTripExpandTimer = setTimeout(function () {
+            that._iReloadFromTripExpandTimer = null;
+            that._reloadRefDocsMaterialsBinsFromTripExpand(oData || {}).then(function (bHasData) {
+              if (!bHasData) {
+                that._tryResolvePendingOutgoingRefDocAfterTrip();
+              }
+            });
+          }, 150);
+        },
+
+        _onStageTripCreated: function (sChannel, sEvent, oData) {
+          var oStageUi = sap.ui.getCore().getModel("stageUi");
+          var bReportingInGateOut = !!(
+            oStageUi && oStageUi.getProperty("/showReportingInGateOut")
+          );
+          if (!bReportingInGateOut) {
+            return;
+          }
+          this._onReloadFromTripExpand(sChannel, sEvent, oData);
+        },
+
+        /**
          * After OData read: push document + movement info into globalData for Reference Documents tab.
          */
         _applyGateOutRefDocGlobalFromRow: function (sMode, oRow) {
           var oG = sap.ui.getCore().getModel("globalData");
-          var oTrip = sap.ui.getCore().getModel("TripData");
+          var oTrip = this._ensureCoreTripDataForGateOutPrefill();
           if (!oG) {
             oG = new JSONModel({});
             sap.ui.getCore().setModel(oG, "globalData");
@@ -1334,6 +1509,8 @@ sap.ui.define(
               oTrip.setProperty("/RefDocType", sPoDt);
             }
           }
+          this._syncTripDataToEmbeddedReporting(oTrip);
+          this._eventBus.publish("TripData", "Updated");
         },
         _getGateOutSelectedRefDocNumber: function (sMode, oRow, sFallback) {
           var s = "";
@@ -1358,6 +1535,42 @@ sap.ui.define(
             return oRefView.getController();
           }
           return null;
+        },
+        /**
+         * Gate Out search (Invoice / Challan): pull ItemDetails into the materials table
+         * after OrderDetails is ensured — includes a delayed second pass for async backend rows.
+         */
+        _triggerGateOutMaterialsForRefDoc: function (sMode, sTypedValue, oRow) {
+          var sResolvedMode = String(sMode || "").toUpperCase();
+          if (sResolvedMode !== "INVOICE" && sResolvedMode !== "CHALLAN") {
+            return;
+          }
+          var sDocType = "";
+          var sDocumentNumber = "";
+          if (sResolvedMode === "INVOICE") {
+            sDocumentNumber = String(
+              (oRow && oRow.BillingDoc != null ? oRow.BillingDoc : sTypedValue) || ""
+            ).trim();
+            sDocType = String(
+              (oRow && (oRow.DocType != null ? oRow.DocType : oRow.BillingType)) || ""
+            ).trim();
+          } else {
+            sDocumentNumber = String(
+              (oRow && oRow.MaterialDoc != null ? oRow.MaterialDoc : sTypedValue) || ""
+            ).trim();
+            sDocType = String((oRow && oRow.DocType != null ? oRow.DocType : "") || "").trim();
+          }
+          if (!sDocType || !sDocumentNumber) {
+            return;
+          }
+          var oRefCtrl = this._getRefDocsControllerFromGateOut();
+          if (!oRefCtrl || typeof oRefCtrl._addAllMaterialsFromRefDoc !== "function") {
+            return;
+          }
+          oRefCtrl._addAllMaterialsFromRefDoc(sDocType, sDocumentNumber);
+          window.setTimeout(function () {
+            oRefCtrl._addAllMaterialsFromRefDoc(sDocType, sDocumentNumber);
+          }, 400);
         },
         _buildEmptyBinsPath: function (sTripNumber, sMaterial) {
           return (
@@ -1823,6 +2036,7 @@ sap.ui.define(
           );
           this._ensureGateOutOrderDetailForReference(sMode, sTypedValue, oRow)
             .then(function () {
+              this._triggerGateOutMaterialsForRefDoc(sMode, sTypedValue, oRow);
               return this._refreshGateOutRefDocAndMaterials(sDocNumber);
             }.bind(this))
             .then(
@@ -1887,6 +2101,29 @@ sap.ui.define(
             }, 400);
           });
         },
+        /**
+         * Called from embedded Vehicle Reporting on Gate Out when user selects a reference document.
+         * Reuses the same detail read + ref docs/materials refresh as the top search strip.
+         * @param {string} sMode INVOICE|CHALLAN|PO
+         * @param {string} sRawDocNo Selected document number
+         * @returns {Promise}
+         */
+        resolveRefDocumentFromReporting: function (sMode, sRawDocNo) {
+          this._initGateOutUiModel();
+          var oVm = this.getView().getModel("gateOutUi");
+          var sKey = String(sMode || "INVOICE").toUpperCase();
+          if (oVm) {
+            oVm.setProperty("/referenceByKey", sKey);
+          }
+          var oG = sap.ui.getCore().getModel("globalData");
+          if (!oG) {
+            oG = new JSONModel({});
+            sap.ui.getCore().setModel(oG, "globalData");
+          }
+          oG.setProperty("/OutgoingReferenceByKey", sKey);
+          return this._loadGateOutRefDocDetailRead(sRawDocNo);
+        },
+
         _loadGateOutRefDocDetailRead: function (sRaw) {
           var sVal = String(sRaw || "").trim();
           var oVm = this.getView().getModel("gateOutUi");
@@ -2056,30 +2293,20 @@ sap.ui.define(
           }
 
           sKey = String(sKey || "").toUpperCase();
-          var bNumeric = /^\d+$/.test(sValue);
-          var sPath = "";
-          var oFilter = null;
-          if (sKey === "INVOICE") {
-            sPath = "/BillingDocSH";
-            oFilter = bNumeric
-              ? new Filter("BillingDoc", FilterOperator.Contains, sValue)
-              : new Filter("PayerName", FilterOperator.Contains, sValue);
-          } else if (sKey === "CHALLAN") {
-            sPath = "/ChallanSh";
-            oFilter = bNumeric
-              ? new Filter("MaterialDoc", FilterOperator.Contains, sValue)
-              : new Filter("SupplierName", FilterOperator.Contains, sValue);
-          } else if (sKey === "PO") {
-            sPath = "/PoNumberSH";
-            oFilter = bNumeric
-              ? new Filter("PoNumber", FilterOperator.Contains, sValue)
-              : new Filter("VendorName", FilterOperator.Contains, sValue);
-          } else {
+          var mModeConfig = {
+            INVOICE: { path: "/BillingDocSH", field: "BillingDoc" },
+            CHALLAN: { path: "/ChallanSh", field: "MaterialDoc" },
+            PO: { path: "/PoNumberSH", field: "PoNumber" },
+          };
+          var oCfg = mModeConfig[sKey];
+          if (!oCfg) {
+            MessageBox.error("Invalid reference document type");
             oLocalModel.setProperty("/items", []);
             return;
           }
 
-          oModel.read(sPath, {
+          var oFilter = new Filter(oCfg.field, FilterOperator.Contains, sValue);
+          oModel.read(oCfg.path, {
             filters: [oFilter],
             urlParameters: {
               $top: "20",
@@ -2118,9 +2345,12 @@ sap.ui.define(
               });
               oLocalModel.setProperty("/items", aItems);
             },
-            error: function () {
+            error: function (oError) {
+              MessageBox.error(
+                this._extractErrorMessage(oError) || "Unable to load document suggestions"
+              );
               oLocalModel.setProperty("/items", []);
-            },
+            }.bind(this),
           });
         },
         onGateOutRefDocSuggestionSelected: function (oEvent) {
@@ -2316,8 +2546,45 @@ sap.ui.define(
             clearTimeout(this._iGateOutBinReloadTimer);
             this._iGateOutBinReloadTimer = null;
           }
+          if (this._iReloadFromTripExpandTimer) {
+            clearTimeout(this._iReloadFromTripExpandTimer);
+            this._iReloadFromTripExpandTimer = null;
+          }
+          if (this._iPendingOutgoingRefDocResolveTimer) {
+            clearTimeout(this._iPendingOutgoingRefDocResolveTimer);
+            this._iPendingOutgoingRefDocResolveTimer = null;
+          }
           this._eventBus?.unsubscribe("TripData", "Updated", this._onTripDataUpdate, this);
           this._eventBus?.unsubscribe("RefDoc", "MaterialsUpdated", this._onRefDocMaterialsUpdated, this);
+          this._eventBus?.unsubscribe("Stage", "TripCreated", this._onStageTripCreated, this);
+          this._eventBus?.unsubscribe("GateOut", "ReloadFromTripExpand", this._onReloadFromTripExpand, this);
+          this._eventBus?.unsubscribe("GateOut", "RefDocSaved", this._onGateOutRefDocSavedManual, this);
+        },
+        /**
+         * True when Gate Out top search strip is hidden (external vehicle O02+VT02, etc.).
+         * Manual reference-document save uses trip reconcile instead of the search-strip flow.
+         */
+        _isGateOutManualRefDocMaterialReconcileNeeded: function () {
+          this._initGateOutUiModel();
+          var oUi = this.getView().getModel("gateOutUi");
+          return !!(oUi && oUi.getProperty("/showGateOutRefSearchStrip") === false);
+        },
+        /**
+         * After manual Add Document on Gate Out (no search strip): second-pass trip read for ItemDetails.
+         */
+        _onGateOutRefDocSavedManual: function (sChannel, sEvent, oData) {
+          var oTrip = sap.ui.getCore().getModel("TripData");
+          if (String(oTrip?.getProperty("/MovementType") || "").toUpperCase() === "I") {
+            return;
+          }
+          if (!this._isGateOutManualRefDocMaterialReconcileNeeded()) {
+            return;
+          }
+          var sDocNumber = String(oData?.documentNumber || "").trim();
+          if (!sDocNumber) {
+            return;
+          }
+          this._gateOutSecondPassTripReconcile(sDocNumber);
         },
         _onRefDocMaterialsUpdated: function () {
           this._prunePersistedTrackingRowsByRefDocs();

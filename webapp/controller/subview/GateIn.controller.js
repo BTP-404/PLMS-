@@ -3499,6 +3499,10 @@ sap.ui.define(
 
         _refreshHomeTripTableAfterGateSave: function () {
           this._eventBus.publish("HomePage", "RefreshTripTable");
+          var oRouter = this.getOwnerComponent() && this.getOwnerComponent().getRouter();
+          if (oRouter) {
+            oRouter.navTo("HomePage");
+          }
         },
 
         _reloadTripDataAfterSave: function (sTripNumber, sEntryGateNumber, sDelayReasons) {
